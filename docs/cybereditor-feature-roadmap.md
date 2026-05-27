@@ -26,6 +26,8 @@ Master phase doc: [cybereditor-implementation-phases.md](cybereditor-implementat
 | Find / replace / comment / indent (engine + modal UI) | done |
 | Syntax highlighting (tree-sitter) | **done (A1)** — verify with `cargo cybereditor-run -- file.rs` |
 | Save clears engine dirty (A4) | **done** — verify title `*` after save |
+| Title bar menus (File/Edit/…) + native open/save | done |
+| Context menu on editor surface | done |
 | Find strip (no modal) | pending (C1) |
 | Multi-tab | pending (D1) |
 
