@@ -59,6 +59,7 @@ impl CyberEditorPage {
             window,
             cx,
             session.language().clone(),
+            session.file_path().map(PathBuf::as_path),
             initial_text.clone(),
             session.line_numbers(),
             session.soft_wrap(),
@@ -189,8 +190,13 @@ impl CyberEditorPage {
             .map_err(|err| format!("Failed to save {}: {err}", path.display()))?;
 
         self.session.apply_save(path.clone(), text);
-        self.editor
-            .set_highlighter(self.session.language().clone(), cx);
+        self.editor.set_highlighter(
+            self.session.language().clone(),
+            self.session.file_path().map(PathBuf::as_path),
+            cx,
+        );
+        #[cfg(feature = "zed-engine")]
+        self.editor.mark_saved(cx);
         window.push_notification(
             Notification::success(format!("Saved {}", path.display())),
             cx,
@@ -211,13 +217,13 @@ impl CyberEditorPage {
         }
 
         let text = document.text;
-        self.editor
-            .set_document(
-                text.clone(),
-                SharedString::from(super::language_for_path(Some(&path))),
-                window,
-                cx,
-            );
+        self.editor.set_document(
+            text.clone(),
+            SharedString::from(super::language_for_path(Some(&path))),
+            Some(path.as_path()),
+            window,
+            cx,
+        );
         self.session.apply_loaded_document(path, text);
         cx.notify();
         Ok(())
@@ -555,7 +561,13 @@ impl CyberEditorPage {
 
         #[cfg(not(feature = "zed-engine"))]
         self.editor
-            .set_document(new_text.clone(), self.session.language().clone(), window, cx);
+            .set_document(
+                new_text.clone(),
+                self.session.language().clone(),
+                self.session.file_path().map(PathBuf::as_path),
+                window,
+                cx,
+            );
         #[cfg(not(feature = "zed-engine"))]
         {
             self.session.update_dirty_from_text(&new_text);
@@ -609,7 +621,13 @@ impl CyberEditorPage {
 
         #[cfg(not(feature = "zed-engine"))]
         self.editor
-            .set_document(new_text.clone(), self.session.language().clone(), window, cx);
+            .set_document(
+                new_text.clone(),
+                self.session.language().clone(),
+                self.session.file_path().map(PathBuf::as_path),
+                window,
+                cx,
+            );
 
         #[cfg(not(feature = "zed-engine"))]
         {
@@ -656,7 +674,13 @@ impl CyberEditorPage {
 
         #[cfg(not(feature = "zed-engine"))]
         self.editor
-            .set_document(new_text.clone(), self.session.language().clone(), window, cx);
+            .set_document(
+                new_text.clone(),
+                self.session.language().clone(),
+                self.session.file_path().map(PathBuf::as_path),
+                window,
+                cx,
+            );
         #[cfg(not(feature = "zed-engine"))]
         {
             self.session.update_dirty_from_text(&new_text);
@@ -698,8 +722,13 @@ impl CyberEditorPage {
         };
 
         #[cfg(not(feature = "zed-engine"))]
-        self.editor
-            .set_document(new_text.clone(), self.session.language().clone(), _window, cx);
+        self.editor.set_document(
+            new_text.clone(),
+            self.session.language().clone(),
+            self.session.file_path().map(PathBuf::as_path),
+            _window,
+            cx,
+        );
         #[cfg(not(feature = "zed-engine"))]
         {
             self.session.update_dirty_from_text(&new_text);
@@ -739,7 +768,7 @@ impl CyberEditorPage {
                 return;
             };
             let _ = window.update(cx, |_, window, cx| {
-                editor.set_document(new_text, language, window, cx);
+                editor.set_document(new_text, language, None, window, cx);
                 editor.set_cursor_position(cursor, window, cx);
             });
         });
@@ -1122,8 +1151,8 @@ impl CyberEditorPage {
 }
 
 impl Focusable for CyberEditorPage {
-    fn focus_handle(&self, _: &App) -> FocusHandle {
-        self.focus_handle.clone()
+    fn focus_handle(&self, cx: &App) -> FocusHandle {
+        self.editor.focus_handle(cx)
     }
 }
 
@@ -1132,14 +1161,13 @@ impl Render for CyberEditorPage {
         let title = self.window_title();
         window.set_window_title(&title);
 
+        let editor_focus = self.editor.focus_handle(cx);
+
         v_flex()
             .id("cyber-editor-page")
             .size_full()
             .min_h_0()
             .min_w_0()
-            .track_focus(&self.focus_handle)
-            .key_context(EDITOR_CONTEXT)
-            .child(self.render_title_bar(cx))
             .on_action(cx.listener(|this, _: &SaveFile, window, cx| {
                 this.save_current(window, cx);
             }))
@@ -1176,12 +1204,26 @@ impl Render for CyberEditorPage {
             .on_action(cx.listener(|this, _: &FindPrevious, window, cx| {
                 this.find_previous(window, cx);
             }))
-            .child(self.render_toolbar(cx))
+            .child(self.render_title_bar(cx))
             .child(
                 div()
+                    .track_focus(&self.focus_handle)
+                    .key_context(EDITOR_CONTEXT)
+                    .child(self.render_toolbar(cx)),
+            )
+            .child(
+                div()
+                    .id("cyber-editor-surface")
                     .flex_1()
                     .min_h_0()
                     .min_w_0()
+                    .track_focus(&editor_focus)
+                    .on_mouse_down(gpui::MouseButton::Left, {
+                        let editor_focus = editor_focus.clone();
+                        move |_, window, cx| {
+                            editor_focus.focus(window, cx);
+                        }
+                    })
                     .child(self.editor.render(cx)),
             )
             .child(self.render_status_bar(cx))

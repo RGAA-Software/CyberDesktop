@@ -1,5 +1,9 @@
 //! Minimal initialization and helpers for embedding Zed's [`editor::Editor`] in CyberEditor.
 
+mod languages;
+
+use std::path::Path;
+
 use editor::{Editor, EditorElement, EditorMode, MultiBuffer};
 use gpui::{
     App, AppContext, Context, Entity, Focusable as _, IntoElement, ParentElement, Styled, Window,
@@ -9,26 +13,75 @@ use language::Buffer;
 use settings::SettingsStore;
 use theme_settings;
 
-/// Register globals required before creating an [`Editor`] (settings + base theme).
+pub use languages::{init_language_registry, language_registry, lookup_key_for_language_id};
+
+/// Register globals required before creating an [`Editor`] (settings + base theme + languages).
 pub fn init(cx: &mut App) {
     if !cx.has_global::<SettingsStore>() {
         let store = SettingsStore::new(cx, &settings::default_settings());
         cx.set_global(store);
     }
     theme_settings::init(theme::LoadThemes::JustBase, cx);
+    init_language_registry(cx);
+    init_editor_keymap(cx);
+}
+
+/// Bind Zed's default editor keymap (arrows, backspace, cut/copy/paste, etc.).
+fn init_editor_keymap(cx: &mut App) {
+    let key_bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+        settings::DEFAULT_KEYMAP_PATH,
+        cx,
+    )
+    .expect("failed to load built-in editor keymap");
+    cx.bind_keys(key_bindings);
 }
 
 /// Create a full-mode editor over a single in-memory buffer.
 pub fn create_editor<T>(
     text: String,
+    language_id: &str,
+    file_path: Option<&Path>,
     window: &mut Window,
     cx: &mut Context<T>,
 ) -> Entity<Editor> {
-    cx.new(|cx| {
-        let buffer = cx.new(|cx| Buffer::local(text, cx));
+    let editor = cx.new(|cx| {
+        let registry = language_registry(cx);
+        let buffer = cx.new(|cx| {
+            let buffer = Buffer::local(text, cx);
+            buffer.set_language_registry(registry);
+            buffer
+        });
+        let registry = language_registry(cx);
+        let language = languages::load_language_blocking(&registry, language_id, file_path);
+        buffer.update(cx, |buffer, cx| {
+            buffer.set_language_registry(registry);
+            buffer.set_language(language, cx);
+        });
         let multibuffer = cx.new(|cx| MultiBuffer::singleton(buffer, cx));
         Editor::new(EditorMode::full(), multibuffer, None, window, cx)
-    })
+    });
+    editor
+}
+
+/// Set tree-sitter language on the singleton buffer behind an editor.
+pub fn apply_editor_language<C: AppContext>(
+    editor: &Entity<Editor>,
+    language_id: &str,
+    file_path: Option<&Path>,
+    cx: &mut C,
+) {
+    let registry = language_registry(cx);
+    let language = languages::load_language_blocking(&registry, language_id, file_path);
+    editor.update(cx, |editor, cx| {
+        let multibuffer = editor.buffer();
+        let Some(buffer) = multibuffer.read(cx).as_singleton() else {
+            return;
+        };
+        buffer.update(cx, |buffer, cx| {
+            buffer.set_language_registry(registry);
+            buffer.set_language(language, cx);
+        });
+    });
 }
 
 /// Replace the entire document text in an existing editor.
@@ -40,6 +93,20 @@ pub fn set_editor_text(
 ) {
     editor.update(cx, |editor, cx| {
         editor.set_text(text, window, cx);
+    });
+}
+
+/// Mark the singleton buffer as saved (clears dirty in the engine).
+pub fn mark_editor_saved<C: AppContext>(editor: &Entity<Editor>, cx: &mut C) {
+    editor.update(cx, |editor, cx| {
+        let multibuffer = editor.buffer();
+        let Some(buffer) = multibuffer.read(cx).as_singleton() else {
+            return;
+        };
+        buffer.update(cx, |buffer, cx| {
+            let version = buffer.version().clone();
+            buffer.did_save(version, None, cx);
+        });
     });
 }
 

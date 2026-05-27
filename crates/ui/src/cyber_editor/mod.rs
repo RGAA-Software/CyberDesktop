@@ -96,5 +96,34 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-[", OutdentSelection, Some(EDITOR_CONTEXT)),
         KeyBinding::new("f3", FindNext, Some(EDITOR_CONTEXT)),
         KeyBinding::new("shift-f3", FindPrevious, Some(EDITOR_CONTEXT)),
+        // While the Zed editor surface is focused, `key_context` is `Editor`, not `CyberEditor`.
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-o", OpenFile, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-s", SaveFile, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-shift-s", SaveFileAs, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-g", GoToLine, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-f", FindText, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-h", ReplaceText, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-shift-h", ReplaceAllText, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-/", ToggleComment, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        KeyBinding::new("f3", FindNext, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        KeyBinding::new("shift-f3", FindPrevious, Some("Editor")),
     ]);
 }

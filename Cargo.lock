@@ -2040,7 +2040,9 @@ name = "cyber-editor-engine"
 version = "0.1.0"
 dependencies = [
  "editor",
+ "futures-lite 1.13.0",
  "gpui",
+ "grammars",
  "language",
  "multi_buffer",
  "settings",

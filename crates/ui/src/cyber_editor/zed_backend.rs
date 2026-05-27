@@ -1,6 +1,11 @@
 use std::{borrow::Cow, cell::RefCell, ops::Range, rc::Rc};
 
-use cyber_editor_engine::{self as engine, create_editor, editor_text, focus_editor_deferred, render_editor};
+use std::path::Path;
+
+use cyber_editor_engine::{
+    self as engine, apply_editor_language, create_editor, editor_text, focus_editor_deferred,
+    mark_editor_saved, render_editor,
+};
 use editor::{
     actions::{Indent, Outdent, ToggleComments},
     items::active_match_index, Editor, MultiBufferOffset, SelectionEffects,
@@ -41,11 +46,12 @@ impl ZedEditorBackend {
         window: &mut Window,
         cx: &mut Context<T>,
         language: gpui::SharedString,
+        file_path: Option<&Path>,
         initial_text: String,
         line_numbers: bool,
         soft_wrap: bool,
     ) -> Self {
-        let editor = create_editor(initial_text.clone(), window, cx);
+        let editor = create_editor(initial_text.clone(), &language, file_path, window, cx);
         editor.update(cx, |editor, cx| {
             editor.hide_minimap_by_default(window, cx);
             editor.set_show_gutter(line_numbers, cx);
@@ -89,23 +95,30 @@ impl ZedEditorBackend {
         &self,
         text: String,
         language: gpui::SharedString,
+        file_path: Option<&Path>,
         window: &mut Window,
         cx: &mut (impl AppContext + std::borrow::BorrowMut<App>),
     ) {
         self.buffer
             .borrow_mut()
-            .set_document(text.clone(), language);
+            .set_document(text.clone(), language.clone());
         self.search_cache.borrow_mut().take();
         engine::set_editor_text(&self.editor, &text, window, cx);
+        apply_editor_language(&self.editor, &language, file_path, cx);
     }
 
     pub(crate) fn set_highlighter<T>(
         &self,
         language: gpui::SharedString,
+        file_path: Option<&Path>,
         cx: &mut Context<T>,
     ) {
-        self.buffer.borrow_mut().set_language(language);
-        let _ = cx;
+        self.buffer.borrow_mut().set_language(language.clone());
+        apply_editor_language(&self.editor, &language, file_path, cx);
+    }
+
+    pub(crate) fn mark_saved<T>(&self, cx: &mut Context<T>) {
+        mark_editor_saved(&self.editor, cx);
     }
 
     pub(crate) fn set_line_numbers<T>(

@@ -155,11 +155,11 @@ Vendored editor/language stack: **GPL-3.0-or-later**. Accept for CyberEditor or 
 
 ## Current state
 
-`crates/ui/src/cyber_editor/` — `EditorHost` + `ModelEditorBackend` (`InputState`), session/file commands, dialog find/replace.
+`crates/ui/src/cyber_editor/` — `EditorHost` + `ZedEditorBackend` (`cybereditor` / `zed-engine`); `ModelEditorBackend` retained for non-feature builds only.
 
-**Next:** Phase 0c (`ZedEditorBackend` spike in `cybereditor`), since Phase 0b compile closure is complete. See [cybereditor-implementation-phases.md](cybereditor-implementation-phases.md).
+**In progress:** Stage A — syntax highlighting (`cyber-editor-engine` + `grammars`), save/dirty via `Buffer::did_save`. See [cybereditor-feature-roadmap.md](cybereditor-feature-roadmap.md) and [cybereditor-implementation-phases.md](cybereditor-implementation-phases.md).
 
-**Verify build:** `cargo build -p cyberfiles --bin cybereditor` (not full `cyberfiles` unless needed).
+**Verify build:** `cargo cybereditor` / `cargo cybereditor-run`.
 
 ---
 

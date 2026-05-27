@@ -8,7 +8,9 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 editor.workspace = true
+futures-lite.workspace = true
 gpui.workspace = true
+grammars = { workspace = true, features = ["load-grammars"] }
 language = { workspace = true }
 multi_buffer.workspace = true
 settings.workspace = true

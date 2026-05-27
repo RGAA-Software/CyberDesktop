@@ -1,4 +1,6 @@
-use gpui::{App, AppContext, Context, Entity, Window};
+use std::path::Path;
+
+use gpui::{App, AppContext, Context, Entity, Focusable, Window};
 use gpui_component::input::Position;
 
 use super::SearchMatch;
@@ -38,27 +40,29 @@ impl EditorHost {
         window: &mut Window,
         cx: &mut Context<T>,
         language: gpui::SharedString,
+        file_path: Option<&Path>,
         initial_text: String,
         line_numbers: bool,
         soft_wrap: bool,
     ) -> Self {
         #[cfg(feature = "zed-engine")]
         {
-            let _ = (line_numbers, soft_wrap);
             Self {
                 backend: EditorBackendInner::Zed(ZedEditorBackend::new(
                     window,
                     cx,
                     language,
+                    file_path,
                     initial_text,
-                    true,
-                    true,
+                    line_numbers,
+                    soft_wrap,
                 )),
             }
         }
 
         #[cfg(not(feature = "zed-engine"))]
         {
+            let _ = file_path;
             Self {
                 backend: EditorBackendInner::Model(ModelEditorBackend::new(
                     window,
@@ -83,6 +87,20 @@ impl EditorHost {
     pub(crate) fn zed_entity(&self) -> &Entity<Editor> {
         match &self.backend {
             EditorBackendInner::Zed(b) => b.editor_entity(),
+        }
+    }
+
+    pub(crate) fn focus_handle(&self, cx: &App) -> gpui::FocusHandle {
+        #[cfg(feature = "zed-engine")]
+        {
+            return self
+                .zed_entity()
+                .read(cx)
+                .focus_handle(cx);
+        }
+        #[cfg(not(feature = "zed-engine"))]
+        {
+            self.input_entity().read(cx).focus_handle(cx)
         }
     }
 
@@ -115,27 +133,42 @@ impl EditorHost {
         &self,
         text: String,
         language: gpui::SharedString,
+        file_path: Option<&Path>,
         window: &mut Window,
         cx: &mut (impl AppContext + std::borrow::BorrowMut<App>),
     ) {
         match &self.backend {
             #[cfg(not(feature = "zed-engine"))]
-            EditorBackendInner::Model(b) => b.set_document(text, language, window, cx),
+            EditorBackendInner::Model(b) => {
+                let _ = file_path;
+                b.set_document(text, language, window, cx)
+            }
             #[cfg(feature = "zed-engine")]
-            EditorBackendInner::Zed(b) => b.set_document(text, language, window, cx),
+            EditorBackendInner::Zed(b) => b.set_document(text, language, file_path, window, cx),
         }
     }
 
     pub(crate) fn set_highlighter<T>(
         &self,
         language: gpui::SharedString,
+        file_path: Option<&Path>,
         cx: &mut Context<T>,
     ) {
         match &self.backend {
             #[cfg(not(feature = "zed-engine"))]
-            EditorBackendInner::Model(b) => b.set_highlighter(language, cx),
+            EditorBackendInner::Model(b) => {
+                let _ = file_path;
+                b.set_highlighter(language, cx)
+            }
             #[cfg(feature = "zed-engine")]
-            EditorBackendInner::Zed(b) => b.set_highlighter(language, cx),
+            EditorBackendInner::Zed(b) => b.set_highlighter(language, file_path, cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn mark_saved<T>(&self, cx: &mut Context<T>) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.mark_saved(cx),
         }
     }
 
