@@ -14,7 +14,7 @@ mod metadata;
 mod page;
 mod session;
 
-pub(crate) use app_menus::{init_editor_menus, menu_bar as editor_menu_bar};
+pub use app_menus::{init_editor_menus, menu_bar as editor_menu_bar};
 
 use gpui::{actions, App, KeyBinding};
 
@@ -66,9 +66,6 @@ actions!(
 pub fn init(cx: &mut App) {
     #[cfg(feature = "zed-engine")]
     cyber_editor_engine::init(cx);
-
-    #[cfg(feature = "zed-engine")]
-    init_editor_menus(cx);
 
     cx.bind_keys([
         #[cfg(not(target_os = "macos"))]

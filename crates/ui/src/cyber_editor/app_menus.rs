@@ -36,7 +36,9 @@ pub fn reload(cx: &mut App) {
     let menu_bar = cx.global::<EditorMenuState>().menu_bar.clone();
     cx.set_menus(build_menus());
     let owned = build_menus().into_iter().map(|menu| menu.owned()).collect();
-    GlobalState::global_mut(cx).set_app_menus(owned);
+    if cx.has_global::<GlobalState>() {
+        GlobalState::global_mut(cx).set_app_menus(owned);
+    }
     menu_bar.update(cx, |bar, cx| bar.reload(cx));
 }
 

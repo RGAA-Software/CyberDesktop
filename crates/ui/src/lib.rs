@@ -45,6 +45,8 @@ pub fn init(cx: &mut App) {
         init_locale();
     }
     gpui_component::init(cx);
+    #[cfg(feature = "zed-engine")]
+    cyber_editor::init_editor_menus(cx);
     popup_menu::init(cx);
     theme::install(cx);
     cx.set_global(crate::app_state::AppFileClipboard::default());
