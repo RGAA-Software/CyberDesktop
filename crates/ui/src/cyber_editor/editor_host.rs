@@ -423,4 +423,46 @@ impl EditorHost {
         }
     }
 
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn undo<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.undo(window, cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn redo<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.redo(window, cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn cut<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.cut(window, cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn copy<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.copy(window, cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn paste<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.paste(window, cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn select_all<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.select_all(window, cx),
+        }
+    }
+
 }

@@ -1,4 +1,4 @@
-use std::{cell::Cell, path::PathBuf, rc::Rc};
+use std::{cell::Cell, path::{Path, PathBuf}, rc::Rc};
 
 use gpui::{
     div, prelude::FluentBuilder, App, AppContext, ClickEvent, Context, Entity, FocusHandle,
@@ -26,11 +26,14 @@ use gpui_component::input::InputEvent;
 use super::line_comment_prefix;
 
 use super::{
-    display_language, display_name, display_path, load_document, EditorHost, EditorSession,
-    FindNext, FindPrevious, FindText, GoToLine, IndentSelection, OpenFile, OutdentSelection,
-    ReplaceAllText, ReplaceText, SaveFile, SaveFileAs, SearchMatch, ToggleComment, APP_NAME,
+    context_menu::editor_surface_context_menu, display_language, display_name, display_path,
+    editor_menu_bar, load_document, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
+    EditorUndo, EditorHost, EditorSession, ExitEditor, FindNext, FindPrevious, FindText, GoToLine,
+    IndentSelection, NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile,
+    SaveFileAs, SearchMatch, SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap, APP_NAME,
     EDITOR_CONTEXT,
 };
+use crate::popup_menu::ContextMenuExt as _;
 
 pub struct CyberEditorPage {
     focus_handle: FocusHandle,
@@ -229,97 +232,119 @@ impl CyberEditorPage {
         Ok(())
     }
 
-    fn open_file_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let default_path = self
-            .session
-            .file_path()
-            .cloned()
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-        let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .default_value(default_path.to_string_lossy().to_string())
-                .placeholder("Enter the full file path to open")
-        });
+    pub(crate) fn open_file_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let start_dir = self.session.file_path().cloned();
         let page = cx.entity().downgrade();
-        let focus_once = Rc::new(Cell::new(false));
-
-        window.open_alert_dialog(cx, move |alert, window, cx| {
-            let input_for_focus = input.clone();
-            let input_for_submit = input.clone();
-            let page_for_submit = page.clone();
-            focus_input_once(&focus_once, input_for_focus, window, cx);
-
-            alert
-                .title("Open File")
-                .description("Enter the full path of the UTF-8 text or code file to open.")
-                .show_cancel(true)
-                .child(Input::new(&input).w_full())
-                .on_ok(move |_, window, cx| {
-                    let raw = input_for_submit.read(cx).value().trim().to_string();
-                    if raw.is_empty() {
-                        window.push_notification(
-                            Notification::warning("A file path is required."),
-                            cx,
-                        );
-                        return false;
-                    }
-                    let path = PathBuf::from(raw);
-                    match page_for_submit.update(cx, |page, cx| {
-                        page.load_path_into_editor(path, window, cx)
-                    }) {
-                        Ok(Ok(())) => true,
-                        Ok(Err(message)) => {
-                            window.push_notification(Notification::error(message), cx);
-                            false
-                        }
-                        Err(_) => true,
-                    }
-                })
+        window.defer(cx, move |window, cx| {
+            let Some(path) = super::file_dialog::pick_open_file_path(start_dir.as_deref()) else {
+                return;
+            };
+            let _ = page.update(cx, |page, cx| {
+                if let Err(message) = page.load_path_into_editor(path, window, cx) {
+                    window.push_notification(Notification::error(message), cx);
+                }
+            });
         });
     }
 
-    fn open_save_as_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_save_as_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let default_path = self.suggested_save_path();
-        let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .default_value(default_path.to_string_lossy().to_string())
-                .placeholder("Enter the destination file path")
-        });
         let page = cx.entity().downgrade();
-        let focus_once = Rc::new(Cell::new(false));
+        window.defer(cx, move |window, cx| {
+            let Some(path) = super::file_dialog::pick_save_file_path(&default_path) else {
+                return;
+            };
+            let _ = page.update(cx, |page, cx| {
+                if let Err(message) = page.write_to_path(path, window, cx) {
+                    window.push_notification(Notification::error(message), cx);
+                }
+            });
+        });
+    }
 
-        window.open_alert_dialog(cx, move |alert, window, cx| {
-            let input_for_focus = input.clone();
-            let input_for_submit = input.clone();
-            let page_for_submit = page.clone();
-            focus_input_once(&focus_once, input_for_focus, window, cx);
-
-            alert
-                .title("Save As")
-                .description("Enter the full destination path for this document.")
-                .show_cancel(true)
-                .child(Input::new(&input).w_full())
-                .on_ok(move |_, window, cx| {
-                    let raw = input_for_submit.read(cx).value().trim().to_string();
-                    if raw.is_empty() {
-                        window.push_notification(
-                            Notification::warning("A destination path is required."),
-                            cx,
-                        );
-                        return false;
-                    }
-                    let path = PathBuf::from(raw);
-                    match page_for_submit.update(cx, |page, cx| {
-                        page.write_to_path(path, window, cx)
-                    }) {
-                        Ok(Ok(())) => true,
-                        Ok(Err(message)) => {
-                            window.push_notification(Notification::error(message), cx);
-                            false
+    fn new_document(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.session.dirty() {
+            let page = cx.entity().downgrade();
+            window.open_alert_dialog(cx, move |alert, _, _| {
+                alert
+                    .title("Unsaved Changes")
+                    .description("Discard unsaved changes and create a new file?")
+                    .show_cancel(true)
+                    .on_ok({
+                        let page = page.clone();
+                        move |_, window, cx| {
+                            page.update(cx, |page, cx| {
+                                page.load_empty_document(window, cx);
+                            })
+                            .is_ok()
                         }
-                        Err(_) => true,
-                    }
-                })
+                    })
+            });
+            return;
+        }
+        self.load_empty_document(window, cx);
+    }
+
+    fn load_empty_document(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.editor.set_document(
+            String::new(),
+            SharedString::from("text"),
+            None,
+            window,
+            cx,
+        );
+        self.session
+            .apply_loaded_document(PathBuf::from("untitled.txt"), String::new());
+        self.editor
+            .set_highlighter(self.session.language().clone(), None, cx);
+        self.editor.focus_deferred(window, cx);
+        cx.notify();
+    }
+
+    pub(crate) fn run_editor_undo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(feature = "zed-engine")]
+        self.editor.undo(window, cx);
+    }
+
+    pub(crate) fn run_editor_redo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(feature = "zed-engine")]
+        self.editor.redo(window, cx);
+    }
+
+    pub(crate) fn run_editor_cut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(feature = "zed-engine")]
+        self.editor.cut(window, cx);
+    }
+
+    pub(crate) fn run_editor_copy(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(feature = "zed-engine")]
+        self.editor.copy(window, cx);
+    }
+
+    pub(crate) fn run_editor_paste(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(feature = "zed-engine")]
+        self.editor.paste(window, cx);
+    }
+
+    pub(crate) fn run_select_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(feature = "zed-engine")]
+        self.editor.select_all(window, cx);
+    }
+
+    pub(crate) fn has_editor_selection(&self) -> bool {
+        self.editor.has_selection()
+    }
+
+    fn show_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        window.open_alert_dialog(cx, move |alert, _, _| {
+            alert
+                .title("About CyberEditor")
+                .description(
+                    "Notepad++-style editor powered by the vendored Zed editing engine.\n\
+                     Build: cybereditor (zed-engine).",
+                )
+                .show_cancel(false)
+                .on_ok(|_, _, _| true)
         });
     }
 
@@ -363,7 +388,7 @@ impl CyberEditorPage {
         });
     }
 
-    fn open_find_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_find_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .default_value(self.session.find_query().to_string())
@@ -993,6 +1018,7 @@ impl CyberEditorPage {
     }
 
     fn render_title_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let menu_bar = editor_menu_bar(cx);
         TitleBar::new().child(
             h_flex()
                 .id("cybereditor-title-bar")
@@ -1007,7 +1033,8 @@ impl CyberEditorPage {
                     h_flex()
                         .min_w_0()
                         .items_center()
-                        .gap_3()
+                        .gap_2()
+                        .child(div().flex_none().child(menu_bar))
                         .child(Label::new(APP_NAME).text_sm().font_semibold())
                         .child(
                             Label::new(display_path(self.session.file_path().map(PathBuf::as_path)))
@@ -1168,6 +1195,9 @@ impl Render for CyberEditorPage {
             .size_full()
             .min_h_0()
             .min_w_0()
+            .on_action(cx.listener(|this, _: &NewFile, window, cx| {
+                this.new_document(window, cx);
+            }))
             .on_action(cx.listener(|this, _: &SaveFile, window, cx| {
                 this.save_current(window, cx);
             }))
@@ -1176,6 +1206,40 @@ impl Render for CyberEditorPage {
             }))
             .on_action(cx.listener(|this, _: &SaveFileAs, window, cx| {
                 this.open_save_as_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ExitEditor, _, cx| {
+                cx.quit();
+            }))
+            .on_action(cx.listener(|this, _: &EditorUndo, window, cx| {
+                this.run_editor_undo(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditorRedo, window, cx| {
+                this.run_editor_redo(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditorCut, window, cx| {
+                this.run_editor_cut(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditorCopy, window, cx| {
+                this.run_editor_copy(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditorPaste, window, cx| {
+                this.run_editor_paste(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &SelectAll, window, cx| {
+                this.run_select_all(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ToggleLineNumbers, window, cx| {
+                let line_numbers = this.session.toggle_line_numbers();
+                this.editor.set_line_numbers(line_numbers, window, cx);
+                cx.notify();
+            }))
+            .on_action(cx.listener(|this, _: &ToggleSoftWrap, window, cx| {
+                let soft_wrap = this.session.toggle_soft_wrap();
+                this.editor.set_soft_wrap(soft_wrap, window, cx);
+                cx.notify();
+            }))
+            .on_action(cx.listener(|this, _: &AboutEditor, window, cx| {
+                this.show_about(window, cx);
             }))
             .on_action(cx.listener(|this, _: &GoToLine, window, cx| {
                 this.go_to_line(window, cx);
@@ -1211,7 +1275,8 @@ impl Render for CyberEditorPage {
                     .key_context(EDITOR_CONTEXT)
                     .child(self.render_toolbar(cx)),
             )
-            .child(
+            .child({
+                let page = cx.entity().downgrade();
                 div()
                     .id("cyber-editor-surface")
                     .flex_1()
@@ -1224,8 +1289,11 @@ impl Render for CyberEditorPage {
                             editor_focus.focus(window, cx);
                         }
                     })
-                    .child(self.editor.render(cx)),
-            )
+                    .context_menu(move |menu, window, cx| {
+                        editor_surface_context_menu(menu, page.clone(), window, cx)
+                    })
+                    .child(self.editor.render(cx))
+            })
             .child(self.render_status_bar(cx))
     }
 }

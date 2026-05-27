@@ -20,6 +20,15 @@ cargo cybereditor-run -- path\to\file.rs
 | 6 | Ctrl+A, Ctrl+C, Ctrl+V | Select all, copy, paste |
 | 7 | Undo / Redo (Ctrl+Z / Ctrl+Y) | Works |
 
+## P0 — Menus & file dialogs
+
+| # | Action | Expected |
+|---|--------|----------|
+| 8 | Title bar: File → Open | Windows file picker opens |
+| 9 | File → Save / Save As | Saves or save picker |
+| 10 | Edit → Cut/Copy/Paste | Clipboard ops work |
+| 11 | Right-click in editor | Context menu with Cut/Copy/Find |
+
 ## P0 — Chrome shortcuts (with editor focused)
 
 | # | Action | Expected |

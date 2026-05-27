@@ -7,7 +7,7 @@ use cyber_editor_engine::{
     mark_editor_saved, render_editor,
 };
 use editor::{
-    actions::{Indent, Outdent, ToggleComments},
+    actions::{Copy, Cut, Indent, Outdent, Paste, Redo, SelectAll, ToggleComments, Undo},
     items::active_match_index, Editor, MultiBufferOffset, SelectionEffects,
 };
 use futures_lite::future::block_on;
@@ -425,6 +425,42 @@ impl ZedEditorBackend {
     pub(crate) fn outdent<T>(&self, window: &mut Window, cx: &mut Context<T>) {
         self.editor.update(cx, |editor, cx| {
             editor.outdent(&Outdent, window, cx);
+            cx.notify();
+        });
+    }
+
+    pub(crate) fn undo<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        self.editor.update(cx, |editor, cx| {
+            editor.undo(&Undo, window, cx);
+            cx.notify();
+        });
+    }
+
+    pub(crate) fn redo<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        self.editor.update(cx, |editor, cx| {
+            editor.redo(&Redo, window, cx);
+            cx.notify();
+        });
+    }
+
+    pub(crate) fn cut<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        window.dispatch_action(Box::new(Cut), cx);
+    }
+
+    pub(crate) fn copy<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        window.dispatch_action(Box::new(Copy), cx);
+    }
+
+    pub(crate) fn paste<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        self.editor.update(cx, |editor, cx| {
+            editor.paste(&Paste, window, cx);
+            cx.notify();
+        });
+    }
+
+    pub(crate) fn select_all<T>(&self, window: &mut Window, cx: &mut Context<T>) {
+        self.editor.update(cx, |editor, cx| {
+            editor.select_all(&SelectAll, window, cx);
             cx.notify();
         });
     }

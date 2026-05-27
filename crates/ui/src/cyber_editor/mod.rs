@@ -1,7 +1,10 @@
+mod app_menus;
 mod buffer_model;
 mod backend;
+mod context_menu;
 mod document;
 mod editor_host;
+mod file_dialog;
 #[cfg(feature = "zed-engine")]
 mod zed_backend;
 #[cfg(feature = "zed-engine")]
@@ -10,6 +13,8 @@ mod language;
 mod metadata;
 mod page;
 mod session;
+
+pub(crate) use app_menus::{init_editor_menus, menu_bar as editor_menu_bar};
 
 use gpui::{actions, App, KeyBinding};
 
@@ -32,9 +37,17 @@ pub(crate) const EDITOR_CONTEXT: &str = "CyberEditor";
 actions!(
     cybereditor,
     [
+        NewFile,
         OpenFile,
         SaveFile,
         SaveFileAs,
+        ExitEditor,
+        EditorUndo,
+        EditorRedo,
+        EditorCut,
+        EditorCopy,
+        EditorPaste,
+        SelectAll,
         GoToLine,
         FindText,
         ReplaceText,
@@ -42,14 +55,20 @@ actions!(
         ToggleComment,
         IndentSelection,
         OutdentSelection,
+        ToggleLineNumbers,
+        ToggleSoftWrap,
         FindNext,
-        FindPrevious
+        FindPrevious,
+        AboutEditor
     ]
 );
 
 pub fn init(cx: &mut App) {
     #[cfg(feature = "zed-engine")]
     cyber_editor_engine::init(cx);
+
+    #[cfg(feature = "zed-engine")]
+    init_editor_menus(cx);
 
     cx.bind_keys([
         #[cfg(not(target_os = "macos"))]
@@ -125,5 +144,26 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("f3", FindNext, Some("Editor")),
         #[cfg(feature = "zed-engine")]
         KeyBinding::new("shift-f3", FindPrevious, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-n", NewFile, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-z", EditorUndo, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-y", EditorRedo, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-x", EditorCut, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-c", EditorCopy, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-v", EditorPaste, Some("Editor")),
+        #[cfg(feature = "zed-engine")]
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-a", SelectAll, Some("Editor")),
     ]);
 }
