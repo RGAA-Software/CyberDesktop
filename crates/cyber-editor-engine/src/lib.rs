@@ -11,9 +11,12 @@ use gpui::{
 };
 use language::Buffer;
 use settings::SettingsStore;
+use theme::{ActiveTheme as _, ThemeRegistry};
 use theme_settings;
 
-pub use languages::{init_language_registry, language_registry, lookup_key_for_language_id};
+pub use languages::{
+    init_language_registry, language_registry, lookup_key_for_language_id, sync_language_settings,
+};
 
 /// Register globals required before creating an [`Editor`] (settings + base theme + languages).
 pub fn init(cx: &mut App) {
@@ -21,9 +24,25 @@ pub fn init(cx: &mut App) {
         let store = SettingsStore::new(cx, &settings::default_settings());
         cx.set_global(store);
     }
-    theme_settings::init(theme::LoadThemes::JustBase, cx);
+    theme_settings::init(theme::LoadThemes::All(Box::new(assets::Assets)), cx);
+    theme_settings::load_bundled_themes(&ThemeRegistry::global(cx));
     init_language_registry(cx);
+    sync_language_registry_theme(cx);
+    if let Err(err) = assets::Assets.load_fonts(cx) {
+        log::warn!("failed to load editor fonts: {err:#}");
+    }
     init_editor_keymap(cx);
+    // Push language settings on the next async turn to avoid re-entering GPUI during init.
+    cx.spawn(async move |cx| {
+        cx.update(|cx| {
+            sync_language_settings(cx);
+        });
+    })
+    .detach();
+}
+
+fn sync_language_registry_theme(cx: &App) {
+    language_registry(cx).set_theme(cx.theme().clone());
 }
 
 /// Bind Zed's default editor keymap (arrows, backspace, cut/copy/paste, etc.).

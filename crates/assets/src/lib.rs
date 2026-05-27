@@ -15,6 +15,18 @@ use gpui_component_assets::Assets as ComponentAssets;
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
+/// Zed editor gutter/icons expect paths under `icons/file_icons/` (see `theme::default_icon_theme`).
+const ZED_ICON_PATH_ALIASES: &[(&str, &str)] = &[
+    (
+        "icons/file_icons/chevron_right.svg",
+        "icons/chevron-right.svg",
+    ),
+    (
+        "icons/file_icons/chevron_down.svg",
+        "icons/chevron-down.svg",
+    ),
+];
+
 /// GPUI icon paths that must use bundled Lucide SVGs, not Material replacements.
 const LUCIDE_ICON_PATHS: &[&str] = &[
     "icons/window-close.svg",
@@ -46,6 +58,11 @@ impl AssetSource for Assets {
         if path.is_empty() {
             return Ok(None);
         }
+
+        let path = ZED_ICON_PATH_ALIASES
+            .iter()
+            .find_map(|(zed_path, local_path)| (*zed_path == path).then_some(*local_path))
+            .unwrap_or(path);
 
         if use_lucide_icon(path) {
             return component_assets().load(path);

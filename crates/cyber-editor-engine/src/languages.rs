@@ -1,10 +1,12 @@
 //! Embedded tree-sitter grammars and language configs for CyberEditor.
 
-use std::{path::Path, sync::Arc};
+use std::{num::NonZeroU32, path::Path, sync::Arc};
 
 use futures_lite::future::block_on;
 use gpui::{App, AppContext, Global};
 use language::{Language, LanguageRegistry, LoadedLanguage, PLAIN_TEXT};
+use settings::{AllLanguageSettingsContent, ExtensionsSettingsContent, SettingsStore};
+use util::ResultExt;
 
 const EMBEDDED_LANGUAGE_FOLDERS: &[&str] = &[
     "bash",
@@ -33,6 +35,29 @@ const EMBEDDED_LANGUAGE_FOLDERS: &[&str] = &[
 struct GlobalLanguageRegistry(Arc<LanguageRegistry>);
 
 impl Global for GlobalLanguageRegistry {}
+
+const CYBER_EDITOR_TAB_SIZE: NonZeroU32 = match NonZeroU32::new(4) {
+    Some(size) => size,
+    None => panic!("tab size must be non-zero"),
+};
+
+/// Languages that should use 4-space indentation in CyberEditor (Notepad++ default).
+const FOUR_SPACE_LANGUAGES: &[&str] = &[
+    "Rust",
+    "C",
+    "C++",
+    "Python",
+    "JavaScript",
+    "TypeScript",
+    "TSX",
+    "CSS",
+    "JSON",
+    "JSONC",
+    "YAML",
+    "Markdown",
+    "Bash",
+    "Diff",
+];
 
 /// Register native grammars and embedded `config.toml` languages.
 pub fn register_embedded_languages(registry: &Arc<LanguageRegistry>) {
@@ -96,6 +121,38 @@ pub fn init_language_registry(cx: &mut App) {
     let registry = Arc::new(LanguageRegistry::new(cx.background_executor().clone()));
     register_embedded_languages(&registry);
     cx.set_global(GlobalLanguageRegistry(registry));
+}
+
+fn apply_cyber_editor_indent_defaults(all_languages: &mut AllLanguageSettingsContent) {
+    all_languages.defaults.tab_size = Some(CYBER_EDITOR_TAB_SIZE);
+    all_languages.defaults.hard_tabs = Some(false);
+
+    for per_language in all_languages.languages.0.values_mut() {
+        if per_language.tab_size.is_none() {
+            per_language.tab_size = Some(CYBER_EDITOR_TAB_SIZE);
+        }
+    }
+
+    for &name in FOUR_SPACE_LANGUAGES {
+        if let Some(per_language) = all_languages.languages.0.get_mut(name) {
+            per_language.tab_size = Some(CYBER_EDITOR_TAB_SIZE);
+            if name != "Go" {
+                per_language.hard_tabs = Some(false);
+            }
+        }
+    }
+}
+
+/// Push embedded language `config.toml` settings into [`SettingsStore`] (same as Zed's `languages::init`).
+pub fn sync_language_settings(cx: &mut App) {
+    let registry = language_registry(cx);
+    let mut all_languages = registry.language_settings();
+    apply_cyber_editor_indent_defaults(&mut all_languages);
+    SettingsStore::update(cx, |store, cx| {
+        store
+            .set_extension_settings(ExtensionsSettingsContent { all_languages }, cx)
+            .log_err();
+    });
 }
 
 pub async fn load_language(

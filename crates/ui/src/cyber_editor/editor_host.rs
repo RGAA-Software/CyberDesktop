@@ -90,6 +90,31 @@ impl EditorHost {
         }
     }
 
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn indent_label(&self, cx: &App) -> String {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.indent_label(cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn suspend_for_native_modal<C: gpui::AppContext>(&self, cx: &mut C) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.suspend_for_native_modal(cx),
+        }
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn resume_after_native_modal<C: gpui::AppContext>(
+        &self,
+        window: &mut Window,
+        cx: &mut C,
+    ) {
+        match &self.backend {
+            EditorBackendInner::Zed(b) => b.resume_after_native_modal(window, cx),
+        }
+    }
+
     pub(crate) fn focus_handle(&self, cx: &App) -> gpui::FocusHandle {
         #[cfg(feature = "zed-engine")]
         {

@@ -155,6 +155,40 @@ impl ZedEditorBackend {
         render_editor(&self.editor, cx)
     }
 
+    pub(crate) fn suspend_for_native_modal<C: gpui::AppContext>(
+        &self,
+        cx: &mut C,
+    ) {
+        self.editor.update(cx, |editor, cx| {
+            editor.suspend_for_native_modal(cx);
+        });
+    }
+
+    pub(crate) fn resume_after_native_modal<C: gpui::AppContext>(
+        &self,
+        window: &mut Window,
+        cx: &mut C,
+    ) {
+        self.editor.update(cx, |editor, cx| {
+            editor.resume_after_native_modal(window, cx);
+        });
+    }
+
+    pub(crate) fn indent_label(&self, cx: &App) -> String {
+        use language::language_settings::LanguageSettings;
+
+        let editor = self.editor.read(cx);
+        let multibuffer = editor.buffer().read(cx);
+        let Some(buffer) = multibuffer.as_singleton() else {
+            return "Spaces: 4".to_string();
+        };
+        let settings = LanguageSettings::for_buffer(buffer.read(cx), cx);
+        if settings.hard_tabs {
+            "Tabs".to_string()
+        } else {
+            format!("Spaces: {}", settings.tab_size.get())
+        }
+    }
 
     pub(crate) fn sync_text_change(&mut self, text: &str) -> bool {
         let changed = self.buffer.borrow_mut().sync_text(text);

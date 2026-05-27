@@ -235,31 +235,49 @@ impl CyberEditorPage {
     pub(crate) fn open_file_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let start_dir = self.session.file_path().cloned();
         let page = cx.entity().downgrade();
-        window.defer(cx, move |window, cx| {
-            let Some(path) = super::file_dialog::pick_open_file_path(start_dir.as_deref()) else {
+        let window = window.window_handle();
+        cx.spawn(async move |_, cx| {
+            let path = cx
+                .background_spawn(async move {
+                    super::file_dialog::pick_open_file_path(start_dir.as_deref())
+                })
+                .await;
+            let Some(path) = path else {
                 return;
             };
-            let _ = page.update(cx, |page, cx| {
-                if let Err(message) = page.load_path_into_editor(path, window, cx) {
-                    window.push_notification(Notification::error(message), cx);
-                }
+            let _ = window.update(cx, |_, window, cx| {
+                let _ = page.update(cx, |page, cx| {
+                    if let Err(message) = page.load_path_into_editor(path, window, cx) {
+                        window.push_notification(Notification::error(message), cx);
+                    }
+                });
             });
-        });
+        })
+        .detach();
     }
 
     pub(crate) fn open_save_as_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let default_path = self.suggested_save_path();
         let page = cx.entity().downgrade();
-        window.defer(cx, move |window, cx| {
-            let Some(path) = super::file_dialog::pick_save_file_path(&default_path) else {
+        let window = window.window_handle();
+        cx.spawn(async move |_, cx| {
+            let path = cx
+                .background_spawn(async move {
+                    super::file_dialog::pick_save_file_path(&default_path)
+                })
+                .await;
+            let Some(path) = path else {
                 return;
             };
-            let _ = page.update(cx, |page, cx| {
-                if let Err(message) = page.write_to_path(path, window, cx) {
-                    window.push_notification(Notification::error(message), cx);
-                }
+            let _ = window.update(cx, |_, window, cx| {
+                let _ = page.update(cx, |page, cx| {
+                    if let Err(message) = page.write_to_path(path, window, cx) {
+                        window.push_notification(Notification::error(message), cx);
+                    }
+                });
             });
-        });
+        })
+        .detach();
     }
 
     fn new_document(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1163,11 +1181,21 @@ impl CyberEditorPage {
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     )
-                    .child(
-                        Label::new(self.session.indent_label())
+                    .child({
+                        let indent_label = {
+                            #[cfg(feature = "zed-engine")]
+                            {
+                                self.editor.indent_label(cx)
+                            }
+                            #[cfg(not(feature = "zed-engine"))]
+                            {
+                                self.session.indent_label()
+                            }
+                        };
+                        Label::new(indent_label)
                             .text_xs()
-                            .text_color(cx.theme().muted_foreground),
-                    )
+                            .text_color(cx.theme().muted_foreground)
+                    })
                     .child(
                         Label::new(if self.session.soft_wrap() { "Wrap On" } else { "Wrap Off" })
                             .text_xs()

@@ -109,6 +109,19 @@ impl BlinkManager {
         self.enabled = false;
     }
 
+    /// Cancel pending blink timers before a native modal dialog (e.g. Win32 file picker).
+    pub fn suppress_for_native_dialog(&mut self, cx: &mut Context<Self>) {
+        self.next_blink_epoch();
+        self.blinking_paused = true;
+        self.enabled = false;
+        self.show_cursor(cx);
+    }
+
+    /// Resume blinking after a native modal dialog if it was enabled.
+    pub fn resume_after_native_dialog(&mut self, cx: &mut Context<Self>) {
+        self.blinking_paused = false;
+    }
+
     pub fn visible(&self) -> bool {
         self.visible
     }

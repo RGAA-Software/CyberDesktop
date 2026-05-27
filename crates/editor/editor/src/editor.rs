@@ -10119,6 +10119,22 @@ impl Editor {
         self.refresh_inlay_hints(InlayHintRefreshReason::ModifiersChanged(false), cx);
     }
 
+    /// Stop pending cursor-blink tasks before showing a native modal dialog on the UI thread.
+    pub fn suspend_for_native_modal(&mut self, cx: &mut Context<Self>) {
+        self.blink_manager
+            .update(cx, |blink_manager, cx| blink_manager.suppress_for_native_dialog(cx));
+    }
+
+    /// Resume cursor blinking after a native modal dialog closes.
+    pub fn resume_after_native_modal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.blink_manager.update(cx, |blink_manager, cx| {
+            blink_manager.resume_after_native_dialog(cx);
+        });
+        if self.focus_handle.is_focused(window) && !self.read_only(cx) {
+            self.blink_manager.update(cx, BlinkManager::enable);
+        }
+    }
+
     pub fn handle_blur(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.blink_manager.update(cx, BlinkManager::disable);
         self.buffer
