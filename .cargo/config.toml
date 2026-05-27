@@ -1,0 +1,3 @@
+[alias]
+cybereditor = "build -p cyberfiles --bin cybereditor --features zed-engine"
+cybereditor-run = "run -p cyberfiles --bin cybereditor --features zed-engine"

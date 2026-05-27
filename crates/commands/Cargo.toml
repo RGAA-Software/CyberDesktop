@@ -1,0 +1,9 @@
+[package]
+name = "cyberfiles-commands"
+description = "Command actions and key bindings for CyberFiles"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+gpui.workspace = true

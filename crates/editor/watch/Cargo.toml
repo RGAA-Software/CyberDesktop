@@ -1,0 +1,17 @@
+[package]
+name = "watch"
+version = "0.1.0"
+edition = "2024"
+publish.workspace = true
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/watch.rs"
+doctest = true
+
+[dependencies]
+parking_lot.workspace = true
+

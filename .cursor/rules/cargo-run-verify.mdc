@@ -1,0 +1,19 @@
+---
+description: Mandatory kill + cargo run + terminal check after every reply in CyberFiles
+alwaysApply: true
+---
+
+# cargo run 验证（每次回答必做，不可跳过）
+
+在本仓库**每次回答结束前**，必须按 `.cursor/skills/cargo-run-verify/SKILL.md` 执行：
+
+1. **先 kill** 已运行的 `cyberfiles` / `target\*\cyberfiles.exe` 进程（PowerShell `Stop-Process`）。
+2. 在 workspace 根目录 **`cargo run -p cyberfiles`**（可后台运行）。
+3. **监听 terminal**（`terminals/` 或 `Await`）：`Finished`、`Running ...cyberfiles.exe`、无 `panic`/`error:`。
+4. 回复末尾附简短 **运行验证**。
+
+无例外：用户未要求、仅答疑、小改动也须 kill → run → 监听。
+
+代码变更后必须重新编译运行，不可只读旧 terminal。
+
+详见 `.cursor/skills/cargo-run-verify/SKILL.md`。

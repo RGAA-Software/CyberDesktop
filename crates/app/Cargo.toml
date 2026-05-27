@@ -1,0 +1,26 @@
+[package]
+name = "cyberfiles"
+description = "CyberFiles desktop application"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "cyberfiles"
+path = "src/main.rs"
+
+[[bin]]
+name = "cybereditor"
+path = "src/cybereditor.rs"
+required-features = ["zed-engine"]
+
+[features]
+zed-engine = ["cyberfiles-ui/zed-engine"]
+
+[dependencies]
+cyberfiles-ui.workspace = true
+gpui_platform.workspace = true
+
+[build-dependencies]
+embed-resource.workspace = true

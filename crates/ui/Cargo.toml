@@ -1,0 +1,37 @@
+[package]
+name = "cyberfiles-ui"
+description = "GPUI shell and views for CyberFiles"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+zed-engine = ["dep:cyber-editor-engine", "dep:editor", "dep:futures-lite", "dep:language", "dep:multi_buffer", "dep:project", "dep:text", "dep:util", "dep:workspace"]
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+cyberfiles-commands.workspace = true
+cyberfiles-core.workspace = true
+cyberfiles-fs.workspace = true
+cyberfiles-platform-windows.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+cyberfiles-assets.workspace = true
+rust-i18n.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sys-locale.workspace = true
+schemars = "1.2"
+smallvec = "1"
+
+cyber-editor-engine = { workspace = true, optional = true }
+editor = { workspace = true, optional = true }
+futures-lite = { workspace = true, optional = true }
+language = { workspace = true, optional = true }
+multi_buffer = { workspace = true, optional = true }
+project = { workspace = true, optional = true }
+text = { workspace = true, optional = true }
+util = { workspace = true, optional = true }
+workspace = { workspace = true, optional = true }

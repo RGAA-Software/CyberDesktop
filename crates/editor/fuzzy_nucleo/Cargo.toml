@@ -1,0 +1,23 @@
+[package]
+name = "fuzzy_nucleo"
+version = "0.1.0"
+edition = "2024"
+publish.workspace = true
+license = "GPL-3.0-or-later"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/fuzzy_nucleo.rs"
+doctest = false
+
+[dependencies]
+fuzzy.workspace = true
+nucleo.workspace = true
+gpui.workspace = true
+util.workspace = true
+
+[[bench]]
+name = "match_benchmark"
+harness = false
