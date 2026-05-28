@@ -137,6 +137,7 @@ use code_context_menus::{
 use code_lens::CodeLensState;
 use collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use convert_case::{Case, Casing};
+#[cfg(feature = "network-stack")]
 use dap::TelemetrySpawnLocation;
 use display_map::*;
 use document_colors::LspColorData;
@@ -218,6 +219,12 @@ use project::{
 use rand::seq::SliceRandom;
 use regex::Regex;
 use rpc::{ErrorCode, ErrorExt, proto::PeerId};
+#[cfg(not(feature = "network-stack"))]
+#[derive(Clone, Copy, Debug)]
+pub enum TelemetrySpawnLocation {
+    Gutter,
+}
+
 use scroll::{Autoscroll, OngoingScroll, ScrollAnchor, ScrollManager, SharedScrollAnchor};
 use selections_collection::{MutableSelectionsCollection, SelectionsCollection};
 use serde::{Deserialize, Serialize};
@@ -9925,6 +9932,7 @@ impl Editor {
         let project = project.read(cx);
         let event_type = reported_event.event_type();
 
+        #[cfg(feature = "network-stack")]
         if let ReportEditorEvent::Saved { auto_saved } = reported_event {
             telemetry::event!(
                 event_type,
@@ -9947,6 +9955,17 @@ impl Editor {
                 is_via_ssh = project.is_via_remote_server(),
             );
         };
+
+        #[cfg(not(feature = "network-stack"))]
+        let _ = (
+            event_type,
+            file_extension,
+            vim_mode,
+            copilot_enabled,
+            copilot_enabled_for_language,
+            edit_predictions_provider,
+            project.is_via_remote_server(),
+        );
     }
 
     /// Copy the highlighted chunks to the clipboard as JSON. The format is an array of lines,

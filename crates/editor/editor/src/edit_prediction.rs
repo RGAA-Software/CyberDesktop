@@ -1600,6 +1600,7 @@ impl Editor {
             true => "Edit Prediction Accepted",
             false => "Edit Prediction Discarded",
         };
+        #[cfg(feature = "network-stack")]
         telemetry::event!(
             event_type,
             provider = provider.name(),
@@ -1607,6 +1608,9 @@ impl Editor {
             suggestion_accepted = accepted,
             file_extension = extension,
         );
+
+        #[cfg(not(feature = "network-stack"))]
+        let _ = (event_type, provider, id, accepted, extension);
     }
 
     fn open_editor_at_anchor(

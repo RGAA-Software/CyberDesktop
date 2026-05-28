@@ -34,7 +34,11 @@
     - 将 `minimal-editor` 逐步绑定到实际依赖裁剪。
 
 - Phase 4（未开始）
-  - `editor` crate 还未进行能力分层 feature 化。
+  - 已完成：
+    - `editor` crate 已引入 `network-stack` feature（默认开启），并将 `client/dap/lsp/rpc/telemetry/url` 标记为可选依赖，为后续按构建目标关闭网络链路做准备。
+    - `editor` crate 已引入 `project-integration` feature（默认开启），并将 `project/workspace/breadcrumbs` 标记为可选依赖，为后续从 `cybereditor` 路径关闭工程集成能力做准备。
+  - 进行中：
+    - 下一步将尝试在 `cybereditor` 路径同时关闭 `project-integration` 与 `network-stack`，并补齐缺失的 `cfg` 分流。
 
 - Phase 5（未开始）
   - 语言内置集合尚未裁剪。
