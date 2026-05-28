@@ -1,6 +1,83 @@
 use super::*;
 
 impl FileBrowser {
+    pub(super) fn update_drag_hover_at_position(
+        &mut self,
+        position: Point<Pixels>,
+        paths: &[PathBuf],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if paths.is_empty() {
+            self.clear_drag_hover_feedback(cx);
+            return;
+        }
+
+        let target = match self.view_mode {
+            ViewMode::Columns => self.column_item_at_position(position).and_then(
+                |(col_index, row_index)| {
+                    self.column_listings
+                        .get(col_index)
+                        .and_then(|listing| listing.get(row_index))
+                },
+            ),
+            _ => self
+                .display_item_index_at_position(position)
+                .and_then(|index| self.display_items.get(index)),
+        };
+
+        if let Some(target) = target {
+            self.set_drag_hover_feedback(target, paths, window, cx);
+        } else {
+            self.clear_drag_hover_feedback(cx);
+        }
+    }
+
+    pub(super) fn set_drag_hover_feedback(
+        &mut self,
+        target: &FileItem,
+        paths: &[PathBuf],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if paths.is_empty() || paths.iter().any(|p| p == &target.path) {
+            self.clear_drag_hover_feedback(cx);
+            return;
+        }
+        self.drag_hover_generation = self.drag_hover_generation.saturating_add(1);
+        self.drag_hover_target = Some(target.path.clone());
+        let hint = match target.kind {
+            FileItemKind::Folder => {
+                let copy = window.modifiers().control;
+                if copy {
+                    Some(t!("files.drag.copy_to_folder", name = target.display_name.clone()).to_string())
+                } else {
+                    Some(t!("files.drag.move_to_folder", name = target.display_name.clone()).to_string())
+                }
+            }
+            FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
+                if is_executable_or_script_path(&target.path) {
+                    Some(t!("files.drag.open_with_target", name = target.display_name.clone()).to_string())
+                } else {
+                    None
+                }
+            }
+        };
+        self.drag_hover_hint = hint;
+        cx.notify();
+    }
+
+    pub(super) fn clear_drag_hover_feedback(&mut self, cx: &mut Context<Self>) {
+        self.drag_hover_generation = self.drag_hover_generation.saturating_add(1);
+        self.drag_hover_target = None;
+        self.drag_hover_hint = None;
+        cx.notify();
+    }
+
+    pub(super) fn is_drag_hover_target(&self, path: &Path) -> bool {
+        self.drag_hover_target.as_deref() == Some(path)
+    }
+
     pub fn set_search_query(&mut self, query: String, cx: &mut Context<Self>) {
         self.search_query = query;
         self.apply_filter();
@@ -67,6 +144,7 @@ impl FileBrowser {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.clear_drag_hover_feedback(cx);
         AppNavigation::cancel_breadcrumb_drag_preview(cx);
         if paths.is_empty() {
             return;
@@ -99,6 +177,7 @@ impl FileBrowser {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.clear_drag_hover_feedback(cx);
         AppNavigation::cancel_breadcrumb_drag_preview(cx);
         if paths.is_empty() {
             return;

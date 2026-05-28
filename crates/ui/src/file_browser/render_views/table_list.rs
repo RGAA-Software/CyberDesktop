@@ -154,6 +154,8 @@ impl FileBrowser {
         let double_click_path = item.path.clone();
         let kind = item.kind;
         let drop_target = item.clone();
+        let drop_target_for_drop = drop_target.clone();
+        let browser = cx.entity().clone();
         h_flex()
             .id(("file-list-row", index))
             .w_full()
@@ -204,14 +206,19 @@ impl FileBrowser {
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
-                move |paths, _offset, _window, cx| {
-                    cx.new(|_| DragPathPreview {
-                        label: drag_preview_label(&paths.0).into(),
-                    })
+                move |paths, grab_offset, _window, cx| {
+                    let _ = browser.update(cx, |this, _cx| {
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, cx)
                 },
             )
+            .drag_over::<DraggedFilePaths>(|row, _, _, cx| {
+                row.bg(cx.theme().primary.opacity(0.2))
+                    .border_color(cx.theme().primary)
+            })
             .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
-                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+                this.handle_drop_on_item(paths.0.clone(), &drop_target_for_drop, window, cx);
             }))
             .child(
                 div()
@@ -223,7 +230,7 @@ impl FileBrowser {
             .child(
                 div()
                     .flex_1()
-                    .min_w_0()
+                    .min_w(0)
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_sm()
@@ -251,6 +258,8 @@ impl FileBrowser {
         let double_click_path = item.path.clone();
         let kind = item.kind;
         let drop_target = item.clone();
+        let drop_target_for_drop = drop_target.clone();
+        let browser = cx.entity().clone();
         h_flex()
             .id(("file-row", index))
             .w_full()
@@ -301,14 +310,19 @@ impl FileBrowser {
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
-                move |paths, _offset, _window, cx| {
-                    cx.new(|_| DragPathPreview {
-                        label: drag_preview_label(&paths.0).into(),
-                    })
+                move |paths, grab_offset, _window, cx| {
+                    let _ = browser.update(cx, |this, _cx| {
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, cx)
                 },
             )
+            .drag_over::<DraggedFilePaths>(|row, _, _, cx| {
+                row.bg(cx.theme().primary.opacity(0.2))
+                    .border_color(cx.theme().primary)
+            })
             .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
-                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+                this.handle_drop_on_item(paths.0.clone(), &drop_target_for_drop, window, cx);
             }))
             .child(
                 div()

@@ -374,6 +374,7 @@ impl CyberEditorPage {
 
     fn go_to_line(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let cursor = self.editor.cursor_position();
+        let default_target = format!("{}:{}", cursor.line + 1, cursor.character + 1);
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder(format!("{}:{}", cursor.line + 1, cursor.character + 1))
@@ -385,6 +386,7 @@ impl CyberEditorPage {
             let input_for_focus = input.clone();
             let input_for_submit = input.clone();
             let page_for_submit = page.clone();
+            let default_target_for_submit = default_target.clone();
             focus_input_once(&focus_once, input_for_focus, window, cx);
 
             alert
@@ -394,6 +396,11 @@ impl CyberEditorPage {
                 .child(Input::new(&input).w_full())
                 .on_ok(move |_, window, cx| {
                     let raw = input_for_submit.read(cx).value().trim().to_string();
+                    let raw = if raw.is_empty() {
+                        default_target_for_submit.clone()
+                    } else {
+                        raw
+                    };
                     let Some(position) = parse_go_to_line_target(&raw) else {
                         window.push_notification(
                             Notification::warning("Enter a line number or line:column."),

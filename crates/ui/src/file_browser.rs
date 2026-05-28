@@ -77,6 +77,7 @@ mod ops;
 mod navigation;
 #[path = "file_browser/sweep.rs"]
 mod sweep;
+pub(crate) use sweep::point_in_bounds;
 #[path = "file_browser/context_menu_state.rs"]
 mod context_menu_state;
 #[path = "file_browser/helpers.rs"]
@@ -150,13 +151,32 @@ pub use crate::drag::DraggedFilePaths;
 
 struct DragPathPreview {
     label: SharedString,
+    /// Grab offset within the dragged row; shift preview so the label follows the cursor.
+    grab_offset: Point<Pixels>,
+}
+
+impl DragPathPreview {
+    pub(super) fn new_entity(
+        paths: &DraggedFilePaths,
+        grab_offset: Point<Pixels>,
+        cx: &mut App,
+    ) -> Entity<Self> {
+        AppNavigation::cancel_breadcrumb_drag_preview(cx);
+        cx.new(|_| Self {
+            label: drag_preview_label(&paths.0).into(),
+            grab_offset,
+        })
+    }
 }
 
 impl Render for DragPathPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+        v_flex()
+            .relative()
+            .left(-self.grab_offset.x)
+            .top(-self.grab_offset.y)
             .px_2()
-            .py_1()
+            .py_1p5()
             .rounded(cx.theme().radius)
             .bg(cx.theme().popover)
             .border_1()
@@ -313,6 +333,9 @@ pub struct FileBrowser {
     column_selected_path: Option<(usize, PathBuf)>,
     /// Active column in columns view. Determines which column receives actions like SelectAll.
     active_column_index: Option<usize>,
+    drag_hover_target: Option<PathBuf>,
+    drag_hover_hint: Option<String>,
+    drag_hover_generation: u64,
     sweep_selection: Option<SweepSelectionState>,
     main_sweep_bounds: Option<Bounds<Pixels>>,
     column_sweep_bounds: BTreeMap<usize, Bounds<Pixels>>,
@@ -413,6 +436,9 @@ impl FileBrowser {
             last_viewport_width: None,
             column_selected_path: None,
             active_column_index: None,
+            drag_hover_target: None,
+            drag_hover_hint: None,
+            drag_hover_generation: 0,
             sweep_selection: None,
             main_sweep_bounds: None,
             column_sweep_bounds: BTreeMap::new(),

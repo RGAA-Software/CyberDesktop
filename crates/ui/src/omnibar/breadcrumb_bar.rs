@@ -341,8 +341,11 @@ fn render_path_segment(
             .on_drag_move::<DraggedFilePaths>({
                 let hover = hover.clone();
                 let hover_target = hover_target.clone();
-                move |_, window, cx| {
-                    hover(hover_target.clone(), window, cx);
+                move |event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
+                    if crate::file_browser::point_in_bounds(event.event.position, event.bounds)
+                    {
+                        hover(hover_target.clone(), window, cx);
+                    }
                 }
             })
             .on_drop({

@@ -245,6 +245,8 @@ impl FileBrowser {
         let kind = item.kind;
         let name = item.display_name.clone();
         let drop_target = item.clone();
+        let drop_target_for_drop = drop_target.clone();
+        let browser = cx.entity().clone();
         v_flex()
             .id(("file-grid-cell", index))
             .w(cell_w)
@@ -297,14 +299,19 @@ impl FileBrowser {
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
-                move |paths, _offset, _window, cx| {
-                    cx.new(|_| DragPathPreview {
-                        label: drag_preview_label(&paths.0).into(),
-                    })
+                move |paths, grab_offset, _window, cx| {
+                    let _ = browser.update(cx, |this, _cx| {
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, cx)
                 },
             )
+            .drag_over::<DraggedFilePaths>(|cell, _, _, cx| {
+                cell.bg(cx.theme().primary.opacity(0.2))
+                    .border_color(cx.theme().primary)
+            })
             .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
-                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+                this.handle_drop_on_item(paths.0.clone(), &drop_target_for_drop, window, cx);
             }))
             .child(Self::row_list_icon(&item, icon_size, window))
             .child(
@@ -337,6 +344,8 @@ impl FileBrowser {
         let kind = item.kind;
         let name = item.display_name.clone();
         let drop_target = item.clone();
+        let drop_target_for_drop = drop_target.clone();
+        let browser = cx.entity().clone();
         v_flex()
             .id(("file-card-cell", index))
             .w(px(160.))
@@ -389,14 +398,19 @@ impl FileBrowser {
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
-                move |paths, _offset, _window, cx| {
-                    cx.new(|_| DragPathPreview {
-                        label: drag_preview_label(&paths.0).into(),
-                    })
+                move |paths, grab_offset, _window, cx| {
+                    let _ = browser.update(cx, |this, _cx| {
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, cx)
                 },
             )
+            .drag_over::<DraggedFilePaths>(|cell, _, _, cx| {
+                cell.bg(cx.theme().primary.opacity(0.2))
+                    .border_color(cx.theme().primary)
+            })
             .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
-                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+                this.handle_drop_on_item(paths.0.clone(), &drop_target_for_drop, window, cx);
             }))
             .child(Self::row_list_icon(&item, px(40.), window))
             .child(

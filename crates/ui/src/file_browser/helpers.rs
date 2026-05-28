@@ -166,6 +166,18 @@ pub(super) fn drag_preview_label(paths: &[PathBuf]) -> String {
     }
 }
 
+pub(super) fn drag_preview_hint(paths: &[PathBuf], copy: bool) -> String {
+    if paths.is_empty() {
+        return String::new();
+    }
+    let count = paths.len();
+    if copy {
+        t!("files.drag.preview_copying", count = count).to_string()
+    } else {
+        t!("files.drag.preview_moving", count = count).to_string()
+    }
+}
+
 pub(super) fn sort_option_from_config(value: &str) -> SortOption {
     match value {
         "modified" => SortOption::DateModified,

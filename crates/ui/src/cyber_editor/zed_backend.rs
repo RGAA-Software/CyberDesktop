@@ -229,7 +229,7 @@ impl ZedEditorBackend {
             let start_byte = snapshot
                 .point_to_offset(position_to_point(cursor))
                 .0;
-            editor.change_selections(SelectionEffects::no_scroll(), window, cx, |s| {
+            editor.change_selections(SelectionEffects::default(), window, cx, |s| {
                 s.select_ranges([MultiBufferOffset(start_byte)..MultiBufferOffset(start_byte)]);
             });
             cx.notify();

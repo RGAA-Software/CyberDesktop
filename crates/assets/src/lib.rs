@@ -25,6 +25,8 @@ const ZED_ICON_PATH_ALIASES: &[(&str, &str)] = &[
         "icons/file_icons/chevron_down.svg",
         "icons/chevron-down.svg",
     ),
+    ("icons/chevron_right.svg", "icons/chevron-right.svg"),
+    ("icons/chevron_down.svg", "icons/chevron-down.svg"),
 ];
 
 /// GPUI icon paths that must use bundled Lucide SVGs, not Material replacements.
@@ -90,6 +92,19 @@ impl AssetSource for Assets {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zed_gutter_chevron_icons_load() {
+        let assets = Assets;
+        for path in [
+            "icons/chevron_right.svg",
+            "icons/chevron_down.svg",
+            "icons/file_icons/chevron_right.svg",
+        ] {
+            let data = assets.load(path).expect("load");
+            assert!(data.is_some(), "missing {path}");
+        }
+    }
 
     #[test]
     fn lucide_window_and_chrome_icons_load() {

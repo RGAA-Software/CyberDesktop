@@ -519,6 +519,26 @@ files.drop.error:
   en: Drop failed
   zh-CN: 拖放失败
   zh-HK: 拖放失敗
+files.drag.preview_moving:
+  en: Moving %{count} items
+  zh-CN: 移动 %{count} 个项目
+  zh-HK: 移動 %{count} 個項目
+files.drag.preview_copying:
+  en: Copying %{count} items
+  zh-CN: 复制 %{count} 个项目
+  zh-HK: 複製 %{count} 個項目
+files.drag.move_to_folder:
+  en: Move to %{name}
+  zh-CN: 移动到 %{name}
+  zh-HK: 移動到 %{name}
+files.drag.copy_to_folder:
+  en: Copy to %{name}
+  zh-CN: 复制到 %{name}
+  zh-HK: 複製到 %{name}
+files.drag.open_with_target:
+  en: Open with %{name}
+  zh-CN: 用 %{name} 打开
+  zh-HK: 用 %{name} 開啟
 files.transfer.copying:
   en: Copying %{count} items…
   zh-CN: 正在复制 %{count} 个项目…

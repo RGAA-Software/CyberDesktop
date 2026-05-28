@@ -503,16 +503,24 @@ impl Render for FileBrowser {
                     })
                     .on_mouse_up(
                         MouseButton::Left,
-                        cx.listener(|this, _, _, _| {
+                        cx.listener(|this, _, _, cx| {
                             this.finish_sweep_selection();
+                            this.clear_drag_hover_feedback(cx);
                         }),
                     )
                     .on_mouse_up_out(
                         MouseButton::Left,
-                        cx.listener(|this, _, _, _| {
+                        cx.listener(|this, _, _, cx| {
                             this.finish_sweep_selection();
+                            this.clear_drag_hover_feedback(cx);
                         }),
                     )
+                    .on_drag_move::<DraggedFilePaths>(cx.listener(
+                        |this, event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
+                            let paths = event.drag(cx).0.clone();
+                            this.update_drag_hover_at_position(event.event.position, &paths, window, cx);
+                        },
+                    ))
                     .on_mouse_down(
                         MouseButton::Middle,
                         cx.listener(|this, _, _, cx| {
@@ -537,6 +545,23 @@ impl Render for FileBrowser {
                         this.child(overlay)
                     }),
             )
+            .when_some(self.drag_hover_hint.clone(), |this, hint| {
+                this.child(
+                    div()
+                        .absolute()
+                        .right_3()
+                        .bottom_3()
+                        .px_3()
+                        .py_1()
+                        .rounded(cx.theme().radius)
+                        .bg(cx.theme().popover)
+                        .border_1()
+                        .border_color(cx.theme().primary)
+                        .text_xs()
+                        .text_color(cx.theme().popover_foreground)
+                        .child(hint),
+                )
+            })
             .when(self.context_menu_open, |this| {
                 this.child(self.render_context_menu_overlay(window))
             })

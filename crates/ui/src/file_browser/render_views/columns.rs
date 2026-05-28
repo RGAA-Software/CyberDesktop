@@ -109,6 +109,17 @@ impl FileBrowser {
                                     this.finish_sweep_selection();
                                 }),
                             )
+                            .on_drag_move::<DraggedFilePaths>(cx.listener(
+                                |this, event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
+                                    let paths = event.drag(cx).0.clone();
+                                    this.update_drag_hover_at_position(
+                                        event.event.position,
+                                        &paths,
+                                        window,
+                                        cx,
+                                    );
+                                },
+                            ))
                             .child(
                                 v_virtual_list(
                                     cx.entity().clone(),
@@ -149,7 +160,8 @@ impl FileBrowser {
                                                         == Some((col_index, item.path.clone()))
                                                         || this.selected_paths.contains(&item.path)
                                                 };
-                                                let drag_paths = vec![item.path.clone()];
+                                                let drag_paths =
+                                                    this.drag_paths_for_item(index, &item.path);
                                                 let rename_input = this.renaming_input_for(&item.path);
                                                 Some(Self::column_cell(
                                                     window,
@@ -248,7 +260,8 @@ impl FileBrowser {
         let kind = item.kind;
         let name = item.display_name.clone();
         let item_click = item.clone();
-        let drop_target = item.clone();
+        let drop_target_for_drop = item.clone();
+        let browser = cx.entity().clone();
         h_flex()
             .id(format!("file-column-row-{col_index}-{name}"))
             .w_full()
@@ -328,22 +341,19 @@ impl FileBrowser {
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
-                |paths, _offset, _window, cx| {
-                    let label = if paths.0.len() == 1 {
-                        paths.0[0]
-                            .file_name()
-                            .map(|n| n.to_string_lossy().to_string())
-                            .unwrap_or_else(|| t!("files.type.file").to_string())
-                    } else {
-                        format!("{} {}", paths.0.len(), t!("files.status.items"))
-                    };
-                    cx.new(|_| DragPathPreview {
-                        label: label.into(),
-                    })
+                move |paths, grab_offset, _window, cx| {
+                    let _ = browser.update(cx, |this, _cx| {
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, cx)
                 },
             )
+            .drag_over::<DraggedFilePaths>(|row, _, _, cx| {
+                row.bg(cx.theme().primary.opacity(0.2))
+                    .text_color(cx.theme().primary_foreground)
+            })
             .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
-                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+                this.handle_drop_on_item(paths.0.clone(), &drop_target_for_drop, window, cx);
             }))
             .child(
                 div()

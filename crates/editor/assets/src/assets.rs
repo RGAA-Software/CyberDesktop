@@ -44,10 +44,9 @@ impl Assets {
         let mut embedded_fonts = Vec::new();
         for font_path in font_paths {
             if font_path.ends_with(".ttf") {
-                let font_bytes = cx
-                    .asset_source()
+                let font_bytes = self
                     .load(&font_path)?
-                    .expect("Assets should never return None");
+                    .expect("embedded font should exist");
                 embedded_fonts.push(font_bytes);
             }
         }

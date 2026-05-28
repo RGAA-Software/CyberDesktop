@@ -403,3 +403,55 @@ fn clamp_point_to_bounds(position: Point<Pixels>, bounds: Bounds<Pixels>) -> Poi
 fn rects_intersect(a: Bounds<Pixels>, b: Bounds<Pixels>) -> bool {
     a.left() < b.right() && a.right() > b.left() && a.top() < b.bottom() && a.bottom() > b.top()
 }
+
+pub(super) fn point_in_bounds(position: Point<Pixels>, bounds: Bounds<Pixels>) -> bool {
+    position.x >= bounds.left()
+        && position.x < bounds.right()
+        && position.y >= bounds.top()
+        && position.y < bounds.bottom()
+}
+
+impl FileBrowser {
+    pub(super) fn display_item_index_at_position(
+        &self,
+        position: Point<Pixels>,
+    ) -> Option<usize> {
+        let probe = Bounds::new(
+            point(position.x - px(0.5), position.y - px(0.5)),
+            size(px(1.), px(1.)),
+        );
+        let mut hits = self.main_sweep_hit_indices(probe);
+        hits.sort_unstable();
+        hits.last().copied()
+    }
+
+    pub(super) fn column_item_at_position(
+        &self,
+        position: Point<Pixels>,
+    ) -> Option<(usize, usize)> {
+        for (&col_index, bounds) in &self.column_sweep_bounds {
+            if !point_in_bounds(position, *bounds) {
+                continue;
+            }
+            let scroll_y = self
+                .column_scroll_handles
+                .get(col_index)
+                .map(|handle| handle.offset().y)
+                .unwrap_or(px(0.));
+            let row_h = COLUMN_ROW_SIZE.height;
+            let relative_y = position.y - bounds.top() + scroll_y;
+            if relative_y < px(0.) {
+                continue;
+            }
+            let index = (relative_y / row_h).floor() as usize;
+            if self
+                .column_listings
+                .get(col_index)
+                .is_some_and(|listing| listing.get(index).is_some())
+            {
+                return Some((col_index, index));
+            }
+        }
+        None
+    }
+}
