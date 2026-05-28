@@ -290,7 +290,7 @@ perf = { path = "crates/editor/perf" }
 picker = { path = "crates/editor/picker" }
 prettier = { path = "crates/editor/prettier" }
 settings_profile_selector = { path = "crates/editor/settings_profile_selector" }
-project = { path = "crates/editor/project" }
+project = { path = "crates/editor/project", default-features = false }
 project_panel = { path = "crates/editor/project_panel" }
 project_symbols = { path = "crates/editor/project_symbols" }
 prompt_store = { path = "crates/editor/prompt_store" }
@@ -356,7 +356,7 @@ which_key = { path = "crates/editor/which_key" }
 watch = { path = "crates/editor/watch" }
 web_search = { path = "crates/editor/web_search" }
 web_search_providers = { path = "crates/editor/web_search_providers" }
-workspace = { path = "crates/editor/workspace" }
+workspace = { path = "crates/editor/workspace", default-features = false }
 worktree = { path = "crates/editor/worktree" }
 x_ai = { path = "crates/editor/x_ai" }
 zed = { path = "crates/editor/zed" }
