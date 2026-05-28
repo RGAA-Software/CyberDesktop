@@ -6,6 +6,11 @@ publish.workspace = true
 description = "Thin glue between CyberEditor and the vendored Zed editor stack"
 license = "GPL-3.0-or-later"
 
+[features]
+default = ["full-editor"]
+full-editor = []
+minimal-editor = []
+
 [dependencies]
 anyhow.workspace = true
 assets.workspace = true

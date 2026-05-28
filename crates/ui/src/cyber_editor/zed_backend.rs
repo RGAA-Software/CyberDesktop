@@ -8,19 +8,15 @@ use cyber_editor_engine::{
 };
 use editor::{
     actions::{Copy, Cut, Indent, Outdent, Paste, Redo, SelectAll, ToggleComments, Undo},
-    items::active_match_index, Editor, MultiBufferOffset, SelectionEffects,
+    Editor, MultiBufferOffset, SelectionEffects,
 };
-use futures_lite::future::block_on;
 use gpui::{App, AppContext, Context, Entity, Focusable, Window};
 use language::{language_settings::SoftWrap, BufferSnapshot};
 use multi_buffer::{Anchor, MBTextSummary, MultiBufferSnapshot};
-use project::search::SearchQuery;
 
 use super::{EditorBufferModel, SearchMatch};
 use gpui_component::input::Position;
-use text::{Point, TextSummary};
-use util::paths::PathMatcher;
-use workspace::searchable::Direction;
+use text::Point;
 
 #[derive(Clone)]
 pub(crate) struct ZedEditorBackend {
@@ -35,6 +31,18 @@ struct SearchCache {
     query: String,
     revision: u64,
     matches: Vec<Range<usize>>,
+}
+
+#[derive(Clone, Copy)]
+enum FindDirection {
+    Next,
+    Prev,
+}
+
+#[derive(Clone)]
+struct FindQuery {
+    needle: String,
+    replacement: String,
 }
 
 impl ZedEditorBackend {
@@ -292,11 +300,11 @@ impl ZedEditorBackend {
     }
 
     pub(crate) fn find_next(&self, query: &str, cx: &App) -> Option<SearchMatch> {
-        self.search_match(query, Direction::Next, cx)
+        self.search_match(query, FindDirection::Next, cx)
     }
 
     pub(crate) fn find_previous(&self, query: &str, cx: &App) -> Option<SearchMatch> {
-        self.search_match(query, Direction::Prev, cx)
+        self.search_match(query, FindDirection::Prev, cx)
     }
 
     pub(crate) fn match_count(&self, query: &str, cx: &App) -> usize {
@@ -316,7 +324,10 @@ impl ZedEditorBackend {
 
         let anchor_ranges = anchor_ranges_for_matches(&snapshot, &matches);
         let cursor = self.cursor_anchor(&snapshot);
-        active_match_index(Direction::Next, &anchor_ranges, &cursor, &snapshot)
+        anchor_ranges
+            .iter()
+            .position(|range| !range.end.cmp(&cursor, &snapshot).is_lt())
+            .or_else(|| (!anchor_ranges.is_empty()).then_some(0))
             .map(|index| index + 1)
             .unwrap_or(0)
     }
@@ -388,12 +399,10 @@ impl ZedEditorBackend {
         let app: &App = &*cx;
         let snapshot = self.editor.read(app).buffer().read(app).snapshot(app);
         let matches = self.search_matches(query, app)?;
-        let match_range = self.match_range_for_direction(&snapshot, &matches, Direction::Next)?;
-        let search_query = build_search_query(query)
-            .ok()?
-            .with_replacement(replacement.to_string());
+        let match_range = self.match_range_for_direction(&snapshot, &matches, FindDirection::Next)?;
+        let search_query = build_find_query(query)?;
         let matched_text = text_for_range(snapshot.as_singleton()?, match_range.clone());
-        let replacement_text = search_query.replacement_for(&matched_text)?.into_owned();
+        let replacement_text = search_query.replacement_for(&matched_text)?;
         let selection_after = match_range.start..match_range.start + replacement_text.len();
         self.apply_edit(match_range, replacement_text, selection_after, window, cx);
         Some(())
@@ -413,7 +422,7 @@ impl ZedEditorBackend {
         self.editor.update(cx, |editor, cx| {
             let snapshot = editor.buffer().read(cx).snapshot(cx);
             let buffer = snapshot.as_singleton()?;
-            let search_query = build_search_query(query).ok()?.with_replacement(replacement.to_string());
+            let search_query = build_find_query(query)?.with_replacement(replacement.to_string());
             let edits = build_replace_all_edits(buffer, &search_query);
             let replacement_count = edits.len();
             if replacement_count == 0 {
@@ -508,7 +517,7 @@ impl ZedEditorBackend {
         });
     }
 
-    fn search_match(&self, query: &str, direction: Direction, cx: &App) -> Option<SearchMatch> {
+    fn search_match(&self, query: &str, direction: FindDirection, cx: &App) -> Option<SearchMatch> {
         let snapshot = self.editor.read(cx).buffer().read(cx).snapshot(cx);
         let matches = self.search_matches(query, cx)?;
         let range = self.match_range_for_direction(&snapshot, &matches, direction)?;
@@ -528,8 +537,8 @@ impl ZedEditorBackend {
 
         let snapshot = self.editor.read(cx).buffer().read(cx).snapshot(cx);
         let buffer = snapshot.as_singleton()?;
-        let search_query = build_search_query(query).ok()?;
-        let matches = block_on(search_query.search(buffer, None));
+        let search_query = build_find_query(query)?;
+        let matches = search_query.search(buffer, None);
         *self.search_cache.borrow_mut() = Some(SearchCache {
             query: query.to_string(),
             revision: self.revision,
@@ -549,16 +558,16 @@ impl ZedEditorBackend {
         &self,
         snapshot: &MultiBufferSnapshot,
         matches: &[Range<usize>],
-        direction: Direction,
+        direction: FindDirection,
     ) -> Option<Range<usize>> {
         let anchor_ranges = anchor_ranges_for_matches(snapshot, matches);
         let cursor = self.cursor_anchor(snapshot);
         let index = match direction {
-            Direction::Next => anchor_ranges
+            FindDirection::Next => anchor_ranges
                 .iter()
                 .position(|range| range.start.cmp(&cursor, snapshot).is_gt())
                 .unwrap_or(0),
-            Direction::Prev => anchor_ranges
+            FindDirection::Prev => anchor_ranges
                 .iter()
                 .rposition(|range| range.end.cmp(&cursor, snapshot).is_lt())
                 .unwrap_or(anchor_ranges.len().saturating_sub(1)),
@@ -609,19 +618,19 @@ fn advance_by_chars_snapshot(snapshot: &BufferSnapshot, start_byte: usize, char_
 
 fn build_replace_all_edits(
     buffer: &BufferSnapshot,
-    query: &SearchQuery,
+    query: &FindQuery,
 ) -> Vec<(Range<usize>, String)> {
     let num_cpus = std::thread::available_parallelism()
         .map(|parallelism| parallelism.get() as u32)
         .unwrap_or(1);
     let mut edits = Vec::new();
     for search_range in chunk_search_range(buffer, query, num_cpus, 0..buffer.len()) {
-        for relative_range in block_on(query.search(buffer, Some(search_range.clone()))) {
+        for relative_range in query.search(buffer, Some(search_range.clone())) {
             let absolute_range =
                 search_range.start + relative_range.start..search_range.start + relative_range.end;
             let matched_text = text_for_range(buffer, absolute_range.clone());
             if let Some(replacement) = query.replacement_for(&matched_text) {
-                edits.push((absolute_range, replacement.into_owned()));
+                edits.push((absolute_range, replacement));
             }
         }
     }
@@ -630,7 +639,7 @@ fn build_replace_all_edits(
 
 fn chunk_search_range<'a>(
     buffer: &'a BufferSnapshot,
-    query: &'a SearchQuery,
+    query: &'a FindQuery,
     num_cpus: u32,
     range: Range<usize>,
 ) -> Box<dyn Iterator<Item = Range<usize>> + 'a> {
@@ -638,8 +647,8 @@ fn chunk_search_range<'a>(
         return Box::new(std::iter::empty());
     }
 
-    let summary = buffer.text_summary_for_range::<TextSummary, _>(range.clone());
-    let num_chunks = if !query.is_regex() && !query.as_str().contains('\n') {
+    let summary = buffer.text_summary_for_range::<text::TextSummary, _>(range.clone());
+    let num_chunks = if !query.needle.contains('\n') {
         std::num::NonZeroU32::new(summary.lines.row.saturating_add(1).min(num_cpus.max(1)))
     } else {
         std::num::NonZeroU32::new(1)
@@ -670,17 +679,48 @@ fn chunk_search_range<'a>(
     }))
 }
 
-fn build_search_query(query: &str) -> anyhow::Result<SearchQuery> {
-    SearchQuery::text(
-        query,
-        false,
-        true,
-        false,
-        PathMatcher::default(),
-        PathMatcher::default(),
-        false,
-        None,
-    )
+fn build_find_query(query: &str) -> Option<FindQuery> {
+    if query.is_empty() {
+        return None;
+    }
+    Some(FindQuery {
+        needle: query.to_string(),
+        replacement: query.to_string(),
+    })
+}
+
+impl FindQuery {
+    fn with_replacement(mut self, replacement: String) -> Self {
+        self.replacement = replacement;
+        self
+    }
+
+    fn replacement_for(&self, _matched_text: &str) -> Option<String> {
+        Some(self.replacement.clone())
+    }
+
+    fn search(&self, buffer: &BufferSnapshot, range: Option<Range<usize>>) -> Vec<Range<usize>> {
+        let search_range = range.unwrap_or(0..buffer.len());
+        if search_range.is_empty() || self.needle.is_empty() {
+            return Vec::new();
+        }
+
+        let haystack = text_for_range(buffer, search_range.clone());
+        let mut matches = Vec::new();
+        let mut cursor = 0usize;
+        while let Some(relative_start) = haystack[cursor..].find(self.needle.as_str()) {
+            let start_in_haystack = cursor + relative_start;
+            let end_in_haystack = start_in_haystack + self.needle.len();
+            matches.push(
+                search_range.start + start_in_haystack..search_range.start + end_in_haystack,
+            );
+            cursor = end_in_haystack;
+            if cursor >= haystack.len() {
+                break;
+            }
+        }
+        matches
+    }
 }
 
 fn search_match_from_range(snapshot: &MultiBufferSnapshot, range: &Range<usize>) -> SearchMatch {

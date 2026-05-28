@@ -21,11 +21,16 @@
 - Phase 2（已开始，预处理）
   - 已完成：
     - 梳理 `crates/ui/src/cyber_editor/zed_backend.rs` 中 `project::search::SearchQuery` 与 `workspace::searchable::Direction` 的实际调用面，确认替换边界集中在查找/替换路径。
+    - 已将 `workspace::searchable::Direction` 替换为本地 `FindDirection`。
+    - 已将 `project::search::SearchQuery` 替换为 `zed_backend` 内部轻量 `FindQuery`，`find / replace / replace all` 保持原有文本匹配语义。
   - 进行中：
-    - 准备引入本地轻量方向与查询抽象，逐步替换 `project/workspace` 类型并保持 `find / replace / replace all` 行为一致。
+    - 校验 `cargo tree -i project/workspace` 的依赖链收敛结果，并继续移除残余间接引用。
 
 - Phase 3（未开始）
-  - `cyber-editor-engine` 还未引入 `minimal-editor` feature。
+  - 已完成：
+    - `cyber-editor-engine` 已引入 `full-editor` / `minimal-editor` feature 骨架（默认 `full-editor`），为后续能力裁剪提供开关位。
+  - 进行中：
+    - 将 `minimal-editor` 逐步绑定到实际依赖裁剪。
 
 - Phase 4（未开始）
   - `editor` crate 还未进行能力分层 feature 化。

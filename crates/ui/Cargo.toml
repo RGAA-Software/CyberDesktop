@@ -9,7 +9,7 @@ publish.workspace = true
 default = ["full-app"]
 full-app = []
 editor-shell = []
-zed-engine = ["dep:cyber-editor-engine", "dep:editor", "dep:futures-lite", "dep:language", "dep:multi_buffer", "dep:project", "dep:text", "dep:util", "dep:workspace"]
+zed-engine = ["dep:cyber-editor-engine", "dep:editor", "dep:futures-lite", "dep:language", "dep:multi_buffer", "dep:text", "dep:util"]
 
 [dependencies]
 anyhow.workspace = true
@@ -34,7 +34,5 @@ editor = { workspace = true, optional = true }
 futures-lite = { workspace = true, optional = true }
 language = { workspace = true, optional = true }
 multi_buffer = { workspace = true, optional = true }
-project = { workspace = true, optional = true }
 text = { workspace = true, optional = true }
 util = { workspace = true, optional = true }
-workspace = { workspace = true, optional = true }

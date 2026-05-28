@@ -2159,7 +2159,6 @@ dependencies = [
  "gpui-component",
  "language",
  "multi_buffer",
- "project",
  "rfd",
  "rust-i18n",
  "schemars 1.2.1",
@@ -2169,7 +2168,6 @@ dependencies = [
  "sys-locale",
  "text",
  "util 0.1.0",
- "workspace",
 ]
 
 [[package]]
