@@ -13,19 +13,24 @@ path = "src/editor.rs"
 doctest = false
 
 [features]
-# Opt-in per product: cybereditor enables only `project-integration` until Phase 4 removes it.
+# Opt-in per product: cybereditor uses `notepad`; full IDE uses `project-integration`.
 default = []
+# Notepad++ / CyberEditor: buffer + workspace shell, no collab client, breadcrumbs, or AI prediction cloud client.
+notepad = ["project-buffer", "workspace-minimal", "dep:breadcrumbs", "dep:client"]
 # Full IDE: workspace UI + collab client + breadcrumbs.
 project-integration = [
-    "project-buffer",
-    "workspace-minimal",
+    "notepad",
+    "workspace-collab",
     "dep:breadcrumbs",
     "dep:client",
+    "edit-prediction",
 ]
-# Buffer/editing against a worktree without workspace shell (Notepad++ / cybereditor).
+# Buffer/editing against a worktree without workspace shell.
 project-buffer = ["dep:project"]
-# Workspace UI without collab client in the link graph (blocked until workspace builds with collab-runtime off).
+# Workspace UI (collab client optional via workspace-collab).
 workspace-minimal = ["dep:workspace"]
+workspace-collab = ["workspace/collab-runtime"]
+edit-prediction = ["edit_prediction_types/client-usage"]
 project-ide-shell = ["project/ide-shell"]
 project-remote-debug = ["project/remote-debug"]
 test-support = [

@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later"
 anyhow.workspace = true
 assets.workspace = true
 # Notepad++ path: no debugger / DAP (project-remote-debug off).
-editor = { workspace = true, default-features = false, features = ["project-integration"] }
+editor = { workspace = true, default-features = false, features = ["notepad"] }
 futures-lite.workspace = true
 gpui.workspace = true
 grammars = { workspace = true, features = ["load-grammars"] }

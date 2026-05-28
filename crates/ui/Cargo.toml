@@ -30,7 +30,7 @@ schemars = "1.2"
 smallvec = "1"
 
 cyber-editor-engine = { workspace = true, optional = true }
-editor = { path = "../editor/editor", optional = true, default-features = false, features = ["project-integration"] }
+editor = { path = "../editor/editor", optional = true, default-features = false, features = ["notepad"] }
 futures-lite = { workspace = true, optional = true }
 language = { workspace = true, optional = true }
 multi_buffer = { workspace = true, optional = true }

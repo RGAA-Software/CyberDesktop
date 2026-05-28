@@ -1,6 +1,10 @@
 use std::{ops::Range, sync::Arc};
 
+#[cfg(feature = "client-usage")]
 use client::EditPredictionUsage;
+#[cfg(not(feature = "client-usage"))]
+#[derive(Clone, Copy, Debug)]
+pub struct EditPredictionUsage;
 use gpui::{App, Context, Entity, SharedString};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
