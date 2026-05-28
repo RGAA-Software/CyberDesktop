@@ -343,12 +343,12 @@ impl EditorHost {
         }
     }
 
-    pub(crate) fn has_selection(&self) -> bool {
+    pub(crate) fn has_selection(&self, cx: &mut App) -> bool {
         match &self.backend {
             #[cfg(not(feature = "zed-engine"))]
             EditorBackendInner::Model(b) => b.has_selection(),
             #[cfg(feature = "zed-engine")]
-            EditorBackendInner::Zed(b) => b.has_selection(),
+            EditorBackendInner::Zed(b) => b.has_selection(cx),
         }
     }
 

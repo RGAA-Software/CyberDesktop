@@ -12,7 +12,7 @@ pub struct OmnibarBreadcrumbCallbacks {
     pub on_navigate_new_tab: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
     pub on_home: Rc<dyn Fn(&mut Window, &mut App)>,
     pub on_drop_paths: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
-    pub on_drag_hover: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
+    pub on_drag_hover: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
     pub on_show_full_path: Rc<dyn Fn(&mut Window, &mut App)>,
 }
 
@@ -25,7 +25,7 @@ impl OmnibarBreadcrumbCallbacks {
         on_navigate_new_tab: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
         on_home: Rc<dyn Fn(&mut Window, &mut App)>,
         on_drop_paths: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
-        on_drag_hover: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
+        on_drag_hover: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
         on_show_full_path: Rc<dyn Fn(&mut Window, &mut App)>,
     ) -> Self {
         Self {

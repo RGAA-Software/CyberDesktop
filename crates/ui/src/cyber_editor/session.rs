@@ -87,7 +87,6 @@ impl EditorSession {
         }
     }
 
-    #[cfg(not(feature = "zed-engine"))]
     pub(crate) fn update_dirty_from_text(&mut self, current_text: &str) -> bool {
         let dirty = current_text != self.saved_text;
         let changed = dirty != self.dirty;

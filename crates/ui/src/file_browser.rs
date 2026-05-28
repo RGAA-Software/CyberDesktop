@@ -55,6 +55,7 @@ use gpui_component::{
     notification::Notification,
     scroll::{ScrollableElement as _, Scrollbar, ScrollbarAxis, ScrollbarShow},
     v_flex, v_virtual_list, ActiveTheme as _, Disableable as _, ElementExt as _, IconName,
+    StyledExt as _,
     Sizable as _, VirtualListScrollHandle, WindowExt as _,
 };
 use rust_i18n::t;
@@ -76,8 +77,7 @@ mod ops;
 #[path = "file_browser/navigation.rs"]
 mod navigation;
 #[path = "file_browser/sweep.rs"]
-mod sweep;
-pub(crate) use sweep::point_in_bounds;
+pub(crate) mod sweep;
 #[path = "file_browser/context_menu_state.rs"]
 mod context_menu_state;
 #[path = "file_browser/helpers.rs"]
@@ -149,41 +149,85 @@ impl ViewMode {
 
 pub use crate::drag::DraggedFilePaths;
 
+const DRAG_PREVIEW_LABEL_FONT: Pixels = px(14.);
+const DRAG_PREVIEW_HINT_FONT: Pixels = px(12.);
+
 struct DragPathPreview {
     label: SharedString,
-    /// Grab offset within the dragged row; shift preview so the label follows the cursor.
+    /// Pointer-down position within the dragged row (used to center the preview on the cursor).
     grab_offset: Point<Pixels>,
+    browser: Entity<FileBrowser>,
 }
 
 impl DragPathPreview {
     pub(super) fn new_entity(
         paths: &DraggedFilePaths,
         grab_offset: Point<Pixels>,
+        browser: Entity<FileBrowser>,
         cx: &mut App,
     ) -> Entity<Self> {
         AppNavigation::cancel_breadcrumb_drag_preview(cx);
-        cx.new(|_| Self {
+        let preview = cx.new(|_| Self {
             label: drag_preview_label(&paths.0).into(),
             grab_offset,
-        })
+            browser: browser.clone(),
+        });
+        let _ = browser.update(cx, |this, _cx| {
+            this.drag_preview = Some(preview.clone());
+        });
+        preview
     }
 }
 
 impl Render for DragPathPreview {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        v_flex()
-            .relative()
-            .left(-self.grab_offset.x)
-            .top(-self.grab_offset.y)
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let browser = self.browser.read(cx);
+        let hint = browser.drag_hover_hint.as_deref();
+        let invalid = browser.drag_hover_hint_invalid;
+        let primary = browser.drag_hover_hint_primary;
+        let hint_color = if invalid {
+            cx.theme().danger
+        } else if primary {
+            cx.theme().primary
+        } else {
+            cx.theme().muted_foreground
+        };
+
+        let preview_card = v_flex()
+            .w(px(250.))
+            .max_w(px(250.))
+            .items_start()
+            .gap_1()
             .px_2()
-            .py_1p5()
+            .py(px(6.))
             .rounded(cx.theme().radius)
             .bg(cx.theme().popover)
             .border_1()
             .border_color(cx.theme().border)
-            .text_sm()
-            .text_color(cx.theme().popover_foreground)
-            .child(self.label.clone())
+            .when_some(hint, |this, hint| {
+                this.child(
+                    div()
+                        .w_full()
+                        .text_xs()
+                        .font_bold()
+                        .text_color(hint_color)
+                        .child(hint.to_string()),
+                )
+            })
+            .child(
+                div()
+                    .w_full()
+                    .text_sm()
+                    .text_color(cx.theme().popover_foreground)
+                    .child(self.label.clone()),
+            );
+
+        div().size_full().child(
+            preview_card
+                .absolute()
+                .left(self.grab_offset.x)
+                .top(self.grab_offset.y),
+        )
     }
 }
 
@@ -335,7 +379,10 @@ pub struct FileBrowser {
     active_column_index: Option<usize>,
     drag_hover_target: Option<PathBuf>,
     drag_hover_hint: Option<String>,
+    drag_hover_hint_invalid: bool,
+    drag_hover_hint_primary: bool,
     drag_hover_generation: u64,
+    drag_preview: Option<Entity<DragPathPreview>>,
     sweep_selection: Option<SweepSelectionState>,
     main_sweep_bounds: Option<Bounds<Pixels>>,
     column_sweep_bounds: BTreeMap<usize, Bounds<Pixels>>,
@@ -438,7 +485,10 @@ impl FileBrowser {
             active_column_index: None,
             drag_hover_target: None,
             drag_hover_hint: None,
+            drag_hover_hint_invalid: false,
+            drag_hover_hint_primary: false,
             drag_hover_generation: 0,
+            drag_preview: None,
             sweep_selection: None,
             main_sweep_bounds: None,
             column_sweep_bounds: BTreeMap::new(),

@@ -206,11 +206,14 @@ impl FileBrowser {
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
-                move |paths, grab_offset, _window, cx| {
-                    let _ = browser.update(cx, |this, _cx| {
-                        this.finish_sweep_selection();
-                    });
-                    DragPathPreview::new_entity(paths, grab_offset, cx)
+                {
+                    let browser = browser.clone();
+                    move |paths, grab_offset, _window, cx| {
+                        let _ = browser.update(cx, |this, _cx| {
+                            this.finish_sweep_selection();
+                        });
+                        DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
+                    }
                 },
             )
             .drag_over::<DraggedFilePaths>(|row, _, _, cx| {
@@ -230,7 +233,7 @@ impl FileBrowser {
             .child(
                 div()
                     .flex_1()
-                    .min_w(0)
+                    .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_sm()
@@ -310,11 +313,14 @@ impl FileBrowser {
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
-                move |paths, grab_offset, _window, cx| {
-                    let _ = browser.update(cx, |this, _cx| {
-                        this.finish_sweep_selection();
-                    });
-                    DragPathPreview::new_entity(paths, grab_offset, cx)
+                {
+                    let browser = browser.clone();
+                    move |paths, grab_offset, _window, cx| {
+                        let _ = browser.update(cx, |this, _cx| {
+                            this.finish_sweep_selection();
+                        });
+                        DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
+                    }
                 },
             )
             .drag_over::<DraggedFilePaths>(|row, _, _, cx| {

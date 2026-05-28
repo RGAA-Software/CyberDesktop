@@ -11,7 +11,7 @@ use editor::{
     items::active_match_index, Editor, MultiBufferOffset, SelectionEffects,
 };
 use futures_lite::future::block_on;
-use gpui::{App, AppContext, Context, Entity, Window};
+use gpui::{App, AppContext, Context, Entity, Focusable, Window};
 use language::{language_settings::SoftWrap, BufferSnapshot};
 use multi_buffer::{Anchor, MBTextSummary, MultiBufferSnapshot};
 use project::search::SearchQuery;
@@ -256,8 +256,12 @@ impl ZedEditorBackend {
         self.buffer.borrow().selected_char_count()
     }
 
-    pub(crate) fn has_selection(&self) -> bool {
-        self.buffer.borrow().has_selection()
+    pub(crate) fn has_selection(&self, cx: &mut App) -> bool {
+        self.editor.update(cx, |editor, cx| {
+            let snapshot = editor.display_snapshot(cx);
+            let selection = editor.selections.newest::<MultiBufferOffset>(&snapshot);
+            selection.start != selection.end
+        })
     }
 
     pub(crate) fn sync_cursor_selection_from_editor<T>(&self, cx: &mut Context<T>) {
@@ -478,11 +482,16 @@ impl ZedEditorBackend {
     }
 
     pub(crate) fn cut<T>(&self, window: &mut Window, cx: &mut Context<T>) {
-        window.dispatch_action(Box::new(Cut), cx);
+        let focus = self.editor.focus_handle(cx);
+        focus.focus(window, cx);
+        // Do not dispatch from inside `editor.update` — that re-enters the entity and panics.
+        focus.dispatch_action(&Cut, window, cx);
     }
 
     pub(crate) fn copy<T>(&self, window: &mut Window, cx: &mut Context<T>) {
-        window.dispatch_action(Box::new(Copy), cx);
+        let focus = self.editor.focus_handle(cx);
+        focus.focus(window, cx);
+        focus.dispatch_action(&Copy, window, cx);
     }
 
     pub(crate) fn paste<T>(&self, window: &mut Window, cx: &mut Context<T>) {

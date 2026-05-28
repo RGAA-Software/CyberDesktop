@@ -112,6 +112,17 @@ pub fn set_editor_text(
 ) {
     editor.update(cx, |editor, cx| {
         editor.set_text(text, window, cx);
+        // Mirror Zed's item restore behavior: loading a document should not create
+        // an undo step back to the previous file/empty buffer.
+        let multibuffer = editor.buffer();
+        let Some(buffer) = multibuffer.read(cx).as_singleton() else {
+            return;
+        };
+        buffer.update(cx, |buffer, _| {
+            if let Some(entry) = buffer.peek_undo_stack() {
+                buffer.forget_transaction(entry.transaction_id());
+            }
+        });
     });
 }
 

@@ -26,9 +26,9 @@ use gpui_component::input::InputEvent;
 use super::line_comment_prefix;
 
 use super::{
-    context_menu::editor_surface_context_menu, display_language, display_name, display_path,
-    editor_menu_bar, load_document, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
-    EditorUndo, EditorHost, EditorSession, ExitEditor, FindNext, FindPrevious, FindText, GoToLine,
+    context_menu::editor_surface_context_menu, display_language, display_name, editor_menu_bar,
+    load_document, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo,
+    EditorHost, EditorSession, ExitEditor, FindNext, FindPrevious, FindText, GoToLine,
     IndentSelection, NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile,
     SaveFileAs, SearchMatch, SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap, APP_NAME,
     EDITOR_CONTEXT,
@@ -68,6 +68,7 @@ impl CyberEditorPage {
             session.soft_wrap(),
         );
         editor.focus_deferred(window, cx);
+        super::app_menus::set_view_toggles(session.line_numbers(), session.soft_wrap(), cx);
 
         let mut subscriptions = Vec::new();
 
@@ -119,6 +120,7 @@ impl CyberEditorPage {
                     EditorEvent::Edited { .. } => {
                         let current_text = this.editor.text(cx);
                         let text_changed = this.editor.sync_text_change(&current_text);
+                        let dirty_changed = this.session.set_dirty(this.editor.is_dirty(cx));
                         let metadata_changed = this.session.refresh_metadata_from_text(&current_text);
                         if text_changed {
                             // After Zed applies Enter, text changes and cursor moves. We sync cursor
@@ -126,7 +128,7 @@ impl CyberEditorPage {
                             // InputState backend.
                             this.editor.sync_cursor_selection_from_editor(cx);
                         }
-                        if text_changed || metadata_changed {
+                        if text_changed || metadata_changed || dirty_changed {
                             cx.notify();
                         }
                     }
@@ -148,6 +150,8 @@ impl CyberEditorPage {
                 });
             subscriptions.push(event_subscription);
 
+            // Opening an existing/new document should start in Saved state.
+            editor.mark_saved(cx);
         }
 
         if let Some(error) = document.load_error {
@@ -227,6 +231,8 @@ impl CyberEditorPage {
             window,
             cx,
         );
+        #[cfg(feature = "zed-engine")]
+        self.editor.mark_saved(cx);
         self.session.apply_loaded_document(path, text);
         cx.notify();
         Ok(())
@@ -311,6 +317,8 @@ impl CyberEditorPage {
             window,
             cx,
         );
+        #[cfg(feature = "zed-engine")]
+        self.editor.mark_saved(cx);
         self.session
             .apply_loaded_document(PathBuf::from("untitled.txt"), String::new());
         self.editor
@@ -322,13 +330,19 @@ impl CyberEditorPage {
     #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_undo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
-        self.editor.undo(window, cx);
+        {
+            self.editor.focus_handle(cx).focus(window, cx);
+            self.editor.undo(window, cx);
+        }
     }
 
     #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_redo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
-        self.editor.redo(window, cx);
+        {
+            self.editor.focus_handle(cx).focus(window, cx);
+            self.editor.redo(window, cx);
+        }
     }
 
     #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
@@ -346,17 +360,28 @@ impl CyberEditorPage {
     #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_paste(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
-        self.editor.paste(window, cx);
+        {
+            self.editor.focus_handle(cx).focus(window, cx);
+            self.editor.paste(window, cx);
+        }
     }
 
     #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_select_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
-        self.editor.select_all(window, cx);
+        {
+            self.editor.focus_handle(cx).focus(window, cx);
+            self.editor.select_all(window, cx);
+        }
     }
 
-    pub(crate) fn has_editor_selection(&self) -> bool {
-        self.editor.has_selection()
+    pub(crate) fn has_editor_selection(&self, cx: &mut App) -> bool {
+        self.editor.has_selection(cx)
+    }
+
+    #[cfg(feature = "zed-engine")]
+    pub(crate) fn sync_selection_for_context_menu(&mut self, cx: &mut Context<Self>) {
+        self.editor.sync_cursor_selection_from_editor(cx);
     }
 
     fn show_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -928,11 +953,6 @@ impl CyberEditorPage {
                             .font_semibold()
                             .truncate(),
                     )
-                    .child(
-                        Label::new(display_language(self.session.language()))
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground),
-                    )
                     .when(self.session.dirty(), |row| {
                         row.child(
                             Label::new("Unsaved")
@@ -951,22 +971,6 @@ impl CyberEditorPage {
                             .ghost()
                             .label("Open File")
                             .on_click(cx.listener(Self::open_file)),
-                    )
-                    .child(
-                        Button::new("toggle-line-numbers")
-                            .small()
-                            .ghost()
-                            .selected(self.session.line_numbers())
-                            .label("Line Numbers")
-                            .on_click(cx.listener(Self::toggle_line_numbers)),
-                    )
-                    .child(
-                        Button::new("toggle-soft-wrap")
-                            .small()
-                            .ghost()
-                            .selected(self.session.soft_wrap())
-                            .label("Wrap")
-                            .on_click(cx.listener(Self::toggle_soft_wrap)),
                     )
                     .child(
                         Button::new("save-as")
@@ -1065,29 +1069,15 @@ impl CyberEditorPage {
                         .min_w_0()
                         .items_center()
                         .gap_2()
-                        .child(div().flex_none().child(menu_bar))
                         .child(Label::new(APP_NAME).text_sm().font_semibold())
-                        .child(
-                            Label::new(display_path(self.session.file_path().map(PathBuf::as_path)))
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
-                                .truncate(),
-                        ),
+                        .child(div().flex_none().child(menu_bar))
                 )
                 .child(
                     h_flex()
                         .items_center()
                         .gap_2()
                         .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .child(
-                            Label::new(if self.session.dirty() { "Unsaved" } else { "Saved" })
-                                .text_xs()
-                                .text_color(if self.session.dirty() {
-                                    cx.theme().warning
-                                } else {
-                                    cx.theme().muted_foreground
-                                }),
-                        ),
+                        .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation()),
                 ),
         )
     }
@@ -1113,6 +1103,23 @@ impl CyberEditorPage {
             .bg(cx.theme().title_bar)
             .child(
                 h_flex()
+                    .min_w_0()
+                    .items_center()
+                    .gap_3()
+                    .child(
+                        Label::new(
+                            self.session
+                                .file_path()
+                                .map(|p| p.display().to_string())
+                                .unwrap_or_else(|| "untitled.txt".to_string()),
+                        )
+                        .text_xs()
+                        .text_color(cx.theme().muted_foreground)
+                        .truncate(),
+                    ),
+            )
+            .child(
+                h_flex()
                     .items_center()
                     .gap_3()
                     .child(
@@ -1128,12 +1135,7 @@ impl CyberEditorPage {
                         Label::new(display_language(self.session.language()))
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .items_center()
-                    .gap_3()
+                    )
                     .child(
                         Label::new(self.session.encoding_label().clone())
                             .text_xs()
@@ -1149,7 +1151,7 @@ impl CyberEditorPage {
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     )
-                    .when(self.editor.has_selection(), |row| {
+                    .when(self.editor.has_selection(cx), |row| {
                         row.child(
                             Label::new(format!("Sel: {}", self.editor.selected_char_count()))
                                 .text_xs()
@@ -1272,11 +1274,13 @@ impl Render for CyberEditorPage {
             .on_action(cx.listener(|this, _: &ToggleLineNumbers, window, cx| {
                 let line_numbers = this.session.toggle_line_numbers();
                 this.editor.set_line_numbers(line_numbers, window, cx);
+                super::app_menus::set_view_toggles(line_numbers, this.session.soft_wrap(), cx);
                 cx.notify();
             }))
             .on_action(cx.listener(|this, _: &ToggleSoftWrap, window, cx| {
                 let soft_wrap = this.session.toggle_soft_wrap();
                 this.editor.set_soft_wrap(soft_wrap, window, cx);
+                super::app_menus::set_view_toggles(this.session.line_numbers(), soft_wrap, cx);
                 cx.notify();
             }))
             .on_action(cx.listener(|this, _: &AboutEditor, window, cx| {

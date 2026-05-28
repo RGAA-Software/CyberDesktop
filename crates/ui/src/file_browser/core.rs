@@ -8,6 +8,12 @@ impl FileBrowser {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let Some(bounds) = self.main_sweep_bounds {
+            if !crate::file_browser::sweep::point_in_bounds(position, bounds) {
+                return;
+            }
+        }
+        AppNavigation::cancel_breadcrumb_drag_preview(cx);
         if paths.is_empty() {
             self.clear_drag_hover_feedback(cx);
             return;
@@ -18,16 +24,16 @@ impl FileBrowser {
                 |(col_index, row_index)| {
                     self.column_listings
                         .get(col_index)
-                        .and_then(|listing| listing.get(row_index))
+                        .and_then(|listing| listing.get(row_index).cloned())
                 },
             ),
             _ => self
                 .display_item_index_at_position(position)
-                .and_then(|index| self.display_items.get(index)),
+                .and_then(|index| self.display_items.get(index).cloned()),
         };
 
         if let Some(target) = target {
-            self.set_drag_hover_feedback(target, paths, window, cx);
+            self.set_drag_hover_feedback(&target, paths, window, cx);
         } else {
             self.clear_drag_hover_feedback(cx);
         }
@@ -40,30 +46,97 @@ impl FileBrowser {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if paths.is_empty() || paths.iter().any(|p| p == &target.path) {
+        if paths.is_empty() {
             self.clear_drag_hover_feedback(cx);
+            return;
+        }
+        if paths.iter().any(|p| p == &target.path) {
+            self.apply_drag_hover_hint(
+                target.path.clone(),
+                t!("files.drag.cannot_drop_here").to_string(),
+                true,
+                false,
+                cx,
+            );
             return;
         }
         self.drag_hover_generation = self.drag_hover_generation.saturating_add(1);
         self.drag_hover_target = Some(target.path.clone());
-        let hint = match target.kind {
+        let (hint, invalid, primary) = match target.kind {
             FileItemKind::Folder => {
                 let copy = window.modifiers().control;
-                if copy {
-                    Some(t!("files.drag.copy_to_folder", name = target.display_name.clone()).to_string())
+                let hint = if copy {
+                    t!("files.drag.copy_to_folder", name = target.display_name.clone()).to_string()
                 } else {
-                    Some(t!("files.drag.move_to_folder", name = target.display_name.clone()).to_string())
-                }
+                    t!("files.drag.move_to_folder", name = target.display_name.clone()).to_string()
+                };
+                (hint, false, true)
             }
             FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
                 if is_executable_or_script_path(&target.path) {
-                    Some(t!("files.drag.open_with_target", name = target.display_name.clone()).to_string())
+                    (
+                        t!("files.drag.open_with_target", name = target.display_name.clone())
+                            .to_string(),
+                        false,
+                        false,
+                    )
                 } else {
-                    None
+                    (t!("files.drag.cannot_use_target").to_string(), true, false)
                 }
             }
         };
-        self.drag_hover_hint = hint;
+        self.apply_drag_hover_hint(target.path.clone(), hint, invalid, primary, cx);
+    }
+
+    pub(crate) fn set_breadcrumb_drag_hover_feedback(
+        &mut self,
+        target_dir: PathBuf,
+        paths: &[PathBuf],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if paths.is_empty() {
+            self.clear_drag_hover_feedback(cx);
+            return;
+        }
+
+        if paths.iter().all(|p| p.parent() == Some(target_dir.as_path())) {
+            self.apply_drag_hover_hint(
+                target_dir,
+                t!("files.drag.cannot_drop_here").to_string(),
+                true,
+                false,
+                cx,
+            );
+            return;
+        }
+
+        let target_name = target_dir
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| target_dir.to_string_lossy().to_string());
+        let hint = if window.modifiers().control {
+            t!("files.drag.copy_to_folder", name = target_name).to_string()
+        } else {
+            t!("files.drag.move_to_folder", name = target_name).to_string()
+        };
+        self.apply_drag_hover_hint(target_dir, hint, false, true, cx);
+    }
+
+    fn apply_drag_hover_hint(
+        &mut self,
+        target: PathBuf,
+        hint: String,
+        invalid: bool,
+        primary: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.drag_hover_target = Some(target);
+        self.drag_hover_hint = Some(hint);
+        self.drag_hover_hint_invalid = invalid;
+        self.drag_hover_hint_primary = primary;
+        self.notify_drag_preview(cx);
         cx.notify();
     }
 
@@ -71,11 +144,21 @@ impl FileBrowser {
         self.drag_hover_generation = self.drag_hover_generation.saturating_add(1);
         self.drag_hover_target = None;
         self.drag_hover_hint = None;
+        self.drag_hover_hint_invalid = false;
+        self.drag_hover_hint_primary = false;
+        self.notify_drag_preview(cx);
         cx.notify();
     }
 
-    pub(super) fn is_drag_hover_target(&self, path: &Path) -> bool {
-        self.drag_hover_target.as_deref() == Some(path)
+    pub(super) fn end_drag_session(&mut self, cx: &mut Context<Self>) {
+        self.clear_drag_hover_feedback(cx);
+        self.drag_preview = None;
+    }
+
+    fn notify_drag_preview(&self, cx: &mut Context<Self>) {
+        if let Some(preview) = self.drag_preview.as_ref() {
+            preview.update(cx, |_, cx| cx.notify());
+        }
     }
 
     pub fn set_search_query(&mut self, query: String, cx: &mut Context<Self>) {
@@ -144,7 +227,7 @@ impl FileBrowser {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.clear_drag_hover_feedback(cx);
+        self.end_drag_session(cx);
         AppNavigation::cancel_breadcrumb_drag_preview(cx);
         if paths.is_empty() {
             return;
@@ -177,7 +260,7 @@ impl FileBrowser {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.clear_drag_hover_feedback(cx);
+        self.end_drag_session(cx);
         AppNavigation::cancel_breadcrumb_drag_preview(cx);
         if paths.is_empty() {
             return;

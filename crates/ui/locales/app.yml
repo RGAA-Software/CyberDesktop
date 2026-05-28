@@ -539,6 +539,14 @@ files.drag.open_with_target:
   en: Open with %{name}
   zh-CN: 用 %{name} 打开
   zh-HK: 用 %{name} 開啟
+files.drag.cannot_drop_here:
+  en: Cannot drop here
+  zh-CN: 无法拖入此处
+  zh-HK: 無法拖入此處
+files.drag.cannot_use_target:
+  en: Cannot use this item to open
+  zh-CN: 无法用此文件打开
+  zh-HK: 無法用此檔案開啟
 files.transfer.copying:
   en: Copying %{count} items…
   zh-CN: 正在复制 %{count} 个项目…

@@ -59,9 +59,13 @@ impl MainPage {
             },
         );
         let page_hover = cx.entity();
-        let on_drag_hover = Rc::new(move |path: PathBuf, _: &mut Window, cx: &mut App| {
+        let on_drag_hover = Rc::new(
+            move |path: PathBuf, dragged_paths: Vec<PathBuf>, window: &mut Window, cx: &mut App| {
             let _ = page_hover.update(cx, |page, cx| {
-                page.schedule_breadcrumb_drag_preview(path, cx);
+                page.schedule_breadcrumb_drag_preview(path.clone(), cx);
+                page.active_file_browser(cx).update(cx, |browser, cx| {
+                    browser.set_breadcrumb_drag_hover_feedback(path, &dragged_paths, window, cx);
+                });
             });
         });
         let page_path_bar = cx.entity();

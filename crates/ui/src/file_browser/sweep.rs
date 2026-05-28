@@ -404,7 +404,7 @@ fn rects_intersect(a: Bounds<Pixels>, b: Bounds<Pixels>) -> bool {
     a.left() < b.right() && a.right() > b.left() && a.top() < b.bottom() && a.bottom() > b.top()
 }
 
-pub(super) fn point_in_bounds(position: Point<Pixels>, bounds: Bounds<Pixels>) -> bool {
+pub(crate) fn point_in_bounds(position: Point<Pixels>, bounds: Bounds<Pixels>) -> bool {
     position.x >= bounds.left()
         && position.x < bounds.right()
         && position.y >= bounds.top()

@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use cyberfiles_fs::{
@@ -10,7 +11,7 @@ use gpui::{prelude::*, *};
 use gpui_component::plot::label::measure_text_width;
 use gpui_component::{
     button::{Button, ButtonVariants as _},
-    h_flex, ActiveTheme as _, Sizable as _, Size,
+    h_flex, ActiveTheme as _, ElementExt as _, Sizable as _, Size,
 };
 use rust_i18n::t;
 
@@ -52,7 +53,7 @@ pub struct PathBreadcrumbBar {
     on_navigate_new_tab: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
     on_home: Rc<dyn Fn(&mut Window, &mut App)>,
     on_drop_paths: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
-    on_drag_hover: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
+    on_drag_hover: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
     /// Click on non-item chrome (empty bar area) shows the full path string.
     on_show_full_path: Rc<dyn Fn(&mut Window, &mut App)>,
 }
@@ -70,7 +71,7 @@ impl PathBreadcrumbBar {
         on_navigate_new_tab: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
         on_home: Rc<dyn Fn(&mut Window, &mut App)>,
         on_drop_paths: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
-        on_drag_hover: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
+        on_drag_hover: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
         on_show_full_path: Rc<dyn Fn(&mut Window, &mut App)>,
     ) -> Self {
         Self {
@@ -280,7 +281,7 @@ fn render_path_segment(
     on_navigate: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
     on_navigate_new_tab: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
     on_drop_paths: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
-    on_drag_hover: Rc<dyn Fn(PathBuf, &mut Window, &mut App)>,
+    on_drag_hover: Rc<dyn Fn(PathBuf, Vec<PathBuf>, &mut Window, &mut App)>,
     cx: &App,
 ) -> impl IntoElement {
     let path_nav = crumb.path.clone();
@@ -295,6 +296,7 @@ fn render_path_segment(
     let drop = on_drop_paths.clone();
     let hover = on_drag_hover.clone();
     let is_dir = path_nav.is_dir();
+    let hover_bounds = Rc::new(RefCell::new(None::<Bounds<Pixels>>));
 
     let mut segment = h_flex()
         .id(("breadcrumb-segment", index))
@@ -336,25 +338,30 @@ fn render_path_segment(
         ));
     }
 
+    if is_dir {
+        segment = segment.on_drag_move::<DraggedFilePaths>({
+            let hover = hover.clone();
+            let hover_target = hover_target.clone();
+            let hover_bounds = hover_bounds.clone();
+            move |event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
+                let Some(bounds) = *hover_bounds.borrow() else {
+                    return;
+                };
+                if crate::file_browser::sweep::point_in_bounds(event.event.position, bounds) {
+                    hover(hover_target.clone(), event.drag(cx).0.clone(), window, cx);
+                }
+            }
+        });
+    }
+
     if is_dir && !is_last {
-        segment = segment
-            .on_drag_move::<DraggedFilePaths>({
-                let hover = hover.clone();
-                let hover_target = hover_target.clone();
-                move |event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
-                    if crate::file_browser::point_in_bounds(event.event.position, event.bounds)
-                    {
-                        hover(hover_target.clone(), window, cx);
-                    }
-                }
-            })
-            .on_drop({
-                let drop = drop.clone();
-                let drop_target = drop_target.clone();
-                move |paths: &DraggedFilePaths, window, cx| {
-                    drop(drop_target.clone(), paths.0.clone(), window, cx);
-                }
-            });
+        segment = segment.on_drop({
+            let drop = drop.clone();
+            let drop_target = drop_target.clone();
+            move |paths: &DraggedFilePaths, window, cx| {
+                drop(drop_target.clone(), paths.0.clone(), window, cx);
+            }
+        });
     } else if is_dir {
         segment = segment.on_drop({
             let drop = drop.clone();
@@ -365,7 +372,12 @@ fn render_path_segment(
         });
     }
 
-    segment
+    segment.on_prepaint({
+        let hover_bounds = hover_bounds.clone();
+        move |bounds, _window, _cx| {
+            *hover_bounds.borrow_mut() = Some(bounds);
+        }
+    })
 }
 
 fn apply_breadcrumb_menu_style(menu: PopupMenu) -> PopupMenu {
