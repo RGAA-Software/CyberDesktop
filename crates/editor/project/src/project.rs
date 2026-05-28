@@ -37,7 +37,12 @@ pub mod search;
 pub mod task_inventory;
 pub mod task_store;
 pub mod telemetry_snapshot;
+#[cfg(feature = "ide-terminals")]
 pub mod terminals;
+#[cfg(not(feature = "ide-terminals"))]
+pub mod terminals_disabled;
+#[cfg(not(feature = "ide-terminals"))]
+pub use terminals_disabled as terminals;
 pub mod toolchain_store;
 pub mod trusted_worktrees;
 pub mod worktree_store;

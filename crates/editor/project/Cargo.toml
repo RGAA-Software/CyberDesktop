@@ -27,6 +27,10 @@ ide-shell = [
     "dep:extension",
     "dep:prettier",
     "snippet_provider/extension-host",
+    "ide-terminals",
+]
+ide-terminals = [
+    "dep:terminal",
 ]
 test-support = [
     "buffer_diff/test-support",
@@ -41,6 +45,7 @@ test-support = [
     "gpui/test-support",
     "dap/test-support",
     "ide-shell",
+    "ide-terminals",
     "remote-debug",
 ]
 
@@ -101,7 +106,7 @@ snippet_provider.workspace = true
 sum_tree.workspace = true
 task.workspace = true
 tempfile.workspace = true
-terminal.workspace = true
+terminal = { workspace = true, optional = true }
 text.workspace = true
 toml.workspace = true
 url.workspace = true
