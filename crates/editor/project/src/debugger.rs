@@ -12,12 +12,28 @@
 //! - Since DAP store knows about all of the available debug sessions, it is responsible for routing RPC requests to sessions. It also knows how to find adapters for particular kind of session.
 
 pub mod breakpoint_store;
+
+#[cfg(feature = "remote-debug")]
 pub mod dap_command;
+#[cfg(feature = "remote-debug")]
 pub mod dap_store;
+#[cfg(feature = "remote-debug")]
 pub mod locators;
+#[cfg(feature = "remote-debug")]
 pub mod memory;
+#[cfg(feature = "remote-debug")]
 pub mod session;
+
+#[cfg(not(feature = "remote-debug"))]
+pub mod dap_store_disabled;
+#[cfg(not(feature = "remote-debug"))]
+pub use dap_store_disabled as dap_store;
+#[cfg(not(feature = "remote-debug"))]
+pub mod session_disabled;
+#[cfg(not(feature = "remote-debug"))]
+pub use session_disabled as session;
 
 #[cfg(any(feature = "test-support", test))]
 pub mod test;
+#[cfg(feature = "remote-debug")]
 pub use memory::MemoryCell;

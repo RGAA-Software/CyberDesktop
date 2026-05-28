@@ -13,13 +13,14 @@ path = "src/editor.rs"
 doctest = false
 
 [features]
-default = ["project-integration", "network-stack"]
+default = ["project-integration", "network-stack", "project-remote-debug"]
 project-integration = [
     "dep:breadcrumbs",
     "dep:client",
     "dep:project",
     "dep:workspace",
 ]
+project-remote-debug = ["project/remote-debug"]
 network-stack = [
     "dep:client",
     "dep:dap",
@@ -77,7 +78,7 @@ multi_buffer.workspace = true
 ordered-float.workspace = true
 parking_lot.workspace = true
 pretty_assertions.workspace = true
-project = { workspace = true, optional = true, default-features = false, features = ["remote-debug"] }
+project = { workspace = true, optional = true, default-features = false }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 rand.workspace = true

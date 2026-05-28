@@ -1,7 +1,10 @@
 use anyhow::Context as _;
 use collections::HashMap;
 use context_server::ContextServerCommand;
+#[cfg(feature = "remote-debug")]
 use dap::adapters::DebugAdapterName;
+#[cfg(not(feature = "remote-debug"))]
+use crate::dap_shim::DebugAdapterName;
 use fs::Fs;
 use futures::StreamExt as _;
 use git::repository::DEFAULT_WORKTREE_DIRECTORY;

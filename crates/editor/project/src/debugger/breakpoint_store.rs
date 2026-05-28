@@ -5,7 +5,10 @@ use anyhow::{Context as _, Result};
 pub use breakpoints_in_file::{BreakpointSessionState, BreakpointWithPosition};
 use breakpoints_in_file::{BreakpointsInFile, StatefulBreakpoint};
 use collections::{BTreeMap, HashMap};
+#[cfg(feature = "remote-debug")]
 use dap::{StackFrameId, client::SessionId};
+#[cfg(not(feature = "remote-debug"))]
+use crate::dap_shim::{StackFrameId, client::SessionId};
 use gpui::{
     App, AppContext, AsyncApp, Context, Entity, EntityId, EventEmitter, Subscription, Task,
 };
@@ -338,6 +341,7 @@ impl BreakpointStore {
         }
     }
 
+    #[cfg(feature = "remote-debug")]
     pub(crate) fn update_session_breakpoint(
         &mut self,
         session_id: SessionId,
@@ -1064,6 +1068,7 @@ pub struct SourceBreakpoint {
     pub state: BreakpointState,
 }
 
+#[cfg(feature = "remote-debug")]
 impl From<SourceBreakpoint> for dap::SourceBreakpoint {
     fn from(bp: SourceBreakpoint) -> Self {
         Self {

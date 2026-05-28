@@ -1,3 +1,6 @@
+#[cfg(not(feature = "remote-debug"))]
+mod dap_shim;
+
 pub mod agent_registry_store;
 pub mod agent_server_store;
 pub mod bookmark_store;
@@ -33,6 +36,7 @@ use git_store::{Repository, RepositoryId};
 pub mod search_history;
 pub mod yarn;
 
+#[cfg(feature = "remote-debug")]
 use dap::inline_value::{InlineValueLocation, VariableLookupKind, VariableScope};
 use itertools::{Either, Itertools};
 
@@ -62,6 +66,7 @@ use client::{
 };
 use clock::ReplicaId;
 
+#[cfg(feature = "remote-debug")]
 use dap::client::DebugAdapterClient;
 
 use collections::{BTreeSet, HashMap, HashSet, IndexSet};
@@ -415,6 +420,7 @@ pub enum Event {
 
 pub struct AgentLocationChanged;
 
+#[cfg(feature = "remote-debug")]
 pub enum DebugAdapterClientState {
     Starting(Task<Option<Arc<DebugAdapterClient>>>),
     Running(Arc<DebugAdapterClient>),
@@ -3499,6 +3505,7 @@ impl Project {
         }
     }
 
+    #[cfg(feature = "remote-debug")]
     fn on_dap_store_event(
         &mut self,
         _: Entity<DapStore>,
@@ -3512,6 +3519,15 @@ impl Project {
                 link: None,
             });
         }
+    }
+
+    #[cfg(not(feature = "remote-debug"))]
+    fn on_dap_store_event(
+        &mut self,
+        _: Entity<DapStore>,
+        _event: &DapStoreEvent,
+        _cx: &mut Context<Self>,
+    ) {
     }
 
     fn on_lsp_store_event(
@@ -4459,6 +4475,7 @@ impl Project {
         })
     }
 
+    #[cfg(feature = "remote-debug")]
     pub fn inline_values(
         &mut self,
         session: Entity<Session>,
@@ -6603,6 +6620,7 @@ fn proto_to_prompt(level: proto::language_server_prompt_request::Level) -> gpui:
     }
 }
 
+#[cfg(feature = "remote-debug")]
 fn provide_inline_values(
     captures: impl Iterator<Item = (Range<usize>, language::DebuggerTextObject)>,
     snapshot: &language::BufferSnapshot,
