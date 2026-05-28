@@ -248,6 +248,7 @@ impl FileBrowser {
         let kind = item.kind;
         let name = item.display_name.clone();
         let item_click = item.clone();
+        let drop_target = item.clone();
         h_flex()
             .id(format!("file-column-row-{col_index}-{name}"))
             .w_full()
@@ -341,6 +342,9 @@ impl FileBrowser {
                     })
                 },
             )
+            .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
+                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+            }))
             .child(
                 div()
                     .w(px(20.))

@@ -244,6 +244,7 @@ impl FileBrowser {
         let double_click_path = item.path.clone();
         let kind = item.kind;
         let name = item.display_name.clone();
+        let drop_target = item.clone();
         v_flex()
             .id(("file-grid-cell", index))
             .w(cell_w)
@@ -302,6 +303,9 @@ impl FileBrowser {
                     })
                 },
             )
+            .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
+                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+            }))
             .child(Self::row_list_icon(&item, icon_size, window))
             .child(
                 div()
@@ -332,6 +336,7 @@ impl FileBrowser {
         let double_click_path = item.path.clone();
         let kind = item.kind;
         let name = item.display_name.clone();
+        let drop_target = item.clone();
         v_flex()
             .id(("file-card-cell", index))
             .w(px(160.))
@@ -390,6 +395,9 @@ impl FileBrowser {
                     })
                 },
             )
+            .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
+                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+            }))
             .child(Self::row_list_icon(&item, px(40.), window))
             .child(
                 div()

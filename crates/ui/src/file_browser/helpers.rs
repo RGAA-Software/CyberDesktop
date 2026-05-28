@@ -363,3 +363,71 @@ pub(super) fn open_with_system(path: &Path) -> anyhow::Result<()> {
             .map_err(Into::into)
     }
 }
+
+pub(super) fn is_executable_or_script_path(path: &Path) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        let ext = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(|value| value.to_ascii_lowercase());
+        matches!(
+            ext.as_deref(),
+            Some("exe")
+                | Some("com")
+                | Some("bat")
+                | Some("cmd")
+                | Some("ps1")
+                | Some("vbs")
+                | Some("js")
+                | Some("jse")
+                | Some("wsf")
+        )
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
+pub(super) fn open_paths_with_target(
+    target: &Path,
+    source_paths: &[PathBuf],
+) -> anyhow::Result<()> {
+    if source_paths.is_empty() {
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let ext = target
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(|value| value.to_ascii_lowercase());
+
+        if matches!(ext.as_deref(), Some("ps1")) {
+            std::process::Command::new("powershell")
+                .arg("-NoProfile")
+                .arg("-ExecutionPolicy")
+                .arg("Bypass")
+                .arg("-File")
+                .arg(target)
+                .args(source_paths)
+                .spawn()
+                .map(|_| ())
+                .map_err(Into::into)
+        } else {
+            std::process::Command::new(target)
+                .args(source_paths)
+                .spawn()
+                .map(|_| ())
+                .map_err(Into::into)
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        anyhow::bail!("open-with-target is only supported on Windows")
+    }
+}

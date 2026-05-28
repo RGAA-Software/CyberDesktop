@@ -153,6 +153,7 @@ impl FileBrowser {
     ) -> AnyElement {
         let double_click_path = item.path.clone();
         let kind = item.kind;
+        let drop_target = item.clone();
         h_flex()
             .id(("file-list-row", index))
             .w_full()
@@ -209,6 +210,9 @@ impl FileBrowser {
                     })
                 },
             )
+            .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
+                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+            }))
             .child(
                 div()
                     .w(px(28.))
@@ -246,6 +250,7 @@ impl FileBrowser {
         let open_path = item.path.clone();
         let double_click_path = item.path.clone();
         let kind = item.kind;
+        let drop_target = item.clone();
         h_flex()
             .id(("file-row", index))
             .w_full()
@@ -302,6 +307,9 @@ impl FileBrowser {
                     })
                 },
             )
+            .on_drop(cx.listener(move |this, paths: &DraggedFilePaths, window, cx| {
+                this.handle_drop_on_item(paths.0.clone(), &drop_target, window, cx);
+            }))
             .child(
                 div()
                     .w(px(28.))

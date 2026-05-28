@@ -91,4 +91,51 @@ impl FileBrowser {
         }
         vec![path.to_path_buf()]
     }
+
+    pub(super) fn handle_drop_on_item(
+        &mut self,
+        paths: Vec<PathBuf>,
+        target: &FileItem,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        AppNavigation::cancel_breadcrumb_drag_preview(cx);
+        if paths.is_empty() {
+            return;
+        }
+
+        match target.kind {
+            FileItemKind::Folder => {
+                let dest = target.path.clone();
+                if paths.iter().all(|p| p.parent() == Some(dest.as_path())) {
+                    return;
+                }
+                let copy = window.modifiers().control;
+                let kind = if copy {
+                    FileTransferKind::Copy
+                } else {
+                    FileTransferKind::Move
+                };
+                let browser = cx.entity();
+                spawn_file_transfer(browser, window, cx, kind, paths, dest);
+            }
+            FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
+                if !is_executable_or_script_path(&target.path) {
+                    return;
+                }
+
+                let filtered_paths: Vec<PathBuf> = paths
+                    .into_iter()
+                    .filter(|path| path != &target.path)
+                    .collect();
+                if filtered_paths.is_empty() {
+                    return;
+                }
+                if let Err(error) = open_paths_with_target(&target.path, &filtered_paths) {
+                    self.error = Some(error.to_string());
+                    cx.notify();
+                }
+            }
+        }
+    }
 }
