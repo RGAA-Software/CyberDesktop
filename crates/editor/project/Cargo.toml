@@ -19,9 +19,14 @@ required-features = ["test-support"]
 path = "tests/integration/project_tests.rs"
 
 [features]
-default = ["remote-debug"]
+default = []
 remote-debug = [
     "dep:dap",
+]
+ide-shell = [
+    "dep:extension",
+    "dep:prettier",
+    "snippet_provider/extension-host",
 ]
 test-support = [
     "buffer_diff/test-support",
@@ -35,6 +40,8 @@ test-support = [
     "worktree/test-support",
     "gpui/test-support",
     "dap/test-support",
+    "ide-shell",
+    "remote-debug",
 ]
 
 [dependencies]
@@ -52,7 +59,7 @@ collections.workspace = true
 context_server.workspace = true
 credentials_provider.workspace = true
 dap = { workspace = true, optional = true }
-extension.workspace = true
+extension = { workspace = true, optional = true }
 fancy-regex.workspace = true
 fs.workspace = true
 futures.workspace = true
@@ -74,7 +81,7 @@ node_runtime.workspace = true
 parking_lot.workspace = true
 paths.workspace = true
 postage.workspace = true
-prettier.workspace = true
+prettier = { workspace = true, optional = true }
 rand.workspace = true
 regex.workspace = true
 release_channel.workspace = true

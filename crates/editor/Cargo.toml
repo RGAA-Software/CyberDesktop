@@ -166,7 +166,7 @@ derive_refineable = { path = "refineable/derive_refineable" }
 dev_container = { path = "dev_container" }
 diagnostics = { path = "diagnostics" }
 dialoguer = { version = "0.12", default-features = false }
-editor = { path = "editor" }
+editor = { path = "editor", features = ["project-integration", "project-ide-shell", "project-remote-debug"] }
 encoding_selector = { path = "encoding_selector" }
 env_var = { path = "env_var" }
 etw_tracing = { path = "etw_tracing" }

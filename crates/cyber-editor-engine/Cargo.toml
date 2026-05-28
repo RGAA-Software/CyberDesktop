@@ -6,15 +6,11 @@ publish.workspace = true
 description = "Thin glue between CyberEditor and the vendored Zed editor stack"
 license = "GPL-3.0-or-later"
 
-[features]
-default = ["full-editor"]
-full-editor = []
-minimal-editor = []
-
 [dependencies]
 anyhow.workspace = true
 assets.workspace = true
-editor.workspace = true
+# Notepad++ path: no debugger / DAP (project-remote-debug off).
+editor = { workspace = true, default-features = false, features = ["project-integration"] }
 futures-lite.workspace = true
 gpui.workspace = true
 grammars = { workspace = true, features = ["load-grammars"] }

@@ -137,8 +137,10 @@ use code_context_menus::{
 use code_lens::CodeLensState;
 use collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use convert_case::{Case, Casing};
-#[cfg(feature = "network-stack")]
-use dap::TelemetrySpawnLocation;
+#[derive(Clone, Copy, Debug)]
+pub enum TelemetrySpawnLocation {
+    Gutter,
+}
 use display_map::*;
 use document_colors::LspColorData;
 use edit_prediction_types::{
@@ -219,12 +221,6 @@ use project::{
 use rand::seq::SliceRandom;
 use regex::Regex;
 use rpc::{ErrorCode, ErrorExt, proto::PeerId};
-#[cfg(not(feature = "network-stack"))]
-#[derive(Clone, Copy, Debug)]
-pub enum TelemetrySpawnLocation {
-    Gutter,
-}
-
 use scroll::{Autoscroll, OngoingScroll, ScrollAnchor, ScrollManager, SharedScrollAnchor};
 use selections_collection::{MutableSelectionsCollection, SelectionsCollection};
 use serde::{Deserialize, Serialize};
@@ -9932,31 +9928,6 @@ impl Editor {
         let project = project.read(cx);
         let event_type = reported_event.event_type();
 
-        #[cfg(feature = "network-stack")]
-        if let ReportEditorEvent::Saved { auto_saved } = reported_event {
-            telemetry::event!(
-                event_type,
-                type = if auto_saved {"autosave"} else {"manual"},
-                file_extension,
-                vim_mode,
-                copilot_enabled,
-                copilot_enabled_for_language,
-                edit_predictions_provider,
-                is_via_ssh = project.is_via_remote_server(),
-            );
-        } else {
-            telemetry::event!(
-                event_type,
-                file_extension,
-                vim_mode,
-                copilot_enabled,
-                copilot_enabled_for_language,
-                edit_predictions_provider,
-                is_via_ssh = project.is_via_remote_server(),
-            );
-        };
-
-        #[cfg(not(feature = "network-stack"))]
         let _ = (
             event_type,
             file_extension,
@@ -11034,17 +11005,29 @@ impl SemanticsProvider for WeakEntity<Project> {
 
     fn inline_values(
         &self,
-        buffer_handle: Entity<Buffer>,
-        range: Range<text::Anchor>,
-        cx: &mut App,
+        _buffer_handle: Entity<Buffer>,
+        _range: Range<text::Anchor>,
+        _cx: &mut App,
     ) -> Option<Task<anyhow::Result<Vec<InlayHint>>>> {
-        self.update(cx, |project, cx| {
-            let (session, active_stack_frame) = project.active_debug_session(cx)?;
+        #[cfg(feature = "project-remote-debug")]
+        {
+            return self
+                .update(_cx, |project, cx| {
+                    let (session, active_stack_frame) = project.active_debug_session(cx)?;
 
-            Some(project.inline_values(session, active_stack_frame, buffer_handle, range, cx))
-        })
-        .ok()
-        .flatten()
+                    Some(project.inline_values(
+                        session,
+                        active_stack_frame,
+                        _buffer_handle,
+                        _range,
+                        cx,
+                    ))
+                })
+                .ok()
+                .flatten();
+        }
+        #[cfg(not(feature = "project-remote-debug"))]
+        None
     }
 
     fn applicable_inlay_chunks(

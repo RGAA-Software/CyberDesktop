@@ -6,6 +6,15 @@
 
 ## 当前进度（2026-05-28）
 
+- 清理（2026-05-28，已完成）
+  - 删除 `editor` 的 `network-stack` feature 及 `dap`/`telemetry` 可选依赖；移除相关 `#[cfg]` 与 telemetry 调用。
+  - 删除 `cyber-editor-engine` 空 feature（`full-editor` / `minimal-editor`）及无用 `init_full`。
+  - `cybereditor` 路径关闭 `project-remote-debug`（`editor` 不再经 `network-stack` 或 `project/remote-debug` 拉 DAP）；`session_disabled` 补齐 `SessionEvent` / `EventEmitter` / `any_stopped_thread`。
+  - 根 workspace 与 `editor` crate 的 `default` features 为空；`cybereditor` 仅显式 `project-integration`。
+
+- 快速修复（2026-05-28）
+  - `cyber-editor-engine` 不再通过 `editor` 默认 feature 拉起 `network-stack`（此前 feature 并集导致 `editor -> dap/telemetry` 仍进 `cybereditor` 链接图）。
+
 - Phase 1（进行中，约 70%）
   - 已完成：
     - 新增 `crates/ui-editor`，`cybereditor` 已切到该入口。
@@ -33,8 +42,12 @@
     - `cyberfiles-ui/zed-engine` 已切到 `cyber-editor-engine/minimal-editor`，并在 workspace 依赖层统一关闭 engine 默认特性，开始把开关接入真实构建路径。
     - 将 `minimal-editor` 逐步绑定到实际依赖裁剪。
 
-- Phase 4（未开始）
+- Phase 4（进行中）
   - 已完成：
+    - `project` 增加 `ide-shell` feature（`extension` / `prettier` 可选）；`cybereditor` 路径不启用，使用 `*_disabled` 桩模块。
+    - `snippet_provider` 增加 `extension-host` feature，`cybereditor` 路径不拉 `extension` crate。
+    - `cargo tree -p cyberfiles --features zed-engine -i extension` / `-i dap` 已无匹配（DAP/extension 链退出 `cybereditor` 链接图）。
+  - 已完成（历史）：
     - `editor` crate 已引入 `network-stack` feature（默认开启），并将 `client/dap/lsp/rpc/telemetry/url` 标记为可选依赖，为后续按构建目标关闭网络链路做准备。
     - `editor` crate 已引入 `project-integration` feature（默认开启），并将 `project/workspace/breadcrumbs` 标记为可选依赖，为后续从 `cybereditor` 路径关闭工程集成能力做准备。
     - `project` crate 已引入 `remote-debug` feature（默认开启），并将 `dap` 设为可选依赖，建立调试链路分层开关位。

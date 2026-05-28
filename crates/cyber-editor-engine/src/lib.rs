@@ -21,7 +21,6 @@ pub use languages::{
 /// Register globals required before creating an [`Editor`] (settings + base theme + languages).
 pub fn init(cx: &mut App) {
     init_minimal(cx);
-    init_full(cx);
 }
 
 fn init_minimal(cx: &mut App) {
@@ -45,12 +44,6 @@ fn init_minimal(cx: &mut App) {
     })
     .detach();
 }
-
-#[cfg(feature = "full-editor")]
-fn init_full(_cx: &mut App) {}
-
-#[cfg(not(feature = "full-editor"))]
-fn init_full(_cx: &mut App) {}
 
 fn sync_language_registry_theme(cx: &App) {
     language_registry(cx).set_theme(cx.theme().clone());

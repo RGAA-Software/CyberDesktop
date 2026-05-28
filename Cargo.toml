@@ -199,7 +199,7 @@ derive_refineable = { path = "crates/editor/refineable/derive_refineable" }
 dev_container = { path = "crates/editor/dev_container" }
 diagnostics = { path = "crates/editor/diagnostics" }
 dialoguer = { version = "0.12", default-features = false }
-editor = { path = "crates/editor/editor" }
+editor = { path = "crates/editor/editor", default-features = false }
 encoding_selector = { path = "crates/editor/encoding_selector" }
 env_var = { path = "crates/editor/env_var" }
 etw_tracing = { path = "crates/editor/etw_tracing" }

@@ -9,7 +9,7 @@ publish.workspace = true
 default = ["full-app"]
 full-app = []
 editor-shell = []
-zed-engine = ["dep:cyber-editor-engine", "cyber-editor-engine/minimal-editor", "dep:editor", "dep:futures-lite", "dep:language", "dep:multi_buffer", "dep:text", "dep:util"]
+zed-engine = ["dep:cyber-editor-engine", "dep:editor", "dep:futures-lite", "dep:language", "dep:multi_buffer", "dep:text", "dep:util"]
 
 [dependencies]
 anyhow.workspace = true

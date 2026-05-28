@@ -1,3 +1,4 @@
+#[cfg(feature = "extension-host")]
 mod extension_snippet;
 pub mod format;
 mod registry;
@@ -19,6 +20,7 @@ use util::ResultExt;
 
 pub fn init(cx: &mut App) {
     SnippetRegistry::init_global(cx);
+    #[cfg(feature = "extension-host")]
     extension_snippet::init(cx);
 }
 

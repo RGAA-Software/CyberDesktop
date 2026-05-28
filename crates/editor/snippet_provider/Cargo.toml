@@ -9,12 +9,14 @@ license = "GPL-3.0-or-later"
 workspace = true
 
 [features]
-test-support = []
+default = []
+extension-host = ["dep:extension"]
+test-support = ["extension-host"]
 
 [dependencies]
 anyhow.workspace = true
 collections.workspace = true
-extension.workspace = true
+extension = { workspace = true, optional = true }
 fs.workspace = true
 futures.workspace = true
 gpui.workspace = true

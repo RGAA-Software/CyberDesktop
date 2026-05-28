@@ -2,12 +2,22 @@
 mod dap_shim;
 
 pub mod agent_registry_store;
+#[cfg(feature = "ide-shell")]
 pub mod agent_server_store;
+#[cfg(not(feature = "ide-shell"))]
+pub mod agent_server_store_disabled;
+#[cfg(not(feature = "ide-shell"))]
+pub use agent_server_store_disabled as agent_server_store;
 pub mod bookmark_store;
 pub mod buffer_store;
 pub mod color_extractor;
 pub mod connection_manager;
+#[cfg(feature = "ide-shell")]
 pub mod context_server_store;
+#[cfg(not(feature = "ide-shell"))]
+pub mod context_server_store_disabled;
+#[cfg(not(feature = "ide-shell"))]
+pub use context_server_store_disabled as context_server_store;
 pub mod debounced_delay;
 pub mod debugger;
 pub mod git_store;
@@ -15,7 +25,12 @@ pub mod image_store;
 pub mod lsp_command;
 pub mod lsp_store;
 pub mod manifest_tree;
+#[cfg(feature = "ide-shell")]
 pub mod prettier_store;
+#[cfg(not(feature = "ide-shell"))]
+pub mod prettier_store_disabled;
+#[cfg(not(feature = "ide-shell"))]
+pub use prettier_store_disabled as prettier_store;
 pub mod project_search;
 pub mod project_settings;
 pub mod search;
@@ -157,9 +172,9 @@ use worktree_store::{WorktreeStore, WorktreeStoreEvent};
 
 pub use fs::*;
 pub use language::Location;
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(all(any(test, feature = "test-support"), feature = "ide-shell"))]
 pub use prettier::FORMAT_SUFFIX as TEST_PRETTIER_FORMAT_SUFFIX;
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(all(any(test, feature = "test-support"), feature = "ide-shell"))]
 pub use prettier::RANGE_FORMAT_SUFFIX as TEST_PRETTIER_RANGE_FORMAT_SUFFIX;
 pub use task_inventory::{
     BasicContextProvider, ContextProviderWithTasks, DebugScenarioContext, GIT_COMMAND_TASK_TAG,
@@ -1169,6 +1184,7 @@ impl Project {
         ToolchainStore::init(&client);
         DapStore::init(&client, cx);
         BreakpointStore::init(&client);
+        #[cfg(feature = "ide-shell")]
         context_server_store::init(cx);
     }
 
@@ -1316,6 +1332,7 @@ impl Project {
                 )
             });
 
+            #[cfg(feature = "ide-shell")]
             let agent_server_store = cx.new(|cx| {
                 AgentServerStore::local(
                     node.clone(),
@@ -1325,6 +1342,8 @@ impl Project {
                     cx,
                 )
             });
+            #[cfg(not(feature = "ide-shell"))]
+            let agent_server_store = cx.new(|_| AgentServerStore::collab());
 
             cx.subscribe(&lsp_store, Self::on_lsp_store_event).detach();
 
@@ -1544,6 +1563,7 @@ impl Project {
             cx.subscribe(&settings_observer, Self::on_settings_observer_event)
                 .detach();
 
+            #[cfg(feature = "ide-shell")]
             let agent_server_store = cx.new(|_| {
                 AgentServerStore::remote(
                     REMOTE_SERVER_PROJECT_ID,
@@ -1551,6 +1571,8 @@ impl Project {
                     worktree_store.clone(),
                 )
             });
+            #[cfg(not(feature = "ide-shell"))]
+            let agent_server_store = cx.new(|_| AgentServerStore::collab());
 
             cx.subscribe(&remote, Self::on_remote_client_event).detach();
 
@@ -1651,6 +1673,7 @@ impl Project {
             DapStore::init(&remote_proto, cx);
             BreakpointStore::init(&remote_proto);
             GitStore::init(&remote_proto);
+            #[cfg(feature = "ide-shell")]
             AgentServerStore::init_remote(&remote_proto);
 
             this

@@ -13,19 +13,16 @@ path = "src/editor.rs"
 doctest = false
 
 [features]
-default = ["project-integration", "network-stack", "project-remote-debug"]
+# Opt-in per product: cybereditor enables only `project-integration` until Phase 4 removes it.
+default = []
 project-integration = [
     "dep:breadcrumbs",
     "dep:client",
     "dep:project",
     "dep:workspace",
 ]
+project-ide-shell = ["project/ide-shell"]
 project-remote-debug = ["project/remote-debug"]
-network-stack = [
-    "dep:client",
-    "dep:dap",
-    "dep:telemetry",
-]
 test-support = [
     "text/test-support",
     "language/test-support",
@@ -53,7 +50,6 @@ client = { workspace = true, optional = true }
 clock.workspace = true
 collections.workspace = true
 convert_case.workspace = true
-dap = { workspace = true, optional = true }
 db.workspace = true
 buffer_diff.workspace = true
 emojis.workspace = true
@@ -93,7 +89,6 @@ smallvec.workspace = true
 snippet.workspace = true
 sum_tree.workspace = true
 task.workspace = true
-telemetry = { workspace = true, optional = true }
 text.workspace = true
 time.workspace = true
 theme.workspace = true
