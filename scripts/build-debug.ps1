@@ -1,3 +1,13 @@
+# Build all application binaries (debug).
+#   .\scripts\build-debug.ps1
+# Per target:
+#   .\scripts\build-debug-cyberfiles.ps1
+#   .\scripts\build-debug-cybereditor.ps1
+# Or: .\scripts\debug\all.ps1 | cyberfiles.ps1 | cybereditor.ps1
+
+$ErrorActionPreference = "Stop"
+& "$PSScriptRoot\debug\all.ps1"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 # Build CyberEditor (debug).
 # Usage:
 #   .\scripts\build-debug.ps1

@@ -324,6 +324,7 @@ impl EditorHost {
         }
     }
 
+    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn sync_cursor_selection_from_editor<T>(&self, cx: &mut Context<T>) {
         match &self.backend {
             #[cfg(not(feature = "zed-engine"))]

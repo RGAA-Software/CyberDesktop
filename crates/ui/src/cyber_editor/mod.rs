@@ -1,5 +1,6 @@
 mod app_menus;
 mod buffer_model;
+#[cfg(not(feature = "zed-engine"))]
 mod backend;
 mod context_menu;
 mod document;

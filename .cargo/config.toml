@@ -1,3 +1,12 @@
 [alias]
 cybereditor = "build -p cyberfiles --bin cybereditor --features zed-engine"
 cybereditor-run = "run -p cyberfiles --bin cybereditor --features zed-engine"
+
+# tree-sitter (`wasm` feature) and wasmtime both embed the Wasm C API. On MSVC, tree-sitter
+# object files mark those symbols as dllimport while wasmtime provides them statically in
+# .rlib files — link succeeds but MSVC emits many LNK4217 warnings.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/IGNORE:4217"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/IGNORE:4217"]

@@ -118,7 +118,7 @@ impl BlinkManager {
     }
 
     /// Resume blinking after a native modal dialog if it was enabled.
-    pub fn resume_after_native_dialog(&mut self, cx: &mut Context<Self>) {
+    pub fn resume_after_native_dialog(&mut self, _cx: &mut Context<Self>) {
         self.blinking_paused = false;
     }
 

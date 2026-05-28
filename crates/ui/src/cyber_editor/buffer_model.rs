@@ -38,6 +38,7 @@ impl EditorBufferModel {
         self.revision
     }
 
+    #[allow(dead_code)] // legacy ModelEditorBackend; Zed path uses BufferSnapshot instead
     pub(crate) fn text(&self) -> &str {
         &self.text
     }
@@ -54,6 +55,7 @@ impl EditorBufferModel {
         self.cursor
     }
 
+    #[allow(dead_code)] // legacy ModelEditorBackend; Zed path uses BufferSnapshot instead
     pub(crate) fn selected_range(&self) -> std::ops::Range<usize> {
         self.selected_range.clone()
     }

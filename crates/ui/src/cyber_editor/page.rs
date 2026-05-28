@@ -1,4 +1,4 @@
-use std::{cell::Cell, path::{Path, PathBuf}, rc::Rc};
+use std::{cell::Cell, path::PathBuf, rc::Rc};
 
 use gpui::{
     div, prelude::FluentBuilder, App, AppContext, ClickEvent, Context, Entity, FocusHandle,
@@ -319,31 +319,37 @@ impl CyberEditorPage {
         cx.notify();
     }
 
+    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_undo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
         self.editor.undo(window, cx);
     }
 
+    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_redo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
         self.editor.redo(window, cx);
     }
 
+    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_cut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
         self.editor.cut(window, cx);
     }
 
+    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_copy(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
         self.editor.copy(window, cx);
     }
 
+    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_editor_paste(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
         self.editor.paste(window, cx);
     }
 
+    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
     pub(crate) fn run_select_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(feature = "zed-engine")]
         self.editor.select_all(window, cx);
