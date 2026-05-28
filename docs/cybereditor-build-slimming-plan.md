@@ -30,6 +30,7 @@
   - 已完成：
     - `cyber-editor-engine` 已引入 `full-editor` / `minimal-editor` feature 骨架（默认 `full-editor`），为后续能力裁剪提供开关位。
   - 进行中：
+    - `cyberfiles-ui/zed-engine` 已切到 `cyber-editor-engine/minimal-editor`，并在 workspace 依赖层统一关闭 engine 默认特性，开始把开关接入真实构建路径。
     - 将 `minimal-editor` 逐步绑定到实际依赖裁剪。
 
 - Phase 4（未开始）

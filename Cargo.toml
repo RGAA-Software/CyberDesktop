@@ -689,7 +689,7 @@ zeroize = "1.8"
 zstd = "0.11"
 
 
-cyber-editor-engine = { path = "crates/cyber-editor-engine" }
+cyber-editor-engine = { path = "crates/cyber-editor-engine", default-features = false }
 
 [workspace.dependencies.windows]
 version = "0.61"
