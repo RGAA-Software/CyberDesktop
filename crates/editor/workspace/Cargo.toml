@@ -13,6 +13,11 @@ path = "src/workspace.rs"
 doctest = false
 
 [features]
+default = ["collab-runtime"]
+collab-runtime = [
+    "dep:client",
+    "dep:telemetry",
+]
 test-support = [
     "client/test-support",
     "http_client/test-support",
@@ -30,7 +35,7 @@ any_vec.workspace = true
 agent_settings.workspace = true
 anyhow.workspace = true
 async-recursion.workspace = true
-client.workspace = true
+client = { workspace = true, optional = true }
 chrono.workspace = true
 clock.workspace = true
 collections.workspace = true
@@ -61,7 +66,7 @@ smallvec.workspace = true
 sqlez.workspace = true
 strum.workspace = true
 task.workspace = true
-telemetry.workspace = true
+telemetry = { workspace = true, optional = true }
 theme.workspace = true
 theme_settings.workspace = true
 ui.workspace = true

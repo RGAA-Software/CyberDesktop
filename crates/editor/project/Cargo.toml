@@ -19,6 +19,10 @@ required-features = ["test-support"]
 path = "tests/integration/project_tests.rs"
 
 [features]
+default = ["remote-debug"]
+remote-debug = [
+    "dep:dap",
+]
 test-support = [
     "buffer_diff/test-support",
     "client/test-support",
@@ -47,7 +51,7 @@ clock.workspace = true
 collections.workspace = true
 context_server.workspace = true
 credentials_provider.workspace = true
-dap.workspace = true
+dap = { workspace = true, optional = true }
 extension.workspace = true
 fancy-regex.workspace = true
 fs.workspace = true
