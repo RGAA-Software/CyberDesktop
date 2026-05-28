@@ -17,6 +17,7 @@ static CATALOG: OnceLock<ThemeCatalog> = OnceLock::new();
 #[derive(Debug, Clone)]
 pub struct ThemeSetEntry {
     pub id: SharedString,
+    #[cfg(feature = "full-app")]
     pub display_name: SharedString,
     pub light: Arc<ThemeConfig>,
     pub dark: Arc<ThemeConfig>,
@@ -33,10 +34,12 @@ impl ThemeCatalog {
         CATALOG.get_or_init(Self::load_embedded)
     }
 
+    #[cfg(feature = "full-app")]
     pub fn sets(&self) -> impl Iterator<Item = &ThemeSetEntry> {
         self.sets.values()
     }
 
+    #[cfg(feature = "full-app")]
     pub fn sorted_sets(&self) -> Vec<&ThemeSetEntry> {
         let mut sets: Vec<_> = self.sets().collect();
         sets.sort_by(|a, b| {
@@ -51,6 +54,7 @@ impl ThemeCatalog {
         self.sets.get(id)
     }
 
+    #[cfg(feature = "full-app")]
     pub fn normalize_set_id(name: &str) -> SharedString {
         let base = name
             .strip_suffix(" Light")
@@ -120,6 +124,7 @@ impl ThemeSetEntry {
             let id = set_id_for_pair(&family, &dark_name);
             entries.push(Self {
                 id: id.clone().into(),
+                #[cfg(feature = "full-app")]
                 display_name: id.into(),
                 light,
                 dark,
@@ -180,6 +185,7 @@ pub fn install(cx: &mut App) {
 }
 
 /// Apply a theme set for the given appearance mode.
+#[cfg(feature = "full-app")]
 pub fn apply_set(set_id: &str, mode: ThemeMode, cx: &mut App) {
     let catalog = ThemeCatalog::global();
     let set_id = ThemeCatalog::normalize_set_id(set_id).to_string();
@@ -195,6 +201,7 @@ pub fn apply_set(set_id: &str, mode: ThemeMode, cx: &mut App) {
 }
 
 /// Dropdown options: theme set id → display label.
+#[cfg(feature = "full-app")]
 pub fn theme_set_options() -> Vec<(SharedString, SharedString)> {
     ThemeCatalog::global()
         .sorted_sets()
@@ -203,6 +210,7 @@ pub fn theme_set_options() -> Vec<(SharedString, SharedString)> {
         .collect()
 }
 
+#[cfg(feature = "full-app")]
 pub fn current_theme_set_id(cx: &App) -> SharedString {
     ThemeCatalog::normalize_set_id(Theme::global(cx).theme_name().as_ref())
 }

@@ -1,5 +1,6 @@
 #[cfg(feature = "full-app")]
 mod app_state;
+#[cfg(feature = "full-app")]
 mod color_icon;
 mod cyber_editor;
 #[cfg(feature = "full-app")]

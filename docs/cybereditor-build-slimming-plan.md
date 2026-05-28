@@ -4,6 +4,35 @@
 
 范围：仅针对 `cybereditor` 路径；不破坏 `cyberfiles` 主应用现有能力。
 
+## 当前进度（2026-05-28）
+
+- Phase 1（进行中，约 70%）
+  - 已完成：
+    - 新增 `crates/ui-editor`，`cybereditor` 已切到该入口。
+    - `crates/app` 引入 `full-app` / `zed-engine` 分流，`cyberfiles` 与 `cybereditor` 路径解耦。
+    - `cyberfiles-ui` 增加 `full-app` / `editor-shell` 特性，并完成 shell 双路径（full-app 与 editor-shell）初始化。
+    - 修复回归：`find / replace / replace all` 相关弹窗、菜单链路恢复可用。
+    - `theme` 中仅主应用设置链路使用的接口已加 `#[cfg(feature = "full-app")]`，继续压缩 `editor-shell` 编译面。
+  - 进行中：
+    - 继续将仅主应用使用的模块放入 `#[cfg(feature = "full-app")]`，压缩 `editor-shell` 编译面。
+  - 未完成：
+    - `ui-editor` 仍依赖 `cyberfiles-ui`，尚未彻底切离；`cybereditor` 仍会编译到部分 `crates/ui`。
+
+- Phase 2（已开始，预处理）
+  - 已完成：
+    - 梳理 `crates/ui/src/cyber_editor/zed_backend.rs` 中 `project::search::SearchQuery` 与 `workspace::searchable::Direction` 的实际调用面，确认替换边界集中在查找/替换路径。
+  - 进行中：
+    - 准备引入本地轻量方向与查询抽象，逐步替换 `project/workspace` 类型并保持 `find / replace / replace all` 行为一致。
+
+- Phase 3（未开始）
+  - `cyber-editor-engine` 还未引入 `minimal-editor` feature。
+
+- Phase 4（未开始）
+  - `editor` crate 还未进行能力分层 feature 化。
+
+- Phase 5（未开始）
+  - 语言内置集合尚未裁剪。
+
 ---
 
 ## 基线（先记录，再对比）
