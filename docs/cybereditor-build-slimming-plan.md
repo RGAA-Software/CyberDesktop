@@ -37,8 +37,11 @@
   - 已完成：
     - `editor` crate 已引入 `network-stack` feature（默认开启），并将 `client/dap/lsp/rpc/telemetry/url` 标记为可选依赖，为后续按构建目标关闭网络链路做准备。
     - `editor` crate 已引入 `project-integration` feature（默认开启），并将 `project/workspace/breadcrumbs` 标记为可选依赖，为后续从 `cybereditor` 路径关闭工程集成能力做准备。
+    - `project` crate 已引入 `remote-debug` feature（默认开启），并将 `dap` 设为可选依赖，建立调试链路分层开关位。
+    - `workspace` crate 已引入 `collab-runtime` feature（默认开启），并将 `client/telemetry` 设为可选依赖，建立协作运行时分层开关位。
+    - `editor` 依赖 `project/workspace` 已切换为显式 feature 透传（并关闭隐式默认特性），避免后续裁剪时被默认特性回拉。
   - 进行中：
-    - 下一步将尝试在 `cybereditor` 路径同时关闭 `project-integration` 与 `network-stack`，并补齐缺失的 `cfg` 分流。
+    - 下一步将尝试在 `cybereditor` 路径关闭 `project/remote-debug` 与 `workspace/collab-runtime`，并补齐缺失的 `cfg` 分流。
 
 - Phase 5（未开始）
   - 语言内置集合尚未裁剪。
