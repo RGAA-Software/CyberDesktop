@@ -6,7 +6,9 @@ edition.workspace = true
 publish.workspace = true
 
 [features]
-default = []
+default = ["full-app"]
+full-app = []
+editor-shell = []
 zed-engine = ["dep:cyber-editor-engine", "dep:editor", "dep:futures-lite", "dep:language", "dep:multi_buffer", "dep:project", "dep:text", "dep:util", "dep:workspace"]
 
 [dependencies]

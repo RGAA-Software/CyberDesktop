@@ -1,14 +1,54 @@
-use cyberfiles_core::{window_size, APP_NAME};
+use cyberfiles_core::window_size;
+#[cfg(feature = "full-app")]
+use cyberfiles_core::APP_NAME;
 use gpui::{
-    px, size, App, AppContext, Bounds, Focusable, SharedString, Size, Window, WindowBounds,
+    div, px, size, AnyView, App, AppContext, Bounds, Context, Focusable, IntoElement,
+    InteractiveElement, ParentElement, Render, SharedString, Size, Styled, Window, WindowBounds,
     WindowKind, WindowOptions,
 };
 use gpui_component::Root;
 
+#[cfg(feature = "full-app")]
 use super::app_shell::AppShell;
+#[cfg(feature = "full-app")]
 use crate::app_state::AppNavigation;
 use crate::title_bar::TitleBar;
 
+#[cfg(not(feature = "full-app"))]
+struct EditorShell {
+    view: AnyView,
+}
+
+#[cfg(not(feature = "full-app"))]
+impl EditorShell {
+    fn new(view: impl Into<AnyView>) -> Self {
+        Self { view: view.into() }
+    }
+}
+
+#[cfg(not(feature = "full-app"))]
+impl Render for EditorShell {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let sheet_layer = Root::render_sheet_layer(window, cx);
+        let dialog_layer = Root::render_dialog_layer(window, cx);
+        let notification_layer = Root::render_notification_layer(window, cx);
+
+        div()
+            .id("editor-shell")
+            .size_full()
+            .child(
+                div()
+                    .id("editor-shell-main")
+                    .size_full()
+                    .child(self.view.clone()),
+            )
+            .children(sheet_layer)
+            .children(dialog_layer)
+            .children(notification_layer)
+    }
+}
+
+#[cfg(feature = "full-app")]
 pub fn open_main_window<F, E>(crate_view_fn: F, cx: &mut App)
 where
     E: Into<gpui::AnyView>,
@@ -68,6 +108,9 @@ pub fn open_window_with_close_handler<F, E, C>(
                     window.on_window_should_close(cx, on_should_close);
                 }
                 let view = crate_view_fn(window, cx);
+
+                #[cfg(feature = "full-app")]
+                {
                 let shell = cx.new(|cx| AppShell::new(view, window, cx));
 
                 window.defer(cx, move |window, cx| {
@@ -79,6 +122,12 @@ pub fn open_window_with_close_handler<F, E, C>(
                 });
 
                 cx.new(|cx| Root::new(shell, window, cx))
+                }
+                #[cfg(not(feature = "full-app"))]
+                {
+                    let shell = cx.new(|_| EditorShell::new(view));
+                    cx.new(|cx| Root::new(shell, window, cx))
+                }
             })
             .expect("failed to open window");
 

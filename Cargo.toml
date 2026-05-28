@@ -100,7 +100,8 @@ members = [
     "crates/editor/ztracing_macro",
     "crates/fs",
     "crates/platform-windows",
-    "crates/ui"
+    "crates/ui",
+    "crates/ui-editor"
 ]
 default-members = ["crates/app"]
 resolver = "2"
@@ -116,7 +117,8 @@ cyberfiles-commands = { path = "crates/commands" }
 cyberfiles-core = { path = "crates/core" }
 cyberfiles-fs = { path = "crates/fs" }
 cyberfiles-platform-windows = { path = "crates/platform-windows" }
-cyberfiles-ui = { path = "crates/ui" }
+cyberfiles-ui = { path = "crates/ui", default-features = false }
+cyberfiles-ui-editor = { path = "crates/ui-editor" }
 
 # zed-industries/zed
 gpui = { git = "https://github.com/zed-industries/zed" }

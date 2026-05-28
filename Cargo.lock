@@ -2081,6 +2081,7 @@ name = "cyberfiles"
 version = "0.1.0"
 dependencies = [
  "cyberfiles-ui",
+ "cyberfiles-ui-editor",
  "embed-resource",
  "gpui_platform",
 ]
@@ -2169,6 +2170,14 @@ dependencies = [
  "text",
  "util 0.1.0",
  "workspace",
+]
+
+[[package]]
+name = "cyberfiles-ui-editor"
+version = "0.1.0"
+dependencies = [
+ "cyberfiles-ui",
+ "gpui",
 ]
 
 [[package]]
