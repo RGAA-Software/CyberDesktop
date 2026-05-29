@@ -48,6 +48,8 @@ pub struct EngineEditor {
     /// Widest shaped line seen in the last painted viewport — the horizontal
     /// scroll extent (measuring only visible lines keeps this O(viewport)).
     pub(crate) content_width: Pixels,
+    /// Reserve bottom space for the horizontal scrollbar lane (sticky across frames).
+    pub(crate) reserve_hscrollbar_lane: bool,
     pub(crate) last_bounds: Option<Bounds<Pixels>>,
     pub(crate) visible: Vec<VisibleLine>,
     /// Soft (word) wrap. When on, long lines wrap to the viewport width, there is
@@ -118,6 +120,7 @@ impl EngineEditor {
             scroll_y: px(0.0),
             scroll_x: px(0.0),
             content_width: px(0.0),
+            reserve_hscrollbar_lane: false,
             last_bounds: None,
             visible: Vec::new(),
             soft_wrap: false,

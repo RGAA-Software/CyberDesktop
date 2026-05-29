@@ -18,9 +18,14 @@ pub(crate) fn paint(
     window: &mut Window,
     cx: &mut App,
 ) {
-        let (focus_handle, line_height, gutter_width) = {
+        let (focus_handle, line_height, gutter_width, bottom_inset) = {
             let e = canvas.editor.read(cx);
-            (e.focus_handle.clone(), e.line_height, e.gutter_width)
+            (
+                e.focus_handle.clone(),
+                e.line_height,
+                e.gutter_width,
+                e.editor_bottom_inset(),
+            )
         };
 
         window.handle_input(
@@ -34,7 +39,7 @@ pub(crate) fn paint(
         let content_mask = gpui::ContentMask {
             bounds: Bounds::from_corners(
                 point(bounds.left() + gutter_width, bounds.top()),
-                point(bounds.right(), bounds.bottom()),
+                point(bounds.right(), bounds.bottom() - bottom_inset),
             ),
         };
         window.with_content_mask(Some(content_mask), |window| {
@@ -66,16 +71,24 @@ pub(crate) fn paint(
             }
         });
 
-        for (top, shaped) in &prepaint.gutter {
-            let _ = shaped.paint(
-                point(prepaint.gutter_left, *top),
-                line_height,
-                gpui::TextAlign::Left,
-                None,
-                window,
-                cx,
-            );
-        }
+        let gutter_mask = gpui::ContentMask {
+            bounds: Bounds::from_corners(
+                point(bounds.left(), bounds.top()),
+                point(bounds.left() + gutter_width, bounds.bottom() - bottom_inset),
+            ),
+        };
+        window.with_content_mask(Some(gutter_mask), |window| {
+            for (top, shaped) in &prepaint.gutter {
+                let _ = shaped.paint(
+                    point(prepaint.gutter_left, *top),
+                    line_height,
+                    gpui::TextAlign::Left,
+                    None,
+                    window,
+                    cx,
+                );
+            }
+        });
 
         let visible: Vec<VisibleLine> = prepaint
             .rows

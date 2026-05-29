@@ -59,7 +59,7 @@ impl EngineEditor {
         panel.scope_path = scope_path;
         if let Some(text) = seed {
             let query = panel.query.clone();
-            query.update(cx, |s, cx| s.set_value(text, window, cx));
+            Self::seed_find_input(&query, text, window, cx);
         }
     }
 

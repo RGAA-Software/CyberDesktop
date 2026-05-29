@@ -49,7 +49,6 @@ impl Render for EngineEditor {
             .child(title_bar)
             .child(tab_bar)
             .children(disk_banner)
-            .child(header)
             .child(
                 div()
                     .track_focus(&focus)
@@ -85,11 +84,7 @@ impl Render for EngineEditor {
                         this.open_find(true, window, cx)
                     }))
                     .on_action(cx.listener(|this, _: &ReplaceAllText, window, cx| {
-                        if this.find.is_some() {
-                            this.do_replace_all(cx);
-                        } else {
-                            this.open_find(true, window, cx);
-                        }
+                        this.open_find(true, window, cx);
                     }))
                     .on_action(cx.listener(|this, _: &FindNext, _w, cx| this.do_find(true, cx)))
                     .on_action(cx.listener(|this, _: &FindPrevious, _w, cx| this.do_find(false, cx)))
@@ -130,5 +125,6 @@ impl Render for EngineEditor {
                     .children(close_confirm)
                     .children(recent),
             )
+            .child(header)
     }
 }

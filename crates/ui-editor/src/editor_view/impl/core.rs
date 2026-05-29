@@ -42,6 +42,7 @@ impl EngineEditor {
         let Some(b) = self.last_bounds else {
             return;
         };
+        let viewport_h = b.size.height - self.editor_bottom_inset();
         let line = self
             .document
             .buffer()
@@ -63,8 +64,8 @@ impl EngineEditor {
         let bottom = top + self.line_height;
         if top < self.scroll_y {
             self.scroll_y = top;
-        } else if bottom > self.scroll_y + b.size.height {
-            self.scroll_y = bottom - b.size.height;
+        } else if bottom > self.scroll_y + viewport_h {
+            self.scroll_y = bottom - viewport_h;
         }
     }
 

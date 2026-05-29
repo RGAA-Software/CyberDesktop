@@ -91,11 +91,14 @@ impl Element for EditorCanvas {
             } else {
                 gpui::px(8.0)
             };
-            let total = e.line_height * line_count as f32;
-            let max = (total - bounds.size.height).max(gpui::px(0.0));
-            if e.scroll_y > max {
-                e.scroll_y = max;
-            }
+            let lane_inset = e.editor_bottom_inset();
+            e.scroll_y = super::super::EngineEditor::clamp_scroll_y_for_lane(
+                e.scroll_y,
+                e.line_height,
+                line_count,
+                bounds.size.height,
+                lane_inset,
+            );
         });
 
         let style = window.text_style();

@@ -7,6 +7,7 @@ use gpui::{
 };
 
 use super::element::{CanvasPrepaint, EditorCanvas, VisibleRow};
+use super::super::editor::EngineEditor;
 use super::super::text_util::char_to_byte;
 use super::syntax_paint::{build_runs, occurrence_word, word_occurrences};
 
@@ -35,6 +36,13 @@ pub(crate) fn prepaint_normal(
         // Resolve horizontal caret reveal up front (needs glyph metrics): shape
         // just the caret's line to find its x, then nudge `scroll_x`.
         let view_w = (bounds.size.width - gutter_width - px(14.0)).max(px(0.0));
+        let bottom_inset = if editor.needs_hscrollbar_lane(view_w) {
+            EngineEditor::HSCROLLBAR_HEIGHT
+        } else {
+            px(0.0)
+        };
+        let viewport_h = (bounds.size.height - bottom_inset).max(px(0.0));
+        let content_bottom = bounds.bottom() - bottom_inset;
         let mut scroll_x = editor.scroll_x;
         if editor.reveal_caret {
             let cpos = buf.char_to_position(primary.head);
@@ -67,7 +75,7 @@ pub(crate) fn prepaint_normal(
         let gutter_left = bounds.left() + px(4.0);
 
         let first_line = (f32::from(scroll_y) / f32::from(line_height)).floor() as usize;
-        let visible_count = (f32::from(bounds.size.height) / f32::from(line_height)).ceil() as usize + 2;
+        let visible_count = (f32::from(viewport_h) / f32::from(line_height)).ceil() as usize + 2;
         let last_line = (first_line + visible_count).min(line_count);
 
         let mut rows = Vec::new();
@@ -79,6 +87,11 @@ pub(crate) fn prepaint_normal(
 
         for line in first_line..last_line {
             let top = bounds.top() + line_height * line as f32 - scroll_y;
+            // Skip lines fully below the text lane (keep the line that ends at
+            // `content_bottom`; strict `>` was dropping the last row at scroll end).
+            if top >= content_bottom {
+                break;
+            }
             let line_start_char = buf.position_to_char(Position::new(line, 0));
             let line_text = buf.line_text(line);
             let line_char_len = buf.line_len_chars(line);
@@ -171,10 +184,25 @@ pub(crate) fn prepaint_normal(
 
         // Add one character of right padding so the caret at line end is visible.
         let content_w = content_w + line_height * 0.6;
+
         // End the read borrow before mutating the entity.
         let _ = (buf, &editor);
         canvas.editor.update(cx, |e, _| {
             e.content_width = content_w;
+            e.reserve_hscrollbar_lane =
+                !e.soft_wrap && (content_w > view_w || e.scroll_x > px(0.0));
+            let lane_inset = if e.reserve_hscrollbar_lane {
+                EngineEditor::HSCROLLBAR_HEIGHT
+            } else {
+                px(0.0)
+            };
+            e.scroll_y = EngineEditor::clamp_scroll_y_for_lane(
+                e.scroll_y,
+                e.line_height,
+                line_count,
+                bounds.size.height,
+                lane_inset,
+            );
             let max_x = (content_w - view_w).max(px(0.0));
             e.scroll_x = scroll_x.min(max_x).max(px(0.0));
             e.reveal_caret = false;

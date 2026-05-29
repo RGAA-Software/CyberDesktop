@@ -1,8 +1,27 @@
 //! `EngineEditor` — `find`.
 
 use super::super::imports::*;
+use gpui_component::input::Position as InputPosition;
 
 impl EngineEditor {
+    /// Seeds a single-line find/replace field and places the caret after the text.
+    pub(crate) fn seed_find_input(
+        input: &Entity<InputState>,
+        text: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let col = text.chars().count() as u32;
+        input.update(cx, |state, cx| {
+            state.set_value(text, window, cx);
+            if col > 0 {
+                state.set_cursor_position(InputPosition::new(0, col), window, cx);
+            } else {
+                state.focus(window, cx);
+            }
+        });
+    }
+
     pub(crate) fn open_find(&mut self, replace_mode: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.search_panel = None;
         self.goto = None;
@@ -22,16 +41,17 @@ impl EngineEditor {
                 find.replace_mode = replace_mode || find.replace_mode;
                 if let Some(seed) = seed {
                     let query = find.query.clone();
-                    query.update(cx, |s, cx| s.set_value(seed, window, cx));
+                    Self::seed_find_input(&query, seed, window, cx);
+                } else {
+                    find.query.update(cx, |s, cx| s.focus(window, cx));
                 }
-                find.query.update(cx, |s, cx| s.focus(window, cx));
             }
             None => {
                 let initial = seed.unwrap_or_default();
                 let query = cx.new(|cx| {
                     InputState::new(window, cx)
                         .placeholder("Find")
-                        .default_value(initial)
+                        .default_value(String::new())
                 });
                 let replace =
                     cx.new(|cx| InputState::new(window, cx).placeholder("Replace with"));
@@ -46,7 +66,7 @@ impl EngineEditor {
                         this.do_replace(cx);
                     }
                 }));
-                query.update(cx, |s, cx| s.focus(window, cx));
+                Self::seed_find_input(&query, initial, window, cx);
                 self.find = Some(FindState {
                     query,
                     replace,

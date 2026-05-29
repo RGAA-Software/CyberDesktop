@@ -32,6 +32,7 @@ pub(crate) fn prepaint_wrapped(
         let syntax = &editor.syntax;
 
         let view_w = (bounds.size.width - gutter_width - px(14.0)).max(px(0.0));
+        let content_bottom = bounds.bottom();
         let content_left = bounds.left() + gutter_width;
         let gutter_left = bounds.left() + px(4.0);
 
@@ -74,7 +75,7 @@ pub(crate) fn prepaint_wrapped(
         let mut y = bounds.top() - off;
         let mut line = top_line;
         let mut bottom_line = top_line;
-        while y < bounds.bottom() && line < line_count {
+        while y < content_bottom && line < line_count {
             let line_start_char = buf.position_to_char(Position::new(line, 0));
             let line_text = buf.line_text(line);
             let line_char_len = buf.line_len_chars(line);

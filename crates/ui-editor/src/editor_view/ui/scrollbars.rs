@@ -3,6 +3,63 @@
 use super::super::imports::*;
 
 impl EngineEditor {
+    /// Height reserved at the bottom when the horizontal scrollbar is shown.
+    pub(crate) const HSCROLLBAR_HEIGHT: Pixels = px(12.0);
+
+    /// True when a horizontal scrollbar is painted (non-wrap mode, content wider than viewport).
+    pub(crate) fn shows_hscrollbar(&self) -> bool {
+        if self.soft_wrap {
+            return false;
+        }
+        let Some(bounds) = self.last_bounds else {
+            return false;
+        };
+        let track = (bounds.size.width - self.gutter_width - px(14.0)).max(px(0.0));
+        self.content_width > track
+    }
+
+    /// Whether the bottom lane for the horizontal scrollbar should be reserved this frame.
+    pub(crate) fn needs_hscrollbar_lane(&self, view_w: Pixels) -> bool {
+        if self.soft_wrap {
+            return false;
+        }
+        self.reserve_hscrollbar_lane
+            || self.scroll_x > px(0.0)
+            || self.content_width > view_w
+    }
+
+    /// Bottom padding so the last line is not covered by the horizontal scrollbar.
+    pub(crate) fn editor_bottom_inset(&self) -> Pixels {
+        let view_w = self.view_width();
+        if self.needs_hscrollbar_lane(view_w) {
+            Self::HSCROLLBAR_HEIGHT
+        } else {
+            px(0.0)
+        }
+    }
+
+    /// Clamps vertical scroll; when the horizontal scrollbar lane appears, nudges
+    /// scroll to the new bottom so the last document line stays visible.
+    pub(crate) fn clamp_scroll_y_for_lane(
+        scroll_y: Pixels,
+        line_height: Pixels,
+        line_count: usize,
+        bounds_height: Pixels,
+        lane_inset: Pixels,
+    ) -> Pixels {
+        let total = line_height * line_count as f32;
+        let viewport_h = (bounds_height - lane_inset).max(px(0.0));
+        let max_scroll = (total - viewport_h).max(px(0.0));
+        let full_max = (total - bounds_height).max(px(0.0));
+        let mut y = scroll_y;
+        if lane_inset > px(0.0) && y >= full_max - px(1.0) {
+            y = max_scroll;
+        } else if y > max_scroll {
+            y = max_scroll;
+        }
+        y
+    }
+
     pub(crate) fn max_scroll_x(&self) -> Pixels {
         let Some(b) = self.last_bounds else {
             return px(0.0);
