@@ -90,6 +90,7 @@ impl EngineEditor {
             ("Add next occurrence", "Ctrl+D"),
             ("Add caret (mouse)", "Alt+Click"),
             ("Select word / line", "Double / Triple click"),
+            ("Page up / down", "PageUp / PageDown"),
             ("View", ""),
             ("Word wrap", "Menu: View → Word Wrap"),
             ("Line numbers", "Menu: View → Line Numbers"),

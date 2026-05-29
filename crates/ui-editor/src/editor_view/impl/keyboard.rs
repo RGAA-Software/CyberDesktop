@@ -117,6 +117,14 @@ impl EngineEditor {
                 self.move_vertical(1, shift);
                 return self.changed(cx);
             }
+            "pageup" => {
+                self.page_vertical(-1, shift);
+                return self.changed(cx);
+            }
+            "pagedown" => {
+                self.page_vertical(1, shift);
+                return self.changed(cx);
+            }
             "home" => {
                 self.move_home(shift);
                 return self.changed(cx);
