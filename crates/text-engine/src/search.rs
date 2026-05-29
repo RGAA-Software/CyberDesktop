@@ -1,10 +1,8 @@
 //! In-buffer search and replace (literal or regex, case / whole-word options).
 //!
-//! Search is line-scoped: each rope line is searched independently. This keeps
-//! memory bounded (we only materialize one short line at a time, never the whole
-//! file) and matches Notepad++'s default behaviour where patterns do not span
-//! line breaks. `find_next` / `find_prev` scan lazily and stop at the first hit,
-//! so they stay fast even on huge files.
+//! Matches are line-scoped (patterns do not span `\n`/`\r`), matching Notepad++.
+//! Find / Count scan the rope in UTF-8 byte chunks via [`crate::rope_scan`] instead
+//! of materializing every line.
 
 use std::borrow::Cow;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -66,7 +64,7 @@ pub struct Match {
 pub struct Searcher {
     regex: Regex,
     bytes_regex: BytesRegex,
-    /// Plain substring (`!regex && !whole_word`): uses `str::find` / `rfind` per line.
+    /// Plain substring (`!regex && !whole_word`): memmem fast path when case-sensitive.
     literal: Option<Box<str>>,
     case_sensitive: bool,
 }
@@ -107,35 +105,43 @@ impl Searcher {
         }
     }
 
-    /// Fast path: scan rope bytes (Scintilla-style) instead of one line per step.
-    fn find_next_literal_rope(
+    fn case_sensitive_literal(&self) -> bool {
+        self.literal.is_some() && self.case_sensitive
+    }
+
+    fn rope_needle(&self) -> &[u8] {
+        self.literal
+            .as_deref()
+            .map(str::as_bytes)
+            .unwrap_or(&[])
+    }
+
+    fn find_next_rope(
         &self,
         buffer: &TextBuffer,
         from_char: usize,
         limit_start_char: usize,
     ) -> Option<Match> {
-        let lit = self.literal.as_deref()?;
         let from_byte = buffer.char_to_byte(from_char);
         let limit = buffer.char_to_byte(limit_start_char);
         let hit = rope_scan::find_forward(
             buffer.rope(),
-            lit.as_bytes(),
+            self.rope_needle(),
             &self.bytes_regex,
-            self.case_sensitive,
+            self.case_sensitive_literal(),
             from_byte,
             limit,
         )?;
         Some(self.byte_match(buffer, hit.0, hit.1))
     }
 
-    fn find_prev_literal_rope(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
-        let lit = self.literal.as_deref()?;
+    fn find_prev_rope(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
         let to_byte = buffer.char_to_byte(from_char);
         let hit = rope_scan::find_backward(
             buffer.rope(),
-            lit.as_bytes(),
+            self.rope_needle(),
             &self.bytes_regex,
-            self.case_sensitive,
+            self.case_sensitive_literal(),
             to_byte,
         )?;
         Some(self.byte_match(buffer, hit.0, hit.1))
@@ -149,58 +155,11 @@ impl Searcher {
 
     /// Forward search from `from_char` without wrapping to the start of the file.
     pub fn find_next_no_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
-        if self.literal.is_some() {
-            return self.find_next_literal_rope(buffer, from_char, usize::MAX);
-        }
-        let rope = buffer.rope();
-        let total = rope.len_chars();
-        let from = from_char.min(total);
-        let line_count = rope.len_lines();
-        let start_line = rope.char_to_line(from);
-
-        for line in start_line..line_count {
-            let line_start = rope.line_to_char(line);
-            if line == start_line && from <= line_start && buffer.line_len_chars(line) == 0 {
-                continue;
-            }
-            let body = line_body(buffer, line);
-            let from_byte = if line == start_line {
-                char_to_byte(body.as_ref(), from.saturating_sub(line_start))
-            } else {
-                0
-            };
-            if let Some((start, end)) = self.find_forward_in_line(body.as_ref(), from_byte) {
-                return Some(to_match(body.as_ref(), line_start, start, end));
-            }
-        }
-        None
+        self.find_next_rope(buffer, from_char, usize::MAX)
     }
 
     pub fn find_next_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
-        if self.literal.is_some() {
-            return self.find_next_literal_rope(buffer, 0, from_char);
-        }
-        let rope = buffer.rope();
-        let total = rope.len_chars();
-        let from = from_char.min(total);
-        let line_count = rope.len_lines();
-        let start_line = rope.char_to_line(from);
-
-        for line in 0..=start_line.min(line_count.saturating_sub(1)) {
-            let line_start = rope.line_to_char(line);
-            let body = line_body(buffer, line);
-            let limit_byte = if line == start_line {
-                char_to_byte(body.as_ref(), from.saturating_sub(line_start))
-            } else {
-                body.len()
-            };
-            if let Some((start, end)) = self.find_forward_in_line(body.as_ref(), 0) {
-                if line < start_line || start < limit_byte {
-                    return Some(to_match(body.as_ref(), line_start, start, end));
-                }
-            }
-        }
-        None
+        self.find_next_rope(buffer, 0, from_char)
     }
 
     /// Finds the last match before `from_char`, wrapping around the start.
@@ -211,116 +170,29 @@ impl Searcher {
 
     /// Backward search from `from_char` without wrapping to the end of the file.
     pub fn find_prev_no_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
-        if self.literal.is_some() {
-            return self.find_prev_literal_rope(buffer, from_char);
-        }
-        let rope = buffer.rope();
-        let total = rope.len_chars();
-        let from = from_char.min(total);
-        let line_count = rope.len_lines();
-        let start_line = rope.char_to_line(from);
-
-        for line in (0..=start_line.min(line_count.saturating_sub(1))).rev() {
-            let line_start = rope.line_to_char(line);
-            let body = line_body(buffer, line);
-            let limit_byte = if line == start_line {
-                char_to_byte(body.as_ref(), from.saturating_sub(line_start))
-            } else {
-                body.len()
-            };
-            if let Some((start, end)) = self.find_backward_in_line(body.as_ref(), limit_byte) {
-                return Some(to_match(body.as_ref(), line_start, start, end));
-            }
-        }
-        None
+        self.find_prev_rope(buffer, from_char)
     }
 
     pub fn find_prev_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
-        if self.literal.is_some() {
-            let total = buffer.rope().len_chars();
-            return self.find_prev_literal_rope(buffer, total);
-        }
-        let rope = buffer.rope();
-        let total = rope.len_chars();
-        let from = from_char.min(total);
-        let line_count = rope.len_lines();
-        let start_line = rope.char_to_line(from);
-
-        for line in (start_line..line_count).rev() {
-            let line_start = rope.line_to_char(line);
-            let body = line_body(buffer, line);
-            if line == start_line {
-                let limit_byte = char_to_byte(body.as_ref(), from.saturating_sub(line_start));
-                if let Some((start, end)) = self.find_backward_in_line(body.as_ref(), body.len()) {
-                    if start >= limit_byte {
-                        return Some(to_match(body.as_ref(), line_start, start, end));
-                    }
-                }
-            } else if let Some((start, end)) =
-                self.find_backward_in_line(body.as_ref(), body.len())
-            {
-                return Some(to_match(body.as_ref(), line_start, start, end));
-            }
-        }
-        None
-    }
-
-    fn find_forward_in_line(&self, line: &str, from_byte: usize) -> Option<(usize, usize)> {
-        let from_byte = from_byte.min(line.len());
-        if let Some(lit) = &self.literal {
-            if self.case_sensitive {
-                let hay = &line[from_byte..];
-                if !hay.contains(lit.as_ref()) {
-                    return None;
-                }
-                let start = from_byte + hay.find(lit.as_ref())?;
-                return Some((start, start + lit.len()));
-            }
-        }
-        self.regex
-            .find_at(line, from_byte)
-            .map(|m| (m.start(), m.end()))
-    }
-
-    fn find_backward_in_line(&self, line: &str, limit_byte: usize) -> Option<(usize, usize)> {
-        let limit_byte = limit_byte.min(line.len());
-        if limit_byte == 0 {
-            return None;
-        }
-        if let Some(lit) = &self.literal {
-            if self.case_sensitive {
-                let hay = &line[..limit_byte];
-                if !hay.contains(lit.as_ref()) {
-                    return None;
-                }
-                let start = hay.rfind(lit.as_ref())?;
-                return Some((start, start + lit.len()));
-            }
-        }
-        self.regex
-            .find_iter(line)
-            .take_while(|m| m.start() < limit_byte)
-            .last()
-            .map(|m| (m.start(), m.end()))
+        let from_byte = buffer.char_to_byte(from_char);
+        let hit = rope_scan::find_last_from(
+            buffer.rope(),
+            self.rope_needle(),
+            &self.bytes_regex,
+            self.case_sensitive_literal(),
+            from_byte,
+        )?;
+        Some(self.byte_match(buffer, hit.0, hit.1))
     }
 
     /// Counts all matches in the buffer.
     pub fn count(&self, buffer: &TextBuffer) -> usize {
-        if let Some(lit) = self.literal.as_deref() {
-            return rope_scan::count_all(
-                buffer.rope(),
-                lit.as_bytes(),
-                &self.bytes_regex,
-                self.case_sensitive,
-            );
-        }
-        let rope = buffer.rope();
-        let mut total = 0;
-        for line in 0..rope.len_lines() {
-            let body = line_body(buffer, line);
-            total += self.regex.find_iter(body.as_ref()).count();
-        }
-        total
+        rope_scan::count_all(
+            buffer.rope(),
+            self.rope_needle(),
+            &self.bytes_regex,
+            self.case_sensitive_literal(),
+        )
     }
 
     /// Single-pass count of all matches plus the 1-based index of the match that
@@ -468,13 +340,6 @@ fn trim_line_ending_owned(mut s: String) -> String {
     s
 }
 
-fn char_to_byte(s: &str, char_idx: usize) -> usize {
-    s.char_indices()
-        .nth(char_idx)
-        .map(|(b, _)| b)
-        .unwrap_or(s.len())
-}
-
 fn byte_to_char(s: &str, byte_idx: usize) -> usize {
     s[..byte_idx.min(s.len())].chars().count()
 }
@@ -605,5 +470,32 @@ mod tests {
         assert_eq!((m.start, m.end), (8, 11));
         let m2 = s.find_prev(&buf, m.start).unwrap();
         assert_eq!((m2.start, m2.end), (4, 7));
+    }
+
+    #[test]
+    fn regex_count_many_lines() {
+        let mut text = String::new();
+        for _ in 0..20_000 {
+            text.push_str("x\n");
+        }
+        text.push_str("a1\na2\n");
+        let buf = TextBuffer::from_str(&text);
+        let opts = SearchOptions {
+            regex: true,
+            ..Default::default()
+        };
+        let s = Searcher::new(r"a\d", opts).unwrap();
+        assert_eq!(s.count(&buf), 2);
+        let m = s.find_next_no_wrap(&buf, 0).unwrap();
+        assert_eq!(buf.slice_text(m.start..m.end), "a1");
+    }
+
+    #[test]
+    fn find_prev_wrap_suffix() {
+        let buf = TextBuffer::from_str("foo bar foo");
+        let s = Searcher::new("foo", SearchOptions::default()).unwrap();
+        // Before first "foo": wrap searches tail and finds last "foo"
+        let m = s.find_prev(&buf, 0).unwrap();
+        assert_eq!((m.start, m.end), (8, 11));
     }
 }

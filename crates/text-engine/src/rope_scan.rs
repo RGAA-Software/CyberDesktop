@@ -7,7 +7,22 @@ use memchr::memmem::Finder;
 use regex::bytes::Regex as BytesRegex;
 use ropey::Rope;
 
-/// First `needle` at/after `from_byte` (match start must be `< limit_start`).
+/// Bytes retained between rope chunks so regex / case-insensitive matches split at boundaries are not lost.
+pub const PATTERN_CHUNK_OVERLAP: usize = 255;
+
+fn overlap_bytes(needle: &[u8], case_sensitive_literal: bool) -> usize {
+    if case_sensitive_literal {
+        needle.len().saturating_sub(1)
+    } else if needle.is_empty() {
+        PATTERN_CHUNK_OVERLAP
+    } else {
+        needle.len().saturating_sub(1).max(PATTERN_CHUNK_OVERLAP)
+    }
+}
+
+/// First match at/after `from_byte` (match start must be `< limit_start`).
+///
+/// `case_sensitive_literal`: memmem on `needle`. Otherwise `bytes_pat` (regex, whole-word, or CI literal).
 pub fn find_forward(
     rope: &Rope,
     needle: &[u8],
@@ -16,14 +31,14 @@ pub fn find_forward(
     from_byte: usize,
     limit_start: usize,
 ) -> Option<(usize, usize)> {
-    if needle.is_empty() {
+    if case_sensitive_literal && needle.is_empty() {
         return None;
     }
     let total = rope.len_bytes();
     if from_byte >= total {
         return None;
     }
-    let overlap = needle.len().saturating_sub(1);
+    let overlap = overlap_bytes(needle, case_sensitive_literal);
     if case_sensitive_literal {
         let finder = Finder::new(needle);
         scan(rope, from_byte, total, overlap, |window, window_lo| {
@@ -61,11 +76,11 @@ pub fn find_backward(
     case_sensitive_literal: bool,
     to_byte: usize,
 ) -> Option<(usize, usize)> {
-    if needle.is_empty() || to_byte == 0 {
+    if to_byte == 0 || (case_sensitive_literal && needle.is_empty()) {
         return None;
     }
     let to_byte = to_byte.min(rope.len_bytes());
-    let overlap = needle.len().saturating_sub(1);
+    let overlap = overlap_bytes(needle, case_sensitive_literal);
     let mut last = None;
     if case_sensitive_literal {
         let finder = Finder::new(needle);
@@ -94,6 +109,56 @@ pub fn find_backward(
     last
 }
 
+/// Last match with `start >= from_byte` and `end <= to_byte` (wrap segment after the cursor).
+pub fn find_last_from(
+    rope: &Rope,
+    needle: &[u8],
+    bytes_pat: &BytesRegex,
+    case_sensitive_literal: bool,
+    from_byte: usize,
+) -> Option<(usize, usize)> {
+    if case_sensitive_literal && needle.is_empty() {
+        return None;
+    }
+    let to_byte = rope.len_bytes();
+    if from_byte >= to_byte {
+        return None;
+    }
+    let overlap = overlap_bytes(needle, case_sensitive_literal);
+    let mut last = None;
+    if case_sensitive_literal {
+        let finder = Finder::new(needle);
+        scan(rope, from_byte, to_byte, overlap, |window, window_lo| {
+            for rel in finder.find_iter(window) {
+                let start = window_lo + rel;
+                let end = start + needle.len();
+                if start >= from_byte
+                    && end <= to_byte
+                    && valid_line_match(window, rel, needle.len())
+                {
+                    last = Some((start, end));
+                }
+            }
+            None
+        });
+    } else {
+        scan(rope, from_byte, to_byte, overlap, |window, window_lo| {
+            for m in bytes_pat.find_iter(window) {
+                let start = window_lo + m.start();
+                let end = window_lo + m.end();
+                if start >= from_byte
+                    && end <= to_byte
+                    && valid_line_match(window, m.start(), m.len())
+                {
+                    last = Some((start, end));
+                }
+            }
+            None
+        });
+    }
+    last
+}
+
 fn valid_line_match(window: &[u8], rel_start: usize, len: usize) -> bool {
     window[rel_start..rel_start + len]
         .iter()
@@ -107,19 +172,14 @@ pub fn count_all(
     bytes_pat: &BytesRegex,
     case_sensitive_literal: bool,
 ) -> usize {
-    if needle.is_empty() {
+    if case_sensitive_literal && needle.is_empty() {
         return 0;
     }
     let total_bytes = rope.len_bytes();
     if total_bytes == 0 {
         return 0;
     }
-    let overlap = if case_sensitive_literal {
-        needle.len().saturating_sub(1)
-    } else {
-        // Regex / case-insensitive: stitch enough bytes for matches split across chunks.
-        needle.len().saturating_sub(1).max(255)
-    };
+    let overlap = overlap_bytes(needle, case_sensitive_literal);
     let finder = case_sensitive_literal.then(|| Finder::new(needle));
     let mut count = 0usize;
     let mut chunk_abs = 0usize;
