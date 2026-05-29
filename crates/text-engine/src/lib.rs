@@ -22,7 +22,7 @@ pub mod selection;
 pub mod syntax;
 
 pub use buffer::{BytePoint, EditSummary, Position, TextBuffer};
-pub use document::Document;
+pub use document::{Document, SaveSnapshot};
 pub use encoding::{EncodingInfo, LineEnding};
 pub use global_search::{search_directory, FileMatches, GlobalSearchOptions, LineMatch};
 pub use history::{Edit, History, Transaction};

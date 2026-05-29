@@ -24,15 +24,23 @@ use cyberfiles_text_engine::{
 use cyberfiles_ui::{
     editor_menu_bar, set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, GoToLine,
-    IndentSelection, NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile,
-    SaveFileAs, SelectAll, TitleBar, ToggleComment, ToggleLineNumbers, ToggleSoftWrap,
+    IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
+    ReplaceText, SaveFile, SaveFileAs, SelectAll, TitleBar, ToggleComment, ToggleLineNumbers,
+    ToggleSoftWrap,
 };
 use gpui::{
-    div, fill, point, prelude::*, px, relative, rgb, App, Bounds, ClipboardItem, Context, Element,
-    ElementId, ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, Font,
-    GlobalElementId, Hsla, KeyDownEvent, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, PaintQuad, Pixels, Point, ScrollWheelEvent, ShapedLine, SharedString, Stateful,
-    Style, TextRun, UTF16Selection, Window, WrappedLine,
+    div, fill, point, prelude::*, px, relative, rgb, size, App, Bounds, ClickEvent, ClipboardItem,
+    Context, Element, ElementId, ElementInputHandler, Entity, EntityInputHandler, FocusHandle,
+    Focusable, Font, GlobalElementId, Hsla, KeyDownEvent, LayoutId, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ScrollWheelEvent, ShapedLine,
+    SharedString, Size, Stateful, Style, Subscription, TextRun, UTF16Selection, Window, WrappedLine,
+};
+use std::rc::Rc;
+use gpui_component::{
+    button::{Button, ButtonVariants as _},
+    input::{Input, InputEvent, InputState},
+    scroll::{ScrollableElement as _, ScrollbarAxis},
+    v_virtual_list, Selectable as _, Sizable as _, VirtualListScrollHandle,
 };
 
 /// Maps a file extension to a language id understood by the engine's highlighter.
@@ -57,60 +65,26 @@ pub fn language_for_path(path: Option<&Path>) -> &'static str {
     }
 }
 
-/// Where typed text currently goes.
+/// Where typed text currently goes. The Find / Find-in-Files panels use real
+/// gpui-component inputs, so only the document and the lightweight Go to Line
+/// overlay route text through the editor itself.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum InputTarget {
     Document,
-    FindQuery,
-    FindReplace,
     GotoLine,
-    SearchPanel,
 }
 
-/// State for the Find / Replace bar.
+/// State for the Find / Replace bar. The query/replace fields are real
+/// gpui-component text inputs; searching happens only on Enter or button press.
 struct FindState {
-    query: String,
-    replace: String,
-    /// Caret position (char index) within `query`.
-    query_caret: usize,
-    /// Caret position (char index) within `replace`.
-    replace_caret: usize,
+    query: Entity<InputState>,
+    replace: Entity<InputState>,
     replace_mode: bool,
     case_sensitive: bool,
     whole_word: bool,
     regex: bool,
     status: String,
-}
-
-/// Inserts `text` into `field` at char index `caret`, advancing the caret.
-fn field_insert(field: &mut String, caret: &mut usize, text: &str) {
-    let byte = char_to_byte(field, *caret);
-    field.insert_str(byte, text);
-    *caret += text.chars().count();
-}
-
-/// Deletes the char before `caret` (backspace). Returns true if anything changed.
-fn field_backspace(field: &mut String, caret: &mut usize) -> bool {
-    if *caret == 0 {
-        return false;
-    }
-    let end = char_to_byte(field, *caret);
-    let start = char_to_byte(field, *caret - 1);
-    field.replace_range(start..end, "");
-    *caret -= 1;
-    true
-}
-
-/// Deletes the char at `caret` (forward delete). Returns true if anything changed.
-fn field_delete(field: &mut String, caret: &usize) -> bool {
-    let len = field.chars().count();
-    if *caret >= len {
-        return false;
-    }
-    let start = char_to_byte(field, *caret);
-    let end = char_to_byte(field, *caret + 1);
-    field.replace_range(start..end, "");
-    true
+    _subs: Vec<Subscription>,
 }
 
 impl FindState {
@@ -123,17 +97,57 @@ impl FindState {
     }
 }
 
+/// One flattened row in the "Find in Files" results list (file header or a
+/// single matching line), so we can drive a [`v_virtual_list`].
+#[derive(Clone)]
+enum SearchRow {
+    File { label: SharedString, count: usize },
+    Match { path: PathBuf, line: u64, text: SharedString },
+}
+
 /// State for the "Find in Files" (global search) side panel.
 struct SearchPanelState {
-    query: String,
+    query: Entity<InputState>,
     root: PathBuf,
     results: Vec<FileMatches>,
+    /// Flattened rows for the virtual list (kept in sync with `results`).
+    rows: Vec<SearchRow>,
     status: String,
     case_sensitive: bool,
     whole_word: bool,
     regex: bool,
-    /// Monotonic id so a slow search that finishes late can't clobber a newer one.
+    /// Monotonic id so a slow search that finishes late can't clobber a newer one
+    /// (also bumped on tab switch to cancel an in-flight search).
     generation: u64,
+    scroll: VirtualListScrollHandle,
+    _subs: Vec<Subscription>,
+}
+
+impl SearchPanelState {
+    /// Rebuilds the flattened virtual-list rows from `results`.
+    fn rebuild_rows(&mut self) {
+        let mut rows = Vec::new();
+        for file in &self.results {
+            let rel = file
+                .path
+                .strip_prefix(&self.root)
+                .unwrap_or(&file.path)
+                .display()
+                .to_string();
+            rows.push(SearchRow::File {
+                label: SharedString::from(rel),
+                count: file.matches.len(),
+            });
+            for m in &file.matches {
+                rows.push(SearchRow::Match {
+                    path: file.path.clone(),
+                    line: m.line_number,
+                    text: SharedString::from(m.line_text.trim_end().to_string()),
+                });
+            }
+        }
+        self.rows = rows;
+    }
 }
 
 /// Geometry of the vertical scrollbar for the current frame.
@@ -227,6 +241,8 @@ pub struct EngineEditor {
     search_panel: Option<SearchPanelState>,
     show_line_numbers: bool,
     show_about: bool,
+    /// Whether the keyboard-shortcuts reference overlay is open.
+    show_shortcuts: bool,
     /// Active vertical scrollbar-thumb drag: `(mouse_y_at_grab, scroll_y_at_grab)`.
     scrollbar_drag: Option<(Pixels, Pixels)>,
     /// Active horizontal scrollbar-thumb drag: `(mouse_x_at_grab, scroll_x_at_grab)`.
@@ -272,6 +288,19 @@ pub struct EngineEditor {
     show_recent: bool,
     /// Set once the background disk-watch poller has been started.
     watch_started: bool,
+    /// A pending close awaiting the user's save/discard/cancel decision.
+    pending_close: Option<CloseTarget>,
+    /// Set once the window-should-close hook has been registered.
+    close_hooked: bool,
+    /// Set when the user confirmed closing the window despite unsaved changes.
+    allow_window_close: bool,
+}
+
+/// What a confirmation overlay is gating: closing one tab, or the whole window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CloseTarget {
+    Tab(usize),
+    Window,
 }
 
 impl EngineEditor {
@@ -291,6 +320,7 @@ impl EngineEditor {
             search_panel: None,
             show_line_numbers: true,
             show_about: false,
+            show_shortcuts: false,
             scrollbar_drag: None,
             hscrollbar_drag: None,
             reveal_caret: false,
@@ -313,6 +343,9 @@ impl EngineEditor {
             disk_changed: false,
             recent: Vec::new(),
             show_recent: false,
+            pending_close: None,
+            close_hooked: false,
+            allow_window_close: false,
             watch_started: false,
         }
     }
@@ -728,6 +761,9 @@ impl EngineEditor {
         }
         self.park_active();
         self.activate(index);
+        // The Find-in-Files scope follows the active file; cancel any in-flight
+        // search and clear stale results.
+        self.retarget_search_panel();
         cx.notify();
     }
 
@@ -755,6 +791,24 @@ impl EngineEditor {
         if index >= self.tabs.len() {
             return;
         }
+        let dirty = if index == self.active {
+            self.document.dirty()
+        } else {
+            self.tabs[index].document.dirty()
+        };
+        if dirty && self.pending_close.is_none() {
+            self.pending_close = Some(CloseTarget::Tab(index));
+            cx.notify();
+            return;
+        }
+        self.force_close_tab(index, cx);
+    }
+
+    /// Closes tab `index` unconditionally (no unsaved-changes prompt).
+    fn force_close_tab(&mut self, index: usize, cx: &mut Context<Self>) {
+        if index >= self.tabs.len() {
+            return;
+        }
         if self.tabs.len() == 1 {
             // Last tab: reset it to an empty untitled buffer instead of closing.
             self.new_file(cx);
@@ -773,6 +827,117 @@ impl EngineEditor {
             }
         }
         cx.notify();
+    }
+
+    // ---- Close confirmation ---------------------------------------------
+
+    /// Indices of all tabs with unsaved changes.
+    fn dirty_tabs(&self) -> Vec<usize> {
+        (0..self.tabs.len())
+            .filter(|&i| {
+                if i == self.active {
+                    self.document.dirty()
+                } else {
+                    self.tabs[i].document.dirty()
+                }
+            })
+            .collect()
+    }
+
+    /// Clean display name (no dirty marker) for tab `index`.
+    fn tab_name(&self, index: usize) -> String {
+        let doc = if index == self.active {
+            &self.document
+        } else {
+            &self.tabs[index].document
+        };
+        doc.path()
+            .and_then(|p| p.file_name())
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "Untitled".to_string())
+    }
+
+    /// Window-close gate: allow immediately if nothing is dirty, otherwise show
+    /// the confirmation overlay and block the close.
+    fn request_window_close(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.allow_window_close || self.dirty_tabs().is_empty() {
+            return true;
+        }
+        self.pending_close = Some(CloseTarget::Window);
+        cx.notify();
+        false
+    }
+
+    fn close_confirm_cancel(&mut self, cx: &mut Context<Self>) {
+        self.pending_close = None;
+        cx.notify();
+    }
+
+    fn close_confirm_discard(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.pending_close.take() {
+            Some(CloseTarget::Tab(i)) => self.force_close_tab(i, cx),
+            Some(CloseTarget::Window) => {
+                self.allow_window_close = true;
+                window.remove_window();
+            }
+            None => {}
+        }
+    }
+
+    fn close_confirm_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.pending_close.take() {
+            Some(CloseTarget::Tab(i)) => {
+                if i != self.active {
+                    self.switch_to_tab(i, cx);
+                }
+                if self.save_active_sync() {
+                    self.force_close_tab(self.active, cx);
+                } else {
+                    cx.notify();
+                }
+            }
+            Some(CloseTarget::Window) => {
+                if self.save_all_sync(cx) {
+                    self.allow_window_close = true;
+                    window.remove_window();
+                } else {
+                    cx.notify();
+                }
+            }
+            None => {}
+        }
+    }
+
+    /// Saves the active document synchronously (prompting for a path if untitled).
+    /// Returns false if the user cancelled the save dialog.
+    fn save_active_sync(&mut self) -> bool {
+        let path = match self.document.path().map(Path::to_path_buf) {
+            Some(p) => p,
+            None => match crate::pick_save_file_path(&PathBuf::from("untitled.txt")) {
+                Some(p) => p,
+                None => return false,
+            },
+        };
+        if self.document.save_to(path.clone()).is_ok() {
+            self.file_meta = read_file_meta(&path);
+            self.disk_changed = false;
+            true
+        } else {
+            true
+        }
+    }
+
+    /// Saves every dirty tab synchronously. Returns false if the user cancelled.
+    fn save_all_sync(&mut self, cx: &mut Context<Self>) -> bool {
+        for i in self.dirty_tabs() {
+            if self.active != i {
+                self.switch_to_tab(i, cx);
+            }
+            if !self.save_active_sync() {
+                return false;
+            }
+        }
+        true
     }
 
     /// True when the current tab is a pristine, empty, untitled buffer (so we can
@@ -840,29 +1005,79 @@ impl EngineEditor {
         if let Some(path) = self.document.path().map(Path::to_path_buf) {
             let caret = self.document.selections().primary().head;
             let scroll_y = self.scroll_y;
-            self.load_path(path);
-            let len = self.document.buffer().len_chars();
-            self.document.set_caret(caret.min(len));
-            self.scroll_y = scroll_y;
+            let target = self.active;
+            self.spawn_load(path, target, Some((caret, scroll_y)), cx);
         }
         cx.notify();
     }
 
-    fn load_path(&mut self, path: PathBuf) {
-        let Ok(loaded) = load_file(&path) else {
-            return;
-        };
+    /// Reads and decodes `path` on a background thread, then installs the result
+    /// into tab `target` on the main thread. `restore` optionally re-applies a
+    /// caret offset and vertical scroll (used by reload-from-disk). Reading off
+    /// the UI thread keeps large-file opens from freezing the window.
+    fn spawn_load(
+        &mut self,
+        path: PathBuf,
+        target: usize,
+        restore: Option<(usize, Pixels)>,
+        cx: &mut Context<Self>,
+    ) {
+        let read_path = path.clone();
+        let read = cx
+            .background_executor()
+            .spawn(async move { load_file(&read_path).ok() });
+        cx.spawn(async move |this, cx| {
+            let loaded = read.await;
+            let _ = this.update(cx, |this, cx| {
+                if let Some(loaded) = loaded {
+                    this.install_loaded(target, loaded, path, restore, cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Installs a freshly-loaded file into tab `target` (live fields if it is the
+    /// active tab, otherwise its parked slot). Runs on the main thread.
+    fn install_loaded(
+        &mut self,
+        target: usize,
+        loaded: cyberfiles_text_engine::LoadedFile,
+        path: PathBuf,
+        restore: Option<(usize, Pixels)>,
+        _cx: &mut Context<Self>,
+    ) {
         let language = language_for_path(Some(&path));
-        self.file_meta = read_file_meta(&path);
-        self.disk_changed = false;
+        let meta = read_file_meta(&path);
         self.push_recent(path.clone());
-        self.document = Document::from_loaded(loaded, Some(path), language);
-        self.syntax = SyntaxState::new(language);
-        self.parsed_revision = None;
-        self.scroll_y = px(0.0);
-        self.scroll_x = px(0.0);
-        self.marked_range = None;
-        self.document.set_caret(0);
+        let mut document = Document::from_loaded(loaded, Some(path), language);
+        let len = document.buffer().len_chars();
+        let caret = restore.map(|(c, _)| c.min(len)).unwrap_or(0);
+        document.set_caret(caret);
+        let scroll_y = restore.map(|(_, s)| s).unwrap_or(px(0.0));
+        let syntax = SyntaxState::new(language);
+
+        if target == self.active {
+            self.document = document;
+            self.syntax = syntax;
+            self.parsed_revision = None;
+            self.scroll_x = px(0.0);
+            self.scroll_y = scroll_y;
+            self.marked_range = None;
+            self.file_meta = meta;
+            self.disk_changed = false;
+            self.needs_focus = true;
+        } else if target < self.tabs.len() {
+            let slot = &mut self.tabs[target];
+            slot.document = document;
+            slot.syntax = syntax;
+            slot.parsed_revision = None;
+            slot.scroll_x = px(0.0);
+            slot.scroll_y = scroll_y;
+            slot.file_meta = meta;
+            slot.disk_changed = false;
+        }
     }
 
     fn open_file(&mut self, cx: &mut Context<Self>) {
@@ -891,7 +1106,8 @@ impl EngineEditor {
             let index = self.tabs.len() - 1;
             self.activate(index);
         }
-        self.load_path(path);
+        let target = self.active;
+        self.spawn_load(path, target, None, cx);
         cx.notify();
     }
 
@@ -910,15 +1126,7 @@ impl EngineEditor {
 
     fn save_file(&mut self, cx: &mut Context<Self>) {
         match self.document.path().map(Path::to_path_buf) {
-            Some(path) => {
-                if self.document.save_to(path.clone()).is_ok() {
-                    // Refresh the on-disk fingerprint so our own write doesn't
-                    // trip the external-change detector.
-                    self.file_meta = read_file_meta(&path);
-                    self.disk_changed = false;
-                }
-                cx.notify();
-            }
+            Some(path) => self.spawn_save(path, cx),
             None => self.save_file_as(cx),
         }
     }
@@ -931,15 +1139,55 @@ impl EngineEditor {
             .unwrap_or_else(|| PathBuf::from("untitled.txt"));
         if let Some(path) = crate::pick_save_file_path(&default) {
             let language = language_for_path(Some(&path));
-            if self.document.save_to(path.clone()).is_ok() {
-                self.file_meta = read_file_meta(&path);
-                self.disk_changed = false;
-                self.push_recent(path);
-            }
             self.document.set_language(language);
             self.syntax = SyntaxState::new(language);
             self.parsed_revision = None;
-            cx.notify();
+            self.push_recent(path.clone());
+            self.spawn_save(path, cx);
+        }
+    }
+
+    /// Encodes + writes `path` on a background thread, then records the save on
+    /// the UI thread. Keeps large-file saves from freezing the window.
+    fn spawn_save(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        let target = self.active;
+        let snapshot = self.document.save_snapshot();
+        let snap_rev = snapshot.revision;
+        let write_path = path.clone();
+        let write = cx.background_executor().spawn(async move {
+            let bytes = snapshot.encode();
+            std::fs::write(&write_path, &bytes).is_ok()
+        });
+        cx.spawn(async move |this, cx| {
+            let ok = write.await;
+            let _ = this.update(cx, |this, cx| {
+                if ok {
+                    this.mark_tab_saved(target, path, snap_rev, cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Records a completed background save into tab `target` (live or parked).
+    fn mark_tab_saved(
+        &mut self,
+        target: usize,
+        path: PathBuf,
+        snap_rev: u64,
+        _cx: &mut Context<Self>,
+    ) {
+        let meta = read_file_meta(&path);
+        if target == self.active {
+            self.document.mark_saved(path, snap_rev);
+            self.file_meta = meta;
+            self.disk_changed = false;
+        } else if target < self.tabs.len() {
+            let slot = &mut self.tabs[target];
+            slot.document.mark_saved(path, snap_rev);
+            slot.file_meta = meta;
+            slot.disk_changed = false;
         }
     }
 
@@ -1075,6 +1323,11 @@ impl EngineEditor {
         cx.notify();
     }
 
+    fn toggle_shortcuts(&mut self, cx: &mut Context<Self>) {
+        self.show_shortcuts = !self.show_shortcuts;
+        cx.notify();
+    }
+
     fn toggle_about(&mut self, cx: &mut Context<Self>) {
         self.show_about = !self.show_about;
         cx.notify();
@@ -1130,7 +1383,7 @@ impl EngineEditor {
             .unwrap_or_else(|| PathBuf::from("."))
     }
 
-    fn open_search_panel(&mut self, cx: &mut Context<Self>) {
+    fn open_search_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.find = None;
         self.goto = None;
         let seed = {
@@ -1150,54 +1403,83 @@ impl EngineEditor {
         match self.search_panel.as_mut() {
             Some(panel) => {
                 if !seed.is_empty() {
-                    panel.query = seed;
+                    let query = panel.query.clone();
+                    query.update(cx, |s, cx| s.set_value(seed, window, cx));
                 }
+                let query = self.search_panel.as_ref().unwrap().query.clone();
+                query.update(cx, |s, cx| s.focus(window, cx));
             }
             None => {
+                let query = cx.new(|cx| {
+                    InputState::new(window, cx)
+                        .placeholder("Find in files")
+                        .default_value(seed)
+                });
+                let mut subs = Vec::new();
+                subs.push(cx.subscribe(&query, |this, _, ev: &InputEvent, cx| {
+                    if let InputEvent::PressEnter { .. } = ev {
+                        this.run_global_search(cx);
+                    }
+                }));
+                query.update(cx, |s, cx| s.focus(window, cx));
                 self.search_panel = Some(SearchPanelState {
-                    query: seed,
+                    query,
                     root,
                     results: Vec::new(),
+                    rows: Vec::new(),
                     status: String::new(),
                     case_sensitive: false,
                     whole_word: false,
                     regex: false,
                     generation: 0,
+                    scroll: VirtualListScrollHandle::new(),
+                    _subs: subs,
                 });
             }
         }
-        self.input_target = InputTarget::SearchPanel;
         cx.notify();
     }
 
     fn close_search_panel(&mut self, cx: &mut Context<Self>) {
         self.search_panel = None;
         self.input_target = InputTarget::Document;
+        self.needs_focus = true;
         cx.notify();
     }
 
-    fn search_panel_backspace(&mut self, cx: &mut Context<Self>) {
+    /// Cancels any in-flight global search and points the panel at `root`'s
+    /// directory, clearing stale results. Called when switching tabs so the
+    /// "Find in Files" scope follows the active file.
+    fn retarget_search_panel(&mut self) {
+        let root = self.search_root();
         if let Some(panel) = self.search_panel.as_mut() {
-            panel.query.pop();
+            panel.generation += 1; // cancel any pending search
+            panel.root = root;
+            panel.results.clear();
+            panel.rows.clear();
+            panel.status.clear();
         }
-        cx.notify();
     }
 
     /// Kicks off a directory search on a background thread; results are applied
     /// to the panel when ready (stale generations are dropped).
     fn run_global_search(&mut self, cx: &mut Context<Self>) {
+        let query = match self.search_panel.as_ref() {
+            Some(panel) => panel.query.read(cx).value().to_string(),
+            None => return,
+        };
         let Some(panel) = self.search_panel.as_mut() else {
             return;
         };
-        if panel.query.is_empty() {
+        if query.trim().is_empty() {
             panel.results.clear();
+            panel.rows.clear();
             panel.status = String::new();
             cx.notify();
             return;
         }
         panel.generation += 1;
         let generation = panel.generation;
-        let query = panel.query.clone();
         let root = panel.root.clone();
         let options = GlobalSearchOptions {
             case_sensitive: panel.case_sensitive,
@@ -1230,9 +1512,11 @@ impl EngineEditor {
                             format!("{hits} matches in {files} files")
                         };
                         panel.results = results;
+                        panel.rebuild_rows();
                     }
                     Err(err) => {
                         panel.results.clear();
+                        panel.rows.clear();
                         panel.status = format!("Error: {err}");
                     }
                 }
@@ -1264,7 +1548,7 @@ impl EngineEditor {
 
     // ---- Find / Replace --------------------------------------------------
 
-    fn open_find(&mut self, replace_mode: bool, cx: &mut Context<Self>) {
+    fn open_find(&mut self, replace_mode: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.search_panel = None;
         self.goto = None;
         let primary = self.document.selections().primary();
@@ -1282,56 +1566,87 @@ impl EngineEditor {
             Some(find) => {
                 find.replace_mode = replace_mode || find.replace_mode;
                 if let Some(seed) = seed {
-                    find.query_caret = seed.chars().count();
-                    find.query = seed;
+                    let query = find.query.clone();
+                    query.update(cx, |s, cx| s.set_value(seed, window, cx));
                 }
+                find.query.update(cx, |s, cx| s.focus(window, cx));
             }
             None => {
-                let query = seed.unwrap_or_default();
-                let query_caret = query.chars().count();
+                let initial = seed.unwrap_or_default();
+                let query = cx.new(|cx| {
+                    InputState::new(window, cx)
+                        .placeholder("Find")
+                        .default_value(initial)
+                });
+                let replace =
+                    cx.new(|cx| InputState::new(window, cx).placeholder("Replace with"));
+                let mut subs = Vec::new();
+                subs.push(cx.subscribe(&query, |this, _, ev: &InputEvent, cx| {
+                    if let InputEvent::PressEnter { shift, .. } = ev {
+                        this.do_find(!shift, cx);
+                    }
+                }));
+                subs.push(cx.subscribe(&replace, |this, _, ev: &InputEvent, cx| {
+                    if let InputEvent::PressEnter { .. } = ev {
+                        this.do_replace(cx);
+                    }
+                }));
+                query.update(cx, |s, cx| s.focus(window, cx));
                 self.find = Some(FindState {
                     query,
-                    replace: String::new(),
-                    query_caret,
-                    replace_caret: 0,
+                    replace,
                     replace_mode,
                     case_sensitive: false,
                     whole_word: false,
                     regex: false,
                     status: String::new(),
+                    _subs: subs,
                 });
             }
         }
-        self.input_target = InputTarget::FindQuery;
-        self.update_find_status();
+        self.input_target = InputTarget::Document;
+        self.update_find_status(cx);
         cx.notify();
     }
 
     fn close_find(&mut self, cx: &mut Context<Self>) {
         self.find = None;
         self.input_target = InputTarget::Document;
+        self.needs_focus = true;
         cx.notify();
     }
 
-    fn update_find_status(&mut self) {
-        let Some((query, options)) = self.find.as_ref().map(|f| (f.query.clone(), f.options())) else {
+    /// The current Find query text.
+    fn find_query(&self, cx: &App) -> String {
+        self.find
+            .as_ref()
+            .map(|f| f.query.read(cx).value().to_string())
+            .unwrap_or_default()
+    }
+
+    /// The current Replace-with text.
+    fn find_replace_text(&self, cx: &App) -> String {
+        self.find
+            .as_ref()
+            .map(|f| f.replace.read(cx).value().to_string())
+            .unwrap_or_default()
+    }
+
+    fn update_find_status(&mut self, cx: &mut Context<Self>) {
+        let Some(options) = self.find.as_ref().map(|f| f.options()) else {
             return;
         };
+        let query = self.find_query(cx);
         let status = if query.is_empty() {
             String::new()
         } else {
             match Searcher::new(&query, options) {
                 Ok(searcher) => {
-                    let total = searcher.count(self.document.buffer());
+                    let head = self.document.selections().primary().start();
+                    let (total, index) = searcher.count_and_index(self.document.buffer(), head);
                     if total == 0 {
                         "No matches".to_string()
                     } else {
-                        let head = self.document.selections().primary().start();
-                        let index = searcher
-                            .all_matches(self.document.buffer())
-                            .iter()
-                            .position(|m| m.start == head)
-                            .map(|i| i + 1);
                         match index {
                             Some(i) => format!("{i} of {total}"),
                             None => format!("{total} found"),
@@ -1347,14 +1662,13 @@ impl EngineEditor {
     }
 
     fn do_find(&mut self, forward: bool, cx: &mut Context<Self>) {
-        let Some((query, options)) = self
-            .find
-            .as_ref()
-            .filter(|f| !f.query.is_empty())
-            .map(|f| (f.query.clone(), f.options()))
-        else {
+        let Some(options) = self.find.as_ref().map(|f| f.options()) else {
             return;
         };
+        let query = self.find_query(cx);
+        if query.is_empty() {
+            return;
+        }
         let Ok(searcher) = Searcher::new(&query, options) else {
             if let Some(find) = self.find.as_mut() {
                 find.status = "Bad pattern".to_string();
@@ -1375,7 +1689,7 @@ impl EngineEditor {
             self.document.set_selection(m.start, m.end);
             self.ensure_caret_visible();
         }
-        self.update_find_status();
+        self.update_find_status(cx);
         cx.notify();
     }
 
@@ -1394,14 +1708,14 @@ impl EngineEditor {
     }
 
     fn do_replace(&mut self, cx: &mut Context<Self>) {
-        let Some((query, options, regex, replace)) = self
-            .find
-            .as_ref()
-            .filter(|f| !f.query.is_empty())
-            .map(|f| (f.query.clone(), f.options(), f.regex, f.replace.clone()))
-        else {
+        let Some((options, regex)) = self.find.as_ref().map(|f| (f.options(), f.regex)) else {
             return;
         };
+        let query = self.find_query(cx);
+        if query.is_empty() {
+            return;
+        }
+        let replace = self.find_replace_text(cx);
         let Ok(searcher) = Searcher::new(&query, options) else {
             return;
         };
@@ -1413,24 +1727,21 @@ impl EngineEditor {
     }
 
     fn do_replace_all(&mut self, cx: &mut Context<Self>) {
-        let Some((query, options, regex, replace)) = self
-            .find
-            .as_ref()
-            .filter(|f| !f.query.is_empty())
-            .map(|f| (f.query.clone(), f.options(), f.regex, f.replace.clone()))
-        else {
+        let Some((options, regex)) = self.find.as_ref().map(|f| (f.options(), f.regex)) else {
             return;
         };
+        let query = self.find_query(cx);
+        if query.is_empty() {
+            return;
+        }
+        let replace = self.find_replace_text(cx);
         let Ok(searcher) = Searcher::new(&query, options) else {
             return;
         };
-        let matches = searcher.all_matches(self.document.buffer());
-        let count = matches.len();
-        // Replace right-to-left so earlier offsets stay valid.
-        for m in matches.into_iter().rev() {
-            let replacement = searcher.replacement_for(self.document.buffer(), m, &replace, regex);
-            self.document.replace_range(m.start..m.end, &replacement);
-        }
+        // Single atomic transaction: O(matches) and one undo step even for tens
+        // of thousands of matches.
+        let count = self.document.replace_all(&searcher, &replace, regex);
+        self.ensure_caret_visible();
         if let Some(find) = self.find.as_mut() {
             find.status = format!("Replaced {count}");
         }
@@ -1439,73 +1750,21 @@ impl EngineEditor {
 
     // ---- Input -----------------------------------------------------------
 
-    /// Runs `op` against the active find field (text, caret), returning whether
-    /// it touched the query (so the match status can refresh).
-    fn with_find_field<R>(&mut self, op: impl FnOnce(&mut String, &mut usize) -> R) -> Option<R> {
-        let is_replace = self.input_target == InputTarget::FindReplace;
-        let find = self.find.as_mut()?;
-        Some(if is_replace {
-            op(&mut find.replace, &mut find.replace_caret)
-        } else {
-            op(&mut find.query, &mut find.query_caret)
-        })
-    }
-
-    fn find_backspace(&mut self, cx: &mut Context<Self>) {
-        let on_query = self.input_target != InputTarget::FindReplace;
-        self.with_find_field(|f, c| field_backspace(f, c));
-        if on_query {
-            self.update_find_status();
-        }
-        cx.notify();
-    }
-
-    fn find_delete(&mut self, cx: &mut Context<Self>) {
-        let on_query = self.input_target != InputTarget::FindReplace;
-        self.with_find_field(|f, c| field_delete(f, c));
-        if on_query {
-            self.update_find_status();
-        }
-        cx.notify();
-    }
-
-    /// Moves the active find-field caret (`dir` = -1 left / +1 right; `home`/
-    /// `end` jump to the extremes).
-    fn find_move_caret(&mut self, dir: isize, home: bool, end: bool, cx: &mut Context<Self>) {
-        self.with_find_field(|f, c| {
-            let len = f.chars().count();
-            *c = if home {
-                0
-            } else if end {
-                len
-            } else if dir < 0 {
-                c.saturating_sub(1)
-            } else {
-                (*c + 1).min(len)
-            };
-        });
-        cx.notify();
-    }
-
-    fn toggle_find_field(&mut self) {
-        let replace_mode = self.find.as_ref().is_some_and(|f| f.replace_mode);
-        if replace_mode {
-            self.input_target = match self.input_target {
-                InputTarget::FindReplace => InputTarget::FindQuery,
-                _ => InputTarget::FindReplace,
-            };
-        }
-    }
-
-    fn on_key_down(&mut self, event: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let ks = &event.keystroke;
         let shift = ks.modifiers.shift;
         let cmd = ks.modifiers.control || ks.modifiers.platform;
 
         // Global keys (work regardless of focus target).
         if ks.key == "escape" {
-            if self.show_about {
+            if self.pending_close.is_some() {
+                self.pending_close = None;
+                cx.notify();
+            } else if self.show_about {
                 self.show_about = false;
+                cx.notify();
+            } else if self.show_shortcuts {
+                self.show_shortcuts = false;
                 cx.notify();
             } else if self.show_recent {
                 self.show_recent = false;
@@ -1529,11 +1788,11 @@ impl EngineEditor {
             match ks.key.as_str() {
                 "f" => {
                     if shift {
-                        return self.open_search_panel(cx);
+                        return self.open_search_panel(window, cx);
                     }
-                    return self.open_find(false, cx);
+                    return self.open_find(false, window, cx);
                 }
-                "h" => return self.open_find(true, cx),
+                "h" => return self.open_find(true, window, cx),
                 "g" => return self.open_goto(cx),
                 "o" => return self.open_file(cx),
                 "n" | "t" => return self.new_tab(cx),
@@ -1553,17 +1812,9 @@ impl EngineEditor {
             }
         }
 
-        // Typing into the Find in Files panel query.
-        if self.search_panel.is_some() && self.input_target == InputTarget::SearchPanel {
-            match ks.key.as_str() {
-                "backspace" => self.search_panel_backspace(cx),
-                "enter" => self.run_global_search(cx),
-                _ => {}
-            }
-            return;
-        }
-
-        // Typing into the Go to Line field.
+        // Typing into the Go to Line field (custom overlay; routes through the
+        // editor focus). The Find / Find-in-Files panels own gpui-component
+        // inputs, so their keys are handled by those inputs directly.
         if self.goto.is_some() && self.input_target == InputTarget::GotoLine {
             match ks.key.as_str() {
                 "backspace" => self.goto_backspace(cx),
@@ -1573,36 +1824,9 @@ impl EngineEditor {
             return;
         }
 
-        // Typing into the Find / Replace bar.
-        if self.find.is_some()
-            && matches!(
-                self.input_target,
-                InputTarget::FindQuery | InputTarget::FindReplace
-            )
-        {
-            match ks.key.as_str() {
-                "backspace" => self.find_backspace(cx),
-                "delete" => self.find_delete(cx),
-                "left" => self.find_move_caret(-1, false, false, cx),
-                "right" => self.find_move_caret(1, false, false, cx),
-                "home" => self.find_move_caret(0, true, false, cx),
-                "end" => self.find_move_caret(0, false, true, cx),
-                "enter" => {
-                    if shift {
-                        self.do_find(false, cx);
-                    } else if self.input_target == InputTarget::FindReplace {
-                        self.do_replace(cx);
-                    } else {
-                        self.do_find(true, cx);
-                    }
-                }
-                "tab" => {
-                    self.toggle_find_field();
-                    cx.notify();
-                }
-                _ => {}
-            }
-            // Swallow remaining keys so they don't reach the document.
+        // If a panel's text input holds focus, don't let editor keystrokes mutate
+        // the document underneath it.
+        if !self.focus_handle.is_focused(window) {
             return;
         }
 
@@ -1749,6 +1973,18 @@ impl EngineEditor {
         window.focus(&self.focus_handle, cx);
         self.input_target = InputTarget::Document;
         let idx = self.index_for_position(event.position);
+        if event.click_count >= 3 {
+            // Triple-click selects the whole line.
+            self.document.set_caret(idx);
+            self.select_line(cx);
+            return;
+        }
+        if event.click_count == 2 {
+            // Double-click selects the word under the cursor.
+            self.document.set_caret(idx);
+            self.select_word(cx);
+            return;
+        }
         if event.modifiers.alt {
             // Alt+Click drops an additional caret.
             self.add_caret(idx, cx);
@@ -1763,6 +1999,20 @@ impl EngineEditor {
     }
 
     fn on_mouse_move(&mut self, event: &MouseMoveEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        // If the button was released while the cursor was outside the window we
+        // never saw a mouse-up; the next move with no button pressed ends any
+        // in-progress drag/selection so it doesn't "stick" on re-entry.
+        if event.pressed_button != Some(MouseButton::Left)
+            && (self.scrollbar_drag.is_some()
+                || self.hscrollbar_drag.is_some()
+                || self.is_selecting)
+        {
+            self.scrollbar_drag = None;
+            self.hscrollbar_drag = None;
+            self.is_selecting = false;
+            cx.notify();
+            return;
+        }
         if let Some((start_y, start_scroll)) = self.scrollbar_drag {
             if let Some(metrics) = self.scrollbar_metrics() {
                 let denom = (metrics.viewport - metrics.thumb_h).max(px(1.0));
@@ -2315,74 +2565,273 @@ impl EngineEditor {
         )
     }
 
+    /// Keyboard-shortcuts reference overlay (Help → Keyboard Shortcuts).
+    fn render_shortcuts(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+        if !self.show_shortcuts {
+            return None;
+        }
+        const SHORTCUTS: &[(&str, &str)] = &[
+            ("File", ""),
+            ("New tab", "Ctrl+N / Ctrl+T"),
+            ("Open file", "Ctrl+O"),
+            ("Save / Save As", "Ctrl+S / Ctrl+Shift+S"),
+            ("Close tab", "Ctrl+W"),
+            ("Next / Prev tab", "Ctrl+Tab / Ctrl+Shift+Tab"),
+            ("Recent files", "Ctrl+E"),
+            ("Edit", ""),
+            ("Undo / Redo", "Ctrl+Z / Ctrl+Y"),
+            ("Cut / Copy / Paste", "Ctrl+X / Ctrl+C / Ctrl+V"),
+            ("Select all / line", "Ctrl+A / Ctrl+L"),
+            ("Indent / Outdent", "Alt+] / Alt+["),
+            ("Toggle comment", "Ctrl+/"),
+            ("Zoom in / out / reset", "Ctrl+= / Ctrl+- / Ctrl+0"),
+            ("Search & navigate", ""),
+            ("Find / Replace", "Ctrl+F / Ctrl+H"),
+            ("Find next / prev", "F3 / Shift+F3"),
+            ("Find in files", "Ctrl+Shift+F"),
+            ("Go to line", "Ctrl+G"),
+            ("Add next occurrence", "Ctrl+D"),
+            ("Add caret (mouse)", "Alt+Click"),
+            ("Select word / line", "Double / Triple click"),
+            ("View", ""),
+            ("Word wrap", "Menu: View → Word Wrap"),
+            ("Line numbers", "Menu: View → Line Numbers"),
+        ];
+
+        let mut list = div().flex().flex_col().gap_0p5();
+        for (label, keys) in SHORTCUTS {
+            if keys.is_empty() {
+                // Section header.
+                list = list.child(
+                    div()
+                        .mt_2()
+                        .text_size(px(12.0))
+                        .text_color(rgb(0x6fb3d2))
+                        .child(SharedString::from(*label)),
+                );
+            } else {
+                list = list.child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .justify_between()
+                        .gap_4()
+                        .text_size(px(12.0))
+                        .child(
+                            div()
+                                .text_color(rgb(0xcccccc))
+                                .child(SharedString::from(*label)),
+                        )
+                        .child(
+                            div()
+                                .text_color(rgb(0x9a9a9a))
+                                .child(SharedString::from(*keys)),
+                        ),
+                );
+            }
+        }
+
+        let panel = div()
+            .w(px(440.0))
+            .max_h(px(560.0))
+            .flex()
+            .flex_col()
+            .gap_2()
+            .p_4()
+            .rounded_lg()
+            .bg(rgb(0x252526))
+            .border_1()
+            .border_color(rgb(0x454545))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(
+                div()
+                    .text_size(px(16.0))
+                    .child(SharedString::from("Keyboard Shortcuts")),
+            )
+            .child(div().overflow_hidden().child(list))
+            .child(
+                bar_button("shortcuts-close", "Close", false).on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
+                        this.show_shortcuts = false;
+                        cx.stop_propagation();
+                        cx.notify();
+                    }),
+                ),
+            );
+
+        Some(
+            div()
+                .absolute()
+                .inset_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(gpui::rgba(0x00000080))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
+                        this.show_shortcuts = false;
+                        cx.notify();
+                    }),
+                )
+                .child(panel),
+        )
+    }
+
+    /// Unsaved-changes confirmation overlay (closing a tab or the window).
+    fn render_close_confirm(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+        let target = self.pending_close?;
+        let message = match target {
+            CloseTarget::Tab(i) => format!("Save changes to \u{201c}{}\u{201d} before closing?", self.tab_name(i)),
+            CloseTarget::Window => {
+                let n = self.dirty_tabs().len();
+                if n <= 1 {
+                    "You have unsaved changes. Save before closing?".to_string()
+                } else {
+                    format!("{n} files have unsaved changes. Save them before closing?")
+                }
+            }
+        };
+        let save_label = if target == CloseTarget::Window && self.dirty_tabs().len() > 1 {
+            "Save All"
+        } else {
+            "Save"
+        };
+
+        let panel = div()
+            .w(px(400.0))
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_4()
+            .rounded_lg()
+            .bg(rgb(0x252526))
+            .border_1()
+            .border_color(rgb(0x454545))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(
+                div()
+                    .text_size(px(15.0))
+                    .child(SharedString::from("Unsaved Changes")),
+            )
+            .child(
+                div()
+                    .text_size(px(12.0))
+                    .text_color(rgb(0xcccccc))
+                    .child(SharedString::from(message)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .justify_end()
+                    .gap_2()
+                    .child(bar_button("close-cancel", "Cancel", false).on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
+                            cx.stop_propagation();
+                            this.close_confirm_cancel(cx);
+                        }),
+                    ))
+                    .child(bar_button("close-discard", "Don't Save", false).on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _e: &MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            this.close_confirm_discard(window, cx);
+                        }),
+                    ))
+                    .child(bar_button("close-save", save_label, true).on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _e: &MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            this.close_confirm_save(window, cx);
+                        }),
+                    )),
+            );
+
+        Some(
+            div()
+                .absolute()
+                .inset_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(gpui::rgba(0x00000080))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(panel),
+        )
+    }
+
     fn render_search_panel(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
         let panel = self.search_panel.as_ref()?;
-        let active = self.input_target == InputTarget::SearchPanel;
 
-        let query_field = render_input_field(
-            "files-query-field",
-            &panel.query,
-            "Find in files",
-            active,
-            None,
-            cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                this.input_target = InputTarget::SearchPanel;
-                cx.stop_propagation();
-                cx.notify();
-            }),
-        );
+        let opt_btn = |id: &'static str, label: &str, active: bool, tip: &'static str| {
+            Button::new(id)
+                .ghost()
+                .xsmall()
+                .selected(active)
+                .label(label.to_string())
+                .tooltip(tip)
+        };
 
         let controls = div()
             .flex()
             .flex_row()
             .items_center()
             .gap_1()
-            .child(query_field)
-            .child(bar_button("files-go", "Search", false).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    this.run_global_search(cx);
-                    cx.stop_propagation();
-                }),
-            ))
-            .child(bar_button("files-case", "Aa", panel.case_sensitive).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    if let Some(p) = this.search_panel.as_mut() {
-                        p.case_sensitive = !p.case_sensitive;
-                    }
-                    this.run_global_search(cx);
-                    cx.stop_propagation();
-                }),
-            ))
-            .child(bar_button("files-word", "W", panel.whole_word).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    if let Some(p) = this.search_panel.as_mut() {
-                        p.whole_word = !p.whole_word;
-                    }
-                    this.run_global_search(cx);
-                    cx.stop_propagation();
-                }),
-            ))
-            .child(bar_button("files-regex", ".*", panel.regex).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    if let Some(p) = this.search_panel.as_mut() {
-                        p.regex = !p.regex;
-                    }
-                    this.run_global_search(cx);
-                    cx.stop_propagation();
-                }),
-            ))
-            .child(bar_button("files-close", "✕", false).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    this.close_search_panel(cx);
-                    cx.stop_propagation();
-                }),
-            ));
+            .child(div().flex_1().child(Input::new(&panel.query).small()))
+            .child(
+                Button::new("files-go")
+                    .primary()
+                    .xsmall()
+                    .label("Search")
+                    .on_click(
+                        cx.listener(|this, _: &ClickEvent, _w, cx| this.run_global_search(cx)),
+                    ),
+            )
+            .child(
+                opt_btn("files-case", "Aa", panel.case_sensitive, "Match case").on_click(
+                    cx.listener(|this, _: &ClickEvent, _w, cx| {
+                        if let Some(p) = this.search_panel.as_mut() {
+                            p.case_sensitive = !p.case_sensitive;
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                opt_btn("files-word", "W", panel.whole_word, "Whole word").on_click(cx.listener(
+                    |this, _: &ClickEvent, _w, cx| {
+                        if let Some(p) = this.search_panel.as_mut() {
+                            p.whole_word = !p.whole_word;
+                        }
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                opt_btn("files-regex", ".*", panel.regex, "Regular expression").on_click(
+                    cx.listener(|this, _: &ClickEvent, _w, cx| {
+                        if let Some(p) = this.search_panel.as_mut() {
+                            p.regex = !p.regex;
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                Button::new("files-close")
+                    .ghost()
+                    .xsmall()
+                    .label("\u{2715}")
+                    .tooltip("Close (Esc)")
+                    .on_click(
+                        cx.listener(|this, _: &ClickEvent, _w, cx| this.close_search_panel(cx)),
+                    ),
+            );
 
+        let root_label = panel.root.display().to_string();
         let header = div()
             .flex()
             .flex_col()
@@ -2399,80 +2848,77 @@ impl EngineEditor {
             .child(controls)
             .child(
                 div()
+                    .text_size(px(10.0))
+                    .text_color(rgb(0x6a6a6a))
+                    .child(SharedString::from(format!("in {root_label}"))),
+            )
+            .child(
+                div()
                     .text_size(px(11.0))
                     .text_color(rgb(0x9a9a9a))
                     .child(SharedString::from(panel.status.clone())),
             );
 
-        // Build the (capped) results list, grouped by file.
-        const MAX_ROWS: usize = 600;
-        let mut rows: Vec<gpui::Stateful<gpui::Div>> = Vec::new();
-        let mut shown = 0usize;
-        'outer: for (fi, file) in panel.results.iter().enumerate() {
-            let rel = file
-                .path
-                .strip_prefix(&panel.root)
-                .unwrap_or(&file.path)
-                .display()
-                .to_string();
-            rows.push(
-                div()
-                    .id(SharedString::from(format!("file-{fi}")))
-                    .px_2()
-                    .py_1()
-                    .text_size(px(11.0))
-                    .text_color(rgb(0x7fb0e0))
-                    .child(SharedString::from(format!(
-                        "{rel}  ({})",
-                        file.matches.len()
-                    ))),
-            );
-            for (mi, m) in file.matches.iter().enumerate() {
-                if shown >= MAX_ROWS {
-                    rows.push(
-                        div()
-                            .id("files-more")
+        // High-performance virtualized results list: only visible rows render.
+        let row_count = panel.rows.len();
+        let item_sizes: Rc<Vec<Size<Pixels>>> =
+            Rc::new(vec![size(px(1.0), px(20.0)); row_count.max(1)]);
+        let list = v_virtual_list(
+            cx.entity().clone(),
+            "files-virtual-list",
+            item_sizes,
+            move |this, range, _window, cx| {
+                let Some(panel) = this.search_panel.as_ref() else {
+                    return Vec::new();
+                };
+                let mut out = Vec::new();
+                for index in range {
+                    let Some(row) = panel.rows.get(index) else {
+                        continue;
+                    };
+                    out.push(match row.clone() {
+                        SearchRow::File { label, count } => div()
+                            .id(("files-file-row", index))
+                            .h(px(20.0))
                             .px_2()
-                            .py_1()
+                            .flex()
+                            .items_center()
                             .text_size(px(11.0))
-                            .text_color(rgb(0x9a9a9a))
-                            .child(SharedString::from("… more results truncated")),
-                    );
-                    break 'outer;
+                            .text_color(rgb(0x7fb0e0))
+                            .child(SharedString::from(format!("{label}  ({count})"))),
+                        SearchRow::Match { path, line, text } => div()
+                            .id(("files-match-row", index))
+                            .h(px(20.0))
+                            .px_2()
+                            .pl_4()
+                            .flex()
+                            .items_center()
+                            .text_size(px(12.0))
+                            .text_color(rgb(0xd4d4d4))
+                            .hover(|s| s.bg(rgb(0x094771)))
+                            .child(SharedString::from(format!(
+                                "{line:>5}: {text}"
+                            )))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _e: &MouseDownEvent, _w, cx| {
+                                    this.open_search_result(path.clone(), line, cx);
+                                    cx.stop_propagation();
+                                }),
+                            ),
+                    });
                 }
-                shown += 1;
-                let path = file.path.clone();
-                let line_no = m.line_number;
-                let label = format!("{:>5}: {}", m.line_number, m.line_text.trim_end());
-                rows.push(
-                    div()
-                        .id(SharedString::from(format!("res-{fi}-{mi}")))
-                        .px_2()
-                        .py(px(2.0))
-                        .pl_4()
-                        .text_size(px(12.0))
-                        .text_color(rgb(0xd4d4d4))
-                        .hover(|s| s.bg(rgb(0x094771)))
-                        .child(SharedString::from(label))
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, _e: &MouseDownEvent, _w, cx| {
-                                this.open_search_result(path.clone(), line_no, cx);
-                                cx.stop_propagation();
-                            }),
-                        ),
-                );
-            }
-        }
+                out
+            },
+        )
+        .track_scroll(&panel.scroll);
 
         let results_list = div()
             .id("files-results")
             .flex_1()
             .min_h_0()
-            .overflow_y_scroll()
-            .flex()
-            .flex_col()
-            .children(rows);
+            .child(list)
+            .scrollbar(&panel.scroll, ScrollbarAxis::Vertical);
 
         Some(
             div()
@@ -2539,28 +2985,24 @@ impl EngineEditor {
 
     fn render_find_bar(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
         let find = self.find.as_ref()?;
-        let query_active = self.input_target == InputTarget::FindQuery;
-        let replace_active = self.input_target == InputTarget::FindReplace;
         let replace_mode = find.replace_mode;
 
-        let query_field = render_input_field(
-            "find-query-field",
-            &find.query,
-            "Find",
-            query_active,
-            Some(find.query_caret),
-            cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                this.input_target = InputTarget::FindQuery;
-                cx.stop_propagation();
-                cx.notify();
-            }),
-        );
+        let query_field = div().w(px(200.0)).child(Input::new(&find.query).small());
 
         let status = div()
             .min_w(px(64.0))
             .text_size(px(11.0))
             .text_color(rgb(0x9a9a9a))
             .child(SharedString::from(find.status.clone()));
+
+        let opt_btn = |id: &'static str, label: &str, active: bool, tip: &'static str| {
+            Button::new(id)
+                .ghost()
+                .xsmall()
+                .selected(active)
+                .label(label.to_string())
+                .tooltip(tip)
+        };
 
         let find_row = div()
             .flex()
@@ -2569,60 +3011,60 @@ impl EngineEditor {
             .gap_1()
             .child(query_field)
             .child(status)
-            .child(bar_button("find-prev", "↑", false).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    this.do_find(false, cx);
-                    cx.stop_propagation();
-                }),
+            .child(
+                Button::new("find-search")
+                    .primary()
+                    .xsmall()
+                    .label("Find")
+                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(true, cx))),
+            )
+            .child(opt_btn("find-prev", "\u{2191}", false, "Find previous (Shift+F3)").on_click(
+                cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(false, cx)),
             ))
-            .child(bar_button("find-next", "↓", false).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    this.do_find(true, cx);
-                    cx.stop_propagation();
-                }),
+            .child(opt_btn("find-next", "\u{2193}", false, "Find next (F3)").on_click(
+                cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(true, cx)),
             ))
-            .child(bar_button("find-case", "Aa", find.case_sensitive).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    if let Some(f) = this.find.as_mut() {
-                        f.case_sensitive = !f.case_sensitive;
-                    }
-                    this.update_find_status();
-                    cx.stop_propagation();
-                    cx.notify();
-                }),
-            ))
-            .child(bar_button("find-word", "W", find.whole_word).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    if let Some(f) = this.find.as_mut() {
-                        f.whole_word = !f.whole_word;
-                    }
-                    this.update_find_status();
-                    cx.stop_propagation();
-                    cx.notify();
-                }),
-            ))
-            .child(bar_button("find-regex", ".*", find.regex).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    if let Some(f) = this.find.as_mut() {
-                        f.regex = !f.regex;
-                    }
-                    this.update_find_status();
-                    cx.stop_propagation();
-                    cx.notify();
-                }),
-            ))
-            .child(bar_button("find-close", "✕", false).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    this.close_find(cx);
-                    cx.stop_propagation();
-                }),
-            ));
+            .child(
+                opt_btn("find-case", "Aa", find.case_sensitive, "Match case").on_click(
+                    cx.listener(|this, _: &ClickEvent, _w, cx| {
+                        if let Some(f) = this.find.as_mut() {
+                            f.case_sensitive = !f.case_sensitive;
+                        }
+                        this.update_find_status(cx);
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                opt_btn("find-word", "W", find.whole_word, "Whole word").on_click(cx.listener(
+                    |this, _: &ClickEvent, _w, cx| {
+                        if let Some(f) = this.find.as_mut() {
+                            f.whole_word = !f.whole_word;
+                        }
+                        this.update_find_status(cx);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                opt_btn("find-regex", ".*", find.regex, "Regular expression").on_click(cx.listener(
+                    |this, _: &ClickEvent, _w, cx| {
+                        if let Some(f) = this.find.as_mut() {
+                            f.regex = !f.regex;
+                        }
+                        this.update_find_status(cx);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                Button::new("find-close")
+                    .ghost()
+                    .xsmall()
+                    .label("\u{2715}")
+                    .tooltip("Close (Esc)")
+                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_find(cx))),
+            );
 
         let mut bar = div()
             .absolute()
@@ -2642,38 +3084,29 @@ impl EngineEditor {
             .child(find_row);
 
         if replace_mode {
-            let replace_field = render_input_field(
-                "replace-field",
-                &find.replace,
-                "Replace",
-                replace_active,
-                Some(find.replace_caret),
-                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                    this.input_target = InputTarget::FindReplace;
-                    cx.stop_propagation();
-                    cx.notify();
-                }),
-            );
+            let replace_field = div().w(px(200.0)).child(Input::new(&find.replace).small());
             let replace_row = div()
                 .flex()
                 .flex_row()
                 .items_center()
                 .gap_1()
                 .child(replace_field)
-                .child(bar_button("replace-one", "Replace", false).on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                        this.do_replace(cx);
-                        cx.stop_propagation();
-                    }),
-                ))
-                .child(bar_button("replace-all", "All", false).on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                        this.do_replace_all(cx);
-                        cx.stop_propagation();
-                    }),
-                ));
+                .child(
+                    Button::new("replace-one")
+                        .xsmall()
+                        .label("Replace")
+                        .on_click(
+                            cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace(cx)),
+                        ),
+                )
+                .child(
+                    Button::new("replace-all")
+                        .xsmall()
+                        .label("Replace All")
+                        .on_click(
+                            cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace_all(cx)),
+                        ),
+                );
             bar = bar.child(replace_row);
         }
 
@@ -2682,7 +3115,8 @@ impl EngineEditor {
 }
 
 /// A simple read-only text field showing the current value (with a caret bar
-/// when active). Editing happens through the editor's key/IME handlers.
+/// when active). Used only by the Go to Line overlay; editing happens through
+/// the editor's key/IME handlers.
 fn render_input_field(
     id: &'static str,
     value: &str,
@@ -2752,6 +3186,14 @@ impl Render for EngineEditor {
             self.needs_focus = false;
         }
         self.start_disk_watch(cx);
+        if !self.close_hooked {
+            self.close_hooked = true;
+            let weak = cx.entity().downgrade();
+            window.on_window_should_close(cx, move |_window, cx| {
+                weak.update(cx, |this, cx| this.request_window_close(cx))
+                    .unwrap_or(true)
+            });
+        }
         let title_bar = self.render_title_bar(cx);
         let tab_bar = self.render_tab_bar(cx);
         let disk_banner = self.render_disk_banner(cx);
@@ -2761,6 +3203,8 @@ impl Render for EngineEditor {
         let goto_bar = self.render_goto(cx);
         let search_panel = self.render_search_panel(cx);
         let about = self.render_about(cx);
+        let shortcuts = self.render_shortcuts(cx);
+        let close_confirm = self.render_close_confirm(cx);
         let recent = self.render_recent(cx);
         let scrollbar = self.render_scrollbar(cx);
         let hscrollbar = self.render_hscrollbar(cx);
@@ -2781,7 +3225,7 @@ impl Render for EngineEditor {
                     .track_focus(&focus)
                     .key_context("CyberEngineEditor")
                     .on_key_down(cx.listener(Self::on_key_down))
-                    .on_action(cx.listener(|this, _: &NewFile, _w, cx| this.new_file(cx)))
+                    .on_action(cx.listener(|this, _: &NewFile, _w, cx| this.new_tab(cx)))
                     .on_action(cx.listener(|this, _: &OpenFile, _w, cx| this.open_file(cx)))
                     .on_action(cx.listener(|this, _: &SaveFile, _w, cx| this.save_file(cx)))
                     .on_action(cx.listener(|this, _: &SaveFileAs, _w, cx| this.save_file_as(cx)))
@@ -2801,16 +3245,20 @@ impl Render for EngineEditor {
                         this.document.select_all();
                         cx.notify();
                     }))
-                    .on_action(cx.listener(|this, _: &FindText, _w, cx| this.open_find(false, cx)))
-                    .on_action(cx.listener(|this, _: &FindInFiles, _w, cx| {
-                        this.open_search_panel(cx)
+                    .on_action(cx.listener(|this, _: &FindText, window, cx| {
+                        this.open_find(false, window, cx)
                     }))
-                    .on_action(cx.listener(|this, _: &ReplaceText, _w, cx| this.open_find(true, cx)))
-                    .on_action(cx.listener(|this, _: &ReplaceAllText, _w, cx| {
+                    .on_action(cx.listener(|this, _: &FindInFiles, window, cx| {
+                        this.open_search_panel(window, cx)
+                    }))
+                    .on_action(cx.listener(|this, _: &ReplaceText, window, cx| {
+                        this.open_find(true, window, cx)
+                    }))
+                    .on_action(cx.listener(|this, _: &ReplaceAllText, window, cx| {
                         if this.find.is_some() {
                             this.do_replace_all(cx);
                         } else {
-                            this.open_find(true, cx);
+                            this.open_find(true, window, cx);
                         }
                     }))
                     .on_action(cx.listener(|this, _: &FindNext, _w, cx| this.do_find(true, cx)))
@@ -2825,6 +3273,9 @@ impl Render for EngineEditor {
                         this.toggle_soft_wrap(cx)
                     }))
                     .on_action(cx.listener(|this, _: &AboutEditor, _w, cx| this.toggle_about(cx)))
+                    .on_action(cx.listener(|this, _: &KeyboardShortcuts, _w, cx| {
+                        this.toggle_shortcuts(cx)
+                    }))
                     .on_action(cx.listener(|this, _: &GoToLine, _w, cx| this.open_goto(cx)))
                     .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
@@ -2845,6 +3296,8 @@ impl Render for EngineEditor {
                     .children(goto_bar)
                     .children(search_panel)
                     .children(about)
+                    .children(shortcuts)
+                    .children(close_confirm)
                     .children(recent),
             )
     }
@@ -2993,33 +3446,19 @@ impl EntityInputHandler for EngineEditor {
 }
 
 impl EngineEditor {
-    /// If typing is currently directed at a Find/Replace field, appends `text`
+    /// If typing is currently directed at the Go to Line field, appends `text`
     /// to it and returns `true`. Returns `false` when text should edit the doc.
+    /// (Find / Find-in-Files inputs are gpui-component widgets that handle their
+    /// own typing, so they never reach here.)
     fn append_to_find_field(&mut self, text: &str) -> bool {
         match self.input_target {
-            InputTarget::Document => false,
             InputTarget::GotoLine => {
                 if let Some(g) = self.goto.as_mut() {
                     g.extend(text.chars().filter(|c| c.is_ascii_digit()));
                 }
                 true
             }
-            InputTarget::SearchPanel => {
-                if let Some(panel) = self.search_panel.as_mut() {
-                    panel.query.push_str(text);
-                }
-                true
-            }
-            target => {
-                if self.find.is_none() {
-                    return false;
-                }
-                self.with_find_field(|f, c| field_insert(f, c, text));
-                if target == InputTarget::FindQuery {
-                    self.update_find_status();
-                }
-                true
-            }
+            _ => false,
         }
     }
 
@@ -3193,6 +3632,7 @@ impl Element for EditorCanvas {
         let mut selections = Vec::new();
         let mut carets: Vec<PaintQuad> = Vec::new();
         let mut content_w = px(0.0);
+        let highlight_word = occurrence_word(&editor.document);
 
         for line in first_line..last_line {
             let top = bounds.top() + line_height * line as f32 - scroll_y;
@@ -3218,6 +3658,23 @@ impl Element for EditorCanvas {
             );
             if shaped.width > content_w {
                 content_w = shaped.width;
+            }
+
+            // Same-word occurrence highlights (skip the active selection itself).
+            if let Some((word, sel_range)) = &highlight_word {
+                for (scol, ecol) in word_occurrences(&line_text, word) {
+                    let abs_s = line_start_char + scol;
+                    let abs_e = line_start_char + ecol;
+                    if abs_s == sel_range.start && abs_e == sel_range.end {
+                        continue;
+                    }
+                    let x0 = content_left + shaped.x_for_index(char_to_byte(&line_text, scol));
+                    let x1 = content_left + shaped.x_for_index(char_to_byte(&line_text, ecol));
+                    selections.push(fill(
+                        Bounds::from_corners(point(x0, top), point(x1, top + line_height)),
+                        rgb(0x4c4a2f),
+                    ));
+                }
             }
 
             // Selection bands + carets for every cursor on this line.
@@ -3450,6 +3907,7 @@ impl EditorCanvas {
         let mut selections: Vec<PaintQuad> = Vec::new();
         let mut carets: Vec<PaintQuad> = Vec::new();
         let right = content_left + view_w;
+        let highlight_word = occurrence_word(&editor.document);
 
         let mut y = bounds.top() - off;
         let mut line = top_line;
@@ -3469,6 +3927,32 @@ impl EditorCanvas {
             };
             let rows = wrap_rows(&wrapped);
             let block = lh * rows as f32;
+
+            if let Some((word, sel_range)) = &highlight_word {
+                for (scol, ecol) in word_occurrences(&line_text, word) {
+                    let abs_s = line_start_char + scol;
+                    let abs_e = line_start_char + ecol;
+                    if abs_s == sel_range.start && abs_e == sel_range.end {
+                        continue;
+                    }
+                    let s_byte = char_to_byte(&line_text, scol);
+                    let e_byte = char_to_byte(&line_text, ecol);
+                    if let (Some(p0), Some(p1)) = (
+                        wrapped.position_for_index(s_byte, lh),
+                        wrapped.position_for_index(e_byte, lh),
+                    ) {
+                        if (f32::from(p0.y) - f32::from(p1.y)).abs() < 0.5 {
+                            selections.push(fill(
+                                Bounds::from_corners(
+                                    point(content_left + p0.x, y + p0.y),
+                                    point(content_left + p1.x, y + p0.y + lh),
+                                ),
+                                rgb(0x4c4a2f),
+                            ));
+                        }
+                    }
+                }
+            }
 
             for cur in cursors {
                 let range = cur.range();
@@ -3660,6 +4144,52 @@ fn char_to_byte(s: &str, char_idx: usize) -> usize {
         .nth(char_idx)
         .map(|(b, _)| b)
         .unwrap_or(s.len())
+}
+
+/// Char-column ranges of whole-word, case-sensitive matches of `needle` in
+/// `line_text` (used for same-word occurrence highlighting). O(line length).
+fn word_occurrences(line_text: &str, needle: &str) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    if needle.is_empty() || needle.len() > line_text.len() {
+        return out;
+    }
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let mut from = 0usize;
+    while let Some(rel) = line_text[from..].find(needle) {
+        let bstart = from + rel;
+        let bend = bstart + needle.len();
+        let before_ok = line_text[..bstart]
+            .chars()
+            .next_back()
+            .map_or(true, |c| !is_word(c));
+        let after_ok = line_text[bend..].chars().next().map_or(true, |c| !is_word(c));
+        if before_ok && after_ok {
+            let scol = line_text[..bstart].chars().count();
+            let ecol = line_text[..bend].chars().count();
+            out.push((scol, ecol));
+        }
+        from = bend.max(bstart + 1);
+    }
+    out
+}
+
+/// The selected text to highlight occurrences of: a single non-empty,
+/// single-line, word-like selection. Returns `(text, char_range)`.
+fn occurrence_word(document: &Document) -> Option<(String, Range<usize>)> {
+    let sels = document.selections();
+    if sels.len() != 1 {
+        return None;
+    }
+    let p = sels.primary();
+    if p.is_empty() {
+        return None;
+    }
+    let text = document.buffer().slice_text(p.range());
+    let count = text.chars().count();
+    if count == 0 || count > 100 || !text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        return None;
+    }
+    Some((text, p.range()))
 }
 
 fn comment_prefix(language: &str) -> &'static str {

@@ -160,6 +160,27 @@ impl Searcher {
         total
     }
 
+    /// Single-pass count of all matches plus the 1-based index of the match that
+    /// starts exactly at `head` (if any). Avoids the two full scans that a
+    /// separate `count` + `all_matches().position()` would cost on large files.
+    pub fn count_and_index(&self, buffer: &TextBuffer, head: usize) -> (usize, Option<usize>) {
+        let rope = buffer.rope();
+        let mut total = 0usize;
+        let mut index = None;
+        for line in 0..rope.len_lines() {
+            let line_start = rope.line_to_char(line);
+            let s = line_string(buffer, line);
+            for m in self.regex.find_iter(&s) {
+                total += 1;
+                let start = line_start + byte_to_char(&s, m.start());
+                if index.is_none() && start == head {
+                    index = Some(total);
+                }
+            }
+        }
+        (total, index)
+    }
+
     /// Returns all matches in document order.
     pub fn all_matches(&self, buffer: &TextBuffer) -> Vec<Match> {
         let rope = buffer.rope();

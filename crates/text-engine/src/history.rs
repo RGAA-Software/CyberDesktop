@@ -112,10 +112,24 @@ impl Transaction {
 }
 
 /// Undo/redo stacks.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct History {
     undo: Vec<Transaction>,
     redo: Vec<Transaction>,
+    /// Undo-stack depth at which the buffer matches the on-disk file. The buffer
+    /// is "clean" when `undo.len() == saved_len`; `None` means the saved state is
+    /// no longer reachable (it lived in a redo branch that was discarded).
+    saved_len: Option<usize>,
+}
+
+impl Default for History {
+    fn default() -> Self {
+        Self {
+            undo: Vec::new(),
+            redo: Vec::new(),
+            saved_len: Some(0),
+        }
+    }
 }
 
 impl History {
@@ -134,10 +148,28 @@ impl History {
     pub fn clear(&mut self) {
         self.undo.clear();
         self.redo.clear();
+        self.saved_len = Some(0);
+    }
+
+    /// Marks the current undo depth as the saved (clean) state.
+    pub fn mark_saved(&mut self) {
+        self.saved_len = Some(self.undo.len());
+    }
+
+    /// True when the buffer content matches the last saved state.
+    pub fn is_clean(&self) -> bool {
+        self.saved_len == Some(self.undo.len())
     }
 
     /// Records a new transaction, invalidating the redo stack.
     pub fn record(&mut self, transaction: Transaction) {
+        // If the saved state lived deeper in the (now-discarded) redo branch, it
+        // is no longer reachable, so the buffer can never return to "clean".
+        if let Some(saved) = self.saved_len {
+            if saved > self.undo.len() {
+                self.saved_len = None;
+            }
+        }
         self.undo.push(transaction);
         self.redo.clear();
     }

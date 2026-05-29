@@ -108,7 +108,9 @@ impl Document {
     }
 
     pub fn dirty(&self) -> bool {
-        self.buffer.revision() != self.saved_revision
+        // An uncommitted coalescing edit, or an undo stack that has diverged from
+        // the saved depth. Undoing back to the saved state clears `dirty`.
+        self.pending.is_some() || !self.history.is_clean()
     }
 
     pub fn can_undo(&self) -> bool {
@@ -227,6 +229,40 @@ impl Document {
         self.perform(vec![(range, text.to_string())], false);
     }
 
+    /// Replaces every match of `searcher` in a single, atomic transaction. This
+    /// is the high-performance path for Replace All: one undo step and O(matches)
+    /// work regardless of how many matches there are (no per-match re-indexing).
+    /// Returns the number of matches replaced.
+    pub fn replace_all(
+        &mut self,
+        searcher: &crate::search::Searcher,
+        template: &str,
+        regex_mode: bool,
+    ) -> usize {
+        let matches = searcher.all_matches(&self.buffer);
+        if matches.is_empty() {
+            return 0;
+        }
+        let count = matches.len();
+        let before = self.selections.clone();
+        let mut edits = Vec::with_capacity(count);
+        for m in &matches {
+            let old: String = self.buffer.rope().slice(m.start..m.end).chars().collect();
+            let new = searcher.replacement_for(&self.buffer, *m, template, regex_mode);
+            edits.push(Edit::replace(m.start, old, new));
+        }
+        // Nothing before the first match shifts, so its start offset stays valid;
+        // collapsing there keeps the viewport roughly stable after the replace.
+        let caret = matches[0].start.min(self.buffer.len_chars());
+        let after = SelectionSet::single(Cursor::caret(caret));
+        let txn = Transaction::new(edits, before, after.clone());
+        self.syntax_edits.extend(txn.apply(&mut self.buffer));
+        self.selections = after;
+        self.selections.clamp(self.buffer.len_chars());
+        self.record(txn, false);
+        count
+    }
+
     /// Core mutation primitive. `spans` must be non-overlapping (any order).
     fn perform(&mut self, mut spans: Vec<(Range<usize>, String)>, coalesce: bool) {
         if spans.is_empty() {
@@ -328,9 +364,59 @@ impl Document {
         std::fs::write(&path, &bytes).with_context(|| format!("writing {}", path.display()))?;
         self.path = Some(path);
         self.saved_revision = self.buffer.revision();
-        // Committing a save closes the current coalescing group.
+        // Committing a save closes the current coalescing group, then marks this
+        // undo depth as the clean state.
         self.flush_pending();
+        self.history.mark_saved();
         Ok(())
+    }
+
+    /// Captures everything needed to encode the file on a background thread.
+    /// The rope clone is O(1) (structural sharing), so this is cheap to call on
+    /// the UI thread before handing the heavy encode+write off-thread.
+    pub fn save_snapshot(&self) -> SaveSnapshot {
+        SaveSnapshot {
+            rope: self.buffer.rope().clone(),
+            encoding: self.encoding,
+            line_ending: self.line_ending,
+            revision: self.buffer.revision(),
+        }
+    }
+
+    /// Records a completed save (made from a [`SaveSnapshot`]) on the UI thread.
+    /// Marks the buffer clean only if it hasn't changed since the snapshot was
+    /// taken; otherwise the file on disk lags the buffer and it stays dirty.
+    pub fn mark_saved(&mut self, path: PathBuf, snapshot_revision: u64) {
+        self.path = Some(path);
+        if self.buffer.revision() == snapshot_revision {
+            self.flush_pending();
+            self.saved_revision = self.buffer.revision();
+            self.history.mark_saved();
+        }
+    }
+}
+
+/// An immutable snapshot of a document's content + encoding, ready to be encoded
+/// to bytes off the UI thread.
+pub struct SaveSnapshot {
+    rope: ropey::Rope,
+    encoding: EncodingInfo,
+    line_ending: LineEnding,
+    /// Buffer revision at snapshot time (used to detect concurrent edits).
+    pub revision: u64,
+}
+
+impl SaveSnapshot {
+    /// Materializes and encodes the snapshot. CPU-heavy for large files; intended
+    /// to run on a background thread.
+    pub fn encode(&self) -> Vec<u8> {
+        let raw: String = self.rope.to_string();
+        let text = match self.line_ending {
+            LineEnding::Lf => raw,
+            LineEnding::Crlf => to_crlf(&raw),
+            LineEnding::Cr => raw.replace("\r\n", "\n").replace('\n', "\r"),
+        };
+        encoding::encode(&text, self.encoding)
     }
 }
 
@@ -442,6 +528,23 @@ mod tests {
         d.insert("d");
         assert!(d.dirty());
     }
+
+    #[test]
+    fn dirty_clears_when_reverted() {
+        let mut d = doc("abc");
+        assert!(!d.dirty());
+        d.set_caret(3);
+        d.insert("d"); // pending coalescing insert
+        assert!(d.dirty());
+        // Undoing back to the original content marks it clean again.
+        assert!(d.undo());
+        assert_eq!(d.buffer.to_string(), "abc");
+        assert!(!d.dirty());
+        // Redo dirties it once more.
+        assert!(d.redo());
+        assert!(d.dirty());
+    }
+
 
     #[test]
     fn crlf_normalization() {

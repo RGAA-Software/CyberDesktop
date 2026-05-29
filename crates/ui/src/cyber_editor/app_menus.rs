@@ -5,9 +5,9 @@ use gpui_component::{menu::AppMenuBar, GlobalState};
 
 use super::{
     AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
-    FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, NewFile, OpenFile,
-    OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment,
-    ToggleLineNumbers, ToggleSoftWrap,
+    FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, KeyboardShortcuts,
+    NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs,
+    SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap,
 };
 
 struct EditorMenuState {
@@ -120,7 +120,11 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
         },
         Menu {
             name: SharedString::from("Help"),
-            items: vec![MenuItem::action("About CyberEditor", AboutEditor)],
+            items: vec![
+                MenuItem::action("Keyboard Shortcuts", KeyboardShortcuts),
+                MenuItem::separator(),
+                MenuItem::action("About CyberEditor", AboutEditor),
+            ],
             disabled: false,
         },
     ]

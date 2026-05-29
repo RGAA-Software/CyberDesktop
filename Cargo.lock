@@ -1456,6 +1456,7 @@ dependencies = [
  "cyberfiles-text-engine",
  "cyberfiles-ui",
  "gpui",
+ "gpui-component",
 ]
 
 [[package]]

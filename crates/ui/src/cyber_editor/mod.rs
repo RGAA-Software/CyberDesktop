@@ -53,7 +53,8 @@ actions!(
         ToggleSoftWrap,
         FindNext,
         FindPrevious,
-        AboutEditor
+        AboutEditor,
+        KeyboardShortcuts
     ]
 );
 

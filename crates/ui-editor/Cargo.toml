@@ -12,3 +12,4 @@ default = []
 cyberfiles-ui = { workspace = true, default-features = false, features = ["editor-shell"] }
 cyberfiles-text-engine.workspace = true
 gpui.workspace = true
+gpui-component.workspace = true

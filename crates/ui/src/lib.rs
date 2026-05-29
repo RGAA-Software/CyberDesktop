@@ -49,9 +49,9 @@ pub use cyberfiles_assets::Assets;
 pub use cyber_editor::{
     editor_menu_bar, pick_open_file_path, pick_save_file_path, set_view_toggles, AboutEditor,
     CyberEditorPage, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
-    FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, NewFile, OpenFile,
-    OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment,
-    ToggleLineNumbers, ToggleSoftWrap,
+    FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, KeyboardShortcuts,
+    NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs,
+    SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap,
 };
 pub use i18n::{init_locale, locale, set_locale};
 #[cfg(feature = "full-app")]
