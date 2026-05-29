@@ -23,7 +23,9 @@ fn run_file_dialog<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) ->
         .expect("file dialog thread panicked")
 }
 
-/// Open-file picker. Runs on a dedicated thread so the GPUI main thread stays free.
+/// Open-file picker. Blocks the calling thread (spawns a short-lived dialog thread).
+///
+/// Call from [`gpui::AsyncApp::background_spawn`] or similar — never from the UI thread.
 pub fn pick_open_file_path(start_dir: Option<&Path>) -> Option<PathBuf> {
     let start_dir = start_dir.map(|p| p.to_path_buf());
     run_file_dialog(move || {
@@ -38,7 +40,9 @@ pub fn pick_open_file_path(start_dir: Option<&Path>) -> Option<PathBuf> {
     })
 }
 
-/// Save-as picker. Runs on a dedicated thread so the GPUI main thread stays free.
+/// Save-as picker. Blocks the calling thread (spawns a short-lived dialog thread).
+///
+/// Call from [`gpui::AsyncApp::background_spawn`] or similar — never from the UI thread.
 pub fn pick_save_file_path(default_path: &Path) -> Option<PathBuf> {
     let default_path = default_path.to_path_buf();
     run_file_dialog(move || {

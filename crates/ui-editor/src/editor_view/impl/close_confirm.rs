@@ -30,59 +30,27 @@ impl EngineEditor {
     }
 
     pub(crate) fn close_confirm_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.pending_close.take() {
+        match self.pending_close {
             Some(CloseTarget::Tab(i)) => {
                 if i != self.active {
                     self.switch_to_tab(i, cx);
                 }
-                if self.save_active_sync() {
-                    self.force_close_tab(self.active, cx);
-                } else {
-                    cx.notify();
-                }
+                self.save_active_for_close(
+                    move |this, ok, cx| {
+                        if ok {
+                            this.pending_close = None;
+                            this.force_close_tab(i, cx);
+                        } else {
+                            this.pending_close = Some(CloseTarget::Tab(i));
+                            cx.notify();
+                        }
+                    },
+                    cx,
+                );
             }
-            Some(CloseTarget::Window) => {
-                if self.save_all_sync(cx) {
-                    self.allow_window_close = true;
-                    window.remove_window();
-                } else {
-                    cx.notify();
-                }
-            }
+            Some(CloseTarget::Window) => self.save_all_dirty_for_close(window, cx),
             None => {}
         }
-    }
-
-    /// Saves the active document synchronously (prompting for a path if untitled).
-    /// Returns false if the user cancelled the save dialog.
-    pub(crate) fn save_active_sync(&mut self) -> bool {
-        let path = match self.document.path().map(Path::to_path_buf) {
-            Some(p) => p,
-            None => match crate::pick_save_file_path(&PathBuf::from("untitled.txt")) {
-                Some(p) => p,
-                None => return false,
-            },
-        };
-        if self.document.save_to(path.clone()).is_ok() {
-            self.file_meta = read_file_meta(&path);
-            self.disk_changed = false;
-            true
-        } else {
-            true
-        }
-    }
-
-    /// Saves every dirty tab synchronously. Returns false if the user cancelled.
-    pub(crate) fn save_all_sync(&mut self, cx: &mut Context<Self>) -> bool {
-        for i in self.dirty_tabs() {
-            if self.active != i {
-                self.switch_to_tab(i, cx);
-            }
-            if !self.save_active_sync() {
-                return false;
-            }
-        }
-        true
     }
 
     /// True when the current tab is a pristine, empty, untitled buffer (so we can
