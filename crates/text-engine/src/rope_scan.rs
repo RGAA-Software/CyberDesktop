@@ -165,6 +165,60 @@ fn valid_line_match(window: &[u8], rel_start: usize, len: usize) -> bool {
         .all(|&b| b != b'\n' && b != b'\r')
 }
 
+/// Collects all line-scoped matches as `(start_byte, end_byte)` in document order.
+pub fn collect_all(
+    rope: &Rope,
+    needle: &[u8],
+    bytes_pat: &BytesRegex,
+    case_sensitive_literal: bool,
+) -> Vec<(usize, usize)> {
+    if case_sensitive_literal && needle.is_empty() {
+        return Vec::new();
+    }
+    let total_bytes = rope.len_bytes();
+    if total_bytes == 0 {
+        return Vec::new();
+    }
+    let overlap = overlap_bytes(needle, case_sensitive_literal);
+    let finder = case_sensitive_literal.then(|| Finder::new(needle));
+    let mut out = Vec::new();
+    let mut chunk_abs = 0usize;
+    let mut tail = Vec::new();
+
+    for chunk in rope.byte_slice(0..total_bytes).chunks() {
+        let bytes = chunk.as_bytes();
+        let window_lo = chunk_abs.saturating_sub(tail.len());
+        let mut window = std::mem::take(&mut tail);
+        window.extend_from_slice(bytes);
+
+        if case_sensitive_literal {
+            if let Some(finder) = &finder {
+                for rel in finder.find_iter(&window) {
+                    let start = window_lo + rel;
+                    let end = start + needle.len();
+                    if start >= chunk_abs && valid_line_match(&window, rel, needle.len()) {
+                        out.push((start, end));
+                    }
+                }
+            }
+        } else {
+            for m in bytes_pat.find_iter(&window) {
+                let start = window_lo + m.start();
+                let end = window_lo + m.end();
+                if start >= chunk_abs && valid_line_match(&window, m.start(), m.len()) {
+                    out.push((start, end));
+                }
+            }
+        }
+
+        if overlap > 0 && window.len() > overlap {
+            tail.extend_from_slice(&window[window.len() - overlap..]);
+        }
+        chunk_abs += bytes.len();
+    }
+    out
+}
+
 /// Count all line-scoped matches in the rope (Notepad++ Count / `ProcessCountAll`).
 pub fn count_all(
     rope: &Rope,

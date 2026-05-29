@@ -269,21 +269,47 @@ impl Searcher {
         FindInLinesOutcome::Ok(out)
     }
 
-    /// Returns all matches in document order.
+    /// Returns all matches in document order (rope chunk scan; same semantics as
+    /// [`Searcher::count`]).
     pub fn all_matches(&self, buffer: &TextBuffer) -> Vec<Match> {
-        let rope = buffer.rope();
-        let mut out = Vec::new();
-        for line in 0..rope.len_lines() {
-            let line_start = rope.line_to_char(line);
-            let body = line_body(buffer, line);
-            for m in self.regex.find_iter(body.as_ref()) {
-                out.push(to_match(
-                    body.as_ref(),
-                    line_start,
-                    m.start(),
-                    m.end(),
-                ));
+        self.collect_byte_matches(buffer)
+            .into_iter()
+            .map(|(start_byte, end_byte)| self.byte_match(buffer, start_byte, end_byte))
+            .collect()
+    }
+
+    /// Line-scoped match byte ranges in document order.
+    pub(crate) fn collect_byte_matches(&self, buffer: &TextBuffer) -> Vec<(usize, usize)> {
+        rope_scan::collect_all(
+            buffer.rope(),
+            self.rope_needle(),
+            &self.bytes_regex,
+            self.case_sensitive_literal(),
+        )
+    }
+
+    /// Builds the post-replace document text from byte-range hits (literal template).
+    pub(crate) fn build_literal_replace_text(
+        rope: &ropey::Rope,
+        hits: &[(usize, usize)],
+        replacement: &str,
+    ) -> String {
+        let total = rope.len_bytes();
+        let growth: isize = hits
+            .iter()
+            .map(|(s, e)| replacement.len() as isize - (*e as isize - *s as isize))
+            .sum();
+        let mut out = String::with_capacity((total as isize + growth).max(0) as usize);
+        let mut pos = 0usize;
+        for &(start, end) in hits {
+            for chunk in rope.byte_slice(pos..start).chunks() {
+                out.push_str(chunk);
             }
+            out.push_str(replacement);
+            pos = end;
+        }
+        for chunk in rope.byte_slice(pos..total).chunks() {
+            out.push_str(chunk);
         }
         out
     }
@@ -344,6 +370,7 @@ fn byte_to_char(s: &str, byte_idx: usize) -> usize {
     s[..byte_idx.min(s.len())].chars().count()
 }
 
+#[allow(dead_code)]
 fn to_match(s: &str, line_start_char: usize, start_byte: usize, end_byte: usize) -> Match {
     Match {
         start: line_start_char + byte_to_char(s, start_byte),

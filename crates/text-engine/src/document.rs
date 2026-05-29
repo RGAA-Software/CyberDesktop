@@ -239,6 +239,48 @@ impl Document {
         template: &str,
         regex_mode: bool,
     ) -> usize {
+        if !regex_mode {
+            return self.replace_all_literal(searcher, template);
+        }
+        self.replace_all_per_match(searcher, template, true)
+    }
+
+    /// Literal Replace All: one rope scan + one buffer edit (Notepad++-style bulk).
+    fn replace_all_literal(&mut self, searcher: &crate::search::Searcher, template: &str) -> usize {
+        let byte_hits = searcher.collect_byte_matches(&self.buffer);
+        if byte_hits.is_empty() {
+            return 0;
+        }
+        let count = byte_hits.len();
+        let new_text = crate::search::Searcher::build_literal_replace_text(
+            self.buffer.rope(),
+            &byte_hits,
+            template,
+        );
+        let len = self.buffer.len_chars();
+        let caret = self
+            .buffer
+            .byte_to_char(byte_hits[0].0)
+            .min(self.buffer.len_chars());
+        let before = self.selections.clone();
+        let old: String = self.buffer.rope().slice(0..len).chars().collect();
+        let edits = vec![Edit::replace(0, old, new_text)];
+        let after = SelectionSet::single(Cursor::caret(caret));
+        let txn = Transaction::new(edits, before, after.clone());
+        self.syntax_edits.extend(txn.apply(&mut self.buffer));
+        self.selections = after;
+        self.selections.clamp(self.buffer.len_chars());
+        self.record(txn, false);
+        count
+    }
+
+    /// Regex / per-match template: N edits, right-to-left apply.
+    fn replace_all_per_match(
+        &mut self,
+        searcher: &crate::search::Searcher,
+        template: &str,
+        regex_mode: bool,
+    ) -> usize {
         let matches = searcher.all_matches(&self.buffer);
         if matches.is_empty() {
             return 0;
@@ -251,8 +293,6 @@ impl Document {
             let new = searcher.replacement_for(&self.buffer, *m, template, regex_mode);
             edits.push(Edit::replace(m.start, old, new));
         }
-        // Nothing before the first match shifts, so its start offset stays valid;
-        // collapsing there keeps the viewport roughly stable after the replace.
         let caret = matches[0].start.min(self.buffer.len_chars());
         let after = SelectionSet::single(Cursor::caret(caret));
         let txn = Transaction::new(edits, before, after.clone());
@@ -551,6 +591,14 @@ mod tests {
         let mut d = doc("a\nb");
         d.set_line_ending(LineEnding::Crlf);
         assert_eq!(d.normalized_text(), "a\r\nb");
+    }
+
+    #[test]
+    fn replace_all_literal() {
+        let mut d = doc("foo bar foo baz foo");
+        let s = crate::search::Searcher::new("foo", crate::search::SearchOptions::default()).unwrap();
+        assert_eq!(d.replace_all(&s, "qux", false), 3);
+        assert_eq!(d.buffer.to_string(), "qux bar qux baz qux");
     }
 
     #[test]
