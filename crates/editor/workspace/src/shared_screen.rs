@@ -2,7 +2,7 @@ use crate::{
     ItemNavHistory, WorkspaceId,
     item::{Item, ItemEvent},
 };
-use client::{User, proto::PeerId};
+use project::{User, proto::PeerId};
 use gpui::{
     AnyView, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, InteractiveElement,
     ParentElement, Render, SharedString, Styled, Task, div,

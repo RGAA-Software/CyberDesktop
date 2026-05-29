@@ -4,7 +4,7 @@ use crate::{
     worktree_store::{WorktreeStore, WorktreeStoreEvent},
 };
 use anyhow::{Context as _, Result, anyhow};
-use client::Client;
+use crate::collab::Client;
 use collections::{HashMap, HashSet, hash_map};
 use futures::{Future, FutureExt as _, channel::oneshot, future::Shared};
 use gpui::{

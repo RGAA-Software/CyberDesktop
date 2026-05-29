@@ -4,7 +4,7 @@ use crate::status_bar::HideStatusItem;
 use crate::{DraggedDock, Event, FocusFollowsMouse, ModalLayer, Pane, WorkspaceSettings};
 use crate::{Workspace, status_bar::StatusItemView};
 use anyhow::Context as _;
-use client::proto;
+use project::proto;
 use db::kvp::KeyValueStore;
 
 use gpui::{

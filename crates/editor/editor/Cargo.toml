@@ -16,10 +16,12 @@ doctest = false
 # Opt-in per product: cybereditor uses `notepad`; full IDE uses `project-integration`.
 default = []
 # Notepad++ / CyberEditor: buffer + workspace shell, no collab client, breadcrumbs, or AI prediction cloud client.
-notepad = ["project-buffer", "workspace-minimal", "dep:breadcrumbs", "dep:client"]
+notepad = ["project-buffer", "workspace-minimal", "dep:breadcrumbs"]
 # Full IDE: workspace UI + collab client + breadcrumbs.
 project-integration = [
     "notepad",
+    "project/collab-client",
+    "dep:client",
     "workspace-collab",
     "dep:breadcrumbs",
     "dep:client",

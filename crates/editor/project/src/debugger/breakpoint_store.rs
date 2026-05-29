@@ -1006,8 +1006,8 @@ impl Breakpoint {
         _path: &Path,
         position: &text::Anchor,
         session_states: &HashMap<SessionId, BreakpointSessionState>,
-    ) -> Option<client::proto::Breakpoint> {
-        Some(client::proto::Breakpoint {
+    ) -> Option<proto::Breakpoint> {
+        Some(proto::Breakpoint {
             position: Some(serialize_text_anchor(position)),
             state: match self.state {
                 BreakpointState::Enabled => proto::BreakpointState::Enabled.into(),
@@ -1034,7 +1034,7 @@ impl Breakpoint {
         })
     }
 
-    fn from_proto(breakpoint: client::proto::Breakpoint) -> Option<Self> {
+    fn from_proto(breakpoint: proto::Breakpoint) -> Option<Self> {
         Some(Self {
             state: match proto::BreakpointState::from_i32(breakpoint.state) {
                 Some(proto::BreakpointState::Disabled) => BreakpointState::Disabled,

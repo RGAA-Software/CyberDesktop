@@ -16,7 +16,7 @@ use crate::{
 use anyhow::{Context as _, Result, anyhow, bail};
 use askpass::{AskPassDelegate, EncryptedPassword, IKnowWhatIAmDoingAndIHaveReadTheDocs};
 use buffer_diff::{BufferDiff, BufferDiffEvent};
-use client::ProjectId;
+use crate::collab::ProjectId;
 use collections::HashMap;
 pub use conflict_set::{ConflictRegion, ConflictSet, ConflictSetSnapshot, ConflictSetUpdate};
 use fs::{Fs, RemoveOptions};

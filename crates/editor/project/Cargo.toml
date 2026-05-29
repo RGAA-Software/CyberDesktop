@@ -20,6 +20,7 @@ path = "tests/integration/project_tests.rs"
 
 [features]
 default = []
+collab-client = ["dep:client"]
 remote-debug = [
     "dep:dap",
 ]
@@ -33,6 +34,7 @@ ide-terminals = [
     "dep:terminal",
 ]
 test-support = [
+    "collab-client",
     "buffer_diff/test-support",
     "client/test-support",
     "language/test-support",
@@ -58,7 +60,7 @@ async-channel.workspace = true
 base64.workspace = true
 buffer_diff.workspace = true
 circular-buffer.workspace = true
-client.workspace = true
+client = { workspace = true, optional = true }
 clock.workspace = true
 collections.workspace = true
 context_server.workspace = true

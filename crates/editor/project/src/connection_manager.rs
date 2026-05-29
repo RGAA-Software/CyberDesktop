@@ -1,6 +1,6 @@
 use super::Project;
 use anyhow::Result;
-use client::Client;
+use crate::collab::Client;
 use collections::{HashMap, HashSet};
 use futures::{FutureExt, StreamExt};
 use gpui::{App, AppContext as _, AsyncApp, Context, Entity, Global, Task, WeakEntity};

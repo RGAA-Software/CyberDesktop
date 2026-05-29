@@ -54,10 +54,12 @@ pub use remote::{
 pub use toast_layer::{ToastAction, ToastLayer, ToastView};
 
 use anyhow::{Context as _, Result, anyhow};
-use client::{
+use project::{
     ChannelId, Client, ErrorExt, ParticipantIndex, Status, TypedEnvelope, User, UserStore,
     proto::{self, ErrorCode, PanelId, PeerId},
 };
+#[cfg(feature = "collab-runtime")]
+use client as zed_client;
 use collections::{HashMap, HashSet, hash_map};
 use dock::{Dock, DockPosition, PanelButtons, PanelHandle, RESIZE_HANDLE_SIZE};
 use fs::Fs;
@@ -1145,7 +1147,7 @@ pub struct PreviousWorkspaceState {
 pub struct WorkspaceStore {
     workspaces: HashSet<(gpui::AnyWindowHandle, WeakEntity<Workspace>)>,
     client: Arc<Client>,
-    _subscriptions: Vec<client::Subscription>,
+    _subscriptions: Vec<project::Subscription>,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -1208,7 +1210,8 @@ impl AppState {
         let workspace_store = cx.new(|cx| WorkspaceStore::new(client.clone(), cx));
 
         theme_settings::init(theme::LoadThemes::JustBase, cx);
-        client::init(&client, cx);
+        #[cfg(feature = "collab-runtime")]
+        zed_client::init(&client, cx);
 
         Arc::new(Self {
             client,
@@ -5785,6 +5788,7 @@ impl Workspace {
         cx.notify();
 
         match leader_id {
+            #[cfg(feature = "collab-runtime")]
             CollaboratorId::PeerId(leader_peer_id) => {
                 let room_id = self.active_call()?.room_id(cx)?;
                 let project_id = self.project.read(cx).remote_id();
@@ -5816,6 +5820,8 @@ impl Workspace {
                     Ok(())
                 }))
             }
+            #[cfg(not(feature = "collab-runtime"))]
+            CollaboratorId::PeerId(_) => None,
             CollaboratorId::Agent => {
                 self.leader_updated(leader_id, window, cx)?;
                 Some(Task::ready(Ok(())))
@@ -8860,10 +8866,13 @@ impl WorkspaceStore {
     pub fn new(client: Arc<Client>, cx: &mut Context<Self>) -> Self {
         Self {
             workspaces: Default::default(),
+            #[cfg(feature = "collab-runtime")]
             _subscriptions: vec![
                 client.add_request_handler(cx.weak_entity(), Self::handle_follow),
                 client.add_message_handler(cx.weak_entity(), Self::handle_update_followers),
             ],
+            #[cfg(not(feature = "collab-runtime"))]
+            _subscriptions: vec![],
             client,
         }
     }
@@ -8874,17 +8883,26 @@ impl WorkspaceStore {
         update: proto::update_followers::Variant,
         cx: &App,
     ) -> Option<()> {
-        let active_call = GlobalAnyActiveCall::try_global(cx)?;
-        let room_id = active_call.0.room_id(cx)?;
-        self.client
-            .send(proto::UpdateFollowers {
-                room_id,
-                project_id,
-                variant: Some(update),
-            })
-            .log_err()
+        #[cfg(feature = "collab-runtime")]
+        {
+            let active_call = GlobalAnyActiveCall::try_global(cx)?;
+            let room_id = active_call.0.room_id(cx)?;
+            self.client
+                .send(proto::UpdateFollowers {
+                    room_id,
+                    project_id,
+                    variant: Some(update),
+                })
+                .log_err()
+        }
+        #[cfg(not(feature = "collab-runtime"))]
+        {
+            let _ = (project_id, update, cx);
+            None
+        }
     }
 
+    #[cfg(feature = "collab-runtime")]
     pub async fn handle_follow(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::Follow>,
@@ -9286,30 +9304,33 @@ async fn join_channel_internal(
         }
     }
 
-    let client = cx.update(|cx| active_call.client(cx));
+    #[cfg(feature = "collab-runtime")]
+    {
+        let client = cx.update(|cx| active_call.client(cx));
 
-    let mut client_status = client.status();
+        let mut client_status = client.status();
 
-    // this loop will terminate within client::CONNECTION_TIMEOUT seconds.
-    'outer: loop {
-        let Some(status) = client_status.recv().await else {
-            anyhow::bail!("error connecting");
-        };
+        // this loop will terminate within client::CONNECTION_TIMEOUT seconds.
+        'outer: loop {
+            let Some(status) = client_status.recv().await else {
+                anyhow::bail!("error connecting");
+            };
 
-        match status {
-            Status::Connecting
-            | Status::Authenticating
-            | Status::Authenticated
-            | Status::Reconnecting
-            | Status::Reauthenticating
-            | Status::Reauthenticated => continue,
-            Status::Connected { .. } => break 'outer,
-            Status::SignedOut | Status::AuthenticationError => {
-                return Err(ErrorCode::SignedOut.into());
-            }
-            Status::UpgradeRequired => return Err(ErrorCode::UpgradeRequired.into()),
-            Status::ConnectionError | Status::ConnectionLost | Status::ReconnectionError { .. } => {
-                return Err(ErrorCode::Disconnected.into());
+            match status {
+                Status::Connecting
+                | Status::Authenticating
+                | Status::Authenticated
+                | Status::Reconnecting
+                | Status::Reauthenticating
+                | Status::Reauthenticated => continue,
+                Status::Connected { .. } => break 'outer,
+                Status::SignedOut | Status::AuthenticationError => {
+                    return Err(ErrorCode::SignedOut.into());
+                }
+                Status::UpgradeRequired => return Err(ErrorCode::UpgradeRequired.into()),
+                Status::ConnectionError | Status::ConnectionLost | Status::ReconnectionError { .. } => {
+                    return Err(ErrorCode::Disconnected.into());
+                }
             }
         }
     }

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::*;
 use crate::item::test::TestItem;
 use agent_settings::AgentSettings;
-use client::proto;
+use project::proto;
 use fs::{FakeFs, Fs};
 use gpui::{TestAppContext, VisualTestContext};
 use project::DisableAiSettings;

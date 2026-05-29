@@ -14,8 +14,8 @@ doctest = false
 
 [features]
 default = ["collab-runtime"]
-# Collaboration UI + telemetry; `client` stays required for `Project::local` types.
-collab-runtime = ["dep:telemetry"]
+# Collaboration UI + telemetry + Zed account client init.
+collab-runtime = ["dep:client", "dep:telemetry"]
 test-support = [
     "client/test-support",
     "http_client/test-support",
@@ -33,7 +33,7 @@ any_vec.workspace = true
 agent_settings.workspace = true
 anyhow.workspace = true
 async-recursion.workspace = true
-client.workspace = true
+client = { workspace = true, optional = true }
 chrono.workspace = true
 clock.workspace = true
 collections.workspace = true

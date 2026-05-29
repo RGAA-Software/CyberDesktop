@@ -58,7 +58,9 @@
     - `edit_prediction_types` 的 `client-usage` 仅在 `project-integration` 开启；`hyper` 主链现为 `project` + `editor/notepad` → `client`（`workspace` 已不再默认启用 `collab-runtime`）。
     - `workspace` 可在 `--no-default-features` 下编译：`client` 保留（`Project::local` 类型），`collab-runtime` 仅启用 `telemetry`；`collab_telemetry!` 宏在无遥测时为空操作。
     - `editor/notepad` 的 `workspace` 依赖已去掉 `features = ["collab-runtime"]`。
-    - 下一步：`project` 的 `client` 可选化；长期目标 `notepad` 去掉 `workspace`/`project` 中 LSP 与协作栈。
+    - `project` 增加 `collab-client` feature（可选 `client` crate）；无协作时用 `client_shim` + `#[cfg]` 关闭共享/房间 RPC。
+    - `workspace` / `editor` 的 `Client`/`UserStore` 类型改由 `project` 重导出；`editor/notepad` 已去掉 `dep:client`。
+    - 下一步：从 `cybereditor` 链接图验证 `hyper` 是否下降；长期目标 `notepad` 去掉 LSP 与剩余协作桩以外的依赖。
 
 - Phase 5（未开始）
   - 语言内置集合尚未裁剪。

@@ -1,5 +1,12 @@
 #[cfg(not(feature = "remote-debug"))]
 mod dap_shim;
+#[cfg(not(feature = "collab-client"))]
+mod client_shim;
+
+#[cfg(feature = "collab-client")]
+pub(crate) use ::client as collab;
+#[cfg(not(feature = "collab-client"))]
+pub(crate) use client_shim as collab;
 
 pub mod agent_registry_store;
 #[cfg(feature = "ide-shell")]
@@ -11,7 +18,12 @@ pub use agent_server_store_disabled as agent_server_store;
 pub mod bookmark_store;
 pub mod buffer_store;
 pub mod color_extractor;
+#[cfg(feature = "collab-client")]
 pub mod connection_manager;
+#[cfg(not(feature = "collab-client"))]
+mod connection_manager_disabled;
+#[cfg(not(feature = "collab-client"))]
+use connection_manager_disabled as connection_manager;
 #[cfg(feature = "ide-shell")]
 pub mod context_server_store;
 #[cfg(not(feature = "ide-shell"))]
@@ -81,8 +93,9 @@ pub use worktree_store::WorktreePaths;
 
 use anyhow::{Context as _, Result, anyhow};
 use buffer_store::{BufferStore, BufferStoreEvent};
-use client::{
-    Client, Collaborator, PendingEntitySubscription, ProjectId, TypedEnvelope, UserStore, proto,
+pub use collab::{
+    ChannelId, Client, Collaborator, ErrorExt, ParticipantIndex, PendingEntitySubscription,
+    ProjectId, Status, Subscription, TypedEnvelope, User, UserStore, parse_zed_link, proto,
 };
 use clock::ReplicaId;
 
@@ -244,7 +257,7 @@ pub struct Project {
 
     bookmark_store: Entity<BookmarkStore>,
     breakpoint_store: Entity<BreakpointStore>,
-    collab_client: Arc<client::Client>,
+    collab_client: Arc<Client>,
     join_project_response_message_id: u32,
     task_store: Entity<TaskStore>,
     user_store: Entity<UserStore>,
@@ -254,7 +267,7 @@ pub struct Project {
     client_state: ProjectClientState,
     git_store: Entity<GitStore>,
     collaborators: HashMap<proto::PeerId, Collaborator>,
-    client_subscriptions: Vec<client::Subscription>,
+    client_subscriptions: Vec<collab::Subscription>,
     worktree_store: Entity<WorktreeStore>,
     buffer_store: Entity<BufferStore>,
     context_server_store: Entity<ContextServerStore>,
@@ -925,6 +938,7 @@ impl Hover {
     }
 }
 
+#[cfg(feature = "collab-client")]
 enum EntitySubscription {
     Project(PendingEntitySubscription<Project>),
     BufferStore(PendingEntitySubscription<BufferStore>),
@@ -1156,6 +1170,7 @@ impl DisableAiSettings {
 }
 
 impl Project {
+    #[cfg(feature = "collab-client")]
     pub fn init(client: &Arc<Client>, cx: &mut App) {
         connection_manager::init(client.clone(), cx);
 
@@ -1685,6 +1700,7 @@ impl Project {
         })
     }
 
+    #[cfg(feature = "collab-client")]
     pub async fn in_room(
         remote_id: u64,
         client: Arc<Client>,
@@ -1736,6 +1752,7 @@ impl Project {
         .await
     }
 
+    #[cfg(feature = "collab-client")]
     async fn from_join_project_response(
         response: TypedEnvelope<proto::JoinProjectResponse>,
         subscriptions: [EntitySubscription; 8],
@@ -2024,17 +2041,20 @@ impl Project {
             ProjectClientState::Shared { .. } => {
                 let _ = self.unshare_internal(cx);
             }
+            #[cfg(feature = "collab-client")]
             ProjectClientState::Collab { remote_id, .. } => {
                 let _ = self.collab_client.send(proto::LeaveProject {
                     project_id: *remote_id,
                 });
                 self.disconnected_from_host_internal(cx);
             }
+            #[cfg(not(feature = "collab-client"))]
+            ProjectClientState::Collab { .. } => {}
         }
     }
 
     #[cfg(feature = "test-support")]
-    pub fn client_subscriptions(&self) -> &Vec<client::Subscription> {
+    pub fn client_subscriptions(&self) -> &Vec<collab::Subscription> {
         &self.client_subscriptions
     }
 
@@ -2049,7 +2069,7 @@ impl Project {
         let languages = LanguageRegistry::test(cx.background_executor().clone());
         let clock = Arc::new(FakeSystemClock::new());
         let http_client = http_client::FakeHttpClient::with_404_response();
-        let client = cx.update(|cx| client::Client::new(clock, http_client.clone(), cx));
+        let client = cx.update(|cx| Client::new(clock, http_client.clone(), cx));
         let user_store = cx.new(|cx| UserStore::new(client.clone(), cx));
         let project = cx.update(|cx| {
             Project::local(
@@ -2109,7 +2129,7 @@ impl Project {
         let languages = LanguageRegistry::test(cx.executor());
         let clock = Arc::new(FakeSystemClock::new());
         let http_client = http_client::FakeHttpClient::with_404_response();
-        let client = cx.update(|cx| client::Client::new(clock, http_client.clone(), cx));
+        let client = cx.update(|cx| Client::new(clock, http_client.clone(), cx));
         let user_store = cx.new(|cx| UserStore::new(client.clone(), cx));
         let project = cx.update(|cx| {
             Project::local(
@@ -2739,6 +2759,7 @@ impl Project {
         }))
     }
 
+    #[cfg(feature = "collab-client")]
     pub fn shared(&mut self, project_id: u64, cx: &mut Context<Self>) -> Result<()> {
         anyhow::ensure!(
             matches!(self.client_state, ProjectClientState::Local),
@@ -2805,6 +2826,7 @@ impl Project {
         Ok(())
     }
 
+    #[cfg(feature = "collab-client")]
     pub fn reshared(
         &mut self,
         message: proto::ResharedProject,
@@ -2826,6 +2848,7 @@ impl Project {
         Ok(())
     }
 
+    #[cfg(feature = "collab-client")]
     pub fn rejoined(
         &mut self,
         message: proto::RejoinedProject,
@@ -3272,20 +3295,28 @@ impl Project {
         } else if self.is_local() || self.is_via_remote_server() {
             Task::ready(Err(anyhow!("buffer {id} does not exist")))
         } else if let Some(project_id) = self.remote_id() {
-            let request = self.collab_client.request(proto::OpenBufferById {
-                project_id,
-                id: id.into(),
-            });
-            cx.spawn(async move |project, cx| {
-                let buffer_id = BufferId::new(request.await?.buffer_id)?;
-                project
-                    .update(cx, |project, cx| {
-                        project.buffer_store.update(cx, |buffer_store, cx| {
-                            buffer_store.wait_for_remote_buffer(buffer_id, cx)
-                        })
-                    })?
-                    .await
-            })
+            #[cfg(feature = "collab-client")]
+            {
+                let request = self.collab_client.request(proto::OpenBufferById {
+                    project_id,
+                    id: id.into(),
+                });
+                cx.spawn(async move |project, cx| {
+                    let buffer_id = BufferId::new(request.await?.buffer_id)?;
+                    project
+                        .update(cx, |project, cx| {
+                            project.buffer_store.update(cx, |buffer_store, cx| {
+                                buffer_store.wait_for_remote_buffer(buffer_id, cx)
+                            })
+                        })?
+                        .await
+                })
+            }
+            #[cfg(not(feature = "collab-client"))]
+            {
+                let _ = project_id;
+                Task::ready(Err(anyhow!("collaboration client disabled")))
+            }
         } else {
             Task::ready(Err(anyhow!("cannot open buffer while disconnected")))
         }
@@ -3395,20 +3426,23 @@ impl Project {
             cx: &mut AsyncApp,
         ) -> Result<()> {
             for (buffer_id, operations) in operations_by_buffer_id.drain() {
-                let request = this.read_with(cx, |this, _| {
-                    let project_id = this.remote_id()?;
-                    Some(this.collab_client.request(proto::UpdateBuffer {
-                        buffer_id: buffer_id.into(),
-                        project_id,
-                        operations,
-                    }))
-                })?;
-                if let Some(request) = request
-                    && request.await.is_err()
-                    && !is_local
+                #[cfg(feature = "collab-client")]
                 {
-                    *needs_resync_with_host = true;
-                    break;
+                    let request = this.read_with(cx, |this, _| {
+                        let project_id = this.remote_id()?;
+                        Some(this.collab_client.request(proto::UpdateBuffer {
+                            buffer_id: buffer_id.into(),
+                            project_id,
+                            operations,
+                        }))
+                    })?;
+                    if let Some(request) = request
+                        && request.await.is_err()
+                        && !is_local
+                    {
+                        *needs_resync_with_host = true;
+                        break;
+                    }
                 }
             }
             Ok(())
@@ -5373,6 +5407,7 @@ impl Project {
         cx: AsyncApp,
     ) -> Result<proto::Ack> {
         let buffer_store = this.read_with(&cx, |this, cx| {
+            #[cfg(feature = "collab-client")]
             if let Some(remote_id) = this.remote_id() {
                 let mut payload = envelope.payload.clone();
                 payload.project_id = remote_id;
@@ -5941,6 +5976,7 @@ impl Project {
 
             // Any incomplete buffers have open requests waiting. Request that the host sends
             // creates these buffers for us again to unblock any waiting futures.
+            #[cfg(feature = "collab-client")]
             for id in incomplete_buffer_ids {
                 cx.background_spawn(client.request(proto::OpenBufferById {
                     project_id,
@@ -5948,6 +5984,8 @@ impl Project {
                 }))
                 .detach();
             }
+            #[cfg(not(feature = "collab-client"))]
+            let _ = (incomplete_buffer_ids, project_id, client);
 
             futures::future::join_all(send_updates_for_buffers)
                 .await
@@ -5982,6 +6020,7 @@ impl Project {
         })
     }
 
+    #[cfg(feature = "collab-client")]
     fn set_collaborators_from_proto(
         &mut self,
         messages: Vec<proto::Collaborator>,
