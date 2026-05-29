@@ -38,7 +38,6 @@ mod sidebar;
 mod tab;
 mod theme;
 mod title_bar;
-#[cfg(feature = "full-app")]
 mod toolbar_button;
 
 rust_i18n::i18n!("locales", fallback = "en");
@@ -58,6 +57,7 @@ pub use i18n::{init_locale, locale, set_locale};
 pub use main_page::MainPage;
 pub use popup_menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem};
 pub use title_bar::TitleBar;
+pub use toolbar_button::{toolbar_icon, toolbar_icon_button, TOOLBAR_BUTTON_PX, TOOLBAR_ICON_BUTTON_SIZE};
 #[cfg(feature = "full-app")]
 pub use shell::open_main_window;
 pub use shell::{open_editor_window, open_window, open_window_with_close_handler};

@@ -55,6 +55,18 @@ MATERIAL_ICON_MAP: dict[str, str] = {
     "note_add": "note_add",
     "content_copy": "content_copy",
     "drive_file_rename_outline": "drive_file_rename_outline",
+    # CyberEditor find / replace / navigation toolbar
+    "editor_close": "close",
+    "editor_find_prev": "keyboard_arrow_up",
+    "editor_find_next": "keyboard_arrow_down",
+    "editor_match_case": "match_case",
+    "editor_match_word": "match_word",
+    "editor_regex": "regular_expression",
+    "editor_search": "search",
+    "editor_replace": "find_replace",
+    "editor_replace_all": "published_with_changes",
+    "editor_count": "pin",
+    "editor_goto": "tag",
 }
 
 LUCIDE_PRESERVE: tuple[str, ...] = (

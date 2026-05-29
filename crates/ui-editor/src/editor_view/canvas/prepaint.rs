@@ -8,6 +8,7 @@ use gpui::{
 
 use super::element::{CanvasPrepaint, EditorCanvas, VisibleRow};
 use super::super::editor::EngineEditor;
+use super::super::ui::EditorColors;
 use super::super::text_util::char_to_byte;
 use super::syntax_paint::{build_runs, occurrence_word, word_occurrences};
 
@@ -15,6 +16,7 @@ pub(crate) fn prepaint_normal(
     canvas: &EditorCanvas,
     bounds: Bounds<Pixels>,
     font: &Font,
+    colors: EditorColors,
     default_color: Hsla,
     font_size: Pixels,
     window: &mut Window,
@@ -31,6 +33,7 @@ pub(crate) fn prepaint_normal(
         let digits = line_count.to_string().len().max(3);
 
         let primary = editor.document.selections().primary();
+        let caret_line = buf.char_to_position(primary.head).line;
         let cursors = editor.document.selections().cursors();
 
         // Resolve horizontal caret reveal up front (needs glyph metrics): shape
@@ -128,7 +131,7 @@ pub(crate) fn prepaint_normal(
                     let x1 = content_left + shaped.x_for_index(char_to_byte(&line_text, ecol));
                     selections.push(fill(
                         Bounds::from_corners(point(x0, top), point(x1, top + line_height)),
-                        rgb(0x4c4a2f),
+                        colors.occurrence,
                     ));
                 }
             }
@@ -143,7 +146,7 @@ pub(crate) fn prepaint_normal(
                     let x1 = content_left + shaped.x_for_index(char_to_byte(&line_text, end_col));
                     selections.push(fill(
                         Bounds::from_corners(point(x0, top), point(x1, top + line_height)),
-                        rgb(0x264f78),
+                        colors.selection,
                     ));
                 }
                 if focused && cur.head >= line_start_char && cur.head <= line_end_char {
@@ -151,7 +154,7 @@ pub(crate) fn prepaint_normal(
                     let cx_pos = content_left + shaped.x_for_index(char_to_byte(&line_text, col));
                     carets.push(fill(
                         Bounds::new(point(cx_pos, top), gpui::size(px(2.0), line_height)),
-                        rgb(0xaeafad),
+                        colors.caret,
                     ));
                 }
             }
@@ -159,10 +162,15 @@ pub(crate) fn prepaint_normal(
             // Gutter line number.
             if show_line_numbers {
                 let num = format!("{:>width$} ", line + 1, width = digits);
+                let line_num_color = if line == caret_line {
+                    colors.active_line_number
+                } else {
+                    colors.line_number
+                };
                 let grun = TextRun {
                     len: num.len(),
                     font: font.clone(),
-                    color: rgb(0x6e7681).into(),
+                    color: line_num_color,
                     background_color: None,
                     underline: None,
                     strikethrough: None,

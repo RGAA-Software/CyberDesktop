@@ -26,7 +26,6 @@ pub use gpui::{
 pub use gpui_component::{
     button::{Button, ButtonVariants as _},
     dialog::{Dialog, DialogFooter},
-    group_box::{GroupBox, GroupBoxVariants as _},
     h_flex, v_flex,
     input::{Input, InputEvent, InputState},
     label::Label,

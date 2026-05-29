@@ -1,7 +1,9 @@
 //! UI fragment: `ui/search_panel_ui.rs`.
 
+use super::icons::{paths, toolbar_icon, toolbar_icon_button};
 use super::super::imports::*;
-use gpui_component::progress::Progress;
+use gpui::FontWeight;
+use gpui_component::{progress::Progress, IconName, StyledExt as _};
 
 fn search_progress_value(lines_scanned: usize, searching: bool) -> f32 {
     if !searching {
@@ -17,12 +19,10 @@ impl EngineEditor {
     pub(crate) fn render_search_panel(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let panel = self.search_panel.as_ref()?;
 
-        let opt_btn = |id: &'static str, label: &str, active: bool, tip: &'static str| {
-            Button::new(id)
-                .ghost()
-                .xsmall()
+        let opt_btn = |id: &'static str, path: &'static str, active: bool, tip: &'static str| {
+            toolbar_icon_button(id)
+                .icon(toolbar_icon(IconName::Search).path(path))
                 .selected(active)
-                .label(label.to_string())
                 .tooltip(tip)
         };
 
@@ -32,49 +32,48 @@ impl EngineEditor {
             .gap_2()
             .child(div().flex_1().child(Input::new(&panel.query).small()))
             .child(
-                Button::new("file-search-go")
-                    .primary()
-                    .xsmall()
-                    .label("Search")
+                toolbar_icon_button("file-search-go")
+                    .icon(toolbar_icon(IconName::Search).path(paths::SEARCH))
+                    .tooltip("Search in current file")
                     .on_click(
                         cx.listener(|this, _: &ClickEvent, _w, cx| this.run_find_in_file(cx)),
                     ),
             )
             .child(
-                opt_btn("file-search-case", "Aa", panel.case_sensitive, "Match case").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| {
-                        if let Some(p) = this.search_panel.as_mut() {
-                            p.case_sensitive = !p.case_sensitive;
-                        }
-                        cx.notify();
-                    }),
-                ),
+                opt_btn(
+                    "file-search-case",
+                    paths::MATCH_CASE,
+                    panel.case_sensitive,
+                    "Match case",
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                    if let Some(p) = this.search_panel.as_mut() {
+                        p.case_sensitive = !p.case_sensitive;
+                    }
+                    cx.notify();
+                })),
             )
             .child(
-                opt_btn("file-search-word", "W", panel.whole_word, "Whole word").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| {
+                opt_btn("file-search-word", paths::MATCH_WORD, panel.whole_word, "Whole word")
+                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
                         if let Some(p) = this.search_panel.as_mut() {
                             p.whole_word = !p.whole_word;
                         }
                         cx.notify();
-                    }),
-                ),
+                    })),
             )
             .child(
-                opt_btn("file-search-regex", ".*", panel.regex, "Regular expression").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| {
+                opt_btn("file-search-regex", paths::REGEX, panel.regex, "Regular expression")
+                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
                         if let Some(p) = this.search_panel.as_mut() {
                             p.regex = !p.regex;
                         }
                         cx.notify();
-                    }),
-                ),
+                    })),
             )
             .child(
-                Button::new("file-search-close")
-                    .ghost()
-                    .xsmall()
-                    .label("\u{2715}")
+                toolbar_icon_button("file-search-close")
+                    .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
                     .tooltip("Close (Esc)")
                     .on_click(
                         cx.listener(|this, _: &ClickEvent, _w, cx| this.close_search_panel(cx)),
@@ -174,17 +173,34 @@ impl EngineEditor {
                 .right_0()
                 .bottom_0()
                 .w(px(400.0))
+                .p_2()
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
                 .child(
-                    GroupBox::new()
+                    v_flex()
                         .id("find-in-file-panel")
-                        .outline()
-                        .title("Find in File")
                         .h_full()
+                        .popover_style(cx)
+                        .shadow_xl()
+                        .overflow_hidden()
+                        .child(
+                            h_flex()
+                                .px_3()
+                                .py_2()
+                                .items_center()
+                                .border_b_1()
+                                .border_color(cx.theme().border)
+                                .child(
+                                    Label::new("Find in File")
+                                        .text_sm()
+                                        .font_weight(FontWeight::SEMIBOLD),
+                                ),
+                        )
                         .child(
                             v_flex()
-                                .size_full()
+                                .flex_1()
+                                .min_h_0()
+                                .p_3()
                                 .gap_3()
                                 .child(header)
                                 .child(Separator::horizontal().w_full())

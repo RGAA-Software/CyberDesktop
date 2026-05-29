@@ -1,18 +1,19 @@
 //! UI fragment: `ui/find_bar.rs`.
 
+use super::icons::{paths, toolbar_icon, toolbar_icon_button};
+use super::panel::floating_tool_panel;
 use super::super::imports::*;
+use gpui_component::IconName;
 
 impl EngineEditor {
     pub(crate) fn render_find_bar(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let find = self.find.as_ref()?;
         let replace_mode = find.replace_mode;
 
-        let opt_btn = |id: &'static str, label: &str, active: bool, tip: &'static str| {
-            Button::new(id)
-                .ghost()
-                .xsmall()
+        let opt_btn = |id: &'static str, path: &'static str, active: bool, tip: &'static str| {
+            toolbar_icon_button(id)
+                .icon(toolbar_icon(IconName::Search).path(path))
                 .selected(active)
-                .label(label.to_string())
                 .tooltip(tip)
         };
 
@@ -27,23 +28,36 @@ impl EngineEditor {
                     .text_color(cx.theme().muted_foreground),
             )
             .child(
-                Button::new("find-count")
-                    .xsmall()
-                    .label("Count")
+                toolbar_icon_button("find-count")
+                    .icon(toolbar_icon(IconName::Search).path(paths::COUNT))
                     .tooltip("Count all matches in document")
                     .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_count(cx))),
             )
-            .child(opt_btn("find-prev", "\u{2191}", false, "Find previous (Shift+F3)").on_click(
-                cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(false, cx)),
-            ))
-            .child(opt_btn("find-next", "\u{2193}", false, "Find next (F3)").on_click(
-                cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(true, cx)),
-            ))
             .child(
-                opt_btn("find-case", "Aa", find.case_sensitive, "Match case").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| {
+                opt_btn("find-prev", paths::FIND_PREV, false, "Find previous (Shift+F3)").on_click(
+                    cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(false, cx)),
+                ),
+            )
+            .child(
+                opt_btn("find-next", paths::FIND_NEXT, false, "Find next (F3)").on_click(
+                    cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(true, cx)),
+                ),
+            )
+            .child(
+                opt_btn("find-case", paths::MATCH_CASE, find.case_sensitive, "Match case")
+                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
                         if let Some(f) = this.find.as_mut() {
                             f.case_sensitive = !f.case_sensitive;
+                            f.cached_searcher = None;
+                        }
+                        cx.notify();
+                    })),
+            )
+            .child(
+                opt_btn("find-word", paths::MATCH_WORD, find.whole_word, "Whole word").on_click(
+                    cx.listener(|this, _: &ClickEvent, _w, cx| {
+                        if let Some(f) = this.find.as_mut() {
+                            f.whole_word = !f.whole_word;
                             f.cached_searcher = None;
                         }
                         cx.notify();
@@ -51,32 +65,19 @@ impl EngineEditor {
                 ),
             )
             .child(
-                opt_btn("find-word", "W", find.whole_word, "Whole word").on_click(cx.listener(
-                    |this, _: &ClickEvent, _w, cx| {
-                        if let Some(f) = this.find.as_mut() {
-                            f.whole_word = !f.whole_word;
-                            f.cached_searcher = None;
-                        }
-                        cx.notify();
-                    },
-                )),
-            )
-            .child(
-                opt_btn("find-regex", ".*", find.regex, "Regular expression").on_click(cx.listener(
-                    |this, _: &ClickEvent, _w, cx| {
+                opt_btn("find-regex", paths::REGEX, find.regex, "Regular expression").on_click(
+                    cx.listener(|this, _: &ClickEvent, _w, cx| {
                         if let Some(f) = this.find.as_mut() {
                             f.regex = !f.regex;
                             f.cached_searcher = None;
                         }
                         cx.notify();
-                    },
-                )),
+                    }),
+                ),
             )
             .child(
-                Button::new("find-close")
-                    .ghost()
-                    .xsmall()
-                    .label("\u{2715}")
+                toolbar_icon_button("find-close")
+                    .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
                     .tooltip("Close (Esc)")
                     .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_find(cx))),
             );
@@ -98,9 +99,9 @@ impl EngineEditor {
                         ),
                 )
                 .child(
-                    Button::new("replace-all")
-                        .xsmall()
-                        .label("Replace All")
+                    toolbar_icon_button("replace-all")
+                        .icon(toolbar_icon(IconName::Replace).path(paths::REPLACE_ALL))
+                        .tooltip("Replace all matches")
                         .on_click(
                             cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace_all(cx)),
                         ),
@@ -123,13 +124,7 @@ impl EngineEditor {
                 .right_4()
                 .w(px(520.0))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(
-                    GroupBox::new()
-                        .id("find-bar")
-                        .outline()
-                        .title(title)
-                        .child(body),
-                ),
+                .child(floating_tool_panel(cx, "find-bar", title, body)),
         )
     }
 }

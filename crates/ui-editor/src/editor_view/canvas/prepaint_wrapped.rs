@@ -7,6 +7,7 @@ use gpui::{
 };
 
 use super::element::{CanvasPrepaint, EditorCanvas, WrappedRow};
+use super::super::ui::EditorColors;
 use super::super::text_util::{char_to_byte, wrap_rows};
 use super::syntax_paint::{build_runs, measure_rows, occurrence_word, shape_one_wrapped, word_occurrences};
 
@@ -14,6 +15,7 @@ pub(crate) fn prepaint_wrapped(
     canvas: &EditorCanvas,
     bounds: Bounds<Pixels>,
     font: &Font,
+    colors: EditorColors,
     default_color: Hsla,
     font_size: Pixels,
     window: &mut Window,
@@ -28,6 +30,8 @@ pub(crate) fn prepaint_wrapped(
         let buf = editor.document.buffer();
         let line_count = buf.line_count();
         let digits = line_count.to_string().len().max(3);
+        let primary = editor.document.selections().primary();
+        let caret_line = buf.char_to_position(primary.head).line;
         let cursors = editor.document.selections().cursors();
         let syntax = &editor.syntax;
 
@@ -110,7 +114,7 @@ pub(crate) fn prepaint_wrapped(
                                     point(content_left + p0.x, y + p0.y),
                                     point(content_left + p1.x, y + p0.y + lh),
                                 ),
-                                rgb(0x4c4a2f),
+                                colors.occurrence,
                             ));
                         }
                     }
@@ -133,7 +137,7 @@ pub(crate) fn prepaint_wrapped(
                     let band = |x0: Pixels, x1: Pixels, top: Pixels| {
                         fill(
                             Bounds::from_corners(point(x0, top), point(x1, top + lh)),
-                            rgb(0x264f78),
+                            colors.selection,
                         )
                     };
                     let row0 = (f32::from(p0.y) / f32::from(lh)).round() as i32;
@@ -157,7 +161,7 @@ pub(crate) fn prepaint_wrapped(
                                 point(content_left + p.x, y + p.y),
                                 gpui::size(px(2.0), lh),
                             ),
-                            rgb(0xaeafad),
+                            colors.caret,
                         ));
                     }
                 }
@@ -165,10 +169,15 @@ pub(crate) fn prepaint_wrapped(
 
             if show_line_numbers {
                 let num = format!("{:>width$} ", line + 1, width = digits);
+                let line_num_color = if line == caret_line {
+                    colors.active_line_number
+                } else {
+                    colors.line_number
+                };
                 let grun = TextRun {
                     len: num.len(),
                     font: font.clone(),
-                    color: rgb(0x6e7681).into(),
+                    color: line_num_color,
                     background_color: None,
                     underline: None,
                     strikethrough: None,

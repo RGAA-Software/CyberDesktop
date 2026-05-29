@@ -3,8 +3,15 @@
 use gpui::{px, ElementId, Pixels};
 use gpui_component::{
     button::{Button, ButtonVariants as _, DropdownButton},
-    Sizable as _, Size,
+    Icon, IconName, Sizable as _, Size,
 };
+
+const TOOLBAR_ICON_PX: Size = Size::Size(px(18.));
+
+/// Material / bundled SVG at 18px — same sizing as the main CyberFiles app toolbar.
+pub fn toolbar_icon(icon: IconName) -> Icon {
+    Icon::new(icon).with_size(TOOLBAR_ICON_PX)
+}
 
 /// Icon-only `Button` / `DropdownButton` at gpui-component `Size::Medium` (32×32).
 pub const TOOLBAR_ICON_BUTTON_SIZE: Size = Size::Medium;

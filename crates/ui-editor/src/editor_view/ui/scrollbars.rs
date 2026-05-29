@@ -143,6 +143,8 @@ impl EngineEditor {
     }
 
     pub(crate) fn render_hscrollbar(&self, cx: &mut Context<Self>) -> Option<Stateful<gpui::Div>> {
+        let thumb = cx.theme().scrollbar_thumb;
+        let thumb_hover = cx.theme().scrollbar_thumb_hover;
         let metrics = self.hscrollbar_metrics()?;
         let gutter = self.gutter_width;
         Some(
@@ -181,8 +183,8 @@ impl EngineEditor {
                         .h(px(8.0))
                         .w(metrics.thumb_w)
                         .rounded_full()
-                        .bg(rgb(0x4a4a4a))
-                        .hover(|s| s.bg(rgb(0x5a5a5a)))
+                        .bg(thumb)
+                        .hover(|s| s.bg(thumb_hover))
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(|this, event: &MouseDownEvent, _w, cx| {
@@ -195,6 +197,8 @@ impl EngineEditor {
     }
 
     pub(crate) fn render_scrollbar(&self, cx: &mut Context<Self>) -> Option<Stateful<gpui::Div>> {
+        let thumb = cx.theme().scrollbar_thumb;
+        let thumb_hover = cx.theme().scrollbar_thumb_hover;
         let metrics = self.scrollbar_metrics()?;
         Some(
             div()
@@ -234,8 +238,8 @@ impl EngineEditor {
                         .w(px(8.0))
                         .h(metrics.thumb_h)
                         .rounded_full()
-                        .bg(rgb(0x4a4a4a))
-                        .hover(|s| s.bg(rgb(0x5a5a5a)))
+                        .bg(thumb)
+                        .hover(|s| s.bg(thumb_hover))
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(|this, event: &MouseDownEvent, _w, cx| {

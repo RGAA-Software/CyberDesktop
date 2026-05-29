@@ -7,11 +7,13 @@ use gpui::{
 
 use gpui::Entity;
 
+use super::super::ui::EditorColors;
 use super::super::EngineEditor;
 use super::{paint, prepaint, prepaint_wrapped};
 
 pub(crate) struct EditorCanvas {
     pub(crate) editor: Entity<EngineEditor>,
+    pub(crate) colors: EditorColors,
 }
 
 pub(crate) struct CanvasPrepaint {
@@ -103,7 +105,8 @@ impl Element for EditorCanvas {
 
         let style = window.text_style();
         let font = style.font();
-        let default_color = style.color;
+        let colors = self.colors;
+        let default_color = colors.foreground;
         let font_size = style.font_size.to_pixels(window.rem_size());
 
         if self.editor.read(cx).soft_wrap {
@@ -111,6 +114,7 @@ impl Element for EditorCanvas {
                 self,
                 bounds,
                 &font,
+                colors,
                 default_color,
                 font_size,
                 window,
@@ -122,6 +126,7 @@ impl Element for EditorCanvas {
             self,
             bounds,
             &font,
+            colors,
             default_color,
             font_size,
             window,

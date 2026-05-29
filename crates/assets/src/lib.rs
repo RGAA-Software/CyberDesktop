@@ -116,6 +116,24 @@ mod tests {
     }
 
     #[test]
+    fn editor_toolbar_icons_load() {
+        let assets = Assets;
+        for path in [
+            "icons/editor_close.svg",
+            "icons/editor_search.svg",
+            "icons/editor_find_prev.svg",
+            "icons/editor_find_next.svg",
+            "icons/editor_match_case.svg",
+            "icons/editor_match_word.svg",
+            "icons/editor_regex.svg",
+            "icons/editor_replace_all.svg",
+        ] {
+            let data = assets.load(path).expect("load");
+            assert!(data.is_some(), "missing {path}");
+        }
+    }
+
+    #[test]
     fn custom_colored_icons_load() {
         let assets = Assets;
         for path in [

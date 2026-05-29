@@ -24,10 +24,11 @@ impl Render for EngineEditor {
                     .unwrap_or(true)
             });
         }
+        let colors = super::ui::EditorColors::from_app(cx);
         let title_bar = self.render_title_bar(cx);
         let tab_bar = self.render_tab_bar(cx);
         let disk_banner = self.render_disk_banner(cx);
-        let header = self.render_header();
+        let header = self.render_header(cx);
         let focus = self.focus_handle.clone();
         let find_bar = self.render_find_bar(cx);
         let goto_bar = self.render_goto(cx);
@@ -40,6 +41,7 @@ impl Render for EngineEditor {
         let hscrollbar = self.render_hscrollbar(cx);
         let canvas = EditorCanvas {
             editor: cx.entity(),
+            colors,
         };
 
         div()
@@ -111,8 +113,8 @@ impl Render for EngineEditor {
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    .bg(rgb(0x1e1e1e))
-                    .text_color(rgb(0xd4d4d4))
+                    .bg(colors.background)
+                    .text_color(colors.foreground)
                     .text_size(self.font_size)
                     .line_height(self.line_height)
                     .font_family("Consolas")

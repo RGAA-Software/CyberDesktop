@@ -31,9 +31,12 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ("Line numbers", "Menu: View → Line Numbers"),
 ];
 
-fn shortcut_list(cx: &App) -> impl IntoElement {
+/// Split before the "Search & navigate" section header.
+const SHORTCUTS_SPLIT: usize = 15;
+
+fn shortcut_list(cx: &App, entries: &[(&str, &str)]) -> impl IntoElement {
     let mut list = v_flex().w_full().gap_1();
-    for (label, keys) in SHORTCUTS {
+    for (label, keys) in entries {
         if keys.is_empty() {
             list = list.child(
                 Label::new(*label)
@@ -114,9 +117,10 @@ impl EngineEditor {
         }
 
         let weak = cx.weak_entity();
+        let (left, right) = SHORTCUTS.split_at(SHORTCUTS_SPLIT);
         Some(
             Dialog::new(cx)
-                .width(px(680.0))
+                .width(px(820.0))
                 .title("Keyboard Shortcuts")
                 .overlay(true)
                 .overlay_closable(true)
@@ -129,10 +133,12 @@ impl EngineEditor {
                     true
                 })
                 .child(
-                    div()
-                        .max_h(px(560.0))
-                        .overflow_y_scrollbar()
-                        .child(shortcut_list(cx)),
+                    h_flex()
+                        .w_full()
+                        .gap_8()
+                        .items_start()
+                        .child(div().flex_1().child(shortcut_list(cx, left)))
+                        .child(div().flex_1().child(shortcut_list(cx, right))),
                 )
                 .footer(
                     DialogFooter::new().child(
