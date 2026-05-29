@@ -85,7 +85,7 @@ impl EngineEditor {
             ("Search & navigate", ""),
             ("Find / Replace", "Ctrl+F / Ctrl+H"),
             ("Find next / prev", "F3 / Shift+F3"),
-            ("Find in files", "Ctrl+Shift+F"),
+            ("Find in file", "Ctrl+Shift+F"),
             ("Go to line", "Ctrl+G"),
             ("Add next occurrence", "Ctrl+D"),
             ("Add caret (mouse)", "Alt+Click"),

@@ -26,7 +26,7 @@ pub struct EngineEditor {
     pub(crate) find: Option<FindState>,
     /// Pending "Go to Line" input buffer (digits typed so far).
     pub(crate) goto: Option<String>,
-    /// "Find in Files" side panel, when open.
+    /// "Find in File" side panel (current tab only), when open.
     pub(crate) search_panel: Option<SearchPanelState>,
     pub(crate) show_line_numbers: bool,
     pub(crate) show_about: bool,

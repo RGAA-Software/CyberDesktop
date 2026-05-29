@@ -1,4 +1,4 @@
-use cyberfiles_text_engine::SearchOptions;
+use cyberfiles_text_engine::{SearchOptions, Searcher};
 use gpui::{Entity, Subscription};
 use gpui_component::input::InputState;
 
@@ -12,6 +12,9 @@ pub(crate) struct FindState {
     pub(crate) whole_word: bool,
     pub(crate) regex: bool,
     pub(crate) status: String,
+    pub(crate) cached_query: String,
+    pub(crate) cached_options: SearchOptions,
+    pub(crate) cached_searcher: Option<Searcher>,
     pub(crate) _subs: Vec<Subscription>,
 }
 

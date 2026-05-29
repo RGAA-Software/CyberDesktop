@@ -32,11 +32,11 @@ impl EngineEditor {
             .child(query_field)
             .child(status)
             .child(
-                Button::new("find-search")
-                    .primary()
+                Button::new("find-count")
                     .xsmall()
-                    .label("Find")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(true, cx))),
+                    .label("Count")
+                    .tooltip("Count all matches in document")
+                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_count(cx))),
             )
             .child(opt_btn("find-prev", "\u{2191}", false, "Find previous (Shift+F3)").on_click(
                 cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(false, cx)),
@@ -49,8 +49,8 @@ impl EngineEditor {
                     cx.listener(|this, _: &ClickEvent, _w, cx| {
                         if let Some(f) = this.find.as_mut() {
                             f.case_sensitive = !f.case_sensitive;
+                            f.cached_searcher = None;
                         }
-                        this.update_find_status(cx);
                         cx.notify();
                     }),
                 ),
@@ -60,8 +60,8 @@ impl EngineEditor {
                     |this, _: &ClickEvent, _w, cx| {
                         if let Some(f) = this.find.as_mut() {
                             f.whole_word = !f.whole_word;
+                            f.cached_searcher = None;
                         }
-                        this.update_find_status(cx);
                         cx.notify();
                     },
                 )),
@@ -71,8 +71,8 @@ impl EngineEditor {
                     |this, _: &ClickEvent, _w, cx| {
                         if let Some(f) = this.find.as_mut() {
                             f.regex = !f.regex;
+                            f.cached_searcher = None;
                         }
-                        this.update_find_status(cx);
                         cx.notify();
                     },
                 )),

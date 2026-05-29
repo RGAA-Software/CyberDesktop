@@ -6,8 +6,16 @@
 //! Notepad++-style "Find in Files".
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
+
+/// Live counters updated during [`search_directory`] (for progress UI).
+#[derive(Debug, Default)]
+pub struct SearchProgress {
+    pub files_scanned: AtomicUsize,
+    pub matches: AtomicUsize,
+}
 use grep_matcher::Matcher;
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::sinks::UTF8;
@@ -64,6 +72,16 @@ pub fn search_directory(
     query: &str,
     options: &GlobalSearchOptions,
 ) -> Result<Vec<FileMatches>> {
+    search_directory_with_progress(root, query, options, None)
+}
+
+/// Like [`search_directory`], optionally updating `progress` while walking files.
+pub fn search_directory_with_progress(
+    root: &Path,
+    query: &str,
+    options: &GlobalSearchOptions,
+    progress: Option<&SearchProgress>,
+) -> Result<Vec<FileMatches>> {
     let pattern = if options.regex {
         query.to_string()
     } else {
@@ -83,6 +101,7 @@ pub fn search_directory(
         .git_ignore(!options.include_hidden)
         .build();
 
+    let mut files_scanned = 0usize;
     for entry in walk {
         let entry = match entry {
             Ok(e) => e,
@@ -90,6 +109,13 @@ pub fn search_directory(
         };
         if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
             continue;
+        }
+        files_scanned += 1;
+        if let Some(p) = progress {
+            if files_scanned % 32 == 0 {
+                p.files_scanned.store(files_scanned, Ordering::Relaxed);
+                p.matches.store(total, Ordering::Relaxed);
+            }
         }
         let path = entry.path().to_path_buf();
 
@@ -125,6 +151,11 @@ pub fn search_directory(
                 break;
             }
         }
+    }
+
+    if let Some(p) = progress {
+        p.files_scanned.store(files_scanned, Ordering::Relaxed);
+        p.matches.store(total, Ordering::Relaxed);
     }
 
     Ok(results)

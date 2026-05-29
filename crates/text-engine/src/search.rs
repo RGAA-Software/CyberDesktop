@@ -6,10 +6,32 @@
 //! line breaks. `find_next` / `find_prev` scan lazily and stop at the first hit,
 //! so they stay fast even on huge files.
 
+use std::borrow::Cow;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
 use anyhow::Result;
 use regex::Regex;
 
 use crate::buffer::TextBuffer;
+
+/// Default cap for [`Searcher::find_in_lines`] (Find in File panel).
+pub const FIND_IN_FILE_MAX_MATCHES: usize = 10_000;
+
+/// One match when searching a pre-sliced line list (e.g. current tab buffer).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineSearchHit {
+    pub line_number: u64,
+    pub line_text: String,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// Result of a cancellable line-list search.
+#[derive(Debug, PartialEq, Eq)]
+pub enum FindInLinesOutcome {
+    Ok(Vec<LineSearchHit>),
+    Cancelled,
+}
 
 /// Options controlling how a query is compiled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +62,9 @@ pub struct Match {
 #[derive(Debug, Clone)]
 pub struct Searcher {
     regex: Regex,
+    /// Plain substring (`!regex && !whole_word`): uses `str::find` / `rfind` per line.
+    literal: Option<Box<str>>,
+    case_sensitive: bool,
 }
 
 impl Searcher {
@@ -57,45 +82,68 @@ impl Searcher {
             pattern = format!("(?i){pattern}");
         }
         let regex = Regex::new(&pattern)?;
-        Ok(Self { regex })
+        let literal = if !options.regex && !options.whole_word && !query.is_empty() {
+            Some(query.into())
+        } else {
+            None
+        };
+        Ok(Self {
+            regex,
+            literal,
+            case_sensitive: options.case_sensitive,
+        })
     }
 
     /// Finds the first match at or after `from_char`, wrapping around the end.
     pub fn find_next(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        self.find_next_no_wrap(buffer, from_char)
+            .or_else(|| self.find_next_wrap(buffer, from_char))
+    }
+
+    /// Forward search from `from_char` without wrapping to the start of the file.
+    pub fn find_next_no_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
         let rope = buffer.rope();
         let total = rope.len_chars();
         let from = from_char.min(total);
         let line_count = rope.len_lines();
         let start_line = rope.char_to_line(from);
 
-        // Forward pass: start_line..end.
         for line in start_line..line_count {
             let line_start = rope.line_to_char(line);
-            let s = line_string(buffer, line);
+            if line == start_line && from <= line_start && buffer.line_len_chars(line) == 0 {
+                continue;
+            }
+            let body = line_body(buffer, line);
             let from_byte = if line == start_line {
-                char_to_byte(&s, from - line_start)
+                char_to_byte(body.as_ref(), from.saturating_sub(line_start))
             } else {
                 0
             };
-            if from_byte <= s.len() {
-                if let Some(m) = self.regex.find_at(&s, from_byte) {
-                    return Some(to_match(&s, line_start, m.start(), m.end()));
-                }
+            if let Some((start, end)) = self.find_forward_in_line(body.as_ref(), from_byte) {
+                return Some(to_match(body.as_ref(), line_start, start, end));
             }
         }
+        None
+    }
 
-        // Wrap pass: 0..=start_line, requiring matches before the cursor.
+    pub fn find_next_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        let rope = buffer.rope();
+        let total = rope.len_chars();
+        let from = from_char.min(total);
+        let line_count = rope.len_lines();
+        let start_line = rope.char_to_line(from);
+
         for line in 0..=start_line.min(line_count.saturating_sub(1)) {
             let line_start = rope.line_to_char(line);
-            let s = line_string(buffer, line);
+            let body = line_body(buffer, line);
             let limit_byte = if line == start_line {
-                char_to_byte(&s, from - line_start)
+                char_to_byte(body.as_ref(), from.saturating_sub(line_start))
             } else {
-                s.len()
+                body.len()
             };
-            if let Some(m) = self.regex.find(&s) {
-                if line < start_line || m.start() < limit_byte {
-                    return Some(to_match(&s, line_start, m.start(), m.end()));
+            if let Some((start, end)) = self.find_forward_in_line(body.as_ref(), 0) {
+                if line < start_line || start < limit_byte {
+                    return Some(to_match(body.as_ref(), line_start, start, end));
                 }
             }
         }
@@ -104,49 +152,96 @@ impl Searcher {
 
     /// Finds the last match before `from_char`, wrapping around the start.
     pub fn find_prev(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        self.find_prev_no_wrap(buffer, from_char)
+            .or_else(|| self.find_prev_wrap(buffer, from_char))
+    }
+
+    /// Backward search from `from_char` without wrapping to the end of the file.
+    pub fn find_prev_no_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
         let rope = buffer.rope();
         let total = rope.len_chars();
         let from = from_char.min(total);
         let line_count = rope.len_lines();
         let start_line = rope.char_to_line(from);
 
-        // Backward pass: start_line down to 0, last match before cursor.
         for line in (0..=start_line.min(line_count.saturating_sub(1))).rev() {
             let line_start = rope.line_to_char(line);
-            let s = line_string(buffer, line);
+            let body = line_body(buffer, line);
             let limit_byte = if line == start_line {
-                char_to_byte(&s, from - line_start)
+                char_to_byte(body.as_ref(), from.saturating_sub(line_start))
             } else {
-                s.len()
+                body.len()
             };
-            if let Some(m) = self
-                .regex
-                .find_iter(&s)
-                .take_while(|m| m.start() < limit_byte)
-                .last()
-            {
-                return Some(to_match(&s, line_start, m.start(), m.end()));
-            }
-        }
-
-        // Wrap: from end down to start_line.
-        for line in (start_line..line_count).rev() {
-            let line_start = rope.line_to_char(line);
-            let s = line_string(buffer, line);
-            if line == start_line {
-                let limit_byte = char_to_byte(&s, from - line_start);
-                if let Some(m) = self.regex.find_iter(&s).find(|m| m.start() >= limit_byte) {
-                    // first at/after cursor, but we want the very last overall on wrap
-                    if let Some(last) = self.regex.find_iter(&s).last() {
-                        return Some(to_match(&s, line_start, last.start(), last.end()));
-                    }
-                    return Some(to_match(&s, line_start, m.start(), m.end()));
-                }
-            } else if let Some(m) = self.regex.find_iter(&s).last() {
-                return Some(to_match(&s, line_start, m.start(), m.end()));
+            if let Some((start, end)) = self.find_backward_in_line(body.as_ref(), limit_byte) {
+                return Some(to_match(body.as_ref(), line_start, start, end));
             }
         }
         None
+    }
+
+    pub fn find_prev_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        let rope = buffer.rope();
+        let total = rope.len_chars();
+        let from = from_char.min(total);
+        let line_count = rope.len_lines();
+        let start_line = rope.char_to_line(from);
+
+        for line in (start_line..line_count).rev() {
+            let line_start = rope.line_to_char(line);
+            let body = line_body(buffer, line);
+            if line == start_line {
+                let limit_byte = char_to_byte(body.as_ref(), from.saturating_sub(line_start));
+                if let Some((start, end)) = self.find_backward_in_line(body.as_ref(), body.len()) {
+                    if start >= limit_byte {
+                        return Some(to_match(body.as_ref(), line_start, start, end));
+                    }
+                }
+            } else if let Some((start, end)) =
+                self.find_backward_in_line(body.as_ref(), body.len())
+            {
+                return Some(to_match(body.as_ref(), line_start, start, end));
+            }
+        }
+        None
+    }
+
+    fn find_forward_in_line(&self, line: &str, from_byte: usize) -> Option<(usize, usize)> {
+        let from_byte = from_byte.min(line.len());
+        if let Some(lit) = &self.literal {
+            if self.case_sensitive {
+                let hay = &line[from_byte..];
+                if !hay.contains(lit.as_ref()) {
+                    return None;
+                }
+                let start = from_byte + hay.find(lit.as_ref())?;
+                return Some((start, start + lit.len()));
+            }
+        }
+        self.regex
+            .find_at(line, from_byte)
+            .map(|m| (m.start(), m.end()))
+    }
+
+    fn find_backward_in_line(&self, line: &str, limit_byte: usize) -> Option<(usize, usize)> {
+        let limit_byte = limit_byte.min(line.len());
+        if limit_byte == 0 {
+            return None;
+        }
+        if let Some(lit) = &self.literal {
+            if self.case_sensitive {
+                let hay = &line[..limit_byte];
+                if !hay.contains(lit.as_ref()) {
+                    return None;
+                }
+                let start = hay.rfind(lit.as_ref())?;
+                return Some((start, start + lit.len()));
+            }
+        }
+        self.regex
+            .find_iter(line)
+            .take_while(|m| m.start() < limit_byte)
+            .last()
+            .map(|m| (m.start(), m.end()))
     }
 
     /// Counts all matches in the buffer.
@@ -154,8 +249,8 @@ impl Searcher {
         let rope = buffer.rope();
         let mut total = 0;
         for line in 0..rope.len_lines() {
-            let s = line_string(buffer, line);
-            total += self.regex.find_iter(&s).count();
+            let body = line_body(buffer, line);
+            total += self.regex.find_iter(body.as_ref()).count();
         }
         total
     }
@@ -169,10 +264,10 @@ impl Searcher {
         let mut index = None;
         for line in 0..rope.len_lines() {
             let line_start = rope.line_to_char(line);
-            let s = line_string(buffer, line);
-            for m in self.regex.find_iter(&s) {
+            let body = line_body(buffer, line);
+            for m in self.regex.find_iter(body.as_ref()) {
                 total += 1;
-                let start = line_start + byte_to_char(&s, m.start());
+                let start = line_start + byte_to_char(body.as_ref(), m.start());
                 if index.is_none() && start == head {
                     index = Some(total);
                 }
@@ -181,15 +276,73 @@ impl Searcher {
         (total, index)
     }
 
+    /// Searches `lines` (one entry per document line) with periodic `cancel` checks.
+    pub fn find_in_lines(
+        &self,
+        lines: &[String],
+        cancel: &AtomicBool,
+        lines_done: Option<&AtomicUsize>,
+        matches_found: Option<&AtomicUsize>,
+        max_matches: usize,
+    ) -> FindInLinesOutcome {
+        let mut out = Vec::new();
+        let mut total = 0usize;
+        for (line_idx, line) in lines.iter().enumerate() {
+            if cancel.load(Ordering::Relaxed) {
+                return FindInLinesOutcome::Cancelled;
+            }
+            if let Some(ld) = lines_done {
+                if line_idx % 64 == 0 {
+                    ld.store(line_idx, Ordering::Relaxed);
+                    if let Some(mf) = matches_found {
+                        mf.store(total, Ordering::Relaxed);
+                    }
+                }
+            }
+            let line_number = (line_idx + 1) as u64;
+            let trimmed = line.trim_end_matches(['\r', '\n']);
+            for m in self.regex.find_iter(trimmed) {
+                out.push(LineSearchHit {
+                    line_number,
+                    line_text: trimmed.to_string(),
+                    start: m.start(),
+                    end: m.end(),
+                });
+                total += 1;
+                if total >= max_matches {
+                    if let Some(ld) = lines_done {
+                        ld.store(lines.len(), Ordering::Relaxed);
+                    }
+                    if let Some(mf) = matches_found {
+                        mf.store(total, Ordering::Relaxed);
+                    }
+                    return FindInLinesOutcome::Ok(out);
+                }
+            }
+        }
+        if let Some(ld) = lines_done {
+            ld.store(lines.len(), Ordering::Relaxed);
+        }
+        if let Some(mf) = matches_found {
+            mf.store(total, Ordering::Relaxed);
+        }
+        FindInLinesOutcome::Ok(out)
+    }
+
     /// Returns all matches in document order.
     pub fn all_matches(&self, buffer: &TextBuffer) -> Vec<Match> {
         let rope = buffer.rope();
         let mut out = Vec::new();
         for line in 0..rope.len_lines() {
             let line_start = rope.line_to_char(line);
-            let s = line_string(buffer, line);
-            for m in self.regex.find_iter(&s) {
-                out.push(to_match(&s, line_start, m.start(), m.end()));
+            let body = line_body(buffer, line);
+            for m in self.regex.find_iter(body.as_ref()) {
+                out.push(to_match(
+                    body.as_ref(),
+                    line_start,
+                    m.start(),
+                    m.end(),
+                ));
             }
         }
         out
@@ -223,9 +376,28 @@ impl Searcher {
     }
 }
 
-/// The text of `line` without its trailing CR/LF.
-fn line_string(buffer: &TextBuffer, line: usize) -> String {
-    buffer.line_text(line)
+/// Line text without trailing CR/LF; borrows from the rope when contiguous.
+fn line_body<'a>(buffer: &'a TextBuffer, line: usize) -> Cow<'a, str> {
+    let rope = buffer.rope();
+    if line >= rope.len_lines() {
+        return Cow::Borrowed("");
+    }
+    let slice = rope.line(line);
+    if let Some(s) = slice.as_str() {
+        return Cow::Borrowed(trim_line_ending(s));
+    }
+    Cow::Owned(trim_line_ending_owned(slice.to_string()))
+}
+
+fn trim_line_ending(s: &str) -> &str {
+    s.trim_end_matches(&['\r', '\n'][..])
+}
+
+fn trim_line_ending_owned(mut s: String) -> String {
+    while s.ends_with('\n') || s.ends_with('\r') {
+        s.pop();
+    }
+    s
 }
 
 fn char_to_byte(s: &str, char_idx: usize) -> usize {
@@ -301,6 +473,48 @@ mod tests {
         let m = s.find_next(&buf, 0).unwrap();
         let rep = s.replacement_for(&buf, m, "$2=$1", true);
         assert_eq!(rep, "value=name");
+    }
+
+    #[test]
+    fn find_next_after_many_lines() {
+        let mut text = String::new();
+        for _ in 0..20_000 {
+            text.push_str("x\n");
+        }
+        text.push_str("needle\n");
+        let buf = TextBuffer::from_str(&text);
+        let s = Searcher::new("needle", SearchOptions::default()).unwrap();
+        let m = s.find_next_no_wrap(&buf, 0).unwrap();
+        assert_eq!(
+            buf.slice_text(m.start..m.end),
+            "needle".to_string()
+        );
+    }
+
+    #[test]
+    fn find_in_lines_cancelled() {
+        let lines = vec!["aaa".into(), "bbb".into(), "ccc".into()];
+        let s = Searcher::new("a", SearchOptions::default()).unwrap();
+        let cancel = AtomicBool::new(false);
+        cancel.store(true, Ordering::Relaxed);
+        assert_eq!(
+            s.find_in_lines(&lines, &cancel, None, None, 100),
+            FindInLinesOutcome::Cancelled
+        );
+    }
+
+    #[test]
+    fn find_in_lines_collects_hits() {
+        let lines = vec!["foo bar".into(), "no".into(), "foo".into()];
+        let s = Searcher::new("foo", SearchOptions::default()).unwrap();
+        let cancel = AtomicBool::new(false);
+        let FindInLinesOutcome::Ok(hits) = s.find_in_lines(&lines, &cancel, None, None, 100)
+        else {
+            panic!("expected Ok");
+        };
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].line_number, 1);
+        assert_eq!(hits[1].line_number, 3);
     }
 
     #[test]

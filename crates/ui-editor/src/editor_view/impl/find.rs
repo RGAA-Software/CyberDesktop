@@ -55,12 +55,17 @@ impl EngineEditor {
                     whole_word: false,
                     regex: false,
                     status: String::new(),
+                    cached_query: String::new(),
+                    cached_options: SearchOptions::default(),
+                    cached_searcher: None,
                     _subs: subs,
                 });
             }
         }
         self.input_target = InputTarget::Document;
-        self.update_find_status(cx);
+        if let Some(find) = self.find.as_mut() {
+            find.status.clear();
+        }
         cx.notify();
     }
 
@@ -87,33 +92,58 @@ impl EngineEditor {
             .unwrap_or_default()
     }
 
-    pub(crate) fn update_find_status(&mut self, cx: &mut Context<Self>) {
+    /// Reuses a compiled [`Searcher`] until query or options change.
+    pub(crate) fn find_searcher(&mut self, cx: &App) -> Option<&Searcher> {
+        let query = self.find_query(cx);
+        let find = self.find.as_mut()?;
+        let options = find.options();
+        if find.cached_searcher.is_none()
+            || find.cached_query != query
+            || find.cached_options != options
+        {
+            find.cached_query = query.clone();
+            find.cached_options = options;
+            find.cached_searcher = Searcher::new(&find.cached_query, options).ok();
+        }
+        find.cached_searcher.as_ref()
+    }
+
+    /// Full-document match count (Notepad++ Count); only runs on explicit request.
+    pub(crate) fn do_count(&mut self, cx: &mut Context<Self>) {
         let Some(options) = self.find.as_ref().map(|f| f.options()) else {
             return;
         };
         let query = self.find_query(cx);
-        let status = if query.is_empty() {
-            String::new()
-        } else {
-            match Searcher::new(&query, options) {
-                Ok(searcher) => {
-                    let head = self.document.selections().primary().start();
-                    let (total, index) = searcher.count_and_index(self.document.buffer(), head);
-                    if total == 0 {
-                        "No matches".to_string()
-                    } else {
-                        match index {
-                            Some(i) => format!("{i} of {total}"),
-                            None => format!("{total} found"),
-                        }
-                    }
+        if query.is_empty() {
+            return;
+        }
+        if let Some(find) = self.find.as_mut() {
+            find.status = "Counting…".to_string();
+        }
+        cx.notify();
+
+        let status = match Searcher::new(&query, options) {
+            Ok(searcher) => {
+                if let Some(find) = self.find.as_mut() {
+                    find.cached_query = query.clone();
+                    find.cached_options = options;
+                    find.cached_searcher = Some(searcher.clone());
                 }
-                Err(_) => "Bad pattern".to_string(),
+                let total = searcher.count(self.document.buffer());
+                if total == 0 {
+                    "Count: 0 matches".to_string()
+                } else if total == 1 {
+                    "Count: 1 match".to_string()
+                } else {
+                    format!("Count: {total} matches")
+                }
             }
+            Err(_) => "Bad pattern".to_string(),
         };
         if let Some(find) = self.find.as_mut() {
             find.status = status;
         }
+        cx.notify();
     }
 
     pub(crate) fn do_find(&mut self, forward: bool, cx: &mut Context<Self>) {
@@ -124,42 +154,75 @@ impl EngineEditor {
         if query.is_empty() {
             return;
         }
-        let Ok(searcher) = Searcher::new(&query, options) else {
+        let Some(searcher) = self.find_searcher(cx).cloned() else {
             if let Some(find) = self.find.as_mut() {
                 find.status = "Bad pattern".to_string();
             }
             cx.notify();
             return;
         };
+        let buffer = self.document.buffer();
         let (start, end) = {
             let p = self.document.selections().primary();
             (p.start(), p.end())
         };
-        let found = if forward {
-            searcher.find_next(self.document.buffer(), end)
+        let (found, wrapped) = if forward {
+            match searcher.find_next_no_wrap(buffer, end) {
+                Some(m) => (Some(m), false),
+                None => (
+                    searcher.find_next_wrap(buffer, end),
+                    true,
+                ),
+            }
         } else {
-            searcher.find_prev(self.document.buffer(), start)
+            match searcher.find_prev_no_wrap(buffer, start) {
+                Some(m) => (Some(m), false),
+                None => (
+                    searcher.find_prev_wrap(buffer, start),
+                    true,
+                ),
+            }
         };
-        if let Some(m) = found {
+        let wrapped = wrapped && found.is_some();
+        let status = if let Some(m) = found {
             self.document.set_selection(m.start, m.end);
             self.ensure_caret_visible();
+            if wrapped {
+                if forward {
+                    "Reached end, continuing from start".to_string()
+                } else {
+                    "Reached start, continuing from end".to_string()
+                }
+            } else {
+                String::new()
+            }
+        } else if forward {
+            "No matches".to_string()
+        } else {
+            "No matches".to_string()
+        };
+        if let Some(find) = self.find.as_mut() {
+            find.status = status;
         }
-        self.update_find_status(cx);
         cx.notify();
     }
 
     pub(crate) fn current_match(&self, searcher: &Searcher) -> Option<Match> {
-        let (start, end) = {
-            let p = self.document.selections().primary();
-            if p.is_empty() {
-                return None;
-            }
-            (p.start(), p.end())
-        };
+        let p = self.document.selections().primary();
+        if p.is_empty() {
+            return None;
+        }
+        let start = p.start();
+        let end = p.end();
+        let buffer = self.document.buffer();
         searcher
-            .all_matches(self.document.buffer())
-            .into_iter()
-            .find(|cand| cand.start == start && cand.end == end)
+            .find_next_no_wrap(buffer, start)
+            .filter(|m| m.start == start && m.end == end)
+            .or_else(|| {
+                searcher
+                    .find_prev_no_wrap(buffer, end)
+                    .filter(|m| m.start == start && m.end == end)
+            })
     }
 
     pub(crate) fn do_replace(&mut self, cx: &mut Context<Self>) {
@@ -171,7 +234,7 @@ impl EngineEditor {
             return;
         }
         let replace = self.find_replace_text(cx);
-        let Ok(searcher) = Searcher::new(&query, options) else {
+        let Some(searcher) = self.find_searcher(cx).cloned() else {
             return;
         };
         if let Some(m) = self.current_match(&searcher) {

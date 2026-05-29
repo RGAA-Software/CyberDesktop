@@ -82,6 +82,7 @@ impl EngineEditor {
         // The slot is already an empty placeholder; activating drains it.
         self.activate(index);
         self.document.set_caret(0);
+        self.retarget_search_panel();
         cx.notify();
     }
 

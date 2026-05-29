@@ -56,6 +56,7 @@ impl EngineEditor {
             self.file_meta = meta;
             self.disk_changed = false;
             self.needs_focus = true;
+            self.retarget_search_panel();
         } else if target < self.tabs.len() {
             let slot = &mut self.tabs[target];
             slot.document = document;

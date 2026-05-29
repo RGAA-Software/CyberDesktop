@@ -88,7 +88,7 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
                 MenuItem::action("Paste", EditorPaste),
                 MenuItem::separator(),
                 MenuItem::action("Find...", FindText),
-                MenuItem::action("Find in Files...", FindInFiles),
+                MenuItem::action("Find in File...", FindInFiles),
                 MenuItem::action("Replace...", ReplaceText),
                 MenuItem::action("Replace All...", ReplaceAllText),
                 MenuItem::separator(),
