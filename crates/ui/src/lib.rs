@@ -66,7 +66,6 @@ pub fn init_editor_shell(cx: &mut App) {
     }
     gpui_component::init(cx);
     popup_menu::init(cx);
-    #[cfg(feature = "zed-engine")]
     cyber_editor::init_editor_menus(cx);
     theme::install(cx);
     #[cfg(feature = "full-app")]

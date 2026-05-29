@@ -9,7 +9,6 @@ publish.workspace = true
 default = ["full-app"]
 full-app = []
 editor-shell = []
-zed-engine = ["dep:cyber-editor-engine", "dep:editor", "dep:futures-lite", "dep:language", "dep:multi_buffer", "dep:text", "dep:util"]
 
 [dependencies]
 anyhow.workspace = true
@@ -28,11 +27,3 @@ serde_json.workspace = true
 sys-locale.workspace = true
 schemars = "1.2"
 smallvec = "1"
-
-cyber-editor-engine = { workspace = true, optional = true }
-editor = { path = "../editor/editor", optional = true, default-features = false, features = ["notepad"] }
-futures-lite = { workspace = true, optional = true }
-language = { workspace = true, optional = true }
-multi_buffer = { workspace = true, optional = true }
-text = { workspace = true, optional = true }
-util = { workspace = true, optional = true }

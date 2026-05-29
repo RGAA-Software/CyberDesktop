@@ -13,11 +13,7 @@ pub(crate) fn editor_surface_context_menu(
     cx: &mut App,
 ) -> PopupMenu {
     let has_selection = page
-        .update(cx, |page, cx| {
-            #[cfg(feature = "zed-engine")]
-            page.sync_selection_for_context_menu(cx);
-            page.has_editor_selection(cx)
-        })
+        .update(cx, |page, cx| page.has_editor_selection(cx))
         .unwrap_or(false);
 
     let page_undo = page.clone();

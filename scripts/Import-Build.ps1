@@ -7,7 +7,7 @@ $script:CyberFilesPackage = "cyberfiles"
 function Get-CyberAppTargets {
     $ordered = [ordered]@{
         cyberfiles  = @{ Features = @() }
-        cybereditor = @{ Features = @("zed-engine") }
+        cybereditor = @{ Features = @() }
     }
     foreach ($key in $ordered.Keys) {
         [PSCustomObject]@{
@@ -29,7 +29,7 @@ function Invoke-CyberAppBuild {
 
     $targets = [ordered]@{
         cyberfiles  = @{ Features = @() }
-        cybereditor = @{ Features = @("zed-engine") }
+        cybereditor = @{ Features = @() }
     }
     $target = $targets[$Bin]
     if (-not $target) {

@@ -14,12 +14,10 @@ required-features = ["full-app"]
 [[bin]]
 name = "cybereditor"
 path = "src/cybereditor.rs"
-required-features = ["zed-engine"]
 
 [features]
 default = ["full-app"]
 full-app = ["dep:cyberfiles-ui"]
-zed-engine = ["cyberfiles-ui-editor/zed-engine"]
 
 [dependencies]
 cyberfiles-ui = { workspace = true, features = ["full-app"], optional = true }

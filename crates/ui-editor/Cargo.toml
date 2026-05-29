@@ -7,7 +7,6 @@ publish.workspace = true
 
 [features]
 default = []
-zed-engine = ["cyberfiles-ui/zed-engine"]
 
 [dependencies]
 cyberfiles-ui = { workspace = true, default-features = false, features = ["editor-shell"] }

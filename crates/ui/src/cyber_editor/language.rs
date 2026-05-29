@@ -37,7 +37,6 @@ pub(crate) fn language_for_path(path: Option<&Path>) -> &'static str {
     }
 }
 
-#[cfg(not(feature = "zed-engine"))]
 pub(crate) fn line_comment_prefix(language: &str) -> Option<&'static str> {
     match language {
         "rust" | "javascript" | "typescript" | "tsx" | "c" | "cpp" | "go" | "java"

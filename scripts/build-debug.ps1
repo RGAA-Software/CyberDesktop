@@ -26,8 +26,8 @@ $RepoRoot = Split-Path $PSScriptRoot -Parent
 Set-Location $RepoRoot
 
 $args = @("build", "-p", $Package, "--bin", $Bin)
-if ($Bin -eq "cybereditor" -and -not $NoZedEngine) {
-    $args += @("--features", "zed-engine")
+if ($Bin -eq "cybereditor" -and $NoZedEngine) {
+    Write-Warning "zed-engine was removed; -NoZedEngine has no effect."
 }
 
 Write-Host "cargo $($args -join ' ')" -ForegroundColor Cyan

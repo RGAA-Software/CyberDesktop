@@ -78,7 +78,6 @@ impl EditorSession {
         self.indent_style.label()
     }
 
-    #[cfg(not(feature = "zed-engine"))]
     pub(crate) fn preferred_indent_unit(&self) -> String {
         match &self.indent_style {
             IndentStyle::Spaces(size) => " ".repeat((*size).max(1) as usize),

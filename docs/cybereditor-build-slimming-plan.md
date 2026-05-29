@@ -4,6 +4,78 @@
 
 范围：仅针对 `cybereditor` 路径；不破坏 `cyberfiles` 主应用现有能力。
 
+## 战略结论（2026-05-28）— 必读
+
+**2026-05-28 更新：** 已物理删除 `crates/editor/`（vendored Zed 栈）与 `crates/cyber-editor-engine/`；`cybereditor` / `cyberfiles` 仅依赖 GPUI + gpui-component。
+
+---
+
+### 为什么「在 Zed 栈上打 feature」达不到 Notepad++ 级体积
+
+本地实测（debug，`target/debug/*.exe`）：
+
+| 目标 | `cargo tree` 行数（normal） | 典型体积 |
+|------|---------------------------|----------|
+| `cyberfiles`（`full-app`，无 `zed-engine`） | ~1215 | ~60 MB |
+| `cybereditor`（`zed-engine`，当前默认） | ~2548 | **~194 MB** |
+
+`cybereditor` 反而比主程序**更大**：因为 `zed-engine` 在 GPUI 壳之外又链入了整条 `editor → project → workspace → language → grammars` 路径，并经由 `tree-sitter` 带入 **wasmtime**（`cargo tree -i wasmtime` 可复现）。  
+关闭 LSP 进程、去掉 DAP/extension 只减少**运行时**行为，**几乎不减少**已链接进二进制的 IDE 代码与 Wasm 运行时。
+
+结论：**Notepad++ 类「小、快、依赖少」与「继续裁剪 vendored Zed `editor` crate」是两条产品路线。** 在现有架构上继续 Phase 4 模块 `cfg` 可以有编译时间收益，但很难把 exe 从 ~200MB 级打到 ~30MB 级。
+
+### 推荐方案：双产品、双后端（仓库内已有轻量路径）
+
+代码里已经存在两套 `EditorHost` 后端（`crates/ui/src/cyber_editor/editor_host.rs`）：
+
+| 后端 | Feature | 依赖 | 能力 |
+|------|---------|------|------|
+| **轻量** | 默认（无 `zed-engine`） | `gpui` + `gpui-component` `InputState::code_editor` | 打开/编辑/保存、行号、折叠、查找替换、**组件内 tree-sitter 高亮** |
+| **Zed** | `zed-engine` | + `cyber-editor-engine` + 整条 `editor/project/workspace` | Zed 级编辑体验，体积与 IDE 同级 |
+
+**Phase 0（已完成，2026-05-28）**
+
+1. 已删除 `zed-engine` feature、`zed_backend.rs` 及全部 Zed `editor` 依赖；`cybereditor` 仅使用 `gpui-component` `InputState::code_editor`。
+2. 构建：`cargo build -p cyberfiles --bin cybereditor`（无额外 feature）。
+3. 实测：debug `cybereditor.exe` **~50 MB**（原 zed 路径 ~194 MB）；`cargo tree` **无** `editor` / `project` / `wasmtime`（~1217 节点，与 `cyberfiles` 壳同级）。
+
+**Phase 1′（1–2 周，增强轻量后端）**
+
+在 `ModelEditorBackend` / `gpui-component` 上补齐 Notepad++ 必需项（不引入 Zed）：
+
+- 大文件与编码（UTF-8 / BOM / 可选 GBK）
+- 多标签、会话恢复、外部修改检测
+- 查找/替换/正则与「全部替换」性能
+- 打印、命令行打开路径、最近文件
+
+**Phase 2′（可选，仅当轻量后端不够时）**
+
+新建 `crates/cyber-notepad-core`（**不**依赖 `crates/editor/editor`）：
+
+- `rope`/`text` 自管 buffer + 按需 **native** tree-sitter grammar（不用 `grammars/load-grammars` 全量嵌入、不用 wasmtime）
+- 单一 GPUI `Element` 绘制行块
+- 仅当需要超越 `gpui-component` 的性能/行为时再做
+
+**明确不做（对 Notepad++ 目标）**
+
+- 继续在 `editor/notepad` 上拆 `ide-lsp` / `collab-client` 指望显著缩小 exe（收益上限低，工程量大）。
+- 把 `cybereditor` 与 `cyberfiles` 绑在同一「必须 Zed」的发布物里。
+
+### 产品边界（写死，避免再次走偏）
+
+```text
+cyberfiles  = 完整 IDE（Zed 栈、LSP、工程、AI…）
+cybereditor = 高性能文本编辑器（默认 gpui-component 后端；Zed 后端仅 opt-in）
+```
+
+### 旧 Phase 1–5 的处理
+
+- **冻结**「在 `zed-engine` 默认开启前提下裁剪 Zed 依赖图」为主线。
+- 原 Phase 1（`ui-editor` 拆分）仍可做，但服务于**轻量后端**的壳，而不是继续喂 Zed。
+- 原 Phase 4–5（`editor` feature 化、语言包）留给 **cyberfiles / `--features zed-engine`**，不再 blocking `cybereditor` 瘦身。
+
+---
+
 ## 当前进度（2026-05-28）
 
 - 清理（2026-05-28，已完成）
@@ -271,18 +343,20 @@ cargo tree -p cyberfiles --features zed-engine -i wasmtime
 
 ---
 
-## 执行顺序（建议）
+## 执行顺序（建议，2026-05-28 修订）
 
 ```text
-Phase 1 (ui-editor 拆分)
--> Phase 2 (去 project/workspace 依赖)
--> Phase 3 (engine 最小模式)
--> Phase 4 (editor feature 化)
--> Phase 5 (语言包保留；可选 LSP 模块 cfg 收尾)
+Phase 0（默认关闭 zed-engine，启用 ModelEditorBackend）  ← 体积/依赖的主收益
+-> Phase 1′（轻量后端功能补齐）
+-> Phase 1（ui-editor 与 cyberfiles-ui 解耦，可选）
+-> Phase 2′（仅必要时：cyber-notepad-core，无 Zed editor crate）
+
+并行 / 仅 cyberfiles 或 --features zed-engine：
+  原 Phase 2–5（Zed 栈 feature 化、LSP cfg）— 不再作为 cybereditor 默认路径
 ```
 
 说明：
 
-- `Phase 1/2` 先做，见效快、风险可控。
-- `Phase 4` 是最大收益但工程量最大，放到中后期。
+- **先做 Phase 0**；用 `cargo tree` 与 exe 体积对比验证，再投入后续。
+- 若 Phase 0 后仍不满意，再上 Phase 2′，不要回到「默认 zed-engine + 继续 cfg」。
 

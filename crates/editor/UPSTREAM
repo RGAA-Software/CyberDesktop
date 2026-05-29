@@ -1,4 +1,0 @@
-repository = https://github.com/zed-industries/zed
-# Set commit after first sync:
-# commit = 
-# gpui rev must match CyberFiles root Cargo.toml git dependency on zed-industries/zed

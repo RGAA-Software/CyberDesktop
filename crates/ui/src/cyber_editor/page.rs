@@ -17,12 +17,8 @@ use gpui_component::{
 
 use crate::title_bar::TitleBar;
 
-#[cfg(feature = "zed-engine")]
-use editor::EditorEvent;
 
-#[cfg(not(feature = "zed-engine"))]
 use gpui_component::input::InputEvent;
-#[cfg(not(feature = "zed-engine"))]
 use super::line_comment_prefix;
 
 use super::{
@@ -72,7 +68,6 @@ impl CyberEditorPage {
 
         let mut subscriptions = Vec::new();
 
-        #[cfg(not(feature = "zed-engine"))]
         {
             let editor_for_observation = editor.input_entity().clone();
             let editor_for_handler = editor_for_observation.clone();
@@ -111,48 +106,6 @@ impl CyberEditorPage {
             subscriptions.push(enter_subscription);
         }
 
-        #[cfg(feature = "zed-engine")]
-        {
-            let zed = editor.zed_entity().clone();
-            editor.sync_cursor_selection_from_editor(cx);
-            let event_subscription =
-                cx.subscribe(&zed, move |this, _, event: &EditorEvent, cx| match event {
-                    EditorEvent::Edited { .. } => {
-                        let current_text = this.editor.text(cx);
-                        let text_changed = this.editor.sync_text_change(&current_text);
-                        let dirty_changed = this.session.set_dirty(this.editor.is_dirty(cx));
-                        let metadata_changed = this.session.refresh_metadata_from_text(&current_text);
-                        if text_changed {
-                            // After Zed applies Enter, text changes and cursor moves. We sync cursor
-                            // from the engine and try the same lightweight auto-indent as the
-                            // InputState backend.
-                            this.editor.sync_cursor_selection_from_editor(cx);
-                        }
-                        if text_changed || metadata_changed || dirty_changed {
-                            cx.notify();
-                        }
-                    }
-                    EditorEvent::DirtyChanged => {
-                        if this.session.set_dirty(this.editor.is_dirty(cx)) {
-                            cx.notify();
-                        }
-                    }
-                    EditorEvent::Saved => {
-                        if this.session.set_dirty(false) {
-                            cx.notify();
-                        }
-                    }
-                    EditorEvent::SelectionsChanged { local: true } => {
-                        this.editor.sync_cursor_selection_from_editor(cx);
-                        cx.notify();
-                    }
-                    _ => {}
-                });
-            subscriptions.push(event_subscription);
-
-            // Opening an existing/new document should start in Saved state.
-            editor.mark_saved(cx);
-        }
 
         if let Some(error) = document.load_error {
             window.push_notification(Notification::error(error), cx);
@@ -202,8 +155,6 @@ impl CyberEditorPage {
             self.session.file_path().map(PathBuf::as_path),
             cx,
         );
-        #[cfg(feature = "zed-engine")]
-        self.editor.mark_saved(cx);
         window.push_notification(
             Notification::success(format!("Saved {}", path.display())),
             cx,
@@ -231,8 +182,6 @@ impl CyberEditorPage {
             window,
             cx,
         );
-        #[cfg(feature = "zed-engine")]
-        self.editor.mark_saved(cx);
         self.session.apply_loaded_document(path, text);
         cx.notify();
         Ok(())
@@ -317,8 +266,6 @@ impl CyberEditorPage {
             window,
             cx,
         );
-        #[cfg(feature = "zed-engine")]
-        self.editor.mark_saved(cx);
         self.session
             .apply_loaded_document(PathBuf::from("untitled.txt"), String::new());
         self.editor
@@ -327,70 +274,37 @@ impl CyberEditorPage {
         cx.notify();
     }
 
-    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
-    pub(crate) fn run_editor_undo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        {
-            self.editor.focus_handle(cx).focus(window, cx);
-            self.editor.undo(window, cx);
-        }
+    pub(crate) fn run_editor_undo(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
+        // Handled by gpui-component InputState keybindings when the editor is focused.
     }
 
-    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
-    pub(crate) fn run_editor_redo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        {
-            self.editor.focus_handle(cx).focus(window, cx);
-            self.editor.redo(window, cx);
-        }
+    pub(crate) fn run_editor_redo(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
     }
 
-    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
-    pub(crate) fn run_editor_cut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        self.editor.cut(window, cx);
+    pub(crate) fn run_editor_cut(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
     }
 
-    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
-    pub(crate) fn run_editor_copy(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        self.editor.copy(window, cx);
+    pub(crate) fn run_editor_copy(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
     }
 
-    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
-    pub(crate) fn run_editor_paste(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        {
-            self.editor.focus_handle(cx).focus(window, cx);
-            self.editor.paste(window, cx);
-        }
+    pub(crate) fn run_editor_paste(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
     }
 
-    #[cfg_attr(not(feature = "zed-engine"), allow(unused_variables))]
-    pub(crate) fn run_select_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        {
-            self.editor.focus_handle(cx).focus(window, cx);
-            self.editor.select_all(window, cx);
-        }
+    pub(crate) fn run_select_all(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
     }
 
     pub(crate) fn has_editor_selection(&self, cx: &mut App) -> bool {
         self.editor.has_selection(cx)
     }
 
-    #[cfg(feature = "zed-engine")]
-    pub(crate) fn sync_selection_for_context_menu(&mut self, cx: &mut Context<Self>) {
-        self.editor.sync_cursor_selection_from_editor(cx);
-    }
 
     fn show_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.open_alert_dialog(cx, move |alert, _, _| {
             alert
                 .title("About CyberEditor")
                 .description(
-                    "Notepad++-style editor powered by the vendored Zed editing engine.\n\
-                     Build: cybereditor (zed-engine).",
+                    "Notepad++-style text editor.\n\
+                     Editing surface: gpui-component code editor (tree-sitter highlighting).",
                 )
                 .show_cancel(false)
                 .on_ok(|_, _, _| true)
@@ -606,29 +520,9 @@ impl CyberEditorPage {
         self.session.set_find_query(query.to_string());
         self.session.set_replace_query(replacement.to_string());
 
-        #[cfg(feature = "zed-engine")]
-        {
-            if self
-                .editor
-                .replace_next(query, replacement, window, cx)
-                .is_some()
-            {
-                return true;
-            }
 
-            window.push_notification(
-                Notification::warning(format!("No match found for \"{query}\".")),
-                cx,
-            );
-            cx.notify();
-            return false;
-        }
-
-        #[cfg(not(feature = "zed-engine"))]
         let current_text = self.editor.text(cx);
-        #[cfg(not(feature = "zed-engine"))]
         let cursor = self.editor.cursor_position();
-        #[cfg(not(feature = "zed-engine"))]
         let Some((new_text, replacement_match)) =
             replace_next_in_text(&current_text, cursor, query, replacement)
         else {
@@ -640,7 +534,6 @@ impl CyberEditorPage {
             return false;
         };
 
-        #[cfg(not(feature = "zed-engine"))]
         self.editor
             .set_document(
                 new_text.clone(),
@@ -649,7 +542,6 @@ impl CyberEditorPage {
                 window,
                 cx,
             );
-        #[cfg(not(feature = "zed-engine"))]
         {
             self.session.update_dirty_from_text(&new_text);
             self.schedule_select_match(replacement_match, cx);
@@ -668,27 +560,8 @@ impl CyberEditorPage {
         self.session.set_find_query(query.to_string());
         self.session.set_replace_query(replacement.to_string());
 
-        #[cfg(feature = "zed-engine")]
-        {
-            let Some(replacements) = self.editor.replace_all(query, replacement, window, cx) else {
-                window.push_notification(
-                    Notification::warning(format!("No match found for \"{query}\".")),
-                    cx,
-                );
-                cx.notify();
-                return false;
-            };
 
-            window.push_notification(
-                Notification::success(format!("Replaced {replacements} match(es).")),
-                cx,
-            );
-            return true;
-        }
-
-        #[cfg(not(feature = "zed-engine"))]
         let current_text = self.editor.text(cx);
-        #[cfg(not(feature = "zed-engine"))]
         let Some((new_text, first_match, replacements)) =
             replace_all_in_text(&current_text, query, replacement)
         else {
@@ -700,7 +573,6 @@ impl CyberEditorPage {
             return false;
         };
 
-        #[cfg(not(feature = "zed-engine"))]
         self.editor
             .set_document(
                 new_text.clone(),
@@ -710,7 +582,6 @@ impl CyberEditorPage {
                 cx,
             );
 
-        #[cfg(not(feature = "zed-engine"))]
         {
             self.session.update_dirty_from_text(&new_text);
             if let Some(search_match) = first_match {
@@ -727,13 +598,7 @@ impl CyberEditorPage {
     }
 
     fn toggle_comment(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        {
-            self.editor.toggle_comments(window, cx);
-            return;
-        }
 
-        #[cfg(not(feature = "zed-engine"))]
         let Some(prefix) = line_comment_prefix(self.session.language().as_ref()) else {
             window.push_notification(
                 Notification::warning("Line comment toggle is not available for this language."),
@@ -742,18 +607,14 @@ impl CyberEditorPage {
             return;
         };
 
-        #[cfg(not(feature = "zed-engine"))]
         let current_text = self.editor.text(cx);
-        #[cfg(not(feature = "zed-engine"))]
         let selected_range = self.editor.selected_range(cx);
-        #[cfg(not(feature = "zed-engine"))]
         let Some((new_text, affected_span)) =
             toggle_line_comments_in_text(&current_text, selected_range, prefix)
         else {
             return;
         };
 
-        #[cfg(not(feature = "zed-engine"))]
         self.editor
             .set_document(
                 new_text.clone(),
@@ -762,7 +623,6 @@ impl CyberEditorPage {
                 window,
                 cx,
             );
-        #[cfg(not(feature = "zed-engine"))]
         {
             self.session.update_dirty_from_text(&new_text);
             self.schedule_select_match(affected_span, cx);
@@ -779,30 +639,16 @@ impl CyberEditorPage {
     }
 
     fn shift_indent(&mut self, indent: bool, _window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(feature = "zed-engine")]
-        {
-            if indent {
-                self.editor.indent(_window, cx);
-            } else {
-                self.editor.outdent(_window, cx);
-            }
-            return;
-        }
 
-        #[cfg(not(feature = "zed-engine"))]
         let current_text = self.editor.text(cx);
-        #[cfg(not(feature = "zed-engine"))]
         let selected_range = self.editor.selected_range(cx);
-        #[cfg(not(feature = "zed-engine"))]
         let indent_unit = self.session.preferred_indent_unit();
-        #[cfg(not(feature = "zed-engine"))]
         let Some((new_text, affected_span)) =
             shift_indent_in_text(&current_text, selected_range, &indent_unit, indent)
         else {
             return;
         };
 
-        #[cfg(not(feature = "zed-engine"))]
         self.editor.set_document(
             new_text.clone(),
             self.session.language().clone(),
@@ -810,7 +656,6 @@ impl CyberEditorPage {
             _window,
             cx,
         );
-        #[cfg(not(feature = "zed-engine"))]
         {
             self.session.update_dirty_from_text(&new_text);
             self.schedule_select_match(affected_span, cx);
@@ -818,7 +663,6 @@ impl CyberEditorPage {
         }
     }
 
-    #[cfg(not(feature = "zed-engine"))]
     fn maybe_auto_indent_after_enter(
         &mut self,
         text: &str,
@@ -835,7 +679,6 @@ impl CyberEditorPage {
         self.apply_text_with_cursor(new_text, new_cursor, cx);
     }
 
-    #[cfg(not(feature = "zed-engine"))]
     fn apply_text_with_cursor(
         &mut self,
         new_text: String,
@@ -1196,21 +1039,11 @@ impl CyberEditorPage {
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     )
-                    .child({
-                        let indent_label = {
-                            #[cfg(feature = "zed-engine")]
-                            {
-                                self.editor.indent_label(cx)
-                            }
-                            #[cfg(not(feature = "zed-engine"))]
-                            {
-                                self.session.indent_label()
-                            }
-                        };
-                        Label::new(indent_label)
+                    .child(
+                        Label::new(self.session.indent_label())
                             .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                    })
+                            .text_color(cx.theme().muted_foreground),
+                    )
                     .child(
                         Label::new(if self.session.soft_wrap() { "Wrap On" } else { "Wrap Off" })
                             .text_xs()
@@ -1361,7 +1194,6 @@ fn parse_go_to_line_target(raw: &str) -> Option<gpui_component::input::Position>
     Some(gpui_component::input::Position::new(line - 1, column - 1))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn single_span_edit(old_text: &str, new_text: &str) -> Option<(std::ops::Range<usize>, String)> {
     if old_text == new_text {
         return None;
@@ -1386,14 +1218,12 @@ fn single_span_edit(old_text: &str, new_text: &str) -> Option<(std::ops::Range<u
     Some((start..old_end, new_text[start..new_end].to_string()))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn search_match_to_byte_range(text: &str, search_match: SearchMatch) -> std::ops::Range<usize> {
     let start = position_to_byte_offset(text, search_match.start);
     let end = advance_by_chars_bytes(text, start, search_match.char_len);
     start..end
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn build_replace_all_edits(
     text: &str,
     query: &str,
@@ -1417,7 +1247,6 @@ fn build_replace_all_edits(
     edits
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn replace_next_in_text(
     text: &str,
     cursor: gpui_component::input::Position,
@@ -1449,7 +1278,6 @@ fn replace_next_in_text(
     Some((new_text, replacement_match))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn replace_all_in_text(
     text: &str,
     query: &str,
@@ -1476,7 +1304,6 @@ fn replace_all_in_text(
     Some((new_text, first_match, replacements))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn auto_indent_after_enter(
     text: &str,
     cursor: gpui_component::input::Position,
@@ -1520,7 +1347,6 @@ fn auto_indent_after_enter(
     Some((new_text, new_cursor))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn should_increase_indent(previous_line: &str, language: &str) -> bool {
     let trimmed = previous_line.trim_end();
     if trimmed.is_empty() {
@@ -1538,14 +1364,12 @@ fn should_increase_indent(previous_line: &str, language: &str) -> bool {
     false
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn leading_indent(line: &str) -> String {
     line.chars()
         .take_while(|ch| *ch == ' ' || *ch == '\t')
         .collect()
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn toggle_line_comments_in_text(
     text: &str,
     selected_range: std::ops::Range<usize>,
@@ -1611,7 +1435,6 @@ fn toggle_line_comments_in_text(
     Some((new_text, affected_span))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn shift_indent_in_text(
     text: &str,
     selected_range: std::ops::Range<usize>,
@@ -1658,7 +1481,6 @@ fn shift_indent_in_text(
     ))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn outdent_line(line: &str, indent_unit: &str) -> String {
     if line.is_empty() {
         return String::new();
@@ -1692,7 +1514,6 @@ fn outdent_line(line: &str, indent_unit: &str) -> String {
     line[remove_len.min(line.len())..].to_string()
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn trimmed_comment_prefix<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
     let indent_len = line
         .char_indices()
@@ -1704,12 +1525,10 @@ fn trimmed_comment_prefix<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
     Some(rest.strip_prefix(' ').unwrap_or(rest))
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn line_start_offset(text: &str, offset: usize) -> usize {
     text[..offset].rfind('\n').map(|idx| idx + 1).unwrap_or(0)
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn line_end_offset(text: &str, offset: usize) -> usize {
     text[offset..]
         .find('\n')
@@ -1717,7 +1536,6 @@ fn line_end_offset(text: &str, offset: usize) -> usize {
         .unwrap_or(text.len())
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn normalize_selection_end(text: &str, selected_range: &std::ops::Range<usize>) -> usize {
     if selected_range.end > selected_range.start
         && selected_range.end <= text.len()
@@ -1729,7 +1547,6 @@ fn normalize_selection_end(text: &str, selected_range: &std::ops::Range<usize>) 
     }
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn position_to_byte_offset(text: &str, position: gpui_component::input::Position) -> usize {
     let mut line = 0u32;
     let mut column = 0u32;
@@ -1750,7 +1567,6 @@ fn position_to_byte_offset(text: &str, position: gpui_component::input::Position
     text.len()
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn byte_offset_to_position(text: &str, byte_offset: usize) -> gpui_component::input::Position {
     let mut line = 0u32;
     let mut column = 0u32;
@@ -1771,7 +1587,6 @@ fn byte_offset_to_position(text: &str, byte_offset: usize) -> gpui_component::in
     gpui_component::input::Position::new(line, column)
 }
 
-#[cfg(not(feature = "zed-engine"))]
 fn advance_by_chars_bytes(text: &str, start_byte: usize, char_len: u32) -> usize {
     if char_len == 0 {
         return start_byte;
