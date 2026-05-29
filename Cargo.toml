@@ -6,6 +6,7 @@ members = [
     "crates/core",
     "crates/fs",
     "crates/platform-windows",
+    "crates/text-engine",
     "crates/ui",
     "crates/ui-editor",
 ]
@@ -23,6 +24,7 @@ cyberfiles-commands = { path = "crates/commands" }
 cyberfiles-core = { path = "crates/core" }
 cyberfiles-fs = { path = "crates/fs" }
 cyberfiles-platform-windows = { path = "crates/platform-windows" }
+cyberfiles-text-engine = { path = "crates/text-engine" }
 cyberfiles-ui = { path = "crates/ui", default-features = false }
 cyberfiles-ui-editor = { path = "crates/ui-editor" }
 

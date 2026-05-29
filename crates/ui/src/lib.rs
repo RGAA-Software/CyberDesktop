@@ -46,14 +46,21 @@ rust_i18n::i18n!("locales", fallback = "en");
 use gpui::App;
 
 pub use cyberfiles_assets::Assets;
-pub use cyber_editor::CyberEditorPage;
+pub use cyber_editor::{
+    editor_menu_bar, pick_open_file_path, pick_save_file_path, set_view_toggles, AboutEditor,
+    CyberEditorPage, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
+    FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, NewFile, OpenFile,
+    OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment,
+    ToggleLineNumbers, ToggleSoftWrap,
+};
 pub use i18n::{init_locale, locale, set_locale};
 #[cfg(feature = "full-app")]
 pub use main_page::MainPage;
 pub use popup_menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem};
+pub use title_bar::TitleBar;
 #[cfg(feature = "full-app")]
 pub use shell::open_main_window;
-pub use shell::{open_window, open_window_with_close_handler};
+pub use shell::{open_editor_window, open_window, open_window_with_close_handler};
 
 pub fn init_editor_shell(cx: &mut App) {
     cyber_editor::init(cx);

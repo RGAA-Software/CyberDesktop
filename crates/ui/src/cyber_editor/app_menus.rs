@@ -5,9 +5,9 @@ use gpui_component::{menu::AppMenuBar, GlobalState};
 
 use super::{
     AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
-    FindNext, FindPrevious, FindText, GoToLine, IndentSelection, NewFile, OpenFile, OutdentSelection,
-    ReplaceAllText, ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment, ToggleLineNumbers,
-    ToggleSoftWrap,
+    FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, NewFile, OpenFile,
+    OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment,
+    ToggleLineNumbers, ToggleSoftWrap,
 };
 
 struct EditorMenuState {
@@ -88,6 +88,7 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
                 MenuItem::action("Paste", EditorPaste),
                 MenuItem::separator(),
                 MenuItem::action("Find...", FindText),
+                MenuItem::action("Find in Files...", FindInFiles),
                 MenuItem::action("Replace...", ReplaceText),
                 MenuItem::action("Replace All...", ReplaceAllText),
                 MenuItem::separator(),

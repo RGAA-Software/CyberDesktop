@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cyberfiles_ui_editor::{init, open_window, Assets, CyberEditorPage};
+use cyberfiles_ui_editor::{init, open_editor_window, Assets, EngineEditor};
 
 fn main() {
     let path = std::env::args_os().nth(1).map(PathBuf::from);
@@ -11,8 +11,10 @@ fn main() {
         cx.activate(true);
 
         let path = path.clone();
-        open_window("CyberEditor", move |window, cx| {
-            CyberEditorPage::view(path.clone(), window, cx)
-        }, cx);
+        open_editor_window(
+            "CyberEditor",
+            move |window, cx| EngineEditor::view(path.clone(), window, cx),
+            cx,
+        );
     });
 }

@@ -23,7 +23,7 @@ pub use pane_shell::PaneShell;
 pub use shell_panes::{PaneSide, ShellPanes};
 #[cfg(feature = "full-app")]
 pub use window::open_main_window;
-pub use window::{open_window, open_window_with_close_handler};
+pub use window::{open_editor_window, open_window, open_window_with_close_handler};
 
 #[cfg(feature = "full-app")]
 pub(crate) use actions::*;

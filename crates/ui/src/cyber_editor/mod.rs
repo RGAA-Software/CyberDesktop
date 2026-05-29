@@ -9,7 +9,8 @@ mod metadata;
 mod page;
 mod session;
 
-pub use app_menus::{init_editor_menus, menu_bar as editor_menu_bar};
+pub use app_menus::{init_editor_menus, menu_bar as editor_menu_bar, set_view_toggles};
+pub use file_dialog::{pick_open_file_path, pick_save_file_path};
 
 use gpui::{actions, App, KeyBinding};
 
@@ -42,6 +43,7 @@ actions!(
         SelectAll,
         GoToLine,
         FindText,
+        FindInFiles,
         ReplaceText,
         ReplaceAllText,
         ToggleComment,
@@ -68,6 +70,8 @@ pub fn init(cx: &mut App) {
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-f", FindText, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-shift-f", FindInFiles, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-h", ReplaceText, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-shift-h", ReplaceAllText, Some(EDITOR_CONTEXT)),
@@ -89,6 +93,8 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("cmd-g", GoToLine, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("cmd-f", FindText, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-shift-f", FindInFiles, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("cmd-h", ReplaceText, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
