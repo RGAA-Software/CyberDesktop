@@ -9,7 +9,7 @@ use gpui::{prelude::*, px, App, Bounds, Context, Entity, FocusHandle, Pixels, Wi
 
 use super::language::language_for_path;
 use super::state::{
-    FindState, InputTarget, SearchPanelState, TabSlot, VisibleLine, WrappedVisible,
+    FindState, GotoState, InputTarget, SearchPanelState, TabSlot, VisibleLine, WrappedVisible,
 };
 use super::state::read_file_meta;
 
@@ -24,8 +24,8 @@ pub struct EngineEditor {
     pub(crate) needs_focus: bool,
     pub(crate) input_target: InputTarget,
     pub(crate) find: Option<FindState>,
-    /// Pending "Go to Line" input buffer (digits typed so far).
-    pub(crate) goto: Option<String>,
+    /// Go to Line overlay.
+    pub(crate) goto: Option<GotoState>,
     /// "Find in File" side panel (current tab only), when open.
     pub(crate) search_panel: Option<SearchPanelState>,
     pub(crate) show_line_numbers: bool,

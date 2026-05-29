@@ -14,7 +14,7 @@ fn search_progress_value(lines_scanned: usize, searching: bool) -> f32 {
 }
 
 impl EngineEditor {
-    pub(crate) fn render_search_panel(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+    pub(crate) fn render_search_panel(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let panel = self.search_panel.as_ref()?;
 
         let opt_btn = |id: &'static str, label: &str, active: bool, tip: &'static str| {
@@ -26,11 +26,10 @@ impl EngineEditor {
                 .tooltip(tip)
         };
 
-        let controls = div()
-            .flex()
-            .flex_row()
+        let controls = h_flex()
+            .w_full()
             .items_center()
-            .gap_1()
+            .gap_2()
             .child(div().flex_1().child(Input::new(&panel.query).small()))
             .child(
                 Button::new("file-search-go")
@@ -89,31 +88,19 @@ impl EngineEditor {
             .unwrap_or("(Untitled)");
         let scope_hint = format!("Current tab: {scope_label}");
 
-        let header = div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .p_2()
-            .border_b_1()
-            .border_color(rgb(0x3a3a3a))
-            .child(
-                div()
-                    .text_size(px(12.0))
-                    .text_color(rgb(0xcccccc))
-                    .child(SharedString::from("Find in File")),
-            )
+        let header = v_flex()
+            .w_full()
+            .gap_2()
             .child(controls)
             .child(
-                div()
-                    .text_size(px(10.0))
-                    .text_color(rgb(0x6a6a6a))
-                    .child(SharedString::from(scope_hint)),
+                Label::new(scope_hint)
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground),
             )
             .child(
-                div()
-                    .text_size(px(11.0))
-                    .text_color(rgb(0x9a9a9a))
-                    .child(SharedString::from(panel.status.clone())),
+                Label::new(panel.status.clone())
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground),
             )
             .children(if panel.searching {
                 vec![div()
@@ -153,16 +140,18 @@ impl EngineEditor {
                             .px_2()
                             .flex()
                             .items_center()
-                            .text_size(px(12.0))
-                            .text_color(rgb(0xd4d4d4))
-                            .hover(|s| s.bg(rgb(0x094771)))
-                            .child(SharedString::from(format!("{line:>5}: {text}")))
+                            .hover(|s| s.bg(cx.theme().list_hover))
                             .on_mouse_down(
                                 MouseButton::Left,
                                 cx.listener(move |this, _e: &MouseDownEvent, _w, cx| {
                                     this.open_search_result(path.clone(), line, cx);
                                     cx.stop_propagation();
                                 }),
+                            )
+                            .child(
+                                Label::new(format!("{line:>5}: {text}"))
+                                    .text_sm()
+                                    .truncate(),
                             ),
                     );
                 }
@@ -184,16 +173,24 @@ impl EngineEditor {
                 .top_0()
                 .right_0()
                 .bottom_0()
-                .w(px(380.0))
-                .flex()
-                .flex_col()
-                .bg(rgb(0x252526))
-                .border_l_1()
-                .border_color(rgb(0x3a3a3a))
+                .w(px(400.0))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
-                .child(header)
-                .child(results_list),
+                .child(
+                    GroupBox::new()
+                        .id("find-in-file-panel")
+                        .outline()
+                        .title("Find in File")
+                        .h_full()
+                        .child(
+                            v_flex()
+                                .size_full()
+                                .gap_3()
+                                .child(header)
+                                .child(Separator::horizontal().w_full())
+                                .child(results_list),
+                        ),
+                ),
         )
     }
 }

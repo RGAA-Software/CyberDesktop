@@ -52,10 +52,6 @@ impl EntityInputHandler for EngineEditor {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.append_to_find_field(new_text) {
-            cx.notify();
-            return;
-        }
         // Plain typing with multiple carets and no IME marking: insert at every
         // cursor (the engine handles the multi-span edit atomically).
         if range_utf16.is_none()
@@ -81,10 +77,6 @@ impl EntityInputHandler for EngineEditor {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.append_to_find_field(new_text) {
-            cx.notify();
-            return;
-        }
         let range_char = self.resolve_input_range(range_utf16);
         self.document.set_selection(range_char.start, range_char.end);
         self.document.insert(new_text);
@@ -144,22 +136,6 @@ impl EntityInputHandler for EngineEditor {
 
 
 impl EngineEditor {
-    /// If typing is currently directed at the Go to Line field, appends `text`
-    /// to it and returns `true`. Returns `false` when text should edit the doc.
-    /// (Find / Find-in-Files inputs are gpui-component widgets that handle their
-    /// own typing, so they never reach here.)
-    pub(crate) fn append_to_find_field(&mut self, text: &str) -> bool {
-        match self.input_target {
-            InputTarget::GotoLine => {
-                if let Some(g) = self.goto.as_mut() {
-                    g.extend(text.chars().filter(|c| c.is_ascii_digit()));
-                }
-                true
-            }
-            _ => false,
-        }
-    }
-
     /// Resolves the target char range for a text-input edit: explicit range,
     /// else the marked range, else the current selection.
     pub(crate) fn resolve_input_range(&self, range_utf16: Option<Range<usize>>) -> Range<usize> {

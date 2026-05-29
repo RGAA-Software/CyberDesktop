@@ -1,187 +1,158 @@
 //! UI fragment: `ui/overlays.rs`.
 
 use super::super::imports::*;
-use super::widgets::bar_button;
+
+const SHORTCUTS: &[(&str, &str)] = &[
+    ("File", ""),
+    ("New tab", "Ctrl+N / Ctrl+T"),
+    ("Open file", "Ctrl+O"),
+    ("Save / Save As", "Ctrl+S / Ctrl+Shift+S"),
+    ("Close tab", "Ctrl+W"),
+    ("Next / Prev tab", "Ctrl+Tab / Ctrl+Shift+Tab"),
+    ("Recent files", "Ctrl+E"),
+    ("Edit", ""),
+    ("Undo / Redo", "Ctrl+Z / Ctrl+Y"),
+    ("Cut / Copy / Paste", "Ctrl+X / Ctrl+C / Ctrl+V"),
+    ("Select all / line", "Ctrl+A / Ctrl+L"),
+    ("Indent / Outdent", "Alt+] / Alt+["),
+    ("Toggle comment", "Ctrl+/"),
+    ("Zoom in / out / reset", "Ctrl+= / Ctrl+- / Ctrl+0"),
+    ("Search & navigate", ""),
+    ("Find / Replace", "Ctrl+F / Ctrl+H"),
+    ("Find next / prev", "F3 / Shift+F3"),
+    ("Find in file", "Ctrl+Shift+F"),
+    ("Go to line", "Ctrl+G"),
+    ("Add next occurrence", "Ctrl+D"),
+    ("Add caret (mouse)", "Alt+Click"),
+    ("Select word / line", "Double / Triple click"),
+    ("Page up / down", "PageUp / PageDown"),
+    ("View", ""),
+    ("Word wrap", "Menu: View → Word Wrap"),
+    ("Line numbers", "Menu: View → Line Numbers"),
+];
+
+fn shortcut_list(cx: &App) -> impl IntoElement {
+    let mut list = v_flex().w_full().gap_1();
+    for (label, keys) in SHORTCUTS {
+        if keys.is_empty() {
+            list = list.child(
+                Label::new(*label)
+                    .mt_2()
+                    .text_sm()
+                    .text_color(cx.theme().accent_foreground),
+            );
+        } else {
+            list = list.child(
+                h_flex()
+                    .w_full()
+                    .items_center()
+                    .justify_between()
+                    .gap_4()
+                    .child(Label::new(*label).text_sm())
+                    .child(
+                        Label::new(*keys)
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground),
+                    ),
+            );
+        }
+    }
+    list
+}
 
 impl EngineEditor {
-    pub(crate) fn render_about(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+    pub(crate) fn render_about(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         if !self.show_about {
             return None;
         }
-        let panel = div()
-            .w(px(360.0))
-            .flex()
-            .flex_col()
-            .gap_2()
-            .p_4()
-            .rounded_lg()
-            .bg(rgb(0x252526))
-            .border_1()
-            .border_color(rgb(0x454545))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(div().text_size(px(16.0)).child(SharedString::from("CyberEditor")))
-            .child(
-                div()
-                    .text_size(px(12.0))
-                    .text_color(rgb(0x9a9a9a))
-                    .child(SharedString::from("High-performance text & code editor")),
-            )
-            .child(
-                div()
-                    .text_size(px(12.0))
-                    .text_color(rgb(0x9a9a9a))
-                    .child(SharedString::from("Rust · GPUI · rope text engine")),
-            )
-            .child(
-                bar_button("about-close", "Close", false).on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                        this.show_about = false;
-                        cx.stop_propagation();
-                        cx.notify();
-                    }),
-                ),
-            );
 
+        let weak = cx.weak_entity();
         Some(
-            div()
-                .absolute()
-                .inset_0()
-                .flex()
-                .items_center()
-                .justify_center()
-                .bg(gpui::rgba(0x00000080))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
+            Dialog::new(cx)
+                .width(px(400.0))
+                .title("About CyberEditor")
+                .overlay(true)
+                .overlay_closable(true)
+                .keyboard(true)
+                .on_cancel(move |_: &ClickEvent, _w, cx| {
+                    let _ = weak.update(cx, |this, cx| {
                         this.show_about = false;
                         cx.notify();
-                    }),
+                    });
+                    true
+                })
+                .child(
+                    v_flex()
+                        .gap_2()
+                        .child(
+                            Label::new("High-performance text & code editor")
+                                .text_sm()
+                                .text_color(cx.theme().muted_foreground),
+                        )
+                        .child(
+                            Label::new("Rust · GPUI · rope text engine")
+                                .text_sm()
+                                .text_color(cx.theme().muted_foreground),
+                        ),
                 )
-                .child(panel),
+                .footer(
+                    DialogFooter::new().child(
+                        Button::new("about-close")
+                            .label("Close")
+                            .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                                this.show_about = false;
+                                cx.notify();
+                            })),
+                    ),
+                ),
         )
     }
 
-    /// Keyboard-shortcuts reference overlay (Help → Keyboard Shortcuts).
-    pub(crate) fn render_shortcuts(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+    pub(crate) fn render_shortcuts(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         if !self.show_shortcuts {
             return None;
         }
-        const SHORTCUTS: &[(&str, &str)] = &[
-            ("File", ""),
-            ("New tab", "Ctrl+N / Ctrl+T"),
-            ("Open file", "Ctrl+O"),
-            ("Save / Save As", "Ctrl+S / Ctrl+Shift+S"),
-            ("Close tab", "Ctrl+W"),
-            ("Next / Prev tab", "Ctrl+Tab / Ctrl+Shift+Tab"),
-            ("Recent files", "Ctrl+E"),
-            ("Edit", ""),
-            ("Undo / Redo", "Ctrl+Z / Ctrl+Y"),
-            ("Cut / Copy / Paste", "Ctrl+X / Ctrl+C / Ctrl+V"),
-            ("Select all / line", "Ctrl+A / Ctrl+L"),
-            ("Indent / Outdent", "Alt+] / Alt+["),
-            ("Toggle comment", "Ctrl+/"),
-            ("Zoom in / out / reset", "Ctrl+= / Ctrl+- / Ctrl+0"),
-            ("Search & navigate", ""),
-            ("Find / Replace", "Ctrl+F / Ctrl+H"),
-            ("Find next / prev", "F3 / Shift+F3"),
-            ("Find in file", "Ctrl+Shift+F"),
-            ("Go to line", "Ctrl+G"),
-            ("Add next occurrence", "Ctrl+D"),
-            ("Add caret (mouse)", "Alt+Click"),
-            ("Select word / line", "Double / Triple click"),
-            ("Page up / down", "PageUp / PageDown"),
-            ("View", ""),
-            ("Word wrap", "Menu: View → Word Wrap"),
-            ("Line numbers", "Menu: View → Line Numbers"),
-        ];
 
-        let mut list = div().flex().flex_col().gap_0p5();
-        for (label, keys) in SHORTCUTS {
-            if keys.is_empty() {
-                // Section header.
-                list = list.child(
-                    div()
-                        .mt_2()
-                        .text_size(px(12.0))
-                        .text_color(rgb(0x6fb3d2))
-                        .child(SharedString::from(*label)),
-                );
-            } else {
-                list = list.child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .justify_between()
-                        .gap_4()
-                        .text_size(px(12.0))
-                        .child(
-                            div()
-                                .text_color(rgb(0xcccccc))
-                                .child(SharedString::from(*label)),
-                        )
-                        .child(
-                            div()
-                                .text_color(rgb(0x9a9a9a))
-                                .child(SharedString::from(*keys)),
-                        ),
-                );
-            }
-        }
-
-        let panel = div()
-            .w(px(440.0))
-            .max_h(px(560.0))
-            .flex()
-            .flex_col()
-            .gap_2()
-            .p_4()
-            .rounded_lg()
-            .bg(rgb(0x252526))
-            .border_1()
-            .border_color(rgb(0x454545))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(
-                div()
-                    .text_size(px(16.0))
-                    .child(SharedString::from("Keyboard Shortcuts")),
-            )
-            .child(div().overflow_hidden().child(list))
-            .child(
-                bar_button("shortcuts-close", "Close", false).on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                        this.show_shortcuts = false;
-                        cx.stop_propagation();
-                        cx.notify();
-                    }),
-                ),
-            );
-
+        let weak = cx.weak_entity();
         Some(
-            div()
-                .absolute()
-                .inset_0()
-                .flex()
-                .items_center()
-                .justify_center()
-                .bg(gpui::rgba(0x00000080))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
+            Dialog::new(cx)
+                .width(px(680.0))
+                .title("Keyboard Shortcuts")
+                .overlay(true)
+                .overlay_closable(true)
+                .keyboard(true)
+                .on_cancel(move |_: &ClickEvent, _w, cx| {
+                    let _ = weak.update(cx, |this, cx| {
                         this.show_shortcuts = false;
                         cx.notify();
-                    }),
+                    });
+                    true
+                })
+                .child(
+                    div()
+                        .max_h(px(560.0))
+                        .overflow_y_scrollbar()
+                        .child(shortcut_list(cx)),
                 )
-                .child(panel),
+                .footer(
+                    DialogFooter::new().child(
+                        Button::new("shortcuts-close")
+                            .label("Close")
+                            .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                                this.show_shortcuts = false;
+                                cx.notify();
+                            })),
+                    ),
+                ),
         )
     }
 
-    /// Unsaved-changes confirmation overlay (closing a tab or the window).
-    pub(crate) fn render_close_confirm(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+    pub(crate) fn render_close_confirm(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let target = self.pending_close?;
         let message = match target {
-            CloseTarget::Tab(i) => format!("Save changes to \u{201c}{}\u{201d} before closing?", self.tab_name(i)),
+            CloseTarget::Tab(i) => {
+                format!("Save changes to \u{201c}{}\u{201d} before closing?", self.tab_name(i))
+            }
             CloseTarget::Window => {
                 let n = self.dirty_tabs().len();
                 if n <= 1 {
@@ -197,68 +168,52 @@ impl EngineEditor {
             "Save"
         };
 
-        let panel = div()
-            .w(px(400.0))
-            .flex()
-            .flex_col()
-            .gap_3()
-            .p_4()
-            .rounded_lg()
-            .bg(rgb(0x252526))
-            .border_1()
-            .border_color(rgb(0x454545))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(
-                div()
-                    .text_size(px(15.0))
-                    .child(SharedString::from("Unsaved Changes")),
-            )
-            .child(
-                div()
-                    .text_size(px(12.0))
-                    .text_color(rgb(0xcccccc))
-                    .child(SharedString::from(message)),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .justify_end()
-                    .gap_2()
-                    .child(bar_button("close-cancel", "Cancel", false).on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
-                            cx.stop_propagation();
-                            this.close_confirm_cancel(cx);
-                        }),
-                    ))
-                    .child(bar_button("close-discard", "Don't Save", false).on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|this, _e: &MouseDownEvent, window, cx| {
-                            cx.stop_propagation();
-                            this.close_confirm_discard(window, cx);
-                        }),
-                    ))
-                    .child(bar_button("close-save", save_label, true).on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|this, _e: &MouseDownEvent, window, cx| {
-                            cx.stop_propagation();
-                            this.close_confirm_save(window, cx);
-                        }),
-                    )),
-            );
-
+        let weak = cx.weak_entity();
         Some(
-            div()
-                .absolute()
-                .inset_0()
-                .flex()
-                .items_center()
-                .justify_center()
-                .bg(gpui::rgba(0x00000080))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(panel),
+            Dialog::new(cx)
+                .width(px(480.0))
+                .title("Unsaved Changes")
+                .overlay(true)
+                .overlay_closable(false)
+                .keyboard(true)
+                .on_cancel(move |_: &ClickEvent, _w, cx| {
+                    let _ = weak.update(cx, |this, cx| {
+                        this.close_confirm_cancel(cx);
+                    });
+                    true
+                })
+                .child(
+                    Label::new(message)
+                        .text_sm()
+                        .text_color(cx.theme().foreground),
+                )
+                .footer(
+                    DialogFooter::new()
+                        .child(
+                            Button::new("close-cancel")
+                                .ghost()
+                                .label("Cancel")
+                                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                                    this.close_confirm_cancel(cx);
+                                })),
+                        )
+                        .child(
+                            Button::new("close-discard")
+                                .ghost()
+                                .label("Don't Save")
+                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                    this.close_confirm_discard(window, cx);
+                                })),
+                        )
+                        .child(
+                            Button::new("close-save")
+                                .primary()
+                                .label(save_label)
+                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                    this.close_confirm_save(window, cx);
+                                })),
+                        ),
+                ),
         )
     }
-
 }

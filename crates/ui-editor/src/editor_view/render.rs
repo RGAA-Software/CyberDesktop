@@ -101,7 +101,9 @@ impl Render for EngineEditor {
                     .on_action(cx.listener(|this, _: &KeyboardShortcuts, _w, cx| {
                         this.toggle_shortcuts(cx)
                     }))
-                    .on_action(cx.listener(|this, _: &GoToLine, _w, cx| this.open_goto(cx)))
+                    .on_action(cx.listener(|this, _: &GoToLine, window, cx| {
+                        this.open_goto(window, cx)
+                    }))
                     .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
                     .on_mouse_move(cx.listener(Self::on_mouse_move))

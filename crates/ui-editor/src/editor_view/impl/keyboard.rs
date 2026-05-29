@@ -46,7 +46,7 @@ impl EngineEditor {
                     return self.open_find(false, window, cx);
                 }
                 "h" => return self.open_find(true, window, cx),
-                "g" => return self.open_goto(cx),
+                "g" => return self.open_goto(window, cx),
                 "o" => return self.open_file(cx),
                 "n" | "t" => return self.new_tab(cx),
                 "w" => return self.close_tab(self.active, cx),
@@ -63,18 +63,6 @@ impl EngineEditor {
                 }
                 _ => {}
             }
-        }
-
-        // Typing into the Go to Line field (custom overlay; routes through the
-        // editor focus). The Find / Find-in-Files panels own gpui-component
-        // inputs, so their keys are handled by those inputs directly.
-        if self.goto.is_some() && self.input_target == InputTarget::GotoLine {
-            match ks.key.as_str() {
-                "backspace" => self.goto_backspace(cx),
-                "enter" => self.do_goto(cx),
-                _ => {}
-            }
-            return;
         }
 
         // If a panel's text input holds focus, don't let editor keystrokes mutate

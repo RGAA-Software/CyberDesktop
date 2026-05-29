@@ -3,39 +3,42 @@
 use super::super::imports::*;
 
 impl EngineEditor {
-    pub(crate) fn open_goto(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn open_goto(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.find = None;
         self.search_panel = None;
-        self.goto = Some(String::new());
-        self.input_target = InputTarget::GotoLine;
+        let input = cx.new(|cx| {
+            InputState::new(window, cx).placeholder("Line number")
+        });
+        let mut subs = Vec::new();
+        subs.push(cx.subscribe(&input, |this, _, ev: &InputEvent, cx| {
+            if let InputEvent::PressEnter { .. } = ev {
+                this.do_goto(cx);
+            }
+        }));
+        input.update(cx, |state, cx| state.focus(window, cx));
+        self.goto = Some(GotoState { input, _subs: subs });
         cx.notify();
     }
 
     pub(crate) fn close_goto(&mut self, cx: &mut Context<Self>) {
         self.goto = None;
-        self.input_target = InputTarget::Document;
-        cx.notify();
-    }
-
-    pub(crate) fn goto_backspace(&mut self, cx: &mut Context<Self>) {
-        if let Some(g) = self.goto.as_mut() {
-            g.pop();
-        }
         cx.notify();
     }
 
     pub(crate) fn do_goto(&mut self, cx: &mut Context<Self>) {
-        if let Some(text) = self.goto.clone() {
-            if let Ok(n) = text.trim().parse::<usize>() {
-                let last = self.document.buffer().line_count().saturating_sub(1);
-                let line = n.saturating_sub(1).min(last);
-                let target = self
-                    .document
-                    .buffer()
-                    .position_to_char(Position::new(line, 0));
-                self.document.set_caret(target);
-                self.ensure_caret_visible();
-            }
+        let Some(goto) = self.goto.as_ref() else {
+            return;
+        };
+        let text = goto.input.read(cx).value().to_string();
+        if let Ok(n) = text.trim().parse::<usize>() {
+            let last = self.document.buffer().line_count().saturating_sub(1);
+            let line = n.saturating_sub(1).min(last);
+            let target = self
+                .document
+                .buffer()
+                .position_to_char(Position::new(line, 0));
+            self.document.set_caret(target);
+            self.ensure_caret_visible();
         }
         self.close_goto(cx);
     }

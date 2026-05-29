@@ -3,17 +3,9 @@
 use super::super::imports::*;
 
 impl EngineEditor {
-    pub(crate) fn render_find_bar(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+    pub(crate) fn render_find_bar(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let find = self.find.as_ref()?;
         let replace_mode = find.replace_mode;
-
-        let query_field = div().w(px(200.0)).child(Input::new(&find.query).small());
-
-        let status = div()
-            .min_w(px(64.0))
-            .text_size(px(11.0))
-            .text_color(rgb(0x9a9a9a))
-            .child(SharedString::from(find.status.clone()));
 
         let opt_btn = |id: &'static str, label: &str, active: bool, tip: &'static str| {
             Button::new(id)
@@ -24,13 +16,16 @@ impl EngineEditor {
                 .tooltip(tip)
         };
 
-        let find_row = div()
-            .flex()
-            .flex_row()
+        let find_row = h_flex()
+            .w_full()
             .items_center()
-            .gap_1()
-            .child(query_field)
-            .child(status)
+            .gap_2()
+            .child(div().w(px(220.0)).child(Input::new(&find.query).small()))
+            .child(
+                Label::new(find.status.clone())
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground),
+            )
             .child(
                 Button::new("find-count")
                     .xsmall()
@@ -86,31 +81,14 @@ impl EngineEditor {
                     .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_find(cx))),
             );
 
-        let mut bar = div()
-            .absolute()
-            .top_2()
-            .right_4()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .p_2()
-            .rounded_md()
-            .bg(rgb(0x2d2d30))
-            .border_1()
-            .border_color(rgb(0x454545))
-            .text_color(rgb(0xcccccc))
-            .text_size(px(12.0))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(find_row);
+        let mut body = v_flex().w_full().gap_2().child(find_row);
 
         if replace_mode {
-            let replace_field = div().w(px(200.0)).child(Input::new(&find.replace).small());
-            let replace_row = div()
-                .flex()
-                .flex_row()
+            let replace_row = h_flex()
+                .w_full()
                 .items_center()
-                .gap_1()
-                .child(replace_field)
+                .gap_2()
+                .child(div().w(px(220.0)).child(Input::new(&find.replace).small()))
                 .child(
                     Button::new("replace-one")
                         .xsmall()
@@ -127,9 +105,31 @@ impl EngineEditor {
                             cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace_all(cx)),
                         ),
                 );
-            bar = bar.child(replace_row);
+            body = body
+                .child(Separator::horizontal().w_full())
+                .child(replace_row);
         }
 
-        Some(bar)
+        let title = if replace_mode {
+            "Find and Replace"
+        } else {
+            "Find"
+        };
+
+        Some(
+            div()
+                .absolute()
+                .top_2()
+                .right_4()
+                .w(px(520.0))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(
+                    GroupBox::new()
+                        .id("find-bar")
+                        .outline()
+                        .title(title)
+                        .child(body),
+                ),
+        )
     }
 }

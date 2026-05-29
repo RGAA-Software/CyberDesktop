@@ -25,9 +25,15 @@ pub use gpui::{
 };
 pub use gpui_component::{
     button::{Button, ButtonVariants as _},
+    dialog::{Dialog, DialogFooter},
+    group_box::{GroupBox, GroupBoxVariants as _},
+    h_flex, v_flex,
     input::{Input, InputEvent, InputState},
+    label::Label,
     scroll::{ScrollableElement as _, ScrollbarAxis},
-    v_virtual_list, Selectable as _, Sizable as _, VirtualListScrollHandle,
+    separator::Separator,
+    v_virtual_list, ActiveTheme as _, Selectable as _, Sizable as _,
+    VirtualListScrollHandle,
 };
 
 pub(crate) use super::canvas::EditorCanvas;

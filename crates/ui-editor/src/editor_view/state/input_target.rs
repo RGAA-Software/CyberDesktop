@@ -1,8 +1,6 @@
-/// Where typed text currently goes. The Find / Find-in-Files panels use real
-/// gpui-component inputs, so only the document and the lightweight Go to Line
-/// overlay route text through the editor itself.
+/// Where typed text currently goes. Find / Find-in-Files / Go to Line use
+/// gpui-component [`InputState`] widgets that handle their own keyboard input.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum InputTarget {
     Document,
-    GotoLine,
 }
