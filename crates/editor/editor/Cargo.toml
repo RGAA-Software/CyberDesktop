@@ -120,7 +120,7 @@ url.workspace = true
 util.workspace = true
 uuid.workspace = true
 vim_mode_setting.workspace = true
-workspace = { workspace = true, optional = true, default-features = false, features = ["collab-runtime"] }
+workspace = { workspace = true, optional = true, default-features = false }
 zed_actions.workspace = true
 zlog.workspace = true
 

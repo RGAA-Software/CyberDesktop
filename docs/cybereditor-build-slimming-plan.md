@@ -55,8 +55,10 @@
     - `editor` 依赖 `project/workspace` 已切换为显式 feature 透传（并关闭隐式默认特性），避免后续裁剪时被默认特性回拉。
   - 进行中：
     - `cybereditor` 已切到 `editor/notepad` feature（`project-buffer` + `workspace-minimal`），不再走 `project-integration` / `edit-prediction` / `project-remote-debug`。
-    - `edit_prediction_types` 的 `client-usage` 仅在 `project-integration` 开启；`hyper` 主链现为 `project` + `workspace/collab-runtime` → `client`。
-    - 下一步：`workspace` 无 `collab-runtime` 编译 + `project` 的 `client` 可选化；长期目标 `notepad` 去掉 `workspace`/`project` 中 LSP 与协作栈。
+    - `edit_prediction_types` 的 `client-usage` 仅在 `project-integration` 开启；`hyper` 主链现为 `project` + `editor/notepad` → `client`（`workspace` 已不再默认启用 `collab-runtime`）。
+    - `workspace` 可在 `--no-default-features` 下编译：`client` 保留（`Project::local` 类型），`collab-runtime` 仅启用 `telemetry`；`collab_telemetry!` 宏在无遥测时为空操作。
+    - `editor/notepad` 的 `workspace` 依赖已去掉 `features = ["collab-runtime"]`。
+    - 下一步：`project` 的 `client` 可选化；长期目标 `notepad` 去掉 `workspace`/`project` 中 LSP 与协作栈。
 
 - Phase 5（未开始）
   - 语言内置集合尚未裁剪。

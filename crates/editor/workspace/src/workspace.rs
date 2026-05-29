@@ -1,3 +1,14 @@
+#[cfg(feature = "collab-runtime")]
+macro_rules! collab_telemetry {
+    ($($t:tt)*) => {
+        ::telemetry::event!($($t)*);
+    };
+}
+
+#[cfg(not(feature = "collab-runtime"))]
+#[macro_use]
+mod collab_shim;
+
 pub mod active_file_name;
 pub mod dock;
 pub mod history_manager;
@@ -4119,7 +4130,7 @@ impl Workspace {
         let was_visible = self.is_dock_at_position_open(dock_side, cx) && !other_is_zoomed;
 
         if let Some(panel) = self.dock_at_position(dock_side).read(cx).active_panel() {
-            telemetry::event!(
+            collab_telemetry!(
                 "Panel Button Clicked",
                 name = panel.persistent_name(),
                 toggle_state = !was_visible
@@ -4292,7 +4303,7 @@ impl Workspace {
             self.close_panel::<T>(window, cx);
         }
 
-        telemetry::event!(
+        collab_telemetry!(
             "Panel Button Clicked",
             name = T::persistent_name(),
             toggle_state = did_focus_panel
@@ -10238,7 +10249,7 @@ async fn open_remote_project_inner(
     }
 
     let workspace = window.update(cx, |multi_workspace, window, cx| {
-        telemetry::event!("SSH Project Opened");
+        collab_telemetry!("SSH Project Opened");
 
         let new_workspace = cx.new(|cx| {
             let mut workspace =
