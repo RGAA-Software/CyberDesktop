@@ -18,6 +18,10 @@ crates/ui-editor/src/editor_view/
 ├── input_handler.rs
 └── canvas/
     ├── mod.rs
+    ├── element.rs
+    ├── prepaint.rs
+    ├── prepaint_wrapped.rs
+    ├── paint.rs
     └── syntax_paint.rs
 ```
 
@@ -32,7 +36,7 @@ crates/ui-editor/src/editor_view/
 ### 阶段 1：Canvas + 绘制工具
 
 - [x] `canvas/syntax_paint.rs`、`text_util.rs`
-- [x] `canvas/mod.rs`（`EditorCanvas` + `Element`；未再拆 element/paint 子文件）
+- [x] `canvas/` 拆为 `element`、`prepaint`、`prepaint_wrapped`、`paint`、`syntax_paint`
 - [x] `comment_prefix` 在 `language.rs`
 
 ### 阶段 2：状态类型
@@ -60,7 +64,7 @@ crates/ui-editor/src/editor_view/
 
 - 同 crate 内多个 `impl EngineEditor`；跨文件可调用的方法使用 `pub(crate)`。
 - `state/` 无 GPUI 绘制；`ui/` 只拼 Div；`impl/` 放行为。
-- 可选后续：将 `canvas/mod.rs` 再拆为 `element` / `prepaint` / `paint`。
+- `canvas/` 子模块拆分已完成。
 
 ## 建议 git 提交（已完成第 1 次）
 
