@@ -23,3 +23,10 @@ pub fn language_for_path(path: Option<&Path>) -> &'static str {
         _ => "text",
     }
 }
+
+pub(crate) fn comment_prefix(language: &str) -> &'static str {
+    match language {
+        "python" | "bash" => "#",
+        _ => "//",
+    }
+}
