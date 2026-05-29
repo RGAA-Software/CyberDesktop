@@ -30,6 +30,7 @@ impl ModelEditorBackend {
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .code_editor(language.clone())
+                .multi_line(true)
                 .line_number(line_numbers)
                 .folding(true)
                 .indent_guides(true)

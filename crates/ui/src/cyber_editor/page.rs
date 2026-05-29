@@ -22,14 +22,13 @@ use gpui_component::input::InputEvent;
 use super::line_comment_prefix;
 
 use super::{
-    context_menu::editor_surface_context_menu, display_language, display_name, editor_menu_bar,
+    display_language, display_name, editor_menu_bar,
     load_document, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo,
     EditorHost, EditorSession, ExitEditor, FindNext, FindPrevious, FindText, GoToLine,
     IndentSelection, NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile,
     SaveFileAs, SearchMatch, SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap, APP_NAME,
     EDITOR_CONTEXT,
 };
-use crate::popup_menu::ContextMenuExt as _;
 
 pub struct CyberEditorPage {
     focus_handle: FocusHandle,
@@ -292,11 +291,6 @@ impl CyberEditorPage {
 
     pub(crate) fn run_select_all(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
     }
-
-    pub(crate) fn has_editor_selection(&self, cx: &mut App) -> bool {
-        self.editor.has_selection(cx)
-    }
-
 
     fn show_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.open_alert_dialog(cx, move |alert, _, _| {
@@ -1153,8 +1147,7 @@ impl Render for CyberEditorPage {
                     .key_context(EDITOR_CONTEXT)
                     .child(self.render_toolbar(cx)),
             )
-            .child({
-                let page = cx.entity().downgrade();
+            .child(
                 div()
                     .id("cyber-editor-surface")
                     .flex_1()
@@ -1167,11 +1160,8 @@ impl Render for CyberEditorPage {
                             editor_focus.focus(window, cx);
                         }
                     })
-                    .context_menu(move |menu, window, cx| {
-                        editor_surface_context_menu(menu, page.clone(), window, cx)
-                    })
-                    .child(self.editor.render(cx))
-            })
+                    .child(self.editor.render(cx)),
+            )
             .child(self.render_status_bar(cx))
     }
 }

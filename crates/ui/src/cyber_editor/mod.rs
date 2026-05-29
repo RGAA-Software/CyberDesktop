@@ -1,7 +1,6 @@
 mod app_menus;
 mod backend;
 mod buffer_model;
-mod context_menu;
 mod document;
 mod editor_host;
 mod file_dialog;
