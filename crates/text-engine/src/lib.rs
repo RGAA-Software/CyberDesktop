@@ -17,6 +17,7 @@ pub mod encoding;
 pub mod global_search;
 pub mod history;
 pub mod loader;
+mod rope_scan;
 pub mod search;
 pub mod selection;
 pub mod syntax;

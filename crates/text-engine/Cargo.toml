@@ -12,6 +12,7 @@ encoding_rs = "0.8"
 chardetng = "0.1"
 memmap2 = "0.9"
 regex = "1"
+memchr = { version = "2", default-features = false, features = ["std"] }
 grep-searcher = "0.1"
 grep-regex = "0.1"
 grep-matcher = "0.1"

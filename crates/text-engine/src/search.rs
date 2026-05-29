@@ -12,7 +12,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use anyhow::Result;
 use regex::Regex;
 
+use regex::bytes::Regex as BytesRegex;
+
 use crate::buffer::TextBuffer;
+use crate::rope_scan;
 
 /// Default cap for [`Searcher::find_in_lines`] (Find in File panel).
 pub const FIND_IN_FILE_MAX_MATCHES: usize = 10_000;
@@ -62,6 +65,7 @@ pub struct Match {
 #[derive(Debug, Clone)]
 pub struct Searcher {
     regex: Regex,
+    bytes_regex: BytesRegex,
     /// Plain substring (`!regex && !whole_word`): uses `str::find` / `rfind` per line.
     literal: Option<Box<str>>,
     case_sensitive: bool,
@@ -82,6 +86,7 @@ impl Searcher {
             pattern = format!("(?i){pattern}");
         }
         let regex = Regex::new(&pattern)?;
+        let bytes_regex = BytesRegex::new(&pattern)?;
         let literal = if !options.regex && !options.whole_word && !query.is_empty() {
             Some(query.into())
         } else {
@@ -89,9 +94,51 @@ impl Searcher {
         };
         Ok(Self {
             regex,
+            bytes_regex,
             literal,
             case_sensitive: options.case_sensitive,
         })
+    }
+
+    fn byte_match(&self, buffer: &TextBuffer, start_byte: usize, end_byte: usize) -> Match {
+        Match {
+            start: buffer.byte_to_char(start_byte),
+            end: buffer.byte_to_char(end_byte),
+        }
+    }
+
+    /// Fast path: scan rope bytes (Scintilla-style) instead of one line per step.
+    fn find_next_literal_rope(
+        &self,
+        buffer: &TextBuffer,
+        from_char: usize,
+        limit_start_char: usize,
+    ) -> Option<Match> {
+        let lit = self.literal.as_deref()?;
+        let from_byte = buffer.char_to_byte(from_char);
+        let limit = buffer.char_to_byte(limit_start_char);
+        let hit = rope_scan::find_forward(
+            buffer.rope(),
+            lit.as_bytes(),
+            &self.bytes_regex,
+            self.case_sensitive,
+            from_byte,
+            limit,
+        )?;
+        Some(self.byte_match(buffer, hit.0, hit.1))
+    }
+
+    fn find_prev_literal_rope(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        let lit = self.literal.as_deref()?;
+        let to_byte = buffer.char_to_byte(from_char);
+        let hit = rope_scan::find_backward(
+            buffer.rope(),
+            lit.as_bytes(),
+            &self.bytes_regex,
+            self.case_sensitive,
+            to_byte,
+        )?;
+        Some(self.byte_match(buffer, hit.0, hit.1))
     }
 
     /// Finds the first match at or after `from_char`, wrapping around the end.
@@ -102,6 +149,9 @@ impl Searcher {
 
     /// Forward search from `from_char` without wrapping to the start of the file.
     pub fn find_next_no_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        if self.literal.is_some() {
+            return self.find_next_literal_rope(buffer, from_char, usize::MAX);
+        }
         let rope = buffer.rope();
         let total = rope.len_chars();
         let from = from_char.min(total);
@@ -127,6 +177,9 @@ impl Searcher {
     }
 
     pub fn find_next_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        if self.literal.is_some() {
+            return self.find_next_literal_rope(buffer, 0, from_char);
+        }
         let rope = buffer.rope();
         let total = rope.len_chars();
         let from = from_char.min(total);
@@ -158,6 +211,9 @@ impl Searcher {
 
     /// Backward search from `from_char` without wrapping to the end of the file.
     pub fn find_prev_no_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        if self.literal.is_some() {
+            return self.find_prev_literal_rope(buffer, from_char);
+        }
         let rope = buffer.rope();
         let total = rope.len_chars();
         let from = from_char.min(total);
@@ -180,6 +236,10 @@ impl Searcher {
     }
 
     pub fn find_prev_wrap(&self, buffer: &TextBuffer, from_char: usize) -> Option<Match> {
+        if self.literal.is_some() {
+            let total = buffer.rope().len_chars();
+            return self.find_prev_literal_rope(buffer, total);
+        }
         let rope = buffer.rope();
         let total = rope.len_chars();
         let from = from_char.min(total);
