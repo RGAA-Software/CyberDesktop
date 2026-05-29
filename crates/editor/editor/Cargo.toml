@@ -17,9 +17,11 @@ doctest = false
 default = []
 # Notepad++ / CyberEditor: buffer + workspace shell, no collab client, breadcrumbs, or AI prediction cloud client.
 notepad = ["project-buffer", "workspace-minimal", "dep:breadcrumbs"]
+ide-lsp = ["project/ide-lsp"]
 # Full IDE: workspace UI + collab client + breadcrumbs.
 project-integration = [
     "notepad",
+    "ide-lsp",
     "project/collab-client",
     "dep:client",
     "workspace-collab",
@@ -36,6 +38,7 @@ edit-prediction = ["edit_prediction_types/client-usage"]
 project-ide-shell = ["project/ide-shell"]
 project-remote-debug = ["project/remote-debug"]
 test-support = [
+    "ide-lsp",
     "project-integration",
     "text/test-support",
     "language/test-support",

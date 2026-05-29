@@ -21,6 +21,8 @@ path = "tests/integration/project_tests.rs"
 [features]
 default = []
 collab-client = ["dep:client"]
+# When off, buffers still get tree-sitter languages but no language servers are started.
+ide-lsp = []
 remote-debug = [
     "dep:dap",
 ]
@@ -35,6 +37,7 @@ ide-terminals = [
 ]
 test-support = [
     "collab-client",
+    "ide-lsp",
     "buffer_diff/test-support",
     "client/test-support",
     "language/test-support",

@@ -4632,6 +4632,7 @@ impl LspStore {
             }
 
             if ignore_refcounts || *refcount == 1 {
+                #[cfg(feature = "ide-lsp")]
                 local.register_buffer_with_language_servers(buffer, only_register_servers, cx);
             }
             if !ignore_refcounts {
@@ -11258,6 +11259,9 @@ impl LspStore {
         only_restart_servers: HashSet<LanguageServerSelector>,
         cx: &mut Context<Self>,
     ) {
+        #[cfg(not(feature = "ide-lsp"))]
+        return;
+
         if let Some((client, project_id)) = self.upstream_client() {
             let request = client.request(proto::RestartLanguageServers {
                 project_id,

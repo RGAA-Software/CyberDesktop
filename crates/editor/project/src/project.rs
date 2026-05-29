@@ -1197,6 +1197,7 @@ impl Project {
 
         WorktreeStore::init(&client);
         BufferStore::init(&client);
+        #[cfg(feature = "ide-lsp")]
         LspStore::init(&client);
         GitStore::init(&client);
         SettingsObserver::init(&client);

@@ -60,10 +60,13 @@
     - `editor/notepad` 的 `workspace` 依赖已去掉 `features = ["collab-runtime"]`。
     - `project` 增加 `collab-client` feature（可选 `client` crate）；无协作时用 `client_shim` + `#[cfg]` 关闭共享/房间 RPC。
     - `workspace` / `editor` 的 `Client`/`UserStore` 类型改由 `project` 重导出；`editor/notepad` 已去掉 `dep:client`。
-    - 下一步：从 `cybereditor` 链接图验证 `hyper` 是否下降；长期目标 `notepad` 去掉 LSP 与剩余协作桩以外的依赖。
+    - `project/ide-lsp`：关闭时不向语言服务器注册 buffer（语法高亮仍走 `language::Buffer` 的 **tree-sitter**）。
+    - `editor/ide-lsp`：完整 IDE 启用；`notepad` 不启用（LSP UI 模块仍编译，但无 LS 进程）。
+    - 下一步：`editor` 侧按模块 `cfg(ide-lsp)` 裁剪补全/诊断等编译面。
 
-- Phase 5（未开始）
-  - 语言内置集合尚未裁剪。
+- Phase 5（保留语言包）
+  - **不裁剪** `cyber-editor-engine` 内置语法/语言包（对二进制体积影响小，避免缺高亮）。
+  - 高亮路径：tree-sitter 语法树 + `language` 注册表；**不依赖** LSP `textDocument/semanticTokens`。
 
 ---
 
@@ -230,35 +233,17 @@ cargo tree -p cyberfiles --features zed-engine -i terminal
 
 ---
 
-## Phase 5：语言与语法包裁剪（低风险，中收益）
+## Phase 5：语言包（保留，不裁剪）
 
-### 改动目标
+### 结论
 
-- 把内置语言集从 20+ 收敛到常用集，剩余做可选。
-
-### 具体步骤
-
-1. 修改 `crates/cyber-editor-engine/src/languages.rs` 中 `EMBEDDED_LANGUAGE_FOLDERS`。
-2. 保留最小常用集（建议首批）：
-   - `text`
-   - `rust`
-   - `json`
-   - `markdown`
-   - `typescript`
-   - `javascript`
-   - `yaml`
-3. 为扩展语言准备 feature（例如 `extra-languages`）。
+- **保留** `cyber-editor-engine` 内嵌的全部 tree-sitter 语言包；体积收益有限，且易导致打开少见扩展名时无高亮。
+- **语法高亮**由 `language` + tree-sitter 提供；与 LSP 语言服务器无关。
+- 若将来需要可选语言包，再单独加 `extra-languages` feature，不作为当前 slimming 主线。
 
 ### 验证
 
-```powershell
-cargo build -p cyberfiles --bin cybereditor --features zed-engine
-```
-
-### 通过标准
-
-- 常用文本类型高亮正常。
-- 构建时间继续下降。
+打开 `.rs` / `.md` / `.json` 等文件，确认高亮正常且进程列表无 `language-server` / `rust-analyzer` 等子进程（`project/ide-lsp` 关闭时）。
 
 ---
 
@@ -293,7 +278,7 @@ Phase 1 (ui-editor 拆分)
 -> Phase 2 (去 project/workspace 依赖)
 -> Phase 3 (engine 最小模式)
 -> Phase 4 (editor feature 化)
--> Phase 5 (语言集裁剪)
+-> Phase 5 (语言包保留；可选 LSP 模块 cfg 收尾)
 ```
 
 说明：
