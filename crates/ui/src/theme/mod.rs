@@ -5,8 +5,9 @@ use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
 use cyberfiles_assets::themes::{ANT, AYU, GRUVBOX, ONE};
-use gpui::{App, SharedString};
-use gpui_component::{Theme, ThemeConfig, ThemeMode, ThemeSet};
+use cyberfiles_core::AppConfig;
+use gpui::{px, App, SharedString};
+use gpui_component::{scroll::ScrollbarShow, Theme, ThemeConfig, ThemeMode, ThemeSet};
 
 /// Persisted `theme_name` in `settings.json` (theme set id).
 pub const DEFAULT_THEME_SET_ID: &str = "One";
@@ -54,7 +55,6 @@ impl ThemeCatalog {
         self.sets.get(id)
     }
 
-    #[cfg(feature = "full-app")]
     pub fn normalize_set_id(name: &str) -> SharedString {
         let base = name
             .strip_suffix(" Light")
@@ -185,7 +185,6 @@ pub fn install(cx: &mut App) {
 }
 
 /// Apply a theme set for the given appearance mode.
-#[cfg(feature = "full-app")]
 pub fn apply_set(set_id: &str, mode: ThemeMode, cx: &mut App) {
     let catalog = ThemeCatalog::global();
     let set_id = ThemeCatalog::normalize_set_id(set_id).to_string();
@@ -210,9 +209,39 @@ pub fn theme_set_options() -> Vec<(SharedString, SharedString)> {
         .collect()
 }
 
-#[cfg(feature = "full-app")]
 pub fn current_theme_set_id(cx: &App) -> SharedString {
     ThemeCatalog::normalize_set_id(Theme::global(cx).theme_name().as_ref())
+}
+
+fn scrollbar_show_from_key(key: &str) -> ScrollbarShow {
+    match key {
+        "hover" => ScrollbarShow::Hover,
+        "always" => ScrollbarShow::Always,
+        _ => ScrollbarShow::Scrolling,
+    }
+}
+
+/// Apply gpui-component theme fields from CyberFiles `settings.json` (theme set,
+/// light/dark mode, font size, radius, scrollbar, list highlight). Locale is
+/// applied separately via [`crate::set_locale`].
+pub fn apply_from_config(config: &AppConfig, cx: &mut App) {
+    let mode = if config.dark_mode {
+        ThemeMode::Dark
+    } else {
+        ThemeMode::Light
+    };
+    let set_id = ThemeCatalog::normalize_set_id(&config.theme_name);
+    apply_set(set_id.as_ref(), mode, cx);
+    Theme::global_mut(cx).font_size = px(config.font_size);
+    let theme = Theme::global_mut(cx);
+    theme.radius = px(config.border_radius);
+    theme.radius_lg = if theme.radius > px(0.) {
+        theme.radius + px(2.)
+    } else {
+        px(0.)
+    };
+    theme.scrollbar_show = scrollbar_show_from_key(&config.scrollbar_show);
+    theme.list.active_highlight = config.list_active_highlight;
 }
 
 #[cfg(test)]

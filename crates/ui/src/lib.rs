@@ -75,6 +75,9 @@ pub fn init_editor_shell(cx: &mut App) {
     popup_menu::init(cx);
     cyber_editor::init_editor_menus(cx);
     theme::install(cx);
+    if let Some(ref cfg) = config {
+        theme::apply_from_config(cfg, cx);
+    }
     #[cfg(feature = "full-app")]
     cx.set_global(crate::app_state::AppFileClipboard::default());
 }

@@ -444,23 +444,7 @@ pub fn scrollbar_show_from_key(key: &str) -> ScrollbarShow {
 /// Apply saved settings at startup (before the window and app menus exist).
 pub fn apply_config(config: &AppConfig, cx: &mut App) {
     i18n::set_locale(&config.locale);
-    let mode = if config.dark_mode {
-        ThemeMode::Dark
-    } else {
-        ThemeMode::Light
-    };
-    let set_id = ThemeCatalog::normalize_set_id(&config.theme_name);
-    theme::apply_set(set_id.as_ref(), mode, cx);
-    Theme::global_mut(cx).font_size = px(config.font_size);
-    let theme = Theme::global_mut(cx);
-    theme.radius = px(config.border_radius);
-    theme.radius_lg = if theme.radius > px(0.) {
-        theme.radius + px(2.)
-    } else {
-        px(0.)
-    };
-    theme.scrollbar_show = scrollbar_show_from_key(&config.scrollbar_show);
-    theme.list.active_highlight = config.list_active_highlight;
+    theme::apply_from_config(config, cx);
 }
 
 pub fn capture_config(cx: &App, window_width: f32, window_height: f32) -> AppConfig {
