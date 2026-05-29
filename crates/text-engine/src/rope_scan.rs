@@ -100,6 +100,63 @@ fn valid_line_match(window: &[u8], rel_start: usize, len: usize) -> bool {
         .all(|&b| b != b'\n' && b != b'\r')
 }
 
+/// Count all line-scoped matches in the rope (Notepad++ Count / `ProcessCountAll`).
+pub fn count_all(
+    rope: &Rope,
+    needle: &[u8],
+    bytes_pat: &BytesRegex,
+    case_sensitive_literal: bool,
+) -> usize {
+    if needle.is_empty() {
+        return 0;
+    }
+    let total_bytes = rope.len_bytes();
+    if total_bytes == 0 {
+        return 0;
+    }
+    let overlap = if case_sensitive_literal {
+        needle.len().saturating_sub(1)
+    } else {
+        // Regex / case-insensitive: stitch enough bytes for matches split across chunks.
+        needle.len().saturating_sub(1).max(255)
+    };
+    let finder = case_sensitive_literal.then(|| Finder::new(needle));
+    let mut count = 0usize;
+    let mut chunk_abs = 0usize;
+    let mut tail = Vec::new();
+
+    for chunk in rope.byte_slice(0..total_bytes).chunks() {
+        let bytes = chunk.as_bytes();
+        let window_lo = chunk_abs.saturating_sub(tail.len());
+        let mut window = std::mem::take(&mut tail);
+        window.extend_from_slice(bytes);
+
+        if case_sensitive_literal {
+            if let Some(finder) = &finder {
+                for rel in finder.find_iter(&window) {
+                    let abs = window_lo + rel;
+                    if abs >= chunk_abs && valid_line_match(&window, rel, needle.len()) {
+                        count += 1;
+                    }
+                }
+            }
+        } else {
+            for m in bytes_pat.find_iter(&window) {
+                let abs = window_lo + m.start();
+                if abs >= chunk_abs && valid_line_match(&window, m.start(), m.len()) {
+                    count += 1;
+                }
+            }
+        }
+
+        if overlap > 0 && window.len() > overlap {
+            tail.extend_from_slice(&window[window.len() - overlap..]);
+        }
+        chunk_abs += bytes.len();
+    }
+    count
+}
+
 fn scan(
     rope: &Rope,
     from_byte: usize,

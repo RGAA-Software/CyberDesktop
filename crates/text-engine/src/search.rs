@@ -306,6 +306,14 @@ impl Searcher {
 
     /// Counts all matches in the buffer.
     pub fn count(&self, buffer: &TextBuffer) -> usize {
+        if let Some(lit) = self.literal.as_deref() {
+            return rope_scan::count_all(
+                buffer.rope(),
+                lit.as_bytes(),
+                &self.bytes_regex,
+                self.case_sensitive,
+            );
+        }
         let rope = buffer.rope();
         let mut total = 0;
         for line in 0..rope.len_lines() {
@@ -533,6 +541,18 @@ mod tests {
         let m = s.find_next(&buf, 0).unwrap();
         let rep = s.replacement_for(&buf, m, "$2=$1", true);
         assert_eq!(rep, "value=name");
+    }
+
+    #[test]
+    fn count_many_lines_literal() {
+        let mut text = String::new();
+        for _ in 0..20_000 {
+            text.push_str("x\n");
+        }
+        text.push_str("needle\nneedle\n");
+        let buf = TextBuffer::from_str(&text);
+        let s = Searcher::new("needle", SearchOptions::default()).unwrap();
+        assert_eq!(s.count(&buf), 2);
     }
 
     #[test]

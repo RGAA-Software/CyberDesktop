@@ -108,7 +108,7 @@ impl EngineEditor {
         find.cached_searcher.as_ref()
     }
 
-    /// Full-document match count (Notepad++ Count); only runs on explicit request.
+    /// Full-document match count (Notepad++ Count); runs on a background thread.
     pub(crate) fn do_count(&mut self, cx: &mut Context<Self>) {
         let Some(options) = self.find.as_ref().map(|f| f.options()) else {
             return;
@@ -122,28 +122,41 @@ impl EngineEditor {
         }
         cx.notify();
 
-        let status = match Searcher::new(&query, options) {
-            Ok(searcher) => {
-                if let Some(find) = self.find.as_mut() {
-                    find.cached_query = query.clone();
-                    find.cached_options = options;
-                    find.cached_searcher = Some(searcher.clone());
-                }
-                let total = searcher.count(self.document.buffer());
-                if total == 0 {
-                    "Count: 0 matches".to_string()
-                } else if total == 1 {
-                    "Count: 1 match".to_string()
-                } else {
-                    format!("Count: {total} matches")
-                }
-            }
-            Err(_) => "Bad pattern".to_string(),
-        };
-        if let Some(find) = self.find.as_mut() {
-            find.status = status;
-        }
-        cx.notify();
+        let buffer = self.document.buffer().clone();
+        let cache_query = query.clone();
+        let cache_options = options;
+        let task = cx.background_executor().spawn(async move {
+            Searcher::new(&query, options).map(|searcher| searcher.count(&buffer))
+        });
+
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                let Some(find) = this.find.as_mut() else {
+                    return;
+                };
+                find.status = match outcome {
+                    Ok(total) => {
+                        if let Ok(searcher) = Searcher::new(&cache_query, cache_options) {
+                            find.cached_query = cache_query;
+                            find.cached_options = cache_options;
+                            find.cached_searcher = Some(searcher);
+                        }
+                        if total == 0 {
+                            "Count: 0 matches".to_string()
+                        } else if total == 1 {
+                            "Count: 1 match".to_string()
+                        } else {
+                            format!("Count: {total} matches")
+                        }
+                    }
+                    Err(_) => "Bad pattern".to_string(),
+                };
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub(crate) fn do_find(&mut self, forward: bool, cx: &mut Context<Self>) {
