@@ -12,6 +12,7 @@ use streaming_iterator::StreamingIterator;
 use tree_sitter::{InputEdit, Language, Node, Parser, Point, Query, QueryCursor, TextProvider, Tree};
 
 use crate::buffer::EditSummary;
+use crate::syntax_languages::{language_config, SUPPORTED_LANGUAGE_IDS};
 
 /// A coarse highlight category that the UI maps to a theme color.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,40 +70,18 @@ pub struct HighlightSpan {
 
 /// Returns the tree-sitter [`Language`] and highlight query source for a known
 /// language id, or `None` for plain text / unsupported languages.
-fn language_config(language_id: &str) -> Option<(Language, &'static str)> {
-    let (lang, query): (Language, &'static str) = match language_id {
-        "rust" => (
-            tree_sitter_rust::LANGUAGE.into(),
-            tree_sitter_rust::HIGHLIGHTS_QUERY,
-        ),
-        "json" => (
-            tree_sitter_json::LANGUAGE.into(),
-            tree_sitter_json::HIGHLIGHTS_QUERY,
-        ),
-        "python" => (
-            tree_sitter_python::LANGUAGE.into(),
-            tree_sitter_python::HIGHLIGHTS_QUERY,
-        ),
-        "javascript" | "typescript" => (
-            tree_sitter_javascript::LANGUAGE.into(),
-            tree_sitter_javascript::HIGHLIGHT_QUERY,
-        ),
-        "c" | "cpp" => (
-            tree_sitter_c::LANGUAGE.into(),
-            tree_sitter_c::HIGHLIGHT_QUERY,
-        ),
-        "bash" | "shell" => (
-            tree_sitter_bash::LANGUAGE.into(),
-            tree_sitter_bash::HIGHLIGHT_QUERY,
-        ),
-        _ => return None,
-    };
-    Some((lang, query))
+fn lookup_language_config(language_id: &str) -> Option<(Language, &'static str)> {
+    language_config(language_id)
 }
 
 /// True if syntax highlighting is available for `language_id`.
 pub fn is_supported(language_id: &str) -> bool {
-    language_config(language_id).is_some()
+    lookup_language_config(language_id).is_some()
+}
+
+/// All language ids with tree-sitter syntax highlighting.
+pub fn supported_language_ids() -> &'static [&'static str] {
+    SUPPORTED_LANGUAGE_IDS
 }
 
 /// Holds parser state for one document.
@@ -133,7 +112,7 @@ impl SyntaxState {
         self.tree = None;
         self.query = None;
         self.supported = false;
-        if let Some((language, query_src)) = language_config(language_id) {
+        if let Some((language, query_src)) = lookup_language_config(language_id) {
             if self.parser.set_language(&language).is_ok() {
                 if let Ok(query) = Query::new(&language, query_src) {
                     self.query = Some(query);
@@ -360,6 +339,16 @@ fn resolve_overlaps(mut spans: Vec<HighlightSpan>) -> Vec<HighlightSpan> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn supported_language_count() {
+        assert!(supported_language_ids().len() >= 34);
+        assert!(is_supported("rust"));
+        assert!(is_supported("typescript"));
+        assert!(is_supported("tsx"));
+        assert!(is_supported("markdown"));
+        assert!(!is_supported("text"));
+    }
 
     #[test]
     fn unsupported_language_yields_nothing() {

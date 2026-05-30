@@ -53,7 +53,10 @@ impl EngineEditor {
     }
 
     pub(crate) fn toggle_comment(&mut self, cx: &mut Context<Self>) {
-        let prefix = comment_prefix(self.document.language()).to_string();
+        let Some(prefix) = comment_prefix(self.document.language()) else {
+            return;
+        };
+        let prefix = prefix.to_string();
         let (first, last) = self.selected_line_range();
         let all_commented = (first..=last).all(|line| {
             let t = self.document.buffer().line_text(line);

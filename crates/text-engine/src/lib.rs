@@ -11,6 +11,8 @@
 //! - [`loader`]: memory-mapped, streaming-decode file loading straight into the
 //!   rope (no giant intermediate `String`).
 
+pub mod language;
+mod syntax_languages;
 pub mod buffer;
 pub mod document;
 pub mod encoding;
@@ -30,9 +32,10 @@ pub use global_search::{
     LineMatch, SearchProgress,
 };
 pub use history::{Edit, History, Transaction};
+pub use language::{language_for_path, line_comment_prefix};
 pub use loader::{load_file, LoadedFile};
 pub use search::{
     FindInLinesOutcome, LineSearchHit, Match, SearchOptions, Searcher, FIND_IN_FILE_MAX_MATCHES,
 };
 pub use selection::{Cursor, SelectionSet};
-pub use syntax::{HighlightKind, HighlightSpan, SyntaxState};
+pub use syntax::{HighlightKind, HighlightSpan, SyntaxState, is_supported, supported_language_ids};

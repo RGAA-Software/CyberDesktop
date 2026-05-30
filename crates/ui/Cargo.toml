@@ -17,6 +17,7 @@ cyberfiles-commands.workspace = true
 cyberfiles-core.workspace = true
 cyberfiles-fs.workspace = true
 cyberfiles-platform-windows.workspace = true
+cyberfiles-text-engine.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
 cyberfiles-assets.workspace = true
