@@ -13,9 +13,8 @@ impl EngineEditor {
         let name = doc
             .path()
             .and_then(|p| p.file_name())
-            .and_then(|n| n.to_str())
-            .unwrap_or("Untitled")
-            .to_string();
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| t!("editor.untitled").to_string());
         if doc.dirty() {
             format!("{name} \u{2022}")
         } else {
@@ -153,7 +152,7 @@ impl EngineEditor {
         doc.path()
             .and_then(|p| p.file_name())
             .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Untitled".to_string())
+            .unwrap_or_else(|| t!("editor.untitled").to_string())
     }
 
 }

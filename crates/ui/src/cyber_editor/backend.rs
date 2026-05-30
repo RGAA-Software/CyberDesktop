@@ -5,6 +5,7 @@ use gpui_component::{
     input::{Input, InputState, TabSize},
     ActiveTheme as _,
 };
+use rust_i18n::t;
 
 use super::{EditorBufferModel, SearchMatch};
 
@@ -40,7 +41,7 @@ impl ModelEditorBackend {
                 })
                 .soft_wrap(soft_wrap)
                 .default_value(initial_text.clone())
-                .placeholder("Open a UTF-8 text or code file")
+                .placeholder(t!("editor.backend.placeholder"))
         });
 
         let buffer = Rc::new(RefCell::new(EditorBufferModel::new(initial_text, language)));

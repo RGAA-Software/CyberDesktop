@@ -2,6 +2,7 @@
 
 use gpui::{App, BorrowAppContext, Entity, Global, Menu, MenuItem, OsAction, SharedString};
 use gpui_component::{menu::AppMenuBar, GlobalState};
+use rust_i18n::t;
 
 use super::{
     AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
@@ -63,72 +64,75 @@ pub fn reload(cx: &mut App) {
 }
 
 /// Top-level menu title with access-key hint, e.g. `File(F)`.
-fn menu_title(label: &str, access_key: char) -> SharedString {
-    SharedString::from(format!("{label}({access_key})"))
+fn menu_title(label: impl Into<SharedString>, access_key: char) -> SharedString {
+    let label = label.into();
+    SharedString::from(format!("{}({access_key})", label.as_ref()))
 }
 
 fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu> {
     vec![
         Menu {
-            name: menu_title("File", 'F'),
+            name: menu_title(SharedString::from(t!("editor.menu.file")), 'F'),
             items: vec![
-                MenuItem::action("New", NewFile),
-                MenuItem::action("Open...", OpenFile),
+                MenuItem::action(SharedString::from(t!("editor.menu.new")), NewFile),
+                MenuItem::action(SharedString::from(t!("editor.menu.open")), OpenFile),
                 MenuItem::separator(),
-                MenuItem::action("Save", SaveFile),
-                MenuItem::action("Save As...", SaveFileAs),
+                MenuItem::action(SharedString::from(t!("editor.menu.save")), SaveFile),
+                MenuItem::action(SharedString::from(t!("editor.menu.save_as")), SaveFileAs),
                 MenuItem::separator(),
-                MenuItem::action("Exit", ExitEditor),
+                MenuItem::action(SharedString::from(t!("editor.menu.exit")), ExitEditor),
             ],
             disabled: false,
         },
         Menu {
-            name: menu_title("Edit", 'E'),
+            name: menu_title(SharedString::from(t!("editor.menu.edit")), 'E'),
             items: vec![
-                MenuItem::os_action("Undo", EditorUndo, OsAction::Undo),
-                MenuItem::os_action("Redo", EditorRedo, OsAction::Redo),
+                MenuItem::os_action(SharedString::from(t!("editor.menu.undo")), EditorUndo, OsAction::Undo),
+                MenuItem::os_action(SharedString::from(t!("editor.menu.redo")), EditorRedo, OsAction::Redo),
                 MenuItem::separator(),
-                MenuItem::os_action("Cut", EditorCut, OsAction::Cut),
-                MenuItem::os_action("Copy", EditorCopy, OsAction::Copy),
-                MenuItem::os_action("Paste", EditorPaste, OsAction::Paste),
+                MenuItem::os_action(SharedString::from(t!("editor.menu.cut")), EditorCut, OsAction::Cut),
+                MenuItem::os_action(SharedString::from(t!("editor.menu.copy")), EditorCopy, OsAction::Copy),
+                MenuItem::os_action(SharedString::from(t!("editor.menu.paste")), EditorPaste, OsAction::Paste),
                 MenuItem::separator(),
-                MenuItem::action("Find...", FindText),
-                MenuItem::action("Find in File...", FindInFiles),
-                MenuItem::action("Replace...", ReplaceText),
-                MenuItem::action("Replace All...", ReplaceAllText),
+                MenuItem::action(SharedString::from(t!("editor.menu.find")), FindText),
+                MenuItem::action(SharedString::from(t!("editor.menu.find_in_file")), FindInFiles),
+                MenuItem::action(SharedString::from(t!("editor.menu.replace")), ReplaceText),
+                MenuItem::action(SharedString::from(t!("editor.menu.replace_all")), ReplaceAllText),
                 MenuItem::separator(),
-                MenuItem::action("Find Next", FindNext),
-                MenuItem::action("Find Previous", FindPrevious),
+                MenuItem::action(SharedString::from(t!("editor.menu.find_next")), FindNext),
+                MenuItem::action(SharedString::from(t!("editor.menu.find_previous")), FindPrevious),
             ],
             disabled: false,
         },
         Menu {
-            name: menu_title("Selection", 'S'),
+            name: menu_title(SharedString::from(t!("editor.menu.selection")), 'S'),
             items: vec![
-                MenuItem::os_action("Select All", SelectAll, OsAction::SelectAll),
+                MenuItem::os_action(SharedString::from(t!("editor.menu.select_all")), SelectAll, OsAction::SelectAll),
                 MenuItem::separator(),
-                MenuItem::action("Toggle Comment", ToggleComment),
-                MenuItem::action("Indent", IndentSelection),
-                MenuItem::action("Outdent", OutdentSelection),
+                MenuItem::action(SharedString::from(t!("editor.menu.toggle_comment")), ToggleComment),
+                MenuItem::action(SharedString::from(t!("editor.menu.indent")), IndentSelection),
+                MenuItem::action(SharedString::from(t!("editor.menu.outdent")), OutdentSelection),
             ],
             disabled: false,
         },
         Menu {
-            name: menu_title("View", 'V'),
+            name: menu_title(SharedString::from(t!("editor.menu.view")), 'V'),
             items: vec![
-                MenuItem::action("Go to Line...", GoToLine),
+                MenuItem::action(SharedString::from(t!("editor.menu.go_to_line")), GoToLine),
                 MenuItem::separator(),
-                MenuItem::action("Line Numbers", ToggleLineNumbers).checked(line_numbers_checked),
-                MenuItem::action("Word Wrap", ToggleSoftWrap).checked(soft_wrap_checked),
+                MenuItem::action(SharedString::from(t!("editor.menu.line_numbers")), ToggleLineNumbers)
+                    .checked(line_numbers_checked),
+                MenuItem::action(SharedString::from(t!("editor.menu.word_wrap")), ToggleSoftWrap)
+                    .checked(soft_wrap_checked),
             ],
             disabled: false,
         },
         Menu {
-            name: menu_title("Help", 'H'),
+            name: menu_title(SharedString::from(t!("editor.menu.help")), 'H'),
             items: vec![
-                MenuItem::action("Keyboard Shortcuts", KeyboardShortcuts),
+                MenuItem::action(SharedString::from(t!("editor.menu.keyboard_shortcuts")), KeyboardShortcuts),
                 MenuItem::separator(),
-                MenuItem::action("About CyberEditor", AboutEditor),
+                MenuItem::action(SharedString::from(t!("editor.menu.about")), AboutEditor),
             ],
             disabled: false,
         },

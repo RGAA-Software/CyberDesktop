@@ -84,7 +84,7 @@ impl EngineEditor {
             None => {
                 let query = cx.new(|cx| {
                     InputState::new(window, cx)
-                        .placeholder("Find in file")
+                        .placeholder(t!("editor.search_in_file.placeholder"))
                         .default_value(seed)
                 });
                 let mut subs = Vec::new();
@@ -183,12 +183,12 @@ impl EngineEditor {
         panel.matches_so_far = 0;
         let Ok(searcher) = Searcher::new(&query, options) else {
             panel.searching = false;
-            panel.status = "Bad pattern".to_string();
+            panel.status = t!("editor.find.bad_pattern").to_string();
             cx.notify();
             return;
         };
 
-        panel.status = "Searching…".to_string();
+        panel.status = t!("editor.search_in_file.searching").to_string();
         cx.notify();
 
         let lines_done = Arc::new(AtomicUsize::new(0));
@@ -238,10 +238,12 @@ impl EngineEditor {
                         }
                         panel.lines_scanned = lines_done.load(Ordering::Relaxed);
                         panel.matches_so_far = matches_found.load(Ordering::Relaxed);
-                        panel.status = format!(
-                            "Searching… {} lines, {} matches",
-                            panel.lines_scanned, panel.matches_so_far
-                        );
+                        panel.status = t!(
+                            "editor.search_in_file.progress",
+                            lines = panel.lines_scanned,
+                            matches = panel.matches_so_far
+                        )
+                        .to_string();
                         cx.notify();
                         true
                     })
@@ -272,11 +274,11 @@ impl EngineEditor {
                     Some(file) => {
                         let hits = file.matches.len();
                         panel.status = if hits == 0 {
-                            "No results".to_string()
+                            t!("editor.search_in_file.no_results").to_string()
                         } else if hits >= FIND_IN_FILE_MAX_MATCHES {
-                            format!("{hits}+ matches (limit reached)")
+                            t!("editor.search_in_file.limit", hits = hits).to_string()
                         } else {
-                            format!("{hits} matches")
+                            t!("editor.search_in_file.hits", hits = hits).to_string()
                         };
                         panel.results = vec![file];
                         panel.rebuild_rows();

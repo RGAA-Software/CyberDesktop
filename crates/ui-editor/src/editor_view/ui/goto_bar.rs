@@ -15,7 +15,7 @@ impl EngineEditor {
             .items_center()
             .gap_2()
             .child(
-                Label::new(format!("Line (1–{last}):"))
+                Label::new(t!("editor.goto.prompt", last = last))
                     .text_sm()
                     .text_color(cx.theme().muted_foreground),
             )
@@ -23,13 +23,13 @@ impl EngineEditor {
             .child(
                 toolbar_icon_button("goto-go")
                     .icon(toolbar_icon(IconName::Search).path(paths::GOTO))
-                    .tooltip("Go to line")
+                    .tooltip(t!("editor.goto.action"))
                     .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_goto(cx))),
             )
             .child(
                 toolbar_icon_button("goto-close")
                     .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
-                    .tooltip("Close (Esc)")
+                    .tooltip(t!("editor.find.close"))
                     .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_goto(cx))),
             );
 
@@ -40,7 +40,12 @@ impl EngineEditor {
                 .left_4()
                 .w(px(320.0))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(floating_tool_panel(cx, "goto-bar", "Go to Line", body)),
+                .child(floating_tool_panel(
+                    cx,
+                    "goto-bar",
+                    t!("editor.goto.title"),
+                    body,
+                )),
         )
     }
 }

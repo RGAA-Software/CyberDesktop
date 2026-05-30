@@ -19,6 +19,7 @@ use crate::title_bar::TitleBar;
 
 
 use gpui_component::input::InputEvent;
+use rust_i18n::t;
 use super::line_comment_prefix;
 
 use super::{
@@ -146,7 +147,7 @@ impl CyberEditorPage {
     ) -> Result<(), String> {
         let text = self.editor.text(cx);
         std::fs::write(&path, text.as_bytes())
-            .map_err(|err| format!("Failed to save {}: {err}", path.display()))?;
+            .map_err(|err| t!("editor.save.error", path = path.display(), err = err.to_string()).to_string())?;
 
         self.session.apply_save(path.clone(), text);
         self.editor.set_highlighter(
@@ -155,7 +156,7 @@ impl CyberEditorPage {
             cx,
         );
         window.push_notification(
-            Notification::success(format!("Saved {}", path.display())),
+            Notification::success(t!("editor.save.success", path = path.display()).to_string()),
             cx,
         );
         cx.notify();
@@ -239,8 +240,8 @@ impl CyberEditorPage {
             let page = cx.entity().downgrade();
             window.open_alert_dialog(cx, move |alert, _, _| {
                 alert
-                    .title("Unsaved Changes")
-                    .description("Discard unsaved changes and create a new file?")
+                    .title(t!("editor.unsaved.title"))
+                    .description(t!("editor.unsaved.discard_new"))
                     .show_cancel(true)
                     .on_ok({
                         let page = page.clone();
@@ -295,11 +296,8 @@ impl CyberEditorPage {
     fn show_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.open_alert_dialog(cx, move |alert, _, _| {
             alert
-                .title("About CyberEditor")
-                .description(
-                    "Notepad++-style text editor.\n\
-                     Editing surface: gpui-component code editor (tree-sitter highlighting).",
-                )
+                .title(t!("editor.about.title"))
+                .description(t!("editor.page.about.description"))
                 .show_cancel(false)
                 .on_ok(|_, _, _| true)
         });
@@ -323,8 +321,8 @@ impl CyberEditorPage {
             focus_input_once(&focus_once, input_for_focus, window, cx);
 
             alert
-                .title("Go to Line")
-                .description("Enter a 1-based line or line:column target.")
+                .title(t!("editor.goto.title"))
+                .description(t!("editor.goto.description"))
                 .show_cancel(true)
                 .child(Input::new(&input).w_full())
                 .on_ok(move |_, window, cx| {
@@ -336,7 +334,7 @@ impl CyberEditorPage {
                     };
                     let Some(position) = parse_go_to_line_target(&raw) else {
                         window.push_notification(
-                            Notification::warning("Enter a line number or line:column."),
+                            Notification::warning(t!("editor.goto.invalid").to_string()),
                             cx,
                         );
                         return false;
@@ -356,7 +354,7 @@ impl CyberEditorPage {
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .default_value(self.session.find_query().to_string())
-                .placeholder("Enter text to find")
+                .placeholder(t!("editor.find.find_placeholder"))
         });
         let page = cx.entity().downgrade();
         let focus_once = Rc::new(Cell::new(false));
@@ -368,15 +366,15 @@ impl CyberEditorPage {
             focus_input_once(&focus_once, input_for_focus, window, cx);
 
             alert
-                .title("Find")
-                .description("Enter text to find from the current cursor position.")
+                .title(t!("editor.find.title"))
+                .description(t!("editor.find.description"))
                 .show_cancel(true)
                 .child(Input::new(&input).w_full())
                 .on_ok(move |_, window, cx| {
                     let raw = input_for_submit.read(cx).value().trim().to_string();
                     if raw.is_empty() {
                         window.push_notification(
-                            Notification::warning("Enter text to find."),
+                            Notification::warning(t!("editor.find.enter").to_string()),
                             cx,
                         );
                         return false;
@@ -400,12 +398,12 @@ impl CyberEditorPage {
         let find_input = cx.new(|cx| {
             InputState::new(window, cx)
                 .default_value(self.session.find_query().to_string())
-                .placeholder("Find")
+                .placeholder(t!("editor.find.placeholder"))
         });
         let replace_input = cx.new(|cx| {
             InputState::new(window, cx)
                 .default_value(self.session.replace_query().to_string())
-                .placeholder("Replace with")
+                .placeholder(t!("editor.find.replace_placeholder"))
         });
         let page = cx.entity().downgrade();
         let focus_once = Rc::new(Cell::new(false));
@@ -419,14 +417,14 @@ impl CyberEditorPage {
 
             alert
                 .title(if replace_all {
-                    "Replace All"
+                    t!("editor.find.replace_all")
                 } else {
-                    "Replace"
+                    t!("editor.find.replace")
                 })
                 .description(if replace_all {
-                    "Replace every match in the current document."
+                    t!("editor.replace_all.description")
                 } else {
-                    "Replace the next match from the current cursor position."
+                    t!("editor.replace.description")
                 })
                 .show_cancel(true)
                 .child(
@@ -441,7 +439,7 @@ impl CyberEditorPage {
                     let replace_with = replace_input_for_submit.read(cx).value().to_string();
                     if find.is_empty() {
                         window.push_notification(
-                            Notification::warning("Enter text to find."),
+                            Notification::warning(t!("editor.find.enter").to_string()),
                             cx,
                         );
                         return false;
@@ -464,7 +462,7 @@ impl CyberEditorPage {
         self.session.set_find_query(query.to_string());
         let Some(search_match) = self.editor.find_next(query, cx) else {
             window.push_notification(
-                Notification::warning(format!("No match found for \"{query}\".")),
+                Notification::warning(t!("editor.find.no_match", query = query).to_string()),
                 cx,
             );
             cx.notify();
@@ -494,7 +492,7 @@ impl CyberEditorPage {
 
         let Some(search_match) = self.editor.find_previous(&query, cx) else {
             window.push_notification(
-                Notification::warning(format!("No match found for \"{query}\".")),
+                Notification::warning(t!("editor.find.no_match", query = query).to_string()),
                 cx,
             );
             cx.notify();
@@ -521,7 +519,7 @@ impl CyberEditorPage {
             replace_next_in_text(&current_text, cursor, query, replacement)
         else {
             window.push_notification(
-                Notification::warning(format!("No match found for \"{query}\".")),
+                Notification::warning(t!("editor.find.no_match", query = query).to_string()),
                 cx,
             );
             cx.notify();
@@ -560,7 +558,7 @@ impl CyberEditorPage {
             replace_all_in_text(&current_text, query, replacement)
         else {
             window.push_notification(
-                Notification::warning(format!("No match found for \"{query}\".")),
+                Notification::warning(t!("editor.find.no_match", query = query).to_string()),
                 cx,
             );
             cx.notify();
@@ -584,7 +582,7 @@ impl CyberEditorPage {
                 cx.notify();
             }
             window.push_notification(
-                Notification::success(format!("Replaced {replacements} match(es).")),
+                Notification::success(t!("editor.find.replaced", count = replacements).to_string()),
                 cx,
             );
             true
@@ -595,7 +593,7 @@ impl CyberEditorPage {
 
         let Some(prefix) = line_comment_prefix(self.session.language().as_ref()) else {
             window.push_notification(
-                Notification::warning("Line comment toggle is not available for this language."),
+                Notification::warning(t!("editor.comment.unavailable").to_string()),
                 cx,
             );
             return;
@@ -715,8 +713,8 @@ impl CyberEditorPage {
         let page = cx.entity().downgrade();
         window.open_alert_dialog(cx, move |alert, _, _| {
             alert
-                .title("Unsaved Changes")
-                .description("This file has unsaved changes. Save before closing?")
+                .title(t!("editor.unsaved.title"))
+                .description(t!("editor.unsaved.single"))
                 .show_cancel(true)
                 .on_ok({
                     let page = page.clone();
@@ -792,7 +790,7 @@ impl CyberEditorPage {
                     )
                     .when(self.session.dirty(), |row| {
                         row.child(
-                            Label::new("Unsaved")
+                            Label::new(t!("editor.status.unsaved"))
                                 .text_xs()
                                 .text_color(cx.theme().warning),
                         )
@@ -806,21 +804,21 @@ impl CyberEditorPage {
                         Button::new("open-file")
                             .small()
                             .ghost()
-                            .label("Open File")
+                            .label(t!("editor.toolbar.open"))
                             .on_click(cx.listener(Self::open_file)),
                     )
                     .child(
                         Button::new("save-as")
                             .small()
                             .ghost()
-                            .label("Save As")
+                            .label(t!("editor.menu.save_as"))
                             .on_click(cx.listener(Self::save_as)),
                     )
                     .child(
                         Button::new("go-to-line")
                             .small()
                             .ghost()
-                            .label("Go to Line")
+                            .label(t!("editor.menu.go_to_line"))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.go_to_line(window, cx);
                             })),
@@ -829,7 +827,7 @@ impl CyberEditorPage {
                         Button::new("find-text")
                             .small()
                             .ghost()
-                            .label("Find")
+                            .label(t!("editor.find.title"))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.open_find_dialog(window, cx);
                             })),
@@ -838,7 +836,7 @@ impl CyberEditorPage {
                         Button::new("replace-text")
                             .small()
                             .ghost()
-                            .label("Replace")
+                            .label(t!("editor.find.replace"))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.open_replace_dialog(false, window, cx);
                             })),
@@ -847,7 +845,7 @@ impl CyberEditorPage {
                         Button::new("replace-all-text")
                             .small()
                             .ghost()
-                            .label("Replace All")
+                            .label(t!("editor.find.replace_all"))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.open_replace_dialog(true, window, cx);
                             })),
@@ -856,7 +854,7 @@ impl CyberEditorPage {
                         Button::new("toggle-comment")
                             .small()
                             .ghost()
-                            .label("Comment")
+                            .label(t!("editor.toolbar.comment"))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.toggle_comment(window, cx);
                             })),
@@ -865,7 +863,7 @@ impl CyberEditorPage {
                         Button::new("indent-selection")
                             .small()
                             .ghost()
-                            .label("Indent")
+                            .label(t!("editor.menu.indent"))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.indent_selection(window, cx);
                             })),
@@ -874,7 +872,7 @@ impl CyberEditorPage {
                         Button::new("outdent-selection")
                             .small()
                             .ghost()
-                            .label("Outdent")
+                            .label(t!("editor.menu.outdent"))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.outdent_selection(window, cx);
                             })),
@@ -882,7 +880,7 @@ impl CyberEditorPage {
                     .child(
                         Button::new("save")
                             .small()
-                            .label("Save")
+                            .label(t!("editor.save"))
                             .disabled(!self.session.dirty() && self.session.file_path().is_some())
                             .on_click(cx.listener(Self::save)),
                     ),
@@ -960,7 +958,11 @@ impl CyberEditorPage {
                     .items_center()
                     .gap_3()
                     .child(
-                        Label::new(if self.session.dirty() { "Modified" } else { "Saved" })
+                        Label::new(if self.session.dirty() {
+                            t!("editor.status.modified")
+                        } else {
+                            t!("editor.status.saved")
+                        })
                             .text_xs()
                             .text_color(if self.session.dirty() {
                                 cx.theme().warning
@@ -979,24 +981,27 @@ impl CyberEditorPage {
                             .text_color(cx.theme().muted_foreground),
                     )
                     .child(
-                        Label::new(format!("Lines: {}", self.editor.line_count()))
+                        Label::new(t!("editor.status.lines", count = self.editor.line_count()))
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     )
                     .child(
-                        Label::new(format!("Chars: {}", self.editor.char_count()))
+                        Label::new(t!("editor.status.chars", count = self.editor.char_count()))
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     )
                     .when(self.editor.has_selection(cx), |row| {
                         row.child(
-                            Label::new(format!("Sel: {}", self.editor.selected_char_count()))
+                            Label::new(t!(
+                                "editor.status.sel",
+                                count = self.editor.selected_char_count()
+                            ))
                                 .text_xs()
                                 .text_color(cx.theme().muted_foreground),
                         )
                     })
                     .child(
-                        Label::new(format!("Rev: {}", self.editor.revision()))
+                        Label::new(t!("editor.status.rev", count = self.editor.revision()))
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     )
@@ -1004,10 +1009,10 @@ impl CyberEditorPage {
                         Button::new("go-to-line-status")
                             .ghost()
                             .xsmall()
-                            .label(format!(
-                                "Ln {}, Col {}",
-                                self.editor.cursor_position().line + 1,
-                                self.editor.cursor_position().character + 1
+                            .label(t!(
+                                "editor.status.ln_col",
+                                line = self.editor.cursor_position().line + 1,
+                                col = self.editor.cursor_position().character + 1
                             ))
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.go_to_line(window, cx);
@@ -1018,11 +1023,12 @@ impl CyberEditorPage {
                         let current = self.editor.current_match_index(self.session.find_query(), cx);
                         row.child(
                             Label::new(if total == 0 {
-                                "Matches: 0".to_string()
+                                t!("editor.status.matches_zero").to_string()
                             } else if current == 0 {
-                                format!("Matches: 0/{total}")
+                                t!("editor.status.matches_zero_total", total = total).to_string()
                             } else {
-                                format!("Matches: {current}/{total}")
+                                t!("editor.status.matches", current = current, total = total)
+                                    .to_string()
                             })
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
@@ -1039,7 +1045,11 @@ impl CyberEditorPage {
                             .text_color(cx.theme().muted_foreground),
                     )
                     .child(
-                        Label::new(if self.session.soft_wrap() { "Wrap On" } else { "Wrap Off" })
+                        Label::new(if self.session.soft_wrap() {
+                            t!("editor.status.wrap_on")
+                        } else {
+                            t!("editor.status.wrap_off")
+                        })
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     ),

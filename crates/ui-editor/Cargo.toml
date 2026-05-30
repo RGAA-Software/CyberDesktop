@@ -13,3 +13,4 @@ cyberfiles-ui = { workspace = true, default-features = false, features = ["edito
 cyberfiles-text-engine.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
+rust-i18n.workspace = true

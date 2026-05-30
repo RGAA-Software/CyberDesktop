@@ -1458,6 +1458,7 @@ dependencies = [
  "cyberfiles-ui",
  "gpui",
  "gpui-component",
+ "rust-i18n",
 ]
 
 [[package]]

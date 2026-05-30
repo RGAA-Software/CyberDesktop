@@ -11,19 +11,22 @@ impl EngineEditor {
             .document
             .path()
             .and_then(|p| p.file_name())
-            .and_then(|n| n.to_str())
-            .unwrap_or("Untitled")
-            .to_string();
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| t!("editor.untitled").to_string());
         let dirty = if self.document.dirty() { " ●" } else { "" };
         let caret = self.document.selections().primary().head;
         let pos = self.document.buffer().char_to_position(caret);
+        let info = t!(
+            "editor.status.ln_col",
+            line = pos.line + 1,
+            col = pos.column + 1
+        );
         let info = format!(
-            "{}   {}   {}   Ln {}, Col {}",
+            "{}   {}   {}   {}",
             self.document.language(),
             self.document.encoding().label(),
             self.document.line_ending().label(),
-            pos.line + 1,
-            pos.column + 1,
+            info,
         );
 
         div()
@@ -111,7 +114,7 @@ impl EngineEditor {
         strip.child(
             toolbar_icon_button("tab-new")
                 .icon(toolbar_icon(IconName::Plus).path("icons/plus.svg"))
-                .tooltip("New tab")
+                .tooltip(t!("editor.tooltip.new_tab"))
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(|this, _e: &MouseDownEvent, _w, cx| this.new_tab(cx)),
@@ -136,13 +139,11 @@ impl EngineEditor {
                 .bg(theme.warning)
                 .text_color(theme.warning_foreground)
                 .text_size(px(12.0))
-                .child(SharedString::from(
-                    "This file changed on disk.".to_string(),
-                ))
+                .child(SharedString::from(t!("editor.disk.changed")))
                 .child(
                     Button::new("disk-reload")
                         .xsmall()
-                        .label("Reload")
+                        .label(t!("editor.disk.reload"))
                         .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
                             this.reload_from_disk(cx);
                         })),
@@ -151,7 +152,7 @@ impl EngineEditor {
                     Button::new("disk-ignore")
                         .xsmall()
                         .ghost()
-                        .label("Ignore")
+                        .label(t!("editor.disk.ignore"))
                         .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
                             this.disk_changed = false;
                             cx.notify();
@@ -185,7 +186,7 @@ impl EngineEditor {
                     .py_1()
                     .bg(theme.list_head)
                     .text_color(theme.muted_foreground)
-                    .child(SharedString::from("Recent Files")),
+                    .child(SharedString::from(t!("editor.recent.title"))),
             );
 
         if self.recent.is_empty() {
@@ -194,7 +195,7 @@ impl EngineEditor {
                     .px_3()
                     .py_2()
                     .text_color(theme.muted_foreground)
-                    .child(SharedString::from("No recent files")),
+                    .child(SharedString::from(t!("editor.recent.empty"))),
             );
         }
         for (i, path) in self.recent.iter().enumerate() {
@@ -224,7 +225,7 @@ impl EngineEditor {
         let menu_bar = editor_menu_bar(cx);
         let settings_btn = toolbar_icon_button("editor-settings")
             .icon(toolbar_icon(IconName::Settings2).path(paths::SETTINGS))
-            .tooltip("Settings")
+            .tooltip(t!("editor.tooltip.settings"))
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
@@ -247,7 +248,7 @@ impl EngineEditor {
                     div()
                         .flex_none()
                         .text_size(px(13.0))
-                        .child(SharedString::from("CyberEditor")),
+                        .child(SharedString::from(t!("editor.app_name"))),
                 )
                 .child(div().flex_none().child(menu_bar)),
         )

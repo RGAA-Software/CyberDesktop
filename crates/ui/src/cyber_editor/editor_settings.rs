@@ -1,6 +1,6 @@
 //! Settings panel for CyberEditor (general appearance + interface, aligned with CyberFiles).
 
-use gpui::{App, SharedString};
+use gpui::{px, App, SharedString};
 use gpui_component::{
     group_box::GroupBoxVariant,
     setting::{SettingField, SettingGroup, SettingItem, SettingPage, Settings},
@@ -64,6 +64,7 @@ pub fn build_editor_settings(cx: &App) -> Settings {
 
     Settings::new("cybereditor-settings")
         .with_group_variant(GroupBoxVariant::Outline)
+        .sidebar_width(px(220.0))
         .pages(vec![
             SettingPage::new(ts(t!("settings.page.general")))
                 .default_open(true)

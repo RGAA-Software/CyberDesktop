@@ -328,11 +328,11 @@ impl RenderOnce for TitleBar {
                         .flex_shrink_0()
                         .h_full()
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .children(self.trailing_before_controls)
-                        .child(WindowControls {
-                            on_close_window: self.on_close_window,
-                        }),
-                ),
+                        .children(self.trailing_before_controls),
+                )
+                .child(WindowControls {
+                    on_close_window: self.on_close_window,
+                }),
         )
     }
 }

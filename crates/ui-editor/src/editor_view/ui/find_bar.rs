@@ -10,7 +10,7 @@ impl EngineEditor {
         let find = self.find.as_ref()?;
         let replace_mode = find.replace_mode;
 
-        let opt_btn = |id: &'static str, path: &'static str, active: bool, tip: &'static str| {
+        let opt_btn = |id: &'static str, path: &'static str, active: bool, tip: String| {
             toolbar_icon_button(id)
                 .icon(toolbar_icon(IconName::Search).path(path))
                 .selected(active)
@@ -30,55 +30,76 @@ impl EngineEditor {
             .child(
                 toolbar_icon_button("find-count")
                     .icon(toolbar_icon(IconName::Search).path(paths::COUNT))
-                    .tooltip("Count all matches in document")
+                    .tooltip(t!("editor.find.count"))
                     .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_count(cx))),
             )
             .child(
-                opt_btn("find-prev", paths::FIND_PREV, false, "Find previous (Shift+F3)").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(false, cx)),
-                ),
+                opt_btn(
+                    "find-prev",
+                    paths::FIND_PREV,
+                    false,
+                    t!("editor.find.prev").to_string(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(false, cx))),
             )
             .child(
-                opt_btn("find-next", paths::FIND_NEXT, false, "Find next (F3)").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(true, cx)),
-                ),
+                opt_btn(
+                    "find-next",
+                    paths::FIND_NEXT,
+                    false,
+                    t!("editor.find.next").to_string(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_find(true, cx))),
             )
             .child(
-                opt_btn("find-case", paths::MATCH_CASE, find.case_sensitive, "Match case")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
-                        if let Some(f) = this.find.as_mut() {
-                            f.case_sensitive = !f.case_sensitive;
-                            f.cached_searcher = None;
-                        }
-                        cx.notify();
-                    })),
+                opt_btn(
+                    "find-case",
+                    paths::MATCH_CASE,
+                    find.case_sensitive,
+                    t!("editor.find.match_case").to_string(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                    if let Some(f) = this.find.as_mut() {
+                        f.case_sensitive = !f.case_sensitive;
+                        f.cached_searcher = None;
+                    }
+                    cx.notify();
+                })),
             )
             .child(
-                opt_btn("find-word", paths::MATCH_WORD, find.whole_word, "Whole word").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| {
-                        if let Some(f) = this.find.as_mut() {
-                            f.whole_word = !f.whole_word;
-                            f.cached_searcher = None;
-                        }
-                        cx.notify();
-                    }),
-                ),
+                opt_btn(
+                    "find-word",
+                    paths::MATCH_WORD,
+                    find.whole_word,
+                    t!("editor.find.whole_word").to_string(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                    if let Some(f) = this.find.as_mut() {
+                        f.whole_word = !f.whole_word;
+                        f.cached_searcher = None;
+                    }
+                    cx.notify();
+                })),
             )
             .child(
-                opt_btn("find-regex", paths::REGEX, find.regex, "Regular expression").on_click(
-                    cx.listener(|this, _: &ClickEvent, _w, cx| {
-                        if let Some(f) = this.find.as_mut() {
-                            f.regex = !f.regex;
-                            f.cached_searcher = None;
-                        }
-                        cx.notify();
-                    }),
-                ),
+                opt_btn(
+                    "find-regex",
+                    paths::REGEX,
+                    find.regex,
+                    t!("editor.find.regex").to_string(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                    if let Some(f) = this.find.as_mut() {
+                        f.regex = !f.regex;
+                        f.cached_searcher = None;
+                    }
+                    cx.notify();
+                })),
             )
             .child(
                 toolbar_icon_button("find-close")
                     .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
-                    .tooltip("Close (Esc)")
+                    .tooltip(t!("editor.find.close"))
                     .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_find(cx))),
             );
 
@@ -93,7 +114,7 @@ impl EngineEditor {
                 .child(
                     Button::new("replace-one")
                         .xsmall()
-                        .label("Replace")
+                        .label(t!("editor.find.replace"))
                         .on_click(
                             cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace(cx)),
                         ),
@@ -101,7 +122,7 @@ impl EngineEditor {
                 .child(
                     toolbar_icon_button("replace-all")
                         .icon(toolbar_icon(IconName::Replace).path(paths::REPLACE_ALL))
-                        .tooltip("Replace all matches")
+                        .tooltip(t!("editor.find.replace_all"))
                         .on_click(
                             cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace_all(cx)),
                         ),
@@ -112,9 +133,9 @@ impl EngineEditor {
         }
 
         let title = if replace_mode {
-            "Find and Replace"
+            t!("editor.find.replace_title")
         } else {
-            "Find"
+            t!("editor.find.title")
         };
 
         Some(

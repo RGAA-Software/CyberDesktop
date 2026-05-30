@@ -19,7 +19,7 @@ impl EngineEditor {
     pub(crate) fn render_search_panel(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let panel = self.search_panel.as_ref()?;
 
-        let opt_btn = |id: &'static str, path: &'static str, active: bool, tip: &'static str| {
+        let opt_btn = |id: &'static str, path: &'static str, active: bool, tip: String| {
             toolbar_icon_button(id)
                 .icon(toolbar_icon(IconName::Search).path(path))
                 .selected(active)
@@ -34,7 +34,7 @@ impl EngineEditor {
             .child(
                 toolbar_icon_button("file-search-go")
                     .icon(toolbar_icon(IconName::Search).path(paths::SEARCH))
-                    .tooltip("Search in current file")
+                    .tooltip(t!("editor.search_in_file.action"))
                     .on_click(
                         cx.listener(|this, _: &ClickEvent, _w, cx| this.run_find_in_file(cx)),
                     ),
@@ -44,7 +44,7 @@ impl EngineEditor {
                     "file-search-case",
                     paths::MATCH_CASE,
                     panel.case_sensitive,
-                    "Match case",
+                    t!("editor.find.match_case").to_string(),
                 )
                 .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
                     if let Some(p) = this.search_panel.as_mut() {
@@ -54,27 +54,37 @@ impl EngineEditor {
                 })),
             )
             .child(
-                opt_btn("file-search-word", paths::MATCH_WORD, panel.whole_word, "Whole word")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
-                        if let Some(p) = this.search_panel.as_mut() {
-                            p.whole_word = !p.whole_word;
-                        }
-                        cx.notify();
-                    })),
+                opt_btn(
+                    "file-search-word",
+                    paths::MATCH_WORD,
+                    panel.whole_word,
+                    t!("editor.find.whole_word").to_string(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                    if let Some(p) = this.search_panel.as_mut() {
+                        p.whole_word = !p.whole_word;
+                    }
+                    cx.notify();
+                })),
             )
             .child(
-                opt_btn("file-search-regex", paths::REGEX, panel.regex, "Regular expression")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
-                        if let Some(p) = this.search_panel.as_mut() {
-                            p.regex = !p.regex;
-                        }
-                        cx.notify();
-                    })),
+                opt_btn(
+                    "file-search-regex",
+                    paths::REGEX,
+                    panel.regex,
+                    t!("editor.find.regex").to_string(),
+                )
+                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                    if let Some(p) = this.search_panel.as_mut() {
+                        p.regex = !p.regex;
+                    }
+                    cx.notify();
+                })),
             )
             .child(
                 toolbar_icon_button("file-search-close")
                     .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
-                    .tooltip("Close (Esc)")
+                    .tooltip(t!("editor.find.close"))
                     .on_click(
                         cx.listener(|this, _: &ClickEvent, _w, cx| this.close_search_panel(cx)),
                     ),
@@ -83,9 +93,9 @@ impl EngineEditor {
         let scope_label = panel
             .scope_path
             .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("(Untitled)");
-        let scope_hint = format!("Current tab: {scope_label}");
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| t!("editor.untitled").to_string());
+        let scope_hint = t!("editor.search_in_file.scope", name = scope_label);
 
         let header = v_flex()
             .w_full()
@@ -191,7 +201,7 @@ impl EngineEditor {
                                 .border_b_1()
                                 .border_color(cx.theme().border)
                                 .child(
-                                    Label::new("Find in File")
+                                    Label::new(t!("editor.search_in_file.title"))
                                         .text_sm()
                                         .font_weight(FontWeight::SEMIBOLD),
                                 ),

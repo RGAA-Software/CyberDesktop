@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use gpui::SharedString;
+use rust_i18n::t;
 
 pub(crate) struct LoadedDocument {
     pub(crate) text: String,
@@ -25,7 +26,7 @@ pub(crate) fn load_document(path: Option<&Path>) -> LoadedDocument {
     if path.is_dir() {
         return LoadedDocument {
             text: String::new(),
-            load_error: Some(format!("{} is a directory, not a file.", path.display())),
+            load_error: Some(t!("editor.error.is_directory", path = path.display()).to_string()),
         };
     }
 
@@ -36,10 +37,14 @@ pub(crate) fn load_document(path: Option<&Path>) -> LoadedDocument {
         },
         Err(err) => LoadedDocument {
             text: String::new(),
-            load_error: Some(format!(
-                "Failed to open {} as UTF-8 text: {err}",
-                path.display()
-            )),
+            load_error: Some(
+                t!(
+                    "editor.error.open_failed",
+                    path = path.display(),
+                    err = err.to_string()
+                )
+                .to_string(),
+            ),
         },
     }
 }
@@ -47,17 +52,17 @@ pub(crate) fn load_document(path: Option<&Path>) -> LoadedDocument {
 pub(crate) fn display_name(path: Option<&Path>) -> SharedString {
     match path.and_then(|path| path.file_name()).and_then(|name| name.to_str()) {
         Some(name) if !name.is_empty() => SharedString::from(name),
-        _ => SharedString::from("Untitled"),
+        _ => SharedString::from(t!("editor.untitled")),
     }
 }
 
 pub(crate) fn display_language(language: &SharedString) -> SharedString {
-    SharedString::from(format!("Language: {}", language))
+    SharedString::from(t!("editor.language", name = language.as_ref()))
 }
 
 pub(crate) fn display_path(path: Option<&Path>) -> SharedString {
     match path {
         Some(path) => SharedString::from(path.to_string_lossy().to_string()),
-        None => SharedString::from("No file open"),
+        None => SharedString::from(t!("editor.no_file_open")),
     }
 }

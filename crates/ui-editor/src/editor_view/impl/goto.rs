@@ -7,7 +7,7 @@ impl EngineEditor {
         self.find = None;
         self.search_panel = None;
         let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder("Line number")
+            InputState::new(window, cx).placeholder(t!("editor.goto.placeholder"))
         });
         let mut subs = Vec::new();
         subs.push(cx.subscribe(&input, |this, _, ev: &InputEvent, cx| {

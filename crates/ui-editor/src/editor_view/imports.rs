@@ -16,6 +16,7 @@ pub use cyberfiles_ui::{
     ReplaceText, SaveFile, SaveFileAs, SelectAll, TitleBar, ToggleComment, ToggleLineNumbers,
     ToggleSoftWrap, EDITOR_CONTEXT,
 };
+pub use rust_i18n::t;
 pub use gpui::{
     div, point, prelude::*, px, rgb, size, App, Bounds, ClickEvent, ClipboardItem, Context, Entity,
     EntityInputHandler, FocusHandle, Focusable, GlobalElementId, Hsla, IntoElement, KeyDownEvent,

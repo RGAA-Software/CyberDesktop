@@ -1,3 +1,5 @@
+use rust_i18n::t;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LineEndingKind {
     Lf,
@@ -26,10 +28,10 @@ pub(crate) enum IndentStyle {
 impl IndentStyle {
     pub(crate) fn label(&self) -> String {
         match self {
-            Self::Spaces(size) => format!("Spaces: {size}"),
-            Self::Tabs => "Tabs".to_string(),
-            Self::Mixed => "Mixed Indent".to_string(),
-            Self::Unknown => "Indent: Auto".to_string(),
+            Self::Spaces(size) => t!("editor.indent.spaces", size = size).to_string(),
+            Self::Tabs => t!("editor.indent.tabs").to_string(),
+            Self::Mixed => t!("editor.indent.mixed").to_string(),
+            Self::Unknown => t!("editor.indent.auto").to_string(),
         }
     }
 }

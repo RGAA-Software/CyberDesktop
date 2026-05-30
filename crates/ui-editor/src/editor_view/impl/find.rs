@@ -50,11 +50,12 @@ impl EngineEditor {
                 let initial = seed.unwrap_or_default();
                 let query = cx.new(|cx| {
                     InputState::new(window, cx)
-                        .placeholder("Find")
+                        .placeholder(t!("editor.find.placeholder"))
                         .default_value(String::new())
                 });
-                let replace =
-                    cx.new(|cx| InputState::new(window, cx).placeholder("Replace with"));
+                let replace = cx.new(|cx| {
+                    InputState::new(window, cx).placeholder(t!("editor.find.replace_placeholder"))
+                });
                 let mut subs = Vec::new();
                 subs.push(cx.subscribe(&query, |this, _, ev: &InputEvent, cx| {
                     if let InputEvent::PressEnter { shift, .. } = ev {
@@ -138,7 +139,7 @@ impl EngineEditor {
             return;
         }
         if let Some(find) = self.find.as_mut() {
-            find.status = "Counting…".to_string();
+            find.status = t!("editor.find.counting").to_string();
         }
         cx.notify();
 
@@ -163,14 +164,14 @@ impl EngineEditor {
                             find.cached_searcher = Some(searcher);
                         }
                         if total == 0 {
-                            "Count: 0 matches".to_string()
+                            t!("editor.find.count_zero").to_string()
                         } else if total == 1 {
-                            "Count: 1 match".to_string()
+                            t!("editor.find.count_one").to_string()
                         } else {
-                            format!("Count: {total} matches")
+                            t!("editor.find.count_many", count = total).to_string()
                         }
                     }
-                    Err(_) => "Bad pattern".to_string(),
+                    Err(_) => t!("editor.find.bad_pattern").to_string(),
                 };
                 cx.notify();
             })
@@ -189,7 +190,7 @@ impl EngineEditor {
         }
         let Some(searcher) = self.find_searcher(cx).cloned() else {
             if let Some(find) = self.find.as_mut() {
-                find.status = "Bad pattern".to_string();
+                find.status = t!("editor.find.bad_pattern").to_string();
             }
             cx.notify();
             return;
@@ -222,17 +223,15 @@ impl EngineEditor {
             self.ensure_caret_visible();
             if wrapped {
                 if forward {
-                    "Reached end, continuing from start".to_string()
+                    t!("editor.find.wrap_forward").to_string()
                 } else {
-                    "Reached start, continuing from end".to_string()
+                    t!("editor.find.wrap_backward").to_string()
                 }
             } else {
                 String::new()
             }
-        } else if forward {
-            "No matches".to_string()
         } else {
-            "No matches".to_string()
+            t!("editor.find.no_matches").to_string()
         };
         if let Some(find) = self.find.as_mut() {
             find.status = status;
@@ -294,7 +293,7 @@ impl EngineEditor {
         let count = self.document.replace_all(&searcher, &replace, regex);
         self.ensure_caret_visible();
         if let Some(find) = self.find.as_mut() {
-            find.status = format!("Replaced {count}");
+            find.status = t!("editor.find.replaced", count = count).to_string();
         }
         cx.notify();
     }

@@ -8,6 +8,8 @@ pub use editor_view::EngineEditor;
 
 use gpui::App;
 
+rust_i18n::i18n!("../ui/locales", fallback = "en");
+
 pub fn init(cx: &mut App) {
     cyberfiles_ui::init_editor_shell(cx);
 }
