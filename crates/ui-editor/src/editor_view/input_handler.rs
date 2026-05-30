@@ -100,9 +100,25 @@ impl EntityInputHandler for EngineEditor {
         let pos = self.document.buffer().char_to_position(start_char);
         if self.soft_wrap {
             let wl = self.wrapped_visible.iter().find(|wl| wl.line == pos.line)?;
-            let line_text = self.document.buffer().line_text(wl.line);
             let col = start_char.saturating_sub(wl.start_char);
-            let byte = char_to_byte(&line_text, col);
+            if !wl.fragment_text.is_empty() && col < wl.start_col {
+                let x = element_bounds.left() + self.gutter_width;
+                let top = wl.block_top;
+                return Some(Bounds::from_corners(
+                    point(x, top),
+                    point(x, top + self.line_height),
+                ));
+            }
+            let byte_col = if wl.fragment_text.is_empty() {
+                col
+            } else {
+                col.saturating_sub(wl.start_col)
+            };
+            let byte = if wl.fragment_text.is_empty() {
+                char_to_byte(&self.document.buffer().line_text(wl.line), byte_col)
+            } else {
+                char_to_byte(&wl.fragment_text, byte_col)
+            };
             let p = wl.wrapped.position_for_index(byte, self.line_height)?;
             let x = element_bounds.left() + self.gutter_width + p.x;
             let top = wl.top + p.y;

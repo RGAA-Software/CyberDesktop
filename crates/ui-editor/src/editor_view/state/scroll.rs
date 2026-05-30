@@ -32,6 +32,10 @@ pub(crate) struct VisibleLine {
 pub(crate) struct WrappedVisible {
     pub(crate) line: usize,
     pub(crate) start_char: usize,
+    pub(crate) block_top: Pixels,
     pub(crate) top: Pixels,
+    pub(crate) start_col: usize,
+    pub(crate) fragment_text: String,
+    pub(crate) wrap_row_count: usize,
     pub(crate) wrapped: WrappedLine,
 }

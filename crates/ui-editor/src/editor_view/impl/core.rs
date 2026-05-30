@@ -2,6 +2,7 @@
 
 use cyberfiles_text_engine::parse_rope;
 
+use super::super::canvas::{cols_per_row, estimated_wrap_rows, measure_avg_char_width};
 use super::super::state::LONG_LINE_COL_THRESHOLD;
 use super::super::imports::*;
 
@@ -252,10 +253,18 @@ impl EngineEditor {
         if width <= px(0.0) {
             return 1;
         }
-        let text = self.document.buffer().line_text(line);
-        if text.is_empty() {
+        let buf = self.document.buffer();
+        let len = buf.line_len_chars(line);
+        if len == 0 {
             return 1;
         }
+        if len > LONG_LINE_COL_THRESHOLD {
+            let font = window.text_style().font();
+            let char_width =
+                measure_avg_char_width(window, &font, self.font_size);
+            return estimated_wrap_rows(len, cols_per_row(char_width, width));
+        }
+        let text = buf.line_text(line);
         let font = window.text_style().font();
         let run = TextRun {
             len: text.len(),

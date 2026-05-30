@@ -123,7 +123,11 @@ pub(crate) fn paint(
             .map(|r| WrappedVisible {
                 line: r.line,
                 start_char: r.start_char,
+                block_top: r.block_top,
                 top: r.top,
+                start_col: r.start_col,
+                fragment_text: r.fragment_text,
+                wrap_row_count: r.wrap_row_count,
                 wrapped: r.wrapped,
             })
             .collect();

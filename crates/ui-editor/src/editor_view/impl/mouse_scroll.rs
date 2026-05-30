@@ -1,6 +1,8 @@
 //! `EngineEditor` — `mouse_scroll`.
 
+use super::super::canvas::wrapped_block_height;
 use super::super::imports::*;
+use super::super::text_util::wrap_rows;
 
 impl EngineEditor {
     pub(crate) fn index_for_position(&self, pos: Point<Pixels>) -> usize {
@@ -47,11 +49,15 @@ impl EngineEditor {
             .wrapped_visible
             .iter()
             .find(|wl| {
-                let block = lh * wrap_rows(&wl.wrapped) as f32;
-                pos.y >= wl.top && pos.y < wl.top + block
+                let block = wrapped_block_height(
+                    lh,
+                    wl.wrap_row_count,
+                    wrap_rows(&wl.wrapped),
+                );
+                pos.y >= wl.block_top && pos.y < wl.block_top + block
             })
             .unwrap_or_else(|| {
-                if pos.y < self.wrapped_visible.first().unwrap().top {
+                if pos.y < self.wrapped_visible.first().unwrap().block_top {
                     self.wrapped_visible.first().unwrap()
                 } else {
                     self.wrapped_visible.last().unwrap()
@@ -62,9 +68,16 @@ impl EngineEditor {
             Ok(b) => b,
             Err(b) => b,
         };
-        let line_text = self.document.buffer().line_text(wl.line);
-        let char_in_line = line_text[..byte.min(line_text.len())].chars().count();
-        wl.start_char + char_in_line
+        if wl.fragment_text.is_empty() {
+            let line_text = self.document.buffer().line_text(wl.line);
+            let char_in_line = line_text[..byte.min(line_text.len())].chars().count();
+            wl.start_char + char_in_line
+        } else {
+            let char_in_frag = wl.fragment_text[..byte.min(wl.fragment_text.len())]
+                .chars()
+                .count();
+            wl.start_char + wl.start_col + char_in_frag
+        }
     }
 
     pub(crate) fn on_mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {

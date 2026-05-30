@@ -72,7 +72,16 @@ pub(crate) struct VisibleRow {
 pub(crate) struct WrappedRow {
     pub(crate) line: usize,
     pub(crate) start_char: usize,
+    /// Top of the full document-line block (for hit-testing).
+    pub(crate) block_top: Pixels,
+    /// Top of the shaped fragment (for painting).
     pub(crate) top: Pixels,
+    /// Column within the line where the shaped fragment begins (long lines).
+    pub(crate) start_col: usize,
+    /// Shaped fragment text (empty for short lines).
+    pub(crate) fragment_text: String,
+    /// Total virtual wrap rows for the line (`0` = use shaped row count).
+    pub(crate) wrap_row_count: usize,
     pub(crate) wrapped: WrappedLine,
 }
 
