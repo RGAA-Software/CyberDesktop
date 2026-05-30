@@ -45,7 +45,7 @@ use gpui::App;
 
 pub use cyberfiles_assets::Assets;
 pub use cyber_editor::{
-    build_editor_settings, editor_menu_bar, pick_open_file_path, pick_save_file_path,
+    apply_theme_mode, build_editor_settings, editor_menu_bar, pick_open_file_path, pick_save_file_path,
     set_view_toggles, AboutEditor,
     CyberEditorPage, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
     FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, KeyboardShortcuts,

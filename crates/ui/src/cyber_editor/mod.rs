@@ -11,6 +11,7 @@ mod page;
 mod preferences;
 mod session;
 
+pub use preferences::apply_theme_mode;
 pub use app_menus::{init_editor_menus, menu_bar as editor_menu_bar, set_view_toggles};
 pub use editor_settings::build_editor_settings;
 pub use file_dialog::{pick_open_file_path, pick_save_file_path};

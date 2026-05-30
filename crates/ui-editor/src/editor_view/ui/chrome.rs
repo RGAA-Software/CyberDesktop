@@ -1,18 +1,18 @@
 //! UI fragment: `ui/chrome.rs`.
 
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
-use cyberfiles_ui::{Tab, TabBar};
+use cyberfiles_ui::{apply_theme_mode, Tab, TabBar};
 use gpui_component::{
     button::{Button, ButtonVariants as _},
     h_flex,
     label::Label,
-    IconName,
+    ActiveTheme as _, IconName, ThemeMode,
 };
 use super::super::imports::*;
 
 const EDITOR_TAB_BAR_HEIGHT: Pixels = px(30.);
 /// Fixed width per document tab (label truncates inside).
-const EDITOR_TAB_WIDTH: Pixels = px(150.);
+const EDITOR_TAB_WIDTH: Pixels = px(200.);
 const EDITOR_TAB_CLOSE_RIGHT_INSET: Pixels = px(5.);
 
 impl EngineEditor {
@@ -230,6 +230,22 @@ impl EngineEditor {
 
     pub(crate) fn render_title_bar(&self, cx: &mut Context<Self>) -> TitleBar {
         let menu_bar = editor_menu_bar(cx);
+        let theme_icon = if cx.theme().mode.is_dark() {
+            IconName::Moon
+        } else {
+            IconName::Sun
+        };
+        let theme_toggle = toolbar_icon_button("editor-theme-toggle")
+            .icon(toolbar_icon(theme_icon))
+            .tooltip(t!("nav.theme_toggle"))
+            .on_click(|_, _, cx| {
+                let mode = if cx.theme().mode.is_dark() {
+                    ThemeMode::Light
+                } else {
+                    ThemeMode::Dark
+                };
+                apply_theme_mode(mode, cx);
+            });
         let settings_btn = toolbar_icon_button("editor-settings")
             .icon(toolbar_icon(IconName::Settings2).path(paths::SETTINGS))
             .tooltip(t!("editor.tooltip.settings"))
@@ -242,6 +258,7 @@ impl EngineEditor {
             );
 
         TitleBar::new()
+            .trailing_before_controls(theme_toggle)
             .trailing_before_controls(settings_btn)
             .child(
             div()
