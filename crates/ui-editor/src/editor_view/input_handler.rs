@@ -112,11 +112,17 @@ impl EntityInputHandler for EngineEditor {
             ));
         }
         let vl = self.visible.iter().find(|vl| vl.line == pos.line)?;
-        let line_text = self.document.buffer().line_text(vl.line);
         let col = start_char.saturating_sub(vl.start_char);
-        let byte = char_to_byte(&line_text, col);
-        let x = element_bounds.left() + self.gutter_width - self.scroll_x
-            + vl.shaped.x_for_index(byte);
+        if col < vl.start_col {
+            let x = vl.fragment_left;
+            return Some(Bounds::from_corners(
+                point(x, vl.top),
+                point(x, vl.top + self.line_height),
+            ));
+        }
+        let frag_col = col.saturating_sub(vl.start_col);
+        let byte = char_to_byte(&vl.fragment_text, frag_col);
+        let x = vl.fragment_left + vl.shaped.x_for_index(byte);
         Some(Bounds::from_corners(
             point(x, vl.top),
             point(x, vl.top + self.line_height),

@@ -13,7 +13,6 @@ impl EngineEditor {
         if self.visible.is_empty() {
             return 0;
         }
-        let content_left = bounds.left() + self.gutter_width - self.scroll_x;
         let vl = self
             .visible
             .iter()
@@ -25,15 +24,16 @@ impl EngineEditor {
                     self.visible.last().unwrap()
                 }
             });
-        let x = pos.x - content_left;
-        let byte = if x <= px(0.0) {
+        let local_x = (pos.x - vl.fragment_left).max(px(0.0));
+        let byte = if local_x <= px(0.0) {
             0
         } else {
-            vl.shaped.closest_index_for_x(x)
+            vl.shaped.closest_index_for_x(local_x)
         };
-        let line_text = self.document.buffer().line_text(vl.line);
-        let char_in_line = line_text[..byte.min(line_text.len())].chars().count();
-        vl.start_char + char_in_line
+        let char_in_fragment = vl.fragment_text[..byte.min(vl.fragment_text.len())]
+            .chars()
+            .count();
+        vl.start_char + vl.start_col + char_in_fragment
     }
 
     /// Hit-tests a point against the wrapped visible lines (wrap mode).

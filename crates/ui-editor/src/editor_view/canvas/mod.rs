@@ -2,6 +2,7 @@
 
 mod element;
 mod fold_icon;
+mod horizontal_viewport;
 mod paint;
 mod prepaint;
 mod prepaint_wrapped;

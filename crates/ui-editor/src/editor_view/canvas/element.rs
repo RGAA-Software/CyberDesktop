@@ -59,6 +59,12 @@ pub(crate) fn editor_hitboxes(
 pub(crate) struct VisibleRow {
     pub(crate) line: usize,
     pub(crate) start_char: usize,
+    /// Column within the line where the shaped fragment begins.
+    pub(crate) start_col: usize,
+    /// Text that was shaped (full line or viewport slice).
+    pub(crate) fragment_text: String,
+    /// Left edge of the fragment in window coordinates.
+    pub(crate) fragment_left: Pixels,
     pub(crate) top: Pixels,
     pub(crate) shaped: ShapedLine,
 }

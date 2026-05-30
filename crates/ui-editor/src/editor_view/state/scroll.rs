@@ -21,6 +21,9 @@ pub(crate) struct HScrollbarMetrics {
 pub(crate) struct VisibleLine {
     pub(crate) line: usize,
     pub(crate) start_char: usize,
+    pub(crate) start_col: usize,
+    pub(crate) fragment_text: String,
+    pub(crate) fragment_left: Pixels,
     pub(crate) top: Pixels,
     pub(crate) shaped: ShapedLine,
 }

@@ -135,6 +135,15 @@ impl TextBuffer {
         s
     }
 
+    /// Returns a character column slice of `line` without copying the whole line.
+    pub fn line_chars_slice(&self, line: usize, col_start: usize, col_end: usize) -> String {
+        let line_start = self.position_to_char(Position::new(line, 0));
+        let line_len = self.line_len_chars(line);
+        let cs = col_start.min(line_len);
+        let ce = col_end.min(line_len).max(cs);
+        self.slice_text(line_start + cs..line_start + ce)
+    }
+
     /// Number of characters on `line`, excluding the trailing line break.
     pub fn line_len_chars(&self, line: usize) -> usize {
         if line >= self.rope.len_lines() {
@@ -303,6 +312,8 @@ mod tests {
         assert_eq!(b.line_len_chars(0), 3);
         assert_eq!(b.line_text(1), "de");
         assert_eq!(b.line_len_chars(1), 2);
+        assert_eq!(b.line_chars_slice(0, 1, 3), "bc");
+        assert_eq!(b.line_chars_slice(0, 0, 100), "abc");
     }
 
     #[test]

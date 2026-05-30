@@ -52,7 +52,7 @@ pub(crate) fn paint(
             }
             for row in &canvas_prepaint.rows {
                 let _ = row.shaped.paint(
-                    point(canvas_prepaint.content_left, row.top),
+                    point(row.fragment_left, row.top),
                     line_height,
                     gpui::TextAlign::Left,
                     None,
@@ -110,6 +110,9 @@ pub(crate) fn paint(
             .map(|r| VisibleLine {
                 line: r.line,
                 start_char: r.start_char,
+                start_col: r.start_col,
+                fragment_text: r.fragment_text,
+                fragment_left: r.fragment_left,
                 top: r.top,
                 shaped: r.shaped,
             })
