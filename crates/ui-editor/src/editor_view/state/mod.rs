@@ -1,5 +1,6 @@
 //! Editor state types (no GPUI layout/paint).
 
+mod file_load;
 mod find;
 mod goto;
 mod input_target;
@@ -9,6 +10,7 @@ mod scroll;
 mod search_panel;
 mod tab;
 
+pub(crate) use file_load::FileLoadState;
 pub(crate) use find::FindState;
 pub(crate) use goto::GotoState;
 pub(crate) use input_target::InputTarget;

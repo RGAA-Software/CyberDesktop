@@ -4,6 +4,7 @@ mod chrome;
 mod find_bar;
 mod goto_bar;
 mod icons;
+mod load_bar;
 mod panel;
 mod overlays;
 mod scrollbars;

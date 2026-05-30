@@ -43,6 +43,7 @@ impl Render for EngineEditor {
         let close_confirm = self.render_close_confirm(cx);
         let recent = self.render_recent(cx);
         let context_menu = self.render_context_menu_overlay(window);
+        let file_load_bar = self.render_file_load_bar(cx);
         let scrollbar = self.render_scrollbar(cx);
         let hscrollbar = self.render_hscrollbar(cx);
         let canvas = EditorCanvas {
@@ -135,6 +136,7 @@ impl Render for EngineEditor {
                     .line_height(self.line_height)
                     .font_family("Consolas")
                     .child(canvas)
+                    .children(file_load_bar)
                     .children(scrollbar)
                     .children(hscrollbar)
                     .children(find_bar)

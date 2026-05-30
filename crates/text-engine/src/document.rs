@@ -125,6 +125,10 @@ impl Document {
         self.language = language.into();
     }
 
+    pub fn set_path(&mut self, path: Option<PathBuf>) {
+        self.path = path;
+    }
+
     pub fn set_encoding(&mut self, encoding: EncodingInfo) {
         self.encoding = encoding;
     }

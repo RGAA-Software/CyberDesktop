@@ -1,8 +1,49 @@
 //! `EngineEditor` — `file_io`.
 
+use std::sync::Arc;
+
+use cyberfiles_text_engine::{load_file_with_progress, LoadProgress};
+
 use super::super::imports::*;
 
 impl EngineEditor {
+    pub(crate) fn begin_file_load(&mut self, path: PathBuf, target: usize, cx: &mut Context<Self>) {
+        let gen = self.file_load_gen.wrapping_add(1);
+        self.file_load_gen = gen;
+        let language = language_for_path(Some(&path));
+        if target == self.active {
+            self.document = Document::empty();
+            self.document.set_path(Some(path.clone()));
+            self.document.set_language(language);
+            self.syntax = SyntaxState::new(language);
+            self.parsed_revision = None;
+            self.scroll_x = px(0.0);
+            self.scroll_y = px(0.0);
+            self.marked_range = None;
+            self.file_meta = None;
+            self.disk_changed = false;
+            self.active_folds.clear();
+            self.line_width_cache.clear();
+            self.rebuild_display_lines();
+        }
+        self.file_load = Some(FileLoadState {
+            generation: gen,
+            target_tab: target,
+            progress: 0.0,
+        });
+        cx.notify();
+    }
+
+    pub(crate) fn clear_file_load(&mut self, generation: u64) {
+        if self
+            .file_load
+            .as_ref()
+            .is_some_and(|load| load.generation == generation)
+        {
+            self.file_load = None;
+        }
+    }
+
     pub(crate) fn spawn_load(
         &mut self,
         path: PathBuf,
@@ -10,15 +51,51 @@ impl EngineEditor {
         restore: Option<(usize, Pixels)>,
         cx: &mut Context<Self>,
     ) {
+        self.begin_file_load(path.clone(), target, cx);
+        let generation = self.file_load_gen;
+        let total_bytes = std::fs::metadata(&path).map(|m| m.len() as usize).unwrap_or(0);
+        let progress = Arc::new(LoadProgress::new(total_bytes));
+        let progress_bg = progress.clone();
         let read_path = path.clone();
-        let read = cx
-            .background_executor()
-            .spawn(async move { load_file(&read_path).ok() });
+        let read = cx.background_executor().spawn(async move {
+            load_file_with_progress(&read_path, Some(&progress_bg)).ok()
+        });
+
+        cx.spawn(async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(50))
+                .await;
+            let still = this
+                .update(cx, |this, cx| {
+                    let Some(load) = this.file_load.as_mut() else {
+                        return false;
+                    };
+                    if load.generation != generation {
+                        return false;
+                    }
+                    load.progress = progress.fraction();
+                    cx.notify();
+                    true
+                })
+                .ok()
+                .unwrap_or(false);
+            if !still {
+                break;
+            }
+        })
+        .detach();
+
         cx.spawn(async move |this, cx| {
             let loaded = read.await;
             let _ = this.update(cx, |this, cx| {
+                if this.file_load_gen != generation {
+                    return;
+                }
+                this.clear_file_load(generation);
                 if let Some(loaded) = loaded {
-                    this.install_loaded(target, loaded, path, restore, cx);
+                    if target < this.tabs.len() {
+                        this.install_loaded(target, loaded, path, restore, cx);
+                    }
                 }
                 cx.notify();
             });

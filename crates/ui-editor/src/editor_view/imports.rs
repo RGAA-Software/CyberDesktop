@@ -6,7 +6,7 @@ pub use std::rc::Rc;
 pub use std::time::{Duration, SystemTime};
 
 pub use cyberfiles_text_engine::{
-    load_file, search_directory, Cursor, Document, FileMatches, GlobalSearchOptions, Match,
+    search_directory, Cursor, Document, FileMatches, GlobalSearchOptions, Match,
     Position, SearchOptions, Searcher, SelectionSet, SyntaxState, TextBuffer,
 };
 pub use cyberfiles_ui::{

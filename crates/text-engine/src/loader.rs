@@ -8,6 +8,7 @@
 
 use std::fs::File;
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context, Result};
 use memmap2::Mmap;
@@ -30,15 +31,54 @@ pub struct LoadedFile {
 /// Bytes fed to the decoder per iteration.
 const DECODE_CHUNK: usize = 256 * 1024;
 
+/// Live byte counter updated while [`load_file_with_progress`] decodes a file.
+#[derive(Debug)]
+pub struct LoadProgress {
+    total_bytes: usize,
+    bytes_done: AtomicUsize,
+}
+
+impl LoadProgress {
+    pub fn new(total_bytes: usize) -> Self {
+        Self {
+            total_bytes,
+            bytes_done: AtomicUsize::new(0),
+        }
+    }
+
+    /// Fraction complete in `[0.0, 1.0]`.
+    pub fn fraction(&self) -> f32 {
+        if self.total_bytes == 0 {
+            return 1.0;
+        }
+        (self.bytes_done.load(Ordering::Relaxed) as f32 / self.total_bytes as f32).clamp(0.0, 1.0)
+    }
+}
+
 /// Loads `path` into a [`TextBuffer`], detecting encoding and line ending.
 pub fn load_file(path: &Path) -> Result<LoadedFile> {
+    load_file_with_progress(path, None)
+}
+
+/// Like [`load_file`], optionally updating `progress` after each decode chunk.
+pub fn load_file_with_progress(
+    path: &Path,
+    progress: Option<&LoadProgress>,
+) -> Result<LoadedFile> {
     let file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
     let len = file
         .metadata()
         .with_context(|| format!("stat {}", path.display()))?
-        .len();
+        .len() as usize;
+
+    if let Some(progress) = progress {
+        progress.bytes_done.store(0, Ordering::Relaxed);
+    }
 
     if len == 0 {
+        if let Some(progress) = progress {
+            progress.bytes_done.store(0, Ordering::Relaxed);
+        }
         return Ok(LoadedFile {
             buffer: TextBuffer::new(),
             encoding: EncodingInfo::default(),
@@ -85,6 +125,9 @@ pub fn load_file(path: &Path) -> Result<LoadedFile> {
 
         builder.append(&scratch);
         offset = end;
+        if let Some(progress) = progress {
+            progress.bytes_done.store(offset, Ordering::Relaxed);
+        }
     }
 
     Ok(LoadedFile {

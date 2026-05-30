@@ -4,15 +4,14 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use cyberfiles_text_engine::{load_file, Document, FoldRange, SyntaxState};
+use cyberfiles_text_engine::{Document, FoldRange, SyntaxState};
 use gpui::{prelude::*, px, point, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, ScrollHandle, Size, Window};
 
 use super::language::language_for_path;
 use super::state::{
-    FindState, FloatingPanel, GotoState, InputTarget, LineWidthCache, PanelDrag, PanelResize,
+    FileLoadState, FindState, GotoState, InputTarget, LineWidthCache, PanelDrag, PanelResize,
     SearchPanelState, TabSlot, VisibleLine, WrappedVisible,
 };
-use super::state::read_file_meta;
 use super::r#impl::{EditorContextMenuState, FOLD_GUTTER_WIDTH};
 
 /// A high-performance, engine-backed text editor surface.
@@ -118,6 +117,10 @@ pub struct EngineEditor {
     pub(crate) syntax_parse_inflight: bool,
     /// Buffer revision the in-flight syntax parse was started for.
     pub(crate) syntax_parse_target_rev: Option<u64>,
+    /// Active background file load (shown as a top progress bar).
+    pub(crate) file_load: Option<FileLoadState>,
+    /// Generation counter for in-flight file loads.
+    pub(crate) file_load_gen: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -190,6 +193,8 @@ impl EngineEditor {
             syntax_parse_gen: 0,
             syntax_parse_inflight: false,
             syntax_parse_target_rev: None,
+            file_load: None,
+            file_load_gen: 0,
         };
         editor.rebuild_display_lines();
         editor
@@ -203,19 +208,11 @@ impl EngineEditor {
     /// Loads `path` (or starts empty) and builds an editor for it.
     pub fn from_path(path: Option<PathBuf>, cx: &mut Context<Self>) -> Self {
         let language = language_for_path(path.as_deref());
-        let document = match &path {
-            Some(p) => match load_file(p) {
-                Ok(loaded) => Document::from_loaded(loaded, Some(p.clone()), language),
-                Err(_) => Document::empty(),
-            },
-            None => Document::empty(),
-        };
-        let mut editor = Self::new(language, document, cx);
+        let mut editor = Self::new(language, Document::empty(), cx);
         editor.document.set_caret(0);
         editor.rebuild_display_lines();
-        if let Some(p) = &path {
-            editor.file_meta = read_file_meta(p);
-            editor.push_recent(p.clone());
+        if let Some(p) = path {
+            editor.spawn_load(p, 0, None, cx);
         }
         editor
     }

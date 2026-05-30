@@ -34,7 +34,7 @@ pub use global_search::{
 };
 pub use history::{Edit, History, Transaction};
 pub use language::{language_for_path, line_comment_prefix};
-pub use loader::{load_file, LoadedFile};
+pub use loader::{load_file, load_file_with_progress, LoadedFile, LoadProgress};
 pub use search::{
     FindInLinesOutcome, LineSearchHit, Match, SearchOptions, Searcher, FIND_IN_FILE_MAX_MATCHES,
 };
