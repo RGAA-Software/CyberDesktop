@@ -11,6 +11,9 @@ impl Focusable for EngineEditor {
 
 impl Render for EngineEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.external_file_drop_hover && !cx.has_active_drag() {
+            self.external_file_drop_hover = false;
+        }
         if self.needs_focus {
             window.focus(&self.focus_handle, cx);
             self.needs_focus = false;
@@ -46,6 +49,7 @@ impl Render for EngineEditor {
         let file_load_bar = self.render_file_load_bar(cx);
         let scrollbar = self.render_scrollbar(cx);
         let hscrollbar = self.render_hscrollbar(cx);
+        let drop_highlight = colors.selection.alpha(0.25);
         let canvas = EditorCanvas {
             editor: cx.entity(),
             colors,
@@ -127,6 +131,28 @@ impl Render for EngineEditor {
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
                     .on_mouse_move(cx.listener(Self::on_mouse_move))
                     .on_scroll_wheel(cx.listener(Self::on_scroll))
+                    .on_drag_move::<ExternalPaths>(cx.listener(
+                        |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
+                            let droppable = super::r#impl::external_paths_are_droppable(event.drag(cx));
+                            this.set_external_file_drop_hover(droppable, window, cx);
+                        },
+                    ))
+                    .can_drop(|payload, _, _| {
+                        payload
+                            .downcast_ref::<ExternalPaths>()
+                            .is_some_and(super::r#impl::external_paths_are_droppable)
+                    })
+                    .drag_over::<ExternalPaths>(move |style, paths, _, _| {
+                        if super::r#impl::external_paths_are_droppable(paths) {
+                            style.cursor(CursorStyle::PointingHand).bg(drop_highlight)
+                        } else {
+                            style.cursor(CursorStyle::OperationNotAllowed)
+                        }
+                    })
+                    .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
+                        this.handle_external_file_drop(paths, cx);
+                        this.set_external_file_drop_hover(false, window, cx);
+                    }))
                     .relative()
                     .flex_1()
                     .min_h_0()

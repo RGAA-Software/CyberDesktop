@@ -121,6 +121,8 @@ pub struct EngineEditor {
     pub(crate) file_load: Option<FileLoadState>,
     /// Generation counter for in-flight file loads.
     pub(crate) file_load_gen: u64,
+    /// OS file drag is over the editor with at least one openable path.
+    pub(crate) external_file_drop_hover: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -195,6 +197,7 @@ impl EngineEditor {
             syntax_parse_target_rev: None,
             file_load: None,
             file_load_gen: 0,
+            external_file_drop_hover: false,
         };
         editor.rebuild_display_lines();
         editor

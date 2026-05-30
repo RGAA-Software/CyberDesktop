@@ -20,4 +20,5 @@ mod selection;
 mod tabs;
 
 pub(crate) use context_menu::EditorContextMenuState;
+pub(crate) use file_io::{external_paths_are_droppable, is_droppable_editor_path};
 pub(crate) use fold::FOLD_GUTTER_WIDTH;

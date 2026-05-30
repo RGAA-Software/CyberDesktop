@@ -1,8 +1,8 @@
 //! `EditorCanvas` types and GPUI [`Element`] wiring.
 
 use gpui::{
-    point, prelude::*, px, relative, App, Bounds, Element, ElementId, GlobalElementId,
-    Hitbox, HitboxBehavior, LayoutId, PaintQuad, Pixels, ShapedLine, Style, Window, WrappedLine,
+    point, prelude::*, px, relative, App, Bounds, Element, ElementId, GlobalElementId, Hitbox,
+    HitboxBehavior, LayoutId, PaintQuad, Pixels, ShapedLine, Style, Window, WrappedLine,
 };
 
 use gpui::Entity;

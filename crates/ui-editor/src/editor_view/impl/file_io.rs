@@ -170,8 +170,6 @@ impl EngineEditor {
         .detach();
     }
 
-    /// Opens `path`: re-uses an existing tab already showing it, opens into the
-    /// current tab if it's pristine, otherwise spawns a new tab.
     pub(crate) fn open_path_in_tab(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         if self.document.path() == Some(path.as_path()) {
             cx.notify();
@@ -422,4 +420,61 @@ impl EngineEditor {
 
     // ---- Clipboard -------------------------------------------------------
 
+}
+
+pub(crate) fn is_droppable_editor_path(path: &Path) -> bool {
+    path.is_file() && cyber_desktop_text_engine::is_cybereditor_openable(path)
+}
+
+pub(crate) fn external_paths_are_droppable(paths: &gpui::ExternalPaths) -> bool {
+    paths
+        .paths()
+        .iter()
+        .any(|path| is_droppable_editor_path(path))
+}
+
+impl EngineEditor {
+    pub(crate) fn handle_external_file_drop(
+        &mut self,
+        paths: &gpui::ExternalPaths,
+        cx: &mut Context<Self>,
+    ) {
+        let openable: Vec<PathBuf> = paths
+            .paths()
+            .iter()
+            .filter(|path| is_droppable_editor_path(path))
+            .cloned()
+            .collect();
+        self.external_file_drop_hover = false;
+        if openable.is_empty() {
+            return;
+        }
+        cx.stop_propagation();
+        for path in openable {
+            self.open_path_in_tab(path, cx);
+        }
+    }
+
+    pub(crate) fn set_external_file_drop_hover(
+        &mut self,
+        hover: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.external_file_drop_hover == hover {
+            return;
+        }
+        self.external_file_drop_hover = hover;
+        if cx.has_active_drag() {
+            cx.set_active_drag_cursor_style(
+                if hover {
+                    CursorStyle::PointingHand
+                } else {
+                    CursorStyle::OperationNotAllowed
+                },
+                window,
+            );
+        }
+        cx.notify();
+    }
 }

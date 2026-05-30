@@ -18,11 +18,12 @@ pub use cyber_desktop_ui::{
 };
 pub use rust_i18n::t;
 pub use gpui::{
-    div, point, prelude::*, px, rgb, size, App, Bounds, ClickEvent, ClipboardItem, Context, Entity,
+    div, point, prelude::*, px, rgb, size, App, Bounds, ClickEvent, ClipboardItem, Context, CursorStyle,
+    Entity, ExternalPaths,
     EntityInputHandler, FocusHandle, Focusable, GlobalElementId, Hsla, IntoElement, KeyDownEvent,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
     Render, ScrollWheelEvent, SharedString, ShapedLine, Size, Stateful, Style, Subscription,
-    TextRun, UTF16Selection, Window, WrappedLine, relative,
+    TextRun, UTF16Selection, Window, WrappedLine, relative, DragMoveEvent,
 };
 pub use gpui_component::{
     button::{Button, ButtonVariants as _},

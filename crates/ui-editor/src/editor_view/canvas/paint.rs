@@ -1,8 +1,7 @@
 //! Paint shaped lines, selections, carets, and gutter.
 
 use gpui::{
-    point, App, Bounds, CursorStyle, Element, ElementInputHandler, GlobalElementId,
-    Pixels, Window,
+    point, App, Bounds, CursorStyle, Element, ElementInputHandler, GlobalElementId, Pixels, Window,
 };
 
 use super::element::{EditorCanvas, EditorCanvasPrepaint};
@@ -19,7 +18,12 @@ pub(crate) fn paint(
     window: &mut Window,
     cx: &mut App,
 ) {
-        set_editor_cursors(prepaint, window);
+        let content_cursor = if canvas.editor.read(cx).external_file_drop_hover {
+            CursorStyle::PointingHand
+        } else {
+            CursorStyle::IBeam
+        };
+        set_editor_cursors(prepaint, window, content_cursor);
         let fold_left = prepaint.canvas.fold_left;
         let canvas_prepaint = &mut prepaint.canvas;
         let (focus_handle, line_height, gutter_width, bottom_inset) = {
@@ -141,10 +145,8 @@ pub(crate) fn paint(
 pub(crate) fn set_editor_cursors(
     prepaint: &EditorCanvasPrepaint,
     window: &mut Window,
+    content_cursor: CursorStyle,
 ) {
-    // GPUI resolves cursor styles from the rendered frame when the mouse hit-test
-    // changes — no repaint required. Register styles unconditionally during paint
-    // (same as zed's EditorElement::paint_text / paint_line_numbers).
     window.set_cursor_style(CursorStyle::Arrow, &prepaint.gutter_hitbox);
-    window.set_cursor_style(CursorStyle::IBeam, &prepaint.content_hitbox);
+    window.set_cursor_style(content_cursor, &prepaint.content_hitbox);
 }
