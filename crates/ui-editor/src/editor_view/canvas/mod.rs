@@ -8,4 +8,6 @@ mod prepaint;
 mod prepaint_wrapped;
 mod syntax_paint;
 
+pub(crate) use horizontal_viewport::LONG_LINE_COL_THRESHOLD;
+
 pub(crate) use element::EditorCanvas;

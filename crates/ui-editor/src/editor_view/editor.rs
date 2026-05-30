@@ -9,8 +9,8 @@ use gpui::{prelude::*, px, point, App, Bounds, Context, Entity, FocusHandle, Pix
 
 use super::language::language_for_path;
 use super::state::{
-    FindState, FloatingPanel, GotoState, InputTarget, PanelDrag, PanelResize, SearchPanelState,
-    TabSlot, VisibleLine, WrappedVisible,
+    FindState, FloatingPanel, GotoState, InputTarget, LineWidthCache, PanelDrag, PanelResize,
+    SearchPanelState, TabSlot, VisibleLine, WrappedVisible,
 };
 use super::state::read_file_meta;
 use super::r#impl::{EditorContextMenuState, FOLD_GUTTER_WIDTH};
@@ -110,6 +110,14 @@ pub struct EngineEditor {
     pub(crate) context_menu: Option<EditorContextMenuState>,
     /// Position queued until the menu is built on the next frame.
     pub(crate) context_menu_pending: Option<Point<Pixels>>,
+    /// Prefix width cache for long-line horizontal layout.
+    pub(crate) line_width_cache: LineWidthCache,
+    /// Generation counter for in-flight background syntax reparses.
+    pub(crate) syntax_parse_gen: u64,
+    /// True while a background syntax reparse is running.
+    pub(crate) syntax_parse_inflight: bool,
+    /// Buffer revision the in-flight syntax parse was started for.
+    pub(crate) syntax_parse_target_rev: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,6 +186,10 @@ impl EngineEditor {
             display_lines: Vec::new(),
             context_menu: None,
             context_menu_pending: None,
+            line_width_cache: LineWidthCache::new(),
+            syntax_parse_gen: 0,
+            syntax_parse_inflight: false,
+            syntax_parse_target_rev: None,
         };
         editor.rebuild_display_lines();
         editor

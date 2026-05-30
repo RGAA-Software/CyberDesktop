@@ -1,25 +1,91 @@
 //! `EngineEditor` — `core`.
 
+use cyberfiles_text_engine::parse_rope;
+
+use super::super::state::LONG_LINE_COL_THRESHOLD;
 use super::super::imports::*;
 
 impl EngineEditor {
-    pub(crate) fn refresh_syntax(&mut self) {
+    pub(crate) fn refresh_syntax(&mut self, cx: &mut Context<Self>) {
         let rev = self.document.revision();
         if self.parsed_revision == Some(rev) {
             return;
         }
-        // Incremental on edits (feed byte-range edits to the old tree); full
-        // parse only when we have no prior tree (load / language switch).
         if self.parsed_revision.is_some() {
             let edits = self.document.take_syntax_edits();
+            self.line_width_cache.invalidate_from_edits(&edits);
             for edit in &edits {
                 self.syntax.edit(edit);
             }
         } else {
             self.document.take_syntax_edits();
         }
+
+        if self.should_defer_syntax() {
+            if self.syntax_parse_inflight && self.syntax_parse_target_rev == Some(rev) {
+                return;
+            }
+            self.schedule_syntax_reparse(cx);
+            return;
+        }
+
         self.syntax.reparse(self.document.buffer().rope());
         self.parsed_revision = Some(rev);
+    }
+
+    fn should_defer_syntax(&self) -> bool {
+        if !self.syntax.is_supported() {
+            return false;
+        }
+        let buf = self.document.buffer();
+        if buf.line_count() == 1 {
+            return buf.line_len_chars(0) > LONG_LINE_COL_THRESHOLD;
+        }
+        let caret_line = buf
+            .char_to_position(self.document.selections().primary().head)
+            .line;
+        if buf.line_len_chars(caret_line) > LONG_LINE_COL_THRESHOLD {
+            return true;
+        }
+        for &line in &self.display_lines {
+            if buf.line_len_chars(line) > LONG_LINE_COL_THRESHOLD {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn schedule_syntax_reparse(&mut self, cx: &mut Context<Self>) {
+        let target_rev = self.document.revision();
+        self.syntax_parse_inflight = true;
+        self.syntax_parse_target_rev = Some(target_rev);
+        let gen = self.syntax_parse_gen.wrapping_add(1);
+        self.syntax_parse_gen = gen;
+        let rope = self.document.buffer().rope().clone();
+        let language = self.syntax.language_id().to_string();
+        let old_tree = self.syntax.clone_tree();
+
+        let task = cx
+            .background_executor()
+            .spawn(async move { parse_rope(&language, rope, old_tree) });
+
+        cx.spawn(async move |this, cx| {
+            let tree = task.await;
+            let _ = this.update(cx, |this, cx| {
+                this.syntax_parse_inflight = false;
+                this.syntax_parse_target_rev = None;
+                if this.syntax_parse_gen != gen {
+                    return;
+                }
+                if this.document.revision() != target_rev {
+                    return;
+                }
+                this.syntax.replace_tree(tree);
+                this.parsed_revision = Some(target_rev);
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     pub(crate) fn changed(&mut self, cx: &mut Context<Self>) {
@@ -27,6 +93,22 @@ impl EngineEditor {
         self.caret_blink_visible = true;
         self.ensure_caret_visible();
         cx.notify();
+    }
+
+    /// Longest relevant line length for status hints (caret line or sole line).
+    pub(crate) fn status_line_len_chars(&self) -> usize {
+        let buf = self.document.buffer();
+        if buf.line_count() == 1 {
+            return buf.line_len_chars(0);
+        }
+        let line = buf
+            .char_to_position(self.document.selections().primary().head)
+            .line;
+        buf.line_len_chars(line)
+    }
+
+    pub(crate) fn has_long_line(&self) -> bool {
+        self.status_line_len_chars() > LONG_LINE_COL_THRESHOLD
     }
 
     /// Starts the caret blink timer (530 ms half-period, standard editor rate).

@@ -56,6 +56,9 @@ impl EngineEditor {
             self.file_meta = meta;
             self.disk_changed = false;
             self.active_folds.clear();
+            self.line_width_cache.clear();
+            self.syntax_parse_inflight = false;
+            self.syntax_parse_target_rev = None;
             self.rebuild_display_lines();
             self.needs_focus = true;
             self.retarget_search_panel();

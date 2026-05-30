@@ -26,10 +26,10 @@ scroll_x .. scroll_x + view_w
 
 ## Phase 2 — 正确性
 
-- [ ] 行宽前缀缓存（列 → x），编辑时 invalidate 该行
-- [ ] caret reveal / 滚动条读缓存，替代等宽估算
-- [ ] `refresh_syntax` / `reparse` 移出 UI 线程（或打开大文件时延迟）
-- [ ] 超长行检测（>N KB/行）：状态栏提示或建议开启 Word Wrap
+- [x] 行宽前缀缓存（列 → x），编辑时 invalidate 该行
+- [x] caret reveal / 滚动条读缓存，替代等宽估算
+- [x] `refresh_syntax` / `reparse` 移出 UI 线程（超长行时后台 parse）
+- [x] 超长行检测（>512 cols）：状态栏提示
 
 ## Phase 3 — Soft wrap 路径
 

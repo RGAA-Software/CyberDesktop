@@ -32,13 +32,23 @@ impl EngineEditor {
             line = pos.line + 1,
             col = pos.column + 1
         );
-        let info = format!(
+        let mut info = format!(
             "{}   {}   {}   {}",
             self.document.language(),
             self.document.encoding().label(),
             self.document.line_ending().label(),
             info,
         );
+        if self.has_long_line() {
+            info.push_str("   ");
+            info.push_str(
+                &t!(
+                    "editor.status.long_line",
+                    cols = self.status_line_len_chars()
+                )
+                .to_string(),
+            );
+        }
 
         div()
             .flex()

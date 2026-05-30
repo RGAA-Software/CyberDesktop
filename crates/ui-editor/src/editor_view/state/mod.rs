@@ -3,6 +3,7 @@
 mod find;
 mod goto;
 mod input_target;
+mod line_width;
 mod panel;
 mod scroll;
 mod search_panel;
@@ -11,6 +12,7 @@ mod tab;
 pub(crate) use find::FindState;
 pub(crate) use goto::GotoState;
 pub(crate) use input_target::InputTarget;
+pub(crate) use line_width::{LineWidthCache, LONG_LINE_COL_THRESHOLD};
 pub(crate) use panel::{
     default_find_panel_pos, default_goto_panel_pos, default_search_panel_pos, FloatingPanel,
     PanelDrag, PanelResize, PanelResizeEdge, FIND_PANEL_WIDTH, GOTO_PANEL_WIDTH,

@@ -177,6 +177,16 @@ impl SyntaxState {
             .parse_with_options(&mut callback, self.tree.as_ref(), None);
     }
 
+    /// Clones the current parse tree (for background reparse handoff).
+    pub fn clone_tree(&self) -> Option<Tree> {
+        self.tree.clone()
+    }
+
+    /// Installs a tree produced by [`parse_rope`].
+    pub fn replace_tree(&mut self, tree: Option<Tree>) {
+        self.tree = tree;
+    }
+
     /// Like [`SyntaxState::highlights`] but reads node text from a [`Rope`],
     /// avoiding a full-document copy. This is the renderer's hot path.
     pub fn highlights_rope(&self, rope: &Rope, byte_range: Range<usize>) -> Vec<HighlightSpan> {
@@ -211,7 +221,25 @@ impl SyntaxState {
 
         resolve_overlaps(raw)
     }
+}
 
+/// Parses `rope` on a background thread (uses a fresh parser instance).
+pub fn parse_rope(language_id: &str, rope: Rope, previous: Option<Tree>) -> Option<Tree> {
+    let (language, _) = lookup_language_config(language_id)?;
+    let mut parser = Parser::new();
+    parser.set_language(&language).ok()?;
+    let len_bytes = rope.len_bytes();
+    let mut callback = |byte: usize, _: Point| -> &[u8] {
+        if byte >= len_bytes {
+            return &[];
+        }
+        let (chunk, chunk_byte_idx, _, _) = rope.chunk_at_byte(byte);
+        &chunk.as_bytes()[byte - chunk_byte_idx..]
+    };
+    parser.parse_with_options(&mut callback, previous.as_ref(), None)
+}
+
+impl SyntaxState {
     /// Returns highlight spans whose nodes intersect `byte_range`.
     ///
     /// On overlap the innermost (smallest) capture wins, which matches how a

@@ -118,8 +118,8 @@ impl Element for EditorCanvas {
         window: &mut Window,
         cx: &mut App,
     ) -> Self::PrepaintState {
-        self.editor.update(cx, |e, _| {
-            e.refresh_syntax();
+        self.editor.update(cx, |e, cx| {
+            e.refresh_syntax(cx);
             e.last_bounds = Some(bounds);
             let line_count = if e.soft_wrap {
                 e.document.buffer().line_count()
@@ -160,16 +160,19 @@ impl Element for EditorCanvas {
                 cx,
             )
         } else {
-            prepaint::prepaint_normal(
-                self,
-                bounds,
-                &font,
-                colors,
-                default_color,
-                font_size,
-                window,
-                cx,
-            )
+            let mut out = None;
+            self.editor.update(cx, |editor, _| {
+                out = Some(prepaint::prepaint_normal(
+                    editor,
+                    bounds,
+                    &font,
+                    colors,
+                    default_color,
+                    font_size,
+                    window,
+                ));
+            });
+            out.expect("prepaint_normal")
         };
 
         let (gutter_width, bottom_inset) = {

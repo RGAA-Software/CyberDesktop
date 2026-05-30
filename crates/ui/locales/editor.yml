@@ -155,6 +155,10 @@ editor.status.ln_col:
   en: "Ln %{line}, Col %{col}"
   zh-CN: "行 %{line}, 列 %{col}"
   zh-HK: "行 %{line}, 列 %{col}"
+editor.status.long_line:
+  en: "Long line (%{cols} cols)"
+  zh-CN: "超长行 (%{cols} 列)"
+  zh-HK: "超長行 (%{cols} 列)"
 editor.disk.changed:
   en: This file changed on disk.
   zh-CN: 文件已在磁盘上被修改。

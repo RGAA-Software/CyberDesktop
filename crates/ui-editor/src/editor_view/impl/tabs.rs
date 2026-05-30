@@ -48,6 +48,9 @@ impl EngineEditor {
         self.file_meta = slot.file_meta;
         self.disk_changed = slot.disk_changed;
         self.active_folds = std::mem::take(&mut slot.active_folds);
+        self.line_width_cache.clear();
+        self.syntax_parse_inflight = false;
+        self.syntax_parse_target_rev = None;
         self.rebuild_display_lines();
         self.active = index;
         self.marked_range = None;

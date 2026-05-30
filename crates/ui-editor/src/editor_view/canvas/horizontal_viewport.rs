@@ -2,8 +2,7 @@
 
 use gpui::{Font, Pixels, SharedString, TextRun, Window, px};
 
-/// Lines longer than this (in chars) are shaped as a viewport slice only.
-pub(crate) const LONG_LINE_COL_THRESHOLD: usize = 512;
+pub(crate) use crate::editor_view::state::LONG_LINE_COL_THRESHOLD;
 
 const VIEWPORT_MARGIN_CHARS: usize = 32;
 

@@ -6,28 +6,26 @@ use gpui::{
     TextRun, Window,
 };
 
-use super::element::{CanvasPrepaint, EditorCanvas, VisibleRow};
+use super::element::CanvasPrepaint;
 use super::horizontal_viewport::{
-    caret_x_from_col, estimated_line_width, measure_avg_char_width, viewport_col_range,
-    LONG_LINE_COL_THRESHOLD,
+    measure_avg_char_width, viewport_col_range, LONG_LINE_COL_THRESHOLD,
 };
 use super::super::editor::EngineEditor;
 use super::super::r#impl::FOLD_GUTTER_WIDTH;
 use super::super::ui::EditorColors;
 use super::super::text_util::char_to_byte;
+use super::element::VisibleRow;
 use super::syntax_paint::{build_runs, occurrence_word, word_occurrences};
 
 pub(crate) fn prepaint_normal(
-    canvas: &EditorCanvas,
+    editor: &mut EngineEditor,
     bounds: Bounds<Pixels>,
     font: &Font,
     colors: EditorColors,
     default_color: Hsla,
     font_size: Pixels,
     window: &mut Window,
-    cx: &mut App,
 ) -> CanvasPrepaint {
-    let editor = canvas.editor.read(cx);
     let line_height = editor.line_height;
     let scroll_y = editor.scroll_y;
     let gutter_width = editor.gutter_width;
@@ -35,6 +33,7 @@ pub(crate) fn prepaint_normal(
     let focused = editor.focus_handle.is_focused(window);
     let caret_blink_visible = editor.caret_blink_visible;
     let buf = editor.document.buffer();
+    let buffer_revision = buf.revision();
     let line_count = buf.line_count();
     let digits = line_count.to_string().len().max(3);
 
@@ -57,7 +56,17 @@ pub(crate) fn prepaint_normal(
         let cpos = buf.char_to_position(primary.head);
         let line_len = buf.line_len_chars(cpos.line);
         let caret_x = if line_len > LONG_LINE_COL_THRESHOLD {
-            caret_x_from_col(char_width, cpos.column)
+            editor.line_width_cache.col_x_px(
+                cpos.line,
+                cpos.column,
+                buffer_revision,
+                window,
+                font,
+                font_size,
+                buf,
+                default_color,
+                char_width,
+            )
         } else {
             let cline = buf.line_text(cpos.line);
             let crun = TextRun {
@@ -137,7 +146,22 @@ pub(crate) fn prepaint_normal(
             }
             (0, lt)
         };
-        let fragment_left = content_left + caret_x_from_col(char_width, col_start);
+        let fragment_left = content_left
+            + if is_long {
+                editor.line_width_cache.col_x_px(
+                    line,
+                    col_start,
+                    buffer_revision,
+                    window,
+                    font,
+                    font_size,
+                    buf,
+                    default_color,
+                    char_width,
+                )
+            } else {
+                px(0.0)
+            };
         let fragment_start_byte = buf.char_to_byte(line_start_char + col_start);
         let frag_char_len = line_text.chars().count();
         let col_end = col_start + frag_char_len;
@@ -156,11 +180,18 @@ pub(crate) fn prepaint_normal(
             &runs,
             None,
         );
-        let line_width = if is_long {
-            estimated_line_width(char_width, line_char_len)
-        } else {
-            shaped.width
-        };
+        let line_width = editor.line_width_cache.line_width_px(
+            line,
+            line_char_len,
+            buffer_revision,
+            char_width,
+            is_long,
+            window,
+            font,
+            font_size,
+            buf,
+            default_color,
+        );
         if line_width > content_w {
             content_w = line_width;
         }
@@ -256,27 +287,24 @@ pub(crate) fn prepaint_normal(
 
     let content_w = content_w + line_height * 0.6;
 
-    let _ = (buf, &editor);
-    canvas.editor.update(cx, |e, _| {
-        e.content_width = content_w;
-        e.reserve_hscrollbar_lane =
-            !e.soft_wrap && (content_w > view_w || e.scroll_x > px(0.0));
-        let lane_inset = if e.reserve_hscrollbar_lane {
-            EngineEditor::HSCROLLBAR_HEIGHT
-        } else {
-            px(0.0)
-        };
-        e.scroll_y = EngineEditor::clamp_scroll_y_for_lane(
-            e.scroll_y,
-            e.line_height,
-            e.display_line_count(),
-            bounds.size.height,
-            lane_inset,
-        );
-        let max_x = (content_w - view_w).max(px(0.0));
-        e.scroll_x = scroll_x.min(max_x).max(px(0.0));
-        e.reveal_caret = false;
-    });
+    editor.content_width = content_w;
+    editor.reserve_hscrollbar_lane =
+        !editor.soft_wrap && (content_w > view_w || editor.scroll_x > px(0.0));
+    let lane_inset = if editor.reserve_hscrollbar_lane {
+        EngineEditor::HSCROLLBAR_HEIGHT
+    } else {
+        px(0.0)
+    };
+    editor.scroll_y = EngineEditor::clamp_scroll_y_for_lane(
+        editor.scroll_y,
+        editor.line_height,
+        editor.display_line_count(),
+        bounds.size.height,
+        lane_inset,
+    );
+    let max_x = (content_w - view_w).max(px(0.0));
+    editor.scroll_x = scroll_x.min(max_x).max(px(0.0));
+    editor.reveal_caret = false;
 
     CanvasPrepaint {
         rows,

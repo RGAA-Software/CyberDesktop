@@ -40,4 +40,4 @@ pub use search::{
 };
 pub use selection::{Cursor, SelectionSet};
 pub use fold::{build_display_lines, crease_at_line, display_line_count, fold_header, is_folded_header, is_line_hidden, line_indent, starts_indent, FoldRange};
-pub use syntax::{HighlightKind, HighlightSpan, SyntaxState, is_supported, supported_language_ids};
+pub use syntax::{HighlightKind, HighlightSpan, SyntaxState, is_supported, parse_rope, supported_language_ids};
