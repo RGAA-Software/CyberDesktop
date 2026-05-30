@@ -1077,8 +1077,10 @@ impl Render for CyberEditorPage {
             .on_action(cx.listener(|this, _: &SaveFileAs, window, cx| {
                 this.open_save_as_dialog(window, cx);
             }))
-            .on_action(cx.listener(|this, _: &ExitEditor, _, cx| {
-                cx.quit();
+            .on_action(cx.listener(|this, _: &ExitEditor, window, cx| {
+                if this.request_close(window, cx) {
+                    window.remove_window();
+                }
             }))
             .on_action(cx.listener(|this, _: &EditorUndo, window, cx| {
                 this.run_editor_undo(window, cx);

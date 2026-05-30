@@ -50,7 +50,7 @@ pub use cyber_editor::{
     CyberEditorPage, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
     FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, KeyboardShortcuts,
     NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs,
-    SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap,
+    SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap, EDITOR_CONTEXT,
 };
 pub use i18n::{init_locale, locale, set_locale};
 #[cfg(feature = "full-app")]

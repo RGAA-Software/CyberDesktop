@@ -27,8 +27,8 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ("Select word / line", "Double / Triple click"),
     ("Page up / down", "PageUp / PageDown"),
     ("View", ""),
-    ("Word wrap", "Menu: View → Word Wrap"),
-    ("Line numbers", "Menu: View → Line Numbers"),
+    ("Line numbers", "Alt+L"),
+    ("Word wrap", "Alt+Z"),
 ];
 
 /// Split before the "Search & navigate" section header.

@@ -85,6 +85,10 @@ pub struct EngineEditor {
     pub(crate) close_hooked: bool,
     /// Set when the user confirmed closing the window despite unsaved changes.
     pub(crate) allow_window_close: bool,
+    /// Caret blink phase (visible half of the cycle).
+    pub(crate) caret_blink_visible: bool,
+    /// Set once the caret-blink timer has been started.
+    pub(crate) blink_started: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,6 +142,8 @@ impl EngineEditor {
             close_hooked: false,
             allow_window_close: false,
             watch_started: false,
+            caret_blink_visible: true,
+            blink_started: false,
         }
     }
 

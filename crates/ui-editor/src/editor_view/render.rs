@@ -16,6 +16,7 @@ impl Render for EngineEditor {
             self.needs_focus = false;
         }
         self.start_disk_watch(cx);
+        self.start_caret_blink(cx);
         if !self.close_hooked {
             self.close_hooked = true;
             let weak = cx.entity().downgrade();
@@ -54,13 +55,17 @@ impl Render for EngineEditor {
             .child(
                 div()
                     .track_focus(&focus)
-                    .key_context("CyberEngineEditor")
+                    .key_context(EDITOR_CONTEXT)
                     .on_key_down(cx.listener(Self::on_key_down))
                     .on_action(cx.listener(|this, _: &NewFile, _w, cx| this.new_tab(cx)))
                     .on_action(cx.listener(|this, _: &OpenFile, _w, cx| this.open_file(cx)))
                     .on_action(cx.listener(|this, _: &SaveFile, _w, cx| this.save_file(cx)))
                     .on_action(cx.listener(|this, _: &SaveFileAs, _w, cx| this.save_file_as(cx)))
-                    .on_action(cx.listener(|_, _: &ExitEditor, window, _| window.remove_window()))
+                    .on_action(cx.listener(|this, _: &ExitEditor, window, cx| {
+                        if this.request_window_close(cx) {
+                            window.remove_window();
+                        }
+                    }))
                     .on_action(cx.listener(|this, _: &EditorUndo, _w, cx| {
                         this.document.undo();
                         this.changed(cx);

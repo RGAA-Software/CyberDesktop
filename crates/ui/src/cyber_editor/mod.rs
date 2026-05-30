@@ -24,8 +24,8 @@ pub(crate) use language::{language_for_path, line_comment_prefix};
 pub(crate) use metadata::{detect_indent_style, detect_line_ending, IndentStyle, LineEndingKind};
 pub(crate) use session::EditorSession;
 
-pub(crate) const APP_NAME: &str = "CyberEditor";
-pub(crate) const EDITOR_CONTEXT: &str = "CyberEditor";
+pub const APP_NAME: &str = "CyberEditor";
+pub const EDITOR_CONTEXT: &str = "CyberEditor";
 
 actions!(
     cybereditor,
@@ -60,12 +60,32 @@ actions!(
 
 pub fn init(cx: &mut App) {
     cx.bind_keys([
+        // File
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-n", NewFile, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-t", NewFile, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-o", OpenFile, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-s", SaveFile, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-shift-s", SaveFileAs, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("alt-f4", ExitEditor, Some(EDITOR_CONTEXT)),
+        // Edit
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-z", EditorUndo, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-y", EditorRedo, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-x", EditorCut, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-c", EditorCopy, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-v", EditorPaste, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-a", SelectAll, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-g", GoToLine, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
@@ -82,14 +102,38 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-]", IndentSelection, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-[", OutdentSelection, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("alt-l", ToggleLineNumbers, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("alt-z", ToggleSoftWrap, Some(EDITOR_CONTEXT)),
         KeyBinding::new("f3", FindNext, Some(EDITOR_CONTEXT)),
         KeyBinding::new("shift-f3", FindPrevious, Some(EDITOR_CONTEXT)),
+        KeyBinding::new("f1", KeyboardShortcuts, Some(EDITOR_CONTEXT)),
+        // macOS
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-n", NewFile, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-t", NewFile, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("cmd-o", OpenFile, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("cmd-s", SaveFile, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("cmd-shift-s", SaveFileAs, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-q", ExitEditor, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-z", EditorUndo, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-shift-z", EditorRedo, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-x", EditorCut, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-c", EditorCopy, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-v", EditorPaste, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-a", SelectAll, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("cmd-g", GoToLine, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
@@ -106,7 +150,9 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-]", IndentSelection, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("alt-[", OutdentSelection, Some(EDITOR_CONTEXT)),
-        KeyBinding::new("f3", FindNext, Some(EDITOR_CONTEXT)),
-        KeyBinding::new("shift-f3", FindPrevious, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("alt-l", ToggleLineNumbers, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("alt-z", ToggleSoftWrap, Some(EDITOR_CONTEXT)),
     ]);
 }

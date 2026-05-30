@@ -1,6 +1,6 @@
 //! Application menu bar (File / Edit / Selection / View / Help) for CyberEditor.
 
-use gpui::{App, BorrowAppContext, Entity, Global, Menu, MenuItem, SharedString};
+use gpui::{App, BorrowAppContext, Entity, Global, Menu, MenuItem, OsAction, SharedString};
 use gpui_component::{menu::AppMenuBar, GlobalState};
 
 use super::{
@@ -62,10 +62,15 @@ pub fn reload(cx: &mut App) {
     menu_bar.update(cx, |bar, cx| bar.reload(cx));
 }
 
+/// Top-level menu title with access-key hint, e.g. `File(F)`.
+fn menu_title(label: &str, access_key: char) -> SharedString {
+    SharedString::from(format!("{label}({access_key})"))
+}
+
 fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu> {
     vec![
         Menu {
-            name: SharedString::from("File"),
+            name: menu_title("File", 'F'),
             items: vec![
                 MenuItem::action("New", NewFile),
                 MenuItem::action("Open...", OpenFile),
@@ -78,14 +83,14 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
             disabled: false,
         },
         Menu {
-            name: SharedString::from("Edit"),
+            name: menu_title("Edit", 'E'),
             items: vec![
-                MenuItem::action("Undo", EditorUndo),
-                MenuItem::action("Redo", EditorRedo),
+                MenuItem::os_action("Undo", EditorUndo, OsAction::Undo),
+                MenuItem::os_action("Redo", EditorRedo, OsAction::Redo),
                 MenuItem::separator(),
-                MenuItem::action("Cut", EditorCut),
-                MenuItem::action("Copy", EditorCopy),
-                MenuItem::action("Paste", EditorPaste),
+                MenuItem::os_action("Cut", EditorCut, OsAction::Cut),
+                MenuItem::os_action("Copy", EditorCopy, OsAction::Copy),
+                MenuItem::os_action("Paste", EditorPaste, OsAction::Paste),
                 MenuItem::separator(),
                 MenuItem::action("Find...", FindText),
                 MenuItem::action("Find in File...", FindInFiles),
@@ -98,9 +103,9 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
             disabled: false,
         },
         Menu {
-            name: SharedString::from("Selection"),
+            name: menu_title("Selection", 'S'),
             items: vec![
-                MenuItem::action("Select All", SelectAll),
+                MenuItem::os_action("Select All", SelectAll, OsAction::SelectAll),
                 MenuItem::separator(),
                 MenuItem::action("Toggle Comment", ToggleComment),
                 MenuItem::action("Indent", IndentSelection),
@@ -109,7 +114,7 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
             disabled: false,
         },
         Menu {
-            name: SharedString::from("View"),
+            name: menu_title("View", 'V'),
             items: vec![
                 MenuItem::action("Go to Line...", GoToLine),
                 MenuItem::separator(),
@@ -119,7 +124,7 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
             disabled: false,
         },
         Menu {
-            name: SharedString::from("Help"),
+            name: menu_title("Help", 'H'),
             items: vec![
                 MenuItem::action("Keyboard Shortcuts", KeyboardShortcuts),
                 MenuItem::separator(),

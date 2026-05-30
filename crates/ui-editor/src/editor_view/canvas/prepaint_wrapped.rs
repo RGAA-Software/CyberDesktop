@@ -27,6 +27,7 @@ pub(crate) fn prepaint_wrapped(
         let gutter_width = editor.gutter_width;
         let show_line_numbers = editor.show_line_numbers;
         let focused = editor.focus_handle.is_focused(window);
+        let caret_blink_visible = editor.caret_blink_visible;
         let buf = editor.document.buffer();
         let line_count = buf.line_count();
         let digits = line_count.to_string().len().max(3);
@@ -152,7 +153,12 @@ pub(crate) fn prepaint_wrapped(
                         selections.push(band(content_left, content_left + p1.x, y + p1.y));
                     }
                 }
-                if focused && cur.head >= line_start_char && cur.head <= line_end_char {
+                if focused
+                    && caret_blink_visible
+                    && cur.is_empty()
+                    && cur.head >= line_start_char
+                    && cur.head <= line_end_char
+                {
                     let col = cur.head - line_start_char;
                     let b = char_to_byte(&line_text, col);
                     if let Some(p) = wrapped.position_for_index(b, lh) {

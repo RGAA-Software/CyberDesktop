@@ -23,8 +23,33 @@ impl EngineEditor {
     }
 
     pub(crate) fn changed(&mut self, cx: &mut Context<Self>) {
+        self.caret_blink_visible = true;
         self.ensure_caret_visible();
         cx.notify();
+    }
+
+    /// Starts the caret blink timer (530 ms half-period, standard editor rate).
+    pub(crate) fn start_caret_blink(&mut self, cx: &mut Context<Self>) {
+        if self.blink_started {
+            return;
+        }
+        self.blink_started = true;
+        cx.spawn(async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(530))
+                .await;
+            let keep = this
+                .update(cx, |this, cx| {
+                    this.caret_blink_visible = !this.caret_blink_visible;
+                    cx.notify();
+                    true
+                })
+                .unwrap_or(false);
+            if !keep {
+                break;
+            }
+        })
+        .detach();
     }
 
     pub(crate) fn max_scroll(&self) -> Pixels {

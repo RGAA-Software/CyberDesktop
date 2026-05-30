@@ -14,7 +14,7 @@ pub use cyberfiles_ui::{
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, GoToLine,
     IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
     ReplaceText, SaveFile, SaveFileAs, SelectAll, TitleBar, ToggleComment, ToggleLineNumbers,
-    ToggleSoftWrap,
+    ToggleSoftWrap, EDITOR_CONTEXT,
 };
 pub use gpui::{
     div, point, prelude::*, px, rgb, size, App, Bounds, ClickEvent, ClipboardItem, Context, Entity,
