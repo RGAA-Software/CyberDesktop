@@ -1283,6 +1283,18 @@ settings.group.interface:
   en: Interface
   zh-CN: 界面
   zh-HK: 介面
+settings.group.file_open:
+  en: File opening
+  zh-CN: 文件打开
+  zh-HK: 檔案開啟
+settings.open_with_cybereditor:
+  en: Open text files with CyberEditor
+  zh-CN: 使用 CyberEditor 打开文本文件
+  zh-HK: 使用 CyberEditor 開啟文字檔
+settings.open_with_cybereditor.description:
+  en: When enabled, double-clicking supported code and text files in CyberFiles opens them in CyberEditor.
+  zh-CN: 开启后，在 CyberFiles 中双击支持的代码或文本文件时，将使用 CyberEditor 打开。
+  zh-HK: 開啟後，在 CyberFiles 中雙擊支援的程式碼或文字檔時，將使用 CyberEditor 開啟。
 settings.dark_mode:
   en: Dark Mode
   zh-CN: 深色模式

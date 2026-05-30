@@ -426,6 +426,14 @@ pub fn apply_home_widget_recent(enabled: bool, cx: &mut App) {
     refresh_home_if_active(cx);
 }
 
+pub fn open_text_with_cybereditor(_cx: &App) -> bool {
+    cyberfiles_core::open_text_with_cybereditor_enabled()
+}
+
+pub fn apply_open_text_with_cybereditor(enabled: bool, cx: &mut App) {
+    mutate_config(cx, |c| c.open_text_with_cybereditor = enabled);
+}
+
 fn refresh_home_if_active(cx: &mut App) {
     if let Some(nav) = cx.try_global::<crate::app_state::AppNavigation>() {
         let page = nav.main_page();
@@ -495,6 +503,7 @@ pub fn capture_config(cx: &App, window_width: f32, window_height: f32) -> AppCon
         context_menu_show_open_in_terminal: prior.context_menu_show_open_in_terminal,
         context_menu_show_file_tags: prior.context_menu_show_file_tags,
         context_menu_show_create_shortcut: prior.context_menu_show_create_shortcut,
+        open_text_with_cybereditor: prior.open_text_with_cybereditor,
         session_tabs: prior.session_tabs,
         session_active_tab: prior.session_active_tab,
         session_pane_layouts: prior.session_pane_layouts,

@@ -117,6 +117,9 @@ pub struct AppConfig {
     pub context_menu_show_file_tags: bool,
     #[serde(default = "default_true")]
     pub context_menu_show_create_shortcut: bool,
+    /// When true, open supported text/code files with CyberEditor on double-click.
+    #[serde(default = "default_true")]
+    pub open_text_with_cybereditor: bool,
     /// Last session tab targets (`home`, `recycle`, `settings`, `tag:name`, or filesystem path).
     #[serde(default)]
     pub session_tabs: Vec<String>,
@@ -232,6 +235,7 @@ impl Default for AppConfig {
             context_menu_show_open_in_terminal: true,
             context_menu_show_file_tags: true,
             context_menu_show_create_shortcut: true,
+            open_text_with_cybereditor: true,
             session_tabs: Vec::new(),
             session_active_tab: 0,
             session_pane_layouts: Vec::new(),
@@ -399,6 +403,12 @@ pub fn context_menu_item_prefs() -> ContextMenuItemPrefs {
     load_config()
         .map(|c| ContextMenuItemPrefs::from(&c))
         .unwrap_or_default()
+}
+
+pub fn open_text_with_cybereditor_enabled() -> bool {
+    load_config()
+        .map(|c| c.open_text_with_cybereditor)
+        .unwrap_or(true)
 }
 
 pub fn save_home_widget_prefs(prefs: &HomeWidgetPrefs) -> anyhow::Result<()> {

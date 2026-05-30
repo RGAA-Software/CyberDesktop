@@ -84,6 +84,72 @@ pub fn language_for_path(path: Option<&Path>) -> &'static str {
     }
 }
 
+/// Returns true when CyberFiles should open `path` in CyberEditor (text or known code).
+pub fn is_cybereditor_openable(path: &Path) -> bool {
+    if path.is_dir() {
+        return false;
+    }
+
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        let lower = name.to_ascii_lowercase();
+        match lower.as_str() {
+            "makefile" | "gnumakefile" | "cmakelists.txt" | "dockerfile" | "containerfile"
+            | ".gitignore" | ".gitattributes" | ".editorconfig" => return true,
+            _ if lower.ends_with(".dockerfile") => return true,
+            _ => {}
+        }
+    }
+
+    let Some(ext) = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+    else {
+        return true;
+    };
+
+    if is_binary_extension(&ext) {
+        return false;
+    }
+
+    is_text_or_code_extension(&ext)
+}
+
+fn is_binary_extension(ext: &str) -> bool {
+    matches!(
+        ext,
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "ico" | "bmp" | "tif" | "tiff" | "psd" | "heic"
+            | "avif" | "raw" | "cr2" | "nef"
+            | "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" | "xz" | "zst" | "cab" | "iso" | "img"
+            | "mp3" | "mp4" | "m4a" | "avi" | "mkv" | "mov" | "wmv" | "flv" | "wav" | "flac"
+            | "ogg" | "aac" | "wma" | "webm"
+            | "pdf" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "odt" | "ods" | "odp"
+            | "exe" | "dll" | "sys" | "ocx" | "scr" | "msi" | "com" | "apk" | "dmg" | "pkg"
+            | "deb" | "rpm" | "appimage"
+            | "woff" | "woff2" | "ttf" | "otf" | "eot"
+            | "db" | "sqlite" | "sqlite3" | "mdb" | "accdb"
+            | "class" | "jar" | "pyc" | "pyo" | "so" | "dylib" | "obj" | "o" | "a" | "lib"
+            | "pdb" | "bin" | "dat" | "vhd" | "vmdk" | "wasm"
+    )
+}
+
+fn is_text_or_code_extension(ext: &str) -> bool {
+    matches!(
+        ext,
+        "rs" | "js" | "cjs" | "mjs" | "jsx" | "ts" | "tsx" | "py" | "pyw" | "pyi" | "json"
+            | "jsonc" | "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx" | "sh" | "bash"
+            | "zsh" | "fish" | "ps1" | "psm1" | "html" | "htm" | "xhtml" | "css" | "scss"
+            | "sass" | "less" | "toml" | "yaml" | "yml" | "md" | "markdown" | "mdx" | "sql"
+            | "mysql" | "pgsql" | "psql" | "xml" | "xsl" | "xslt" | "svg" | "go" | "java" | "kt"
+            | "kts" | "ktm" | "swift" | "rb" | "rake" | "gemspec" | "php" | "php3" | "php4"
+            | "php5" | "phtml" | "cs" | "lua" | "zig" | "scala" | "sc" | "mk" | "diff" | "patch"
+            | "ex" | "exs" | "proto" | "cmake" | "graphql" | "gql" | "astro" | "svelte" | "erb"
+            | "ejs" | "vue" | "ini" | "cfg" | "conf" | "properties" | "log" | "txt" | "text"
+            | "bat" | "cmd" | "r" | "pl" | "pm" | "hs" | "clj" | "cljs" | "cljc" | "dart" | "v"
+            | "sv" | "tf" | "hcl"
+    )
+}
+
 /// Line comment prefix for toggle-comment, if supported for the language id.
 pub fn line_comment_prefix(language: &str) -> Option<&'static str> {
     match language {
@@ -107,5 +173,14 @@ mod tests {
         assert_eq!(language_for_path(Some(Path::new("app.tsx"))), "tsx");
         assert_eq!(language_for_path(Some(Path::new("CMakeLists.txt"))), "cmake");
         assert_eq!(language_for_path(Some(Path::new("Makefile"))), "make");
+    }
+
+    #[test]
+    fn cybereditor_openable_filters_binaries() {
+        assert!(is_cybereditor_openable(Path::new("main.rs")));
+        assert!(is_cybereditor_openable(Path::new("notes.txt")));
+        assert!(is_cybereditor_openable(Path::new("README")));
+        assert!(!is_cybereditor_openable(Path::new("photo.png")));
+        assert!(!is_cybereditor_openable(Path::new("app.exe")));
     }
 }

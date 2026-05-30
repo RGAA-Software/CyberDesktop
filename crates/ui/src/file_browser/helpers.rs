@@ -376,6 +376,30 @@ pub(super) fn open_with_system(path: &Path) -> anyhow::Result<()> {
     }
 }
 
+pub(super) fn open_with_cybereditor(path: &Path) -> anyhow::Result<()> {
+    let editor = resolve_cybereditor_exe()?;
+    std::process::Command::new(&editor)
+        .arg(path)
+        .spawn()?;
+    Ok(())
+}
+
+fn resolve_cybereditor_exe() -> anyhow::Result<PathBuf> {
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(dir) = current.parent() {
+            #[cfg(windows)]
+            let name = "cybereditor.exe";
+            #[cfg(not(windows))]
+            let name = "cybereditor";
+            let sibling = dir.join(name);
+            if sibling.is_file() {
+                return Ok(sibling);
+            }
+        }
+    }
+    Ok(PathBuf::from("cybereditor"))
+}
+
 pub(super) fn is_executable_or_script_path(path: &Path) -> bool {
     #[cfg(target_os = "windows")]
     {

@@ -33,7 +33,7 @@ pub use global_search::{
     LineMatch, SearchProgress,
 };
 pub use history::{Edit, History, Transaction};
-pub use language::{language_for_path, line_comment_prefix};
+pub use language::{is_cybereditor_openable, language_for_path, line_comment_prefix};
 pub use loader::{load_file, load_file_with_progress, LoadedFile, LoadProgress};
 pub use search::{
     FindInLinesOutcome, LineSearchHit, Match, SearchOptions, Searcher, FIND_IN_FILE_MAX_MATCHES,
