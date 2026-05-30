@@ -10,7 +10,7 @@ use rust_i18n::t;
 use smallvec::SmallVec;
 
 use super::{Tab, TabVariant};
-use crate::title_bar::title_bar_bottom_rule;
+use crate::title_bar::{tab_inactive_separator, title_bar_bottom_rule};
 use gpui_component::animation::{ease_in_out_cubic, Lerp};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::menu::{DropdownMenu as _, PopupMenuItem};
@@ -55,6 +55,8 @@ pub struct TabBar {
     fixed_tab_height: Option<Pixels>,
     /// Full-width bottom rule under the tab strip (`Tab` / `Underline` variants only).
     bottom_border: bool,
+    /// 12px vertical rules between adjacent unselected tabs (`Tab` variant only).
+    inactive_separators: bool,
     on_click: Option<Rc<dyn Fn(&usize, &mut Window, &mut App) + 'static>>,
 }
 
@@ -79,6 +81,7 @@ impl TabBar {
             medium_titlebar: false,
             fixed_tab_height: None,
             bottom_border: false,
+            inactive_separators: false,
         }
     }
 
@@ -130,6 +133,12 @@ impl TabBar {
     /// Draw a full-width bottom rule under the tab strip (default off).
     pub fn bottom_border(mut self, show: bool) -> Self {
         self.bottom_border = show;
+        self
+    }
+
+    /// Draw 12px vertical rules between adjacent unselected tabs (default off).
+    pub fn inactive_separators(mut self, show: bool) -> Self {
+        self.inactive_separators = show;
         self
     }
 
@@ -432,6 +441,8 @@ impl RenderOnce for TabBar {
         let fixed_tab_height = self.fixed_tab_height;
         let show_bottom_border = self.bottom_border
             && (self.variant == TabVariant::Underline || self.variant == TabVariant::Tab);
+        let show_inactive_separators =
+            self.inactive_separators && self.variant == TabVariant::Tab;
 
         self.base
             .group("tab-bar")
@@ -468,47 +479,61 @@ impl RenderOnce for TabBar {
                                 })
                             })
                             .when_some(indicator_element, |this, ind| this.child(ind))
-                            .children(self.children.into_iter().enumerate().map(|(ix, child)| {
-                                item_metas.push((
-                                    child.label.clone(),
-                                    child.icon.clone(),
-                                    child.disabled,
-                                ));
-                                let tab_bar_prefix = child.tab_bar_prefix.unwrap_or(true);
-                                let mut tab = child
-                                    .ix(ix)
-                                    .tab_bar_prefix(tab_bar_prefix)
-                                    .medium_titlebar(self.medium_titlebar)
-                                    .with_variant(self.variant)
-                                    .with_size(self.size);
-                                if let Some(height) = fixed_tab_height {
-                                    tab = tab.fixed_height(height);
-                                }
-                                tab.indicator_active = has_indicator;
-                                let tab = tab
-                                    .when_some(self.selected_index, |this, selected_ix| {
-                                        this.selected(selected_ix == ix)
-                                    })
-                                    .when_some(self.on_click.clone(), move |this, on_click| {
-                                        this.on_click(move |_, window, cx| {
-                                            on_click(&ix, window, cx)
+                            .children(self.children.into_iter().enumerate().flat_map(
+                                |(ix, child)| {
+                                    let mut elements: smallvec::SmallVec<[AnyElement; 2]> =
+                                        SmallVec::new();
+                                    if show_inactive_separators && ix > 0 {
+                                        let visible = selected_index != Some(ix)
+                                            && selected_index != Some(ix - 1);
+                                        elements.push(
+                                            tab_inactive_separator(cx, visible).into_any_element(),
+                                        );
+                                    }
+                                    item_metas.push((
+                                        child.label.clone(),
+                                        child.icon.clone(),
+                                        child.disabled,
+                                    ));
+                                    let tab_bar_prefix = child.tab_bar_prefix.unwrap_or(true);
+                                    let mut tab = child
+                                        .ix(ix)
+                                        .tab_bar_prefix(tab_bar_prefix)
+                                        .medium_titlebar(self.medium_titlebar)
+                                        .with_variant(self.variant)
+                                        .with_size(self.size);
+                                    if let Some(height) = fixed_tab_height {
+                                        tab = tab.fixed_height(height);
+                                    }
+                                    tab.indicator_active = has_indicator;
+                                    let tab = tab
+                                        .when_some(self.selected_index, |this, selected_ix| {
+                                            this.selected(selected_ix == ix)
                                         })
-                                    });
+                                        .when_some(self.on_click.clone(), move |this, on_click| {
+                                            this.on_click(move |_, window, cx| {
+                                                on_click(&ix, window, cx)
+                                            })
+                                        });
 
-                                if let Some(ref rc) = bounds_rc {
-                                    let rc = rc.clone();
-                                    div()
-                                        .on_prepaint(move |bounds, _, _| {
-                                            if let Some(slot) = rc.borrow_mut().tabs.get_mut(ix) {
-                                                *slot = bounds;
-                                            }
-                                        })
-                                        .child(tab)
-                                        .into_any_element()
-                                } else {
-                                    tab.into_any_element()
-                                }
-                            }))
+                                    elements.push(if let Some(ref rc) = bounds_rc {
+                                        let rc = rc.clone();
+                                        div()
+                                            .on_prepaint(move |bounds, _, _| {
+                                                if let Some(slot) =
+                                                    rc.borrow_mut().tabs.get_mut(ix)
+                                                {
+                                                    *slot = bounds;
+                                                }
+                                            })
+                                            .child(tab)
+                                            .into_any_element()
+                                    } else {
+                                        tab.into_any_element()
+                                    });
+                                    elements
+                                },
+                            ))
                             .when(has_suffix_or_menu, |this| this.child(self.last_empty_space)),
                     ),
             )

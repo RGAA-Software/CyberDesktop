@@ -23,6 +23,32 @@ pub fn title_bar_bottom_rule<T: Styled>(this: T, cx: &App) -> T {
     this.border_b_1().border_color(cx.theme().title_bar_border)
 }
 
+/// Matches `border_b_1` used by [`title_bar_bottom_rule`].
+pub const TITLE_BAR_RULE_THICKNESS: Pixels = px(1.);
+
+/// Vertical rule between adjacent unselected tabs (see [`crate::tab::TabBar::inactive_separators`]).
+pub const TAB_INACTIVE_SEPARATOR_HEIGHT: Pixels = px(12.);
+pub const TAB_INACTIVE_SEPARATOR_WIDTH: Pixels = px(2.);
+
+pub fn tab_inactive_separator(cx: &App, visible: bool) -> gpui::Div {
+    div()
+        .flex_shrink_0()
+        .flex()
+        .items_center()
+        .h_full()
+        .w(TAB_INACTIVE_SEPARATOR_WIDTH)
+        .child(
+            div()
+                .w(TAB_INACTIVE_SEPARATOR_WIDTH)
+                .h(TAB_INACTIVE_SEPARATOR_HEIGHT)
+                .bg(if visible {
+                    cx.theme().title_bar_border
+                } else {
+                    cx.theme().transparent
+                }),
+        )
+}
+
 #[derive(IntoElement)]
 pub struct TitleBar {
     style: StyleRefinement,

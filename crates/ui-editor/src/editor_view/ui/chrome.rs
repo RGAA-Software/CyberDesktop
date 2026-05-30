@@ -67,6 +67,7 @@ impl EngineEditor {
             .w_full()
             .track_scroll(&self.tab_bar_scroll_handle)
             .bottom_border(true)
+            .inactive_separators(true)
             .menu(true)
             .selected_index(active)
             .last_empty_space(
