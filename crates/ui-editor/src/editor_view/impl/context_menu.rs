@@ -5,7 +5,7 @@ use gpui::{
     Window, anchored, deferred, px,
 };
 
-use cyberfiles_ui::{PopupMenu, PopupMenuItem};
+use cyber_desktop_ui::{PopupMenu, PopupMenuItem};
 
 use super::super::imports::*;
 

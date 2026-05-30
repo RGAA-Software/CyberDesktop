@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use cyberfiles_text_engine::{EditSummary, TextBuffer};
+use cyber_desktop_text_engine::{EditSummary, TextBuffer};
 use gpui::{Font, Hsla, Pixels, SharedString, TextRun, Window, px};
 
 use crate::editor_view::text_util::char_to_byte;

@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
-use cyberfiles_assets::themes::{ANT, AYU, GRUVBOX, ONE};
-use cyberfiles_core::AppConfig;
+use cyber_desktop_assets::themes::{ANT, AYU, GRUVBOX, ONE};
+use cyber_desktop_core::AppConfig;
 use gpui::{px, App, SharedString};
 use gpui_component::{scroll::ScrollbarShow, Theme, ThemeConfig, ThemeMode, ThemeSet};
 

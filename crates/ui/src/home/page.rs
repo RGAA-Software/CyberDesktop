@@ -1,5 +1,5 @@
-use cyberfiles_core::{home_widget_prefs, save_home_widget_prefs, HomeWidgetPrefs};
-use cyberfiles_fs::{
+use cyber_desktop_core::{home_widget_prefs, save_home_widget_prefs, HomeWidgetPrefs};
+use cyber_desktop_fs::{
     file_tag_previews, list_drives, list_quick_access_entries, list_recent_files,
     load_home_file_tags, quick_access_automatic_destinations_dir, DirectoryWatcher, DriveInfo,
     FileTagPreview, QuickAccessEntry, RecentItem,

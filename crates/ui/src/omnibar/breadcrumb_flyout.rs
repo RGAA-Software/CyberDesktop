@@ -6,7 +6,7 @@
 
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use cyberfiles_fs::BreadcrumbDropdownResult;
+use cyber_desktop_fs::BreadcrumbDropdownResult;
 use gpui::{
     anchored, deferred, div, percentage, point, prelude::FluentBuilder, px, Anchor, AnyElement,
     App, AppContext, Context, DismissEvent, Element, ElementId, Entity, Focusable, GlobalElementId,

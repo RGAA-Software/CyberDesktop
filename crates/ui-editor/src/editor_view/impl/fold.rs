@@ -1,6 +1,6 @@
 //! Code folding (indentation-based creases, Zed-style).
 
-use cyberfiles_text_engine::{build_display_lines, crease_at_line, fold_header, FoldRange};
+use cyber_desktop_text_engine::{build_display_lines, crease_at_line, fold_header, FoldRange};
 
 use super::super::imports::*;
 

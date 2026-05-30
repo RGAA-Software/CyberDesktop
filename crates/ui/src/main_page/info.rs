@@ -1,4 +1,4 @@
-use cyberfiles_core::{load_config, save_config};
+use cyber_desktop_core::{load_config, save_config};
 use gpui::{prelude::*, *};
 
 use super::MainPage;
@@ -30,7 +30,7 @@ impl MainPage {
         cx.notify();
     }
 
-    pub(super) fn info_selection(&self, cx: &App) -> Option<cyberfiles_fs::FileItem> {
+    pub(super) fn info_selection(&self, cx: &App) -> Option<cyber_desktop_fs::FileItem> {
         let pane = self.active_pane(cx);
         if !matches!(
             pane.read(cx).target(),

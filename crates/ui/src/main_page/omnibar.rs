@@ -1,14 +1,14 @@
 #[cfg(not(windows))]
-use cyberfiles_core::pinned_folder_paths;
-use cyberfiles_core::record_path_history;
+use cyber_desktop_core::pinned_folder_paths;
+use cyber_desktop_core::record_path_history;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use cyberfiles_fs::{
+use cyber_desktop_fs::{
     breadcrumb_root_menu_sections, list_drives, path_breadcrumbs, PathBreadcrumb,
 };
 #[cfg(windows)]
-use cyberfiles_platform_windows::list_shell_quick_access_folders;
+use cyber_desktop_platform_windows::list_shell_quick_access_folders;
 use gpui::{prelude::*, *};
 use gpui_component::{
     h_flex,

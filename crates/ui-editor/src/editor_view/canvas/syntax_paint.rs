@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use cyberfiles_text_engine::{Document, HighlightKind, SyntaxState, TextBuffer};
+use cyber_desktop_text_engine::{Document, HighlightKind, SyntaxState, TextBuffer};
 use gpui::{Font, Hsla, Pixels, SharedString, TextRun, Window, WrappedLine, rgb};
 
 use super::super::text_util::wrap_rows;

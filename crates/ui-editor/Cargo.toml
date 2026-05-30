@@ -1,6 +1,6 @@
 [package]
-name = "cyberfiles-ui-editor"
-description = "Editor-focused UI entrypoints for CyberEditor"
+name = "cyber-desktop-ui-editor"
+description = "Editor-focused UI entrypoints for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
@@ -9,9 +9,9 @@ publish.workspace = true
 default = []
 
 [dependencies]
-cyberfiles-ui = { workspace = true, default-features = false, features = ["editor-shell"] }
-cyberfiles-assets.workspace = true
-cyberfiles-text-engine.workspace = true
+cyber-desktop-ui = { workspace = true, default-features = false, features = ["editor-shell"] }
+cyber-desktop-assets.workspace = true
+cyber-desktop-text-engine.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
 rust-i18n.workspace = true

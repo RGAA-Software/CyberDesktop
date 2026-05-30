@@ -1,10 +1,10 @@
 # CLI entry for a single app binary.
-#   .\scripts\Invoke-AppBuild.ps1 -Bin cyberfiles -Profile debug
-#   .\scripts\Invoke-AppBuild.ps1 -Bin cybereditor -Profile release
+#   .\scripts\Invoke-AppBuild.ps1 -Bin cyber_files -Profile debug
+#   .\scripts\Invoke-AppBuild.ps1 -Bin cyber_editor -Profile release
 
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("cyberfiles", "cybereditor")]
+    [ValidateSet("cyber_files", "cyber_editor")]
     [string] $Bin,
 
     [ValidateSet("debug", "release")]

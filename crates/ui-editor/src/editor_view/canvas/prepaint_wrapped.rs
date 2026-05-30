@@ -1,6 +1,6 @@
 //! Soft-wrap viewport layout.
 
-use cyberfiles_text_engine::Position;
+use cyber_desktop_text_engine::Position;
 use gpui::{
     fill, point, prelude::*, px, Bounds, Font, Hsla, PaintQuad, Pixels, SharedString, ShapedLine,
     TextRun, Window,
@@ -302,7 +302,7 @@ pub(crate) fn prepaint_wrapped(
 }
 
 fn wrap_rows_for_line(
-    buf: &cyberfiles_text_engine::TextBuffer,
+    buf: &cyber_desktop_text_engine::TextBuffer,
     line: usize,
     window: &mut Window,
     font: &Font,

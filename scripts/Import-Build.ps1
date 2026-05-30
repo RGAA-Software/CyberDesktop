@@ -1,13 +1,13 @@
-# Shared build helpers for CyberFiles application binaries.
+# Shared build helpers for CyberDesktop application binaries.
 # Dot-source from scripts under scripts/debug|release, or via scripts/Invoke-AppBuild.ps1.
 
-$script:CyberFilesRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$script:CyberFilesPackage = "cyberfiles"
+$script:CyberDesktopRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$script:CyberDesktopPackage = "cyber-desktop"
 
 function Get-CyberAppTargets {
     $ordered = [ordered]@{
-        cyberfiles  = @{ Features = @() }
-        cybereditor = @{ Features = @() }
+        cyber_files  = @{ Features = @() }
+        cyber_editor = @{ Features = @() }
     }
     foreach ($key in $ordered.Keys) {
         [PSCustomObject]@{
@@ -20,7 +20,7 @@ function Get-CyberAppTargets {
 function Invoke-CyberAppBuild {
     param(
         [Parameter(Mandatory)]
-        [ValidateSet("cyberfiles", "cybereditor")]
+        [ValidateSet("cyber_files", "cyber_editor")]
         [string] $Bin,
 
         [ValidateSet("debug", "release")]
@@ -28,15 +28,15 @@ function Invoke-CyberAppBuild {
     )
 
     $targets = [ordered]@{
-        cyberfiles  = @{ Features = @() }
-        cybereditor = @{ Features = @() }
+        cyber_files  = @{ Features = @() }
+        cyber_editor = @{ Features = @() }
     }
     $target = $targets[$Bin]
     if (-not $target) {
         throw "Unknown binary target: $Bin"
     }
 
-    $cargoArgs = @("build", "-p", $script:CyberFilesPackage, "--bin", $Bin)
+    $cargoArgs = @("build", "-p", $script:CyberDesktopPackage, "--bin", $Bin)
     if ($Profile -eq "release") {
         $cargoArgs += "--release"
     }
@@ -44,7 +44,7 @@ function Invoke-CyberAppBuild {
         $cargoArgs += @("--features", ($target.Features -join ","))
     }
 
-    Push-Location $script:CyberFilesRepoRoot
+    Push-Location $script:CyberDesktopRepoRoot
     try {
         Write-Host "cargo $($cargoArgs -join ' ')" -ForegroundColor Cyan
         & cargo @cargoArgs
@@ -53,7 +53,7 @@ function Invoke-CyberAppBuild {
         }
 
         $outDir = if ($Profile -eq "release") { "release" } else { "debug" }
-        $exe = Join-Path $script:CyberFilesRepoRoot "target\$outDir\$Bin.exe"
+        $exe = Join-Path $script:CyberDesktopRepoRoot "target\$outDir\$Bin.exe"
         if (Test-Path $exe) {
             Write-Host "OK: $exe" -ForegroundColor Green
         }

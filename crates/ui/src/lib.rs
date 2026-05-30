@@ -43,7 +43,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 
 use gpui::App;
 
-pub use cyberfiles_assets::Assets;
+pub use cyber_desktop_assets::Assets;
 pub use cyber_editor::{
     apply_theme_mode, build_editor_settings, editor_menu_bar, pick_open_file_path, pick_save_file_path,
     set_view_toggles, AboutEditor,
@@ -67,7 +67,7 @@ pub use shell::{open_editor_window, open_window, open_window_with_close_handler}
 pub fn init_editor_shell(cx: &mut App) {
     cyber_editor::init(cx);
 
-    let config = cyberfiles_core::load_config();
+    let config = cyber_desktop_core::load_config();
     if let Some(ref cfg) = config {
         set_locale(&cfg.locale);
     } else {
@@ -87,20 +87,20 @@ pub fn init_editor_shell(cx: &mut App) {
 #[cfg(feature = "full-app")]
 pub fn init(cx: &mut App) {
     init_editor_shell(cx);
-    cyberfiles_commands::init(cx);
+    cyber_desktop_commands::init(cx);
     popup_menu::init(cx);
 
-    let config = cyberfiles_core::load_config();
+    let config = cyber_desktop_core::load_config();
     if let Some(ref cfg) = config {
         shell::preferences::apply_config(cfg, cx);
     }
 
     #[cfg(windows)]
-    cyberfiles_platform_windows::warm_up_query_context_menu();
+    cyber_desktop_platform_windows::warm_up_query_context_menu();
 
     cx.on_action(|_: &shell::Quit, cx| {
         shell::preferences::persist_window_bounds(cx);
-        cyberfiles_core::flush_config();
+        cyber_desktop_core::flush_config();
         cx.quit();
     });
 }

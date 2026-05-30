@@ -1,3 +1,3 @@
 //! File-extension → syntax language id mapping (re-exported from text-engine).
 
-pub use cyberfiles_text_engine::{language_for_path, line_comment_prefix as comment_prefix};
+pub use cyber_desktop_text_engine::{language_for_path, line_comment_prefix as comment_prefix};

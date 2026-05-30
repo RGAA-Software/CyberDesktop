@@ -1,6 +1,8 @@
 [alias]
-cybereditor = "build -p cyberfiles --bin cybereditor"
-cybereditor-run = "run -p cyberfiles --bin cybereditor"
+cyber_files = "build -p cyber-desktop --bin cyber_files"
+cyber_files-run = "run -p cyber-desktop --bin cyber_files"
+cyber_editor = "build -p cyber-desktop --bin cyber_editor"
+cyber_editor-run = "run -p cyber-desktop --bin cyber_editor"
 
 # tree-sitter (`wasm` feature) and wasmtime both embed the Wasm C API. On MSVC, tree-sitter
 # object files mark those symbols as dllimport while wasmtime provides them statically in

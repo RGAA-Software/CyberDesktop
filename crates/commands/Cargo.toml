@@ -1,6 +1,6 @@
 [package]
-name = "cyberfiles-commands"
-description = "Command actions and key bindings for CyberFiles"
+name = "cyber-desktop-commands"
+description = "Command actions and key bindings for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true

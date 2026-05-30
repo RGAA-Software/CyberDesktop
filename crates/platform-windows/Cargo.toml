@@ -1,6 +1,6 @@
 [package]
-name = "cyberfiles-platform-windows"
-description = "Windows Shell integration for CyberFiles"
+name = "cyber-desktop-platform-windows"
+description = "Windows Shell integration for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true

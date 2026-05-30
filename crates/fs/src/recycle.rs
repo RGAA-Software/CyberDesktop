@@ -7,7 +7,7 @@ pub fn read_recycle_bin(
     options: DirectoryReadOptions,
     sort: SortPreferences,
 ) -> anyhow::Result<Vec<FileItem>> {
-    let entries = cyberfiles_platform_windows::list_recycle_bin_entries()?;
+    let entries = cyber_desktop_platform_windows::list_recycle_bin_entries()?;
     let mut items: Vec<FileItem> = entries
         .into_iter()
         .map(|entry| file_item_from_recycle_entry(entry, options))
@@ -26,7 +26,7 @@ pub fn read_recycle_bin(
 
 #[cfg(windows)]
 fn file_item_from_recycle_entry(
-    entry: cyberfiles_platform_windows::RecycleBinEntry,
+    entry: cyber_desktop_platform_windows::RecycleBinEntry,
     options: DirectoryReadOptions,
 ) -> FileItem {
     let extension = entry

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use gpui::{div, img, prelude::*, AnyElement, Image, ImageFormat, ObjectFit, Pixels, Window};
 
 #[cfg(windows)]
-use cyberfiles_platform_windows::shell_icon_png_scaled;
+use cyber_desktop_platform_windows::shell_icon_png_scaled;
 
 #[cfg(windows)]
 pub fn shell_icon_for_path(path: &Path, logical_size: Pixels, window: &Window) -> AnyElement {

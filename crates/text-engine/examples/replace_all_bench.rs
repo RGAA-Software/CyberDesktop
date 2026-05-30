@@ -1,14 +1,14 @@
 //! Replace All micro-benchmark: compares legacy strategies vs the optimized path.
 //!
-//! Run: `cargo run --release -p cyberfiles-text-engine --example replace_all_bench`
+//! Run: `cargo run --release -p cyber-desktop-text-engine --example replace_all_bench`
 
 use std::time::{Duration, Instant};
 
-use cyberfiles_text_engine::document::Document;
-use cyberfiles_text_engine::history::{Edit, Transaction};
-use cyberfiles_text_engine::search::{SearchOptions, Searcher};
-use cyberfiles_text_engine::selection::SelectionSet;
-use cyberfiles_text_engine::TextBuffer;
+use cyber_desktop_text_engine::document::Document;
+use cyber_desktop_text_engine::history::{Edit, Transaction};
+use cyber_desktop_text_engine::search::{SearchOptions, Searcher};
+use cyber_desktop_text_engine::selection::SelectionSet;
+use cyber_desktop_text_engine::TextBuffer;
 use regex::Regex;
 
 const WARMUP: u32 = 2;

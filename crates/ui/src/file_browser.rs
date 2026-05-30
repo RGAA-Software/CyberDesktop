@@ -22,17 +22,17 @@ use crate::shell::navigation::NavigationTarget;
 use crate::toolbar_button::TOOLBAR_BUTTON_PX;
 use crate::toolbar_button::{toolbar_dropdown_button, toolbar_icon_button, toolbar_labeled_button};
 use chrono::{DateTime, Local};
-use cyberfiles_commands::{
+use cyber_desktop_commands::{
     CancelRename, CompressItems, CopyItems, CopyPath, CutItems, DeleteItems,
     DeleteItemsPermanent, FocusSearch, NavigateNext, NavigatePrevious, NewFile, NewFolder,
     OpenItem, PasteItems, RefreshDirectory, RenameItem, SelectAll, ShellProperties, ViewCards,
     ViewColumns, ViewDetails, ViewGrid, ViewList, FILE_BROWSER,
 };
-use cyberfiles_core::{
+use cyber_desktop_core::{
     file_sort_prefs_from_config, file_view_mode_from_config, load_config, save_file_browser_prefs,
     VIEW_CARDS, VIEW_COLUMNS, VIEW_DETAILS, VIEW_GRID, VIEW_LIST,
 };
-use cyberfiles_fs::{
+use cyber_desktop_fs::{
     column_trail_for, create_directory, create_file, delete_paths, file_items_for_tag_paths,
     filter_items_by_query, home_navigation_path, move_items, read_directory, read_recycle_bin,
     recycle_paths, rename_path, temp_zip_output_path, unique_new_file_name,
@@ -40,7 +40,7 @@ use cyberfiles_fs::{
     unique_new_folder_name, ClipboardOperation, DirectoryReadOptions, DirectoryWatcher,
     FileClipboard, FileItem, FileItemKind, SortDirection, SortOption, SortPreferences,
 };
-use cyberfiles_platform_windows::{self as platform, ShellContextMenuEntry};
+use cyber_desktop_platform_windows::{self as platform, ShellContextMenuEntry};
 use gpui::{
     actions, anchored, deferred, prelude::*, ClickEvent, ClipboardItem, DismissEvent, Entity,
     FocusHandle, Focusable, ParentElement, ScrollStrategy, Subscription, Window, *,

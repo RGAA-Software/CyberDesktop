@@ -5,7 +5,7 @@ use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
-use cyberfiles_fs::{
+use cyber_desktop_fs::{
     compress_paths_to_zip_at_path_cancellable, paths_conflict, transfer_one_cancellable,
     ClipboardOperation, CompressCancelled, ConflictResolution, FileClipboard, TransferCancelled,
     TransferOutcome,

@@ -485,7 +485,7 @@ pub fn pinned_folder_paths() -> Vec<PathBuf> {
 }
 
 pub fn config_path() -> Option<PathBuf> {
-    ProjectDirs::from("com", "cyberfiles", APP_NAME).map(|dirs| dirs.config_dir().join(CONFIG_FILE))
+    ProjectDirs::from("com", "cyber_desktop", APP_NAME).map(|dirs| dirs.config_dir().join(CONFIG_FILE))
 }
 
 /// Loads settings from the in-memory cache (disk on first access).
@@ -523,7 +523,7 @@ pub fn flush_config() {
         return;
     };
     if let Err(err) = write_config_to_disk(&config) {
-        eprintln!("cyberfiles: failed to flush config: {err}");
+        eprintln!("cyber_desktop: failed to flush config: {err}");
     }
 }
 
@@ -564,7 +564,7 @@ fn config_flush_worker(rx: mpsc::Receiver<()>) {
             continue;
         };
         if let Err(err) = write_config_to_disk(&config) {
-            eprintln!("cyberfiles: failed to save config: {err}");
+            eprintln!("cyber_desktop: failed to save config: {err}");
         }
     }
 }

@@ -1,7 +1,7 @@
 //! UI fragment: `ui/chrome.rs`.
 
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
-use cyberfiles_ui::{apply_theme_mode, Tab, TabBar};
+use cyber_desktop_ui::{apply_theme_mode, Tab, TabBar};
 use gpui_component::{
     button::{Button, ButtonVariants as _},
     h_flex,

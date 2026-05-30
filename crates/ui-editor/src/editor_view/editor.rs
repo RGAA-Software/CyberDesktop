@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use cyberfiles_text_engine::{Document, FoldRange, SyntaxState};
+use cyber_desktop_text_engine::{Document, FoldRange, SyntaxState};
 use gpui::{prelude::*, px, point, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, ScrollHandle, Size, Window};
 
 use super::language::language_for_path;

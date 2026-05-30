@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use cyberfiles_core::{AppConfig, FileTagConfig};
-use cyberfiles_fs::{list_drives, DriveInfo};
+use cyber_desktop_core::{AppConfig, FileTagConfig};
+use cyber_desktop_fs::{list_drives, DriveInfo};
 #[cfg(windows)]
-use cyberfiles_platform_windows::{
+use cyber_desktop_platform_windows::{
     list_cloud_drive_roots, list_known_folder_folders, list_shell_quick_access_folders,
     list_wsl_distro_roots, FOLDERID_LIBRARIES, FOLDERID_NETWORK,
 };

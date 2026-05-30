@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cyberfiles_ui_editor::{init, open_editor_window, Assets, EngineEditor};
+use cyber_desktop_ui_editor::{init, open_editor_window, Assets, EngineEditor};
 
 fn main() {
     let path = std::env::args_os().nth(1).map(PathBuf::from);

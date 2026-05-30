@@ -1338,17 +1338,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2931af7e13dc045d8e9d26afccc6fa115d64e115c9c84b1166288b46f6782c2"
 
 [[package]]
-name = "cyberfiles"
+name = "cyber-desktop"
 version = "0.1.0"
 dependencies = [
- "cyberfiles-ui",
- "cyberfiles-ui-editor",
+ "cyber-desktop-ui",
+ "cyber-desktop-ui-editor",
  "embed-resource",
  "gpui_platform",
 ]
 
 [[package]]
-name = "cyberfiles-assets"
+name = "cyber-desktop-assets"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1358,14 +1358,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyberfiles-commands"
+name = "cyber-desktop-commands"
 version = "0.1.0"
 dependencies = [
  "gpui",
 ]
 
 [[package]]
-name = "cyberfiles-core"
+name = "cyber-desktop-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1378,12 +1378,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyberfiles-fs"
+name = "cyber-desktop-fs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cyberfiles-core",
- "cyberfiles-platform-windows",
+ "cyber-desktop-core",
+ "cyber-desktop-platform-windows",
  "flume",
  "lnk",
  "notify 8.2.0",
@@ -1393,7 +1393,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyberfiles-platform-windows"
+name = "cyber-desktop-platform-windows"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1403,7 +1403,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyberfiles-text-engine"
+name = "cyber-desktop-text-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1456,17 +1456,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyberfiles-ui"
+name = "cyber-desktop-ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "cyberfiles-assets",
- "cyberfiles-commands",
- "cyberfiles-core",
- "cyberfiles-fs",
- "cyberfiles-platform-windows",
- "cyberfiles-text-engine",
+ "cyber-desktop-assets",
+ "cyber-desktop-commands",
+ "cyber-desktop-core",
+ "cyber-desktop-fs",
+ "cyber-desktop-platform-windows",
+ "cyber-desktop-text-engine",
  "gpui",
  "gpui-component",
  "rfd",
@@ -1479,12 +1479,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyberfiles-ui-editor"
+name = "cyber-desktop-ui-editor"
 version = "0.1.0"
 dependencies = [
- "cyberfiles-assets",
- "cyberfiles-text-engine",
- "cyberfiles-ui",
+ "cyber-desktop-assets",
+ "cyber-desktop-text-engine",
+ "cyber-desktop-ui",
  "gpui",
  "gpui-component",
  "rust-i18n",

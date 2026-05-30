@@ -1,6 +1,6 @@
 //! Non-wrapped (horizontal scroll) viewport layout.
 
-use cyberfiles_text_engine::Position;
+use cyber_desktop_text_engine::Position;
 use gpui::{
     fill, point, prelude::*, px, App, Bounds, Font, Hsla, PaintQuad, Pixels, SharedString,
     TextRun, Window,

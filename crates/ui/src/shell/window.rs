@@ -1,6 +1,6 @@
-use cyberfiles_core::window_size;
+use cyber_desktop_core::window_size;
 #[cfg(feature = "full-app")]
-use cyberfiles_core::APP_NAME;
+use cyber_desktop_core::APP_NAME;
 use gpui::{
     div, px, size, AnyView, App, AppContext, Bounds, Context, Focusable, IntoElement,
     InteractiveElement, ParentElement, Render, SharedString, Size, Styled, Window, WindowBounds,

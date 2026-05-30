@@ -1,4 +1,4 @@
-use cyberfiles_core::{load_config, APP_NAME};
+use cyber_desktop_core::{load_config, APP_NAME};
 use gpui::{
     prelude::FluentBuilder, App, AppContext, Entity, InteractiveElement, IntoElement,
     ParentElement, SharedString, Styled, Window,
@@ -41,7 +41,7 @@ use crate::shell::preferences::{
     sidebar_section_library, sidebar_section_network, sidebar_section_pinned, sidebar_section_wsl,
 };
 use crate::theme;
-use cyberfiles_commands::shortcut_reference;
+use cyber_desktop_commands::shortcut_reference;
 
 fn context_menu_settings_group(cx: &App) -> SettingGroup {
     SettingGroup::new()
@@ -326,7 +326,7 @@ pub fn build_settings(cx: &App) -> Settings {
         ("minimal".into(), ts(t!("settings.sidebar.mode.minimal"))),
     ];
 
-    Settings::new("cyberfiles-settings")
+    Settings::new("cyber_desktop-settings")
         .with_group_variant(GroupBoxVariant::Outline)
         .pages(vec![
             SettingPage::new(ts(t!("settings.page.general")))

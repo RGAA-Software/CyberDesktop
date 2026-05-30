@@ -5,7 +5,7 @@ use gpui::{actions, App, KeyBinding};
 pub use shortcuts::{shortcut_reference, ShortcutHelp};
 
 actions!(
-    cyberfiles_commands,
+    cyber_desktop_commands,
     [
         NavigateBack,
         NavigateForward,

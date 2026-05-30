@@ -1,6 +1,6 @@
 //! Editor toolbar icons — same helpers as CyberFiles (`toolbar_icon` + `toolbar_icon_button`).
 
-pub use cyberfiles_ui::{toolbar_icon, toolbar_icon_button};
+pub use cyber_desktop_ui::{toolbar_icon, toolbar_icon_button};
 
 pub(crate) mod paths {
     pub const CLOSE: &str = "icons/editor_close.svg";

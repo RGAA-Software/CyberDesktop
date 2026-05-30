@@ -3,8 +3,8 @@
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, OnceLock, RwLock};
 
-use cyberfiles_fs::{FileItem, FileItemKind};
-use cyberfiles_platform_windows::{self as platform};
+use cyber_desktop_fs::{FileItem, FileItemKind};
+use cyber_desktop_platform_windows::{self as platform};
 
 /// Cache key (`:folder:`, `.zip`, `:noext:`) — matches Files `IconCacheService`.
 pub type ListIconKey = String;

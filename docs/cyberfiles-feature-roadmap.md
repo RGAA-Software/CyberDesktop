@@ -205,7 +205,7 @@ pub fn restore_recycle_bin_items(shell_paths: &[PathBuf]) -> anyhow::Result<()>;
 
 **(2) fs 层薄封装**（可选，便于跨平台/测试）：`crates/fs/src/recycle.rs` 加：
 ```rust
-#[cfg(windows)] pub fn empty_recycle_bin() -> anyhow::Result<()> { cyberfiles_platform_windows::empty_recycle_bin() }
+#[cfg(windows)] pub fn empty_recycle_bin() -> anyhow::Result<()> { cyber_desktop_platform_windows::empty_recycle_bin() }
 #[cfg(windows)] pub fn restore_recycle_items(paths: &[PathBuf]) -> anyhow::Result<()> { ... }
 // 非 windows 返回 Ok(())/bail
 ```
@@ -351,7 +351,7 @@ pub fn build_path_tag_index(tags: &[(String, Option<String>, Vec<PathBuf>)]) -> 
 **(6) i18n。** `files.tags.choose_color`、`files.tags.toggle` 等。
 
 ### 阶段 B（NTFS ADS，可后置）
-- platform-windows 新增 `read_file_tags(path)`/`write_file_tags(path, &[tag_id])`：写入 `path:files.cyberfiles.tags`（或兼容 Files 的 `:com.files.tags` 流名以互通）。用 `CreateFileW` + 流名后缀。
+- platform-windows 新增 `read_file_tags(path)`/`write_file_tags(path, &[tag_id])`：写入 `path:files.cyber_desktop.tags`（或兼容 Files 的 `:com.files.tags` 流名以互通）。用 `CreateFileW` + 流名后缀。
 - 同步策略：以 ADS 为准还是 config 为准需定义；Files 用独立数据库 + ADS。第一版建议保持 config 为单一数据源，ADS 仅作为可选导出。
 
 ### 边界情况
@@ -534,6 +534,6 @@ pub fn begin_drag_out(paths: &[PathBuf], allow_move: bool) -> anyhow::Result<Dra
 ### 验证流程（每个功能完成后）
 ```powershell
 cargo build
-cargo test -p cyberfiles-fs        # 纯逻辑单测（archive/group/history/omnibar）
+cargo test -p cyber-desktop-fs        # 纯逻辑单测（archive/group/history/omnibar）
 ```
 UI 行为以 `scripts/debug/cyberfiles.ps1`（或 `scripts/build-debug-cyberfiles.ps1`）跑起来手动验收。

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use super::super::imports::*;
-use cyberfiles_text_engine::{
+use cyber_desktop_text_engine::{
     FindInLinesOutcome, LineMatch, SearchOptions, Searcher, FIND_IN_FILE_MAX_MATCHES,
 };
 

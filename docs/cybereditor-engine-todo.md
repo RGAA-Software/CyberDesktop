@@ -76,9 +76,9 @@ crates/ui-editor/     GPUI 自绘编辑 Element + 输入 + 标签/状态栏/查�
 每个引擎模块都带单测，按步编译验证：
 
 ```powershell
-cargo test -p cyberfiles-text-engine
-cargo build -p cyberfiles --bin cybereditor
-cargo run  -p cyberfiles --bin cybereditor -- <file>
+cargo test -p cyber-desktop-text-engine
+cargo build -p cyber-desktop --bin cyber_editor
+cargo run  -p cyber-desktop --bin cyber_editor -- <file>
 ```
 
 ---

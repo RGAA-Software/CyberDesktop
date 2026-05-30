@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cyberfiles_core::{load_config, save_config};
+use cyber_desktop_core::{load_config, save_config};
 use gpui::prelude::*;
 
 use super::MainPage;
@@ -94,7 +94,7 @@ impl MainPage {
         if !config.pinned_folders.iter().any(|p| p == &path_string) {
             config.pinned_folders.push(path_string);
             let _ = save_config(&config);
-            if let Err(error) = cyberfiles_fs::sync_pin_to_shell_quick_access(&path) {
+            if let Err(error) = cyber_desktop_fs::sync_pin_to_shell_quick_access(&path) {
                 eprintln!("[home] pintohome: {error:#}");
             }
             self.refresh_sidebar_cache(cx);
@@ -110,7 +110,7 @@ impl MainPage {
             let _ = save_config(&config);
             let path = PathBuf::from(path_string);
             if path.exists() {
-                if let Err(error) = cyberfiles_fs::sync_unpin_from_shell_quick_access(&path) {
+                if let Err(error) = cyber_desktop_fs::sync_unpin_from_shell_quick_access(&path) {
                     eprintln!("[home] unpinfromhome: {error:#}");
                 }
             }

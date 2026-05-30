@@ -1,6 +1,6 @@
 # CyberEditor `editor_view` 模块拆分计划
 
-`crates/ui-editor/src/editor_view/` 由原 ~4200 行单文件拆成可维护子模块。对外 API 不变：`cyberfiles_ui_editor::EngineEditor`。
+`crates/ui-editor/src/editor_view/` 由原 ~4200 行单文件拆成可维护子模块。对外 API 不变：`cyber_desktop_ui_editor::EngineEditor`。
 
 ## 目标目录（已落地）
 
@@ -57,7 +57,7 @@ crates/ui-editor/src/editor_view/
 ### 阶段 5：收尾
 
 - [x] `mod.rs` 仅模块声明与 `pub use`
-- [x] `cargo build -p cyberfiles-ui-editor` 与 `--bin cybereditor` 通过
+- [x] `cargo build -p cyber-desktop-ui-editor` 与 `--bin cyber_editor` 通过
 - [ ] 手动冒烟（编辑、软换行、查找、标签页、关闭确认）
 
 ## 原则

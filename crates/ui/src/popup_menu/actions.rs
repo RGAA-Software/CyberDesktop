@@ -4,13 +4,13 @@ use gpui::{actions, Action};
 use serde::Deserialize;
 
 #[derive(Clone, Action, PartialEq, Eq, Deserialize)]
-#[action(namespace = cyberfiles_popup, no_json)]
+#[action(namespace = cyber_desktop_popup, no_json)]
 pub struct Confirm {
     pub secondary: bool,
 }
 
 actions!(
-    cyberfiles_popup,
+    cyber_desktop_popup,
     [
         Cancel,
         SelectUp,

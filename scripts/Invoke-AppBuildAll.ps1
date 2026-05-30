@@ -1,4 +1,4 @@
-# Build every application binary (cyberfiles + cybereditor).
+# Build every application binary (cyber_files + cyber_editor).
 #   .\scripts\Invoke-AppBuildAll.ps1 -Profile debug
 #   .\scripts\Invoke-AppBuildAll.ps1 -Profile release
 

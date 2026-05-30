@@ -7,8 +7,8 @@ use gpui_component::{
 
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::PaneShell;
-use cyberfiles_core::SessionPaneLayout;
-use cyberfiles_fs::home_navigation_path;
+use cyber_desktop_core::SessionPaneLayout;
+use cyber_desktop_fs::home_navigation_path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaneSide {

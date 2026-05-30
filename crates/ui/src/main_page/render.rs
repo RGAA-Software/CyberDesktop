@@ -1,5 +1,5 @@
-use cyberfiles_core::load_config;
-use cyberfiles_fs::home_navigation_path;
+use cyber_desktop_core::load_config;
+use cyber_desktop_fs::home_navigation_path;
 use gpui::{prelude::*, *};
 use gpui_component::{
     badge::Badge,

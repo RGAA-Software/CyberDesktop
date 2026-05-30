@@ -14,7 +14,7 @@ const RECENT_LIMIT: usize = 20;
 pub fn recent_documents_enabled() -> bool {
     #[cfg(windows)]
     {
-        cyberfiles_platform_windows::recent_documents_tracking_enabled()
+        cyber_desktop_platform_windows::recent_documents_tracking_enabled()
     }
     #[cfg(not(windows))]
     {

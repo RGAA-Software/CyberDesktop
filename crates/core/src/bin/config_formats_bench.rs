@@ -1,10 +1,10 @@
 //! Compare serialize/deserialize size and time for typical AppConfig payloads.
-//! Run: `cargo run -p cyberfiles-core --features config_bench --bin config_formats_bench --release`
+//! Run: `cargo run -p cyber-desktop-core --features config_bench --bin config_formats_bench --release`
 
 use std::hint::black_box;
 use std::time::Instant;
 
-use cyberfiles_core::AppConfig;
+use cyber_desktop_core::AppConfig;
 
 fn sample_config() -> AppConfig {
     let mut config = AppConfig::default();
@@ -23,7 +23,7 @@ fn sample_config() -> AppConfig {
     ];
     config.session_active_tab = 1;
     config.file_tags = (0..5)
-        .map(|i| cyberfiles_core::FileTagConfig {
+        .map(|i| cyber_desktop_core::FileTagConfig {
             name: format!("tag-{i}"),
             color: Some("#ff5500".into()),
             paths: (0..8)

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cyberfiles_core::record_path_history;
+use cyber_desktop_core::record_path_history;
 use gpui::{prelude::*, *};
 
 use super::MainPage;

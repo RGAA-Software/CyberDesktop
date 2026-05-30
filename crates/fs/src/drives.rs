@@ -53,7 +53,7 @@ pub fn list_drives() -> Vec<DriveInfo> {
 
 #[cfg(windows)]
 fn list_windows_drives() -> Vec<DriveInfo> {
-    use cyberfiles_platform_windows::{volume_details, DriveKind};
+    use cyber_desktop_platform_windows::{volume_details, DriveKind};
 
     let mut drives = Vec::new();
 

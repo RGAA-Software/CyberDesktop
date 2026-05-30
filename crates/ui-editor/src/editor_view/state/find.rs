@@ -1,4 +1,4 @@
-use cyberfiles_text_engine::{SearchOptions, Searcher};
+use cyber_desktop_text_engine::{SearchOptions, Searcher};
 use gpui::{Entity, Subscription};
 use gpui_component::input::InputState;
 

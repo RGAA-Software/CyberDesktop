@@ -512,9 +512,9 @@ pub fn open_in_new_explorer_window(path: &Path) -> anyhow::Result<()> {
 /// Preloads Shell `QueryContextMenu` on a background thread (Files `WarmUpQueryContextMenuAsync`).
 pub fn warm_up_query_context_menu() {
     std::thread::Builder::new()
-        .name("cyberfiles-shell-warmup".into())
+        .name("cyber_desktop-shell-warmup".into())
         .spawn(|| {
-            let path = std::env::temp_dir().join("cyberfiles_shell_warmup.txt");
+            let path = std::env::temp_dir().join("cyber_desktop_shell_warmup.txt");
             shell_log!("warm_up start: {}", path.display());
             let result: anyhow::Result<Vec<ShellContextMenuEntry>> = (|| {
                 std::fs::write(&path, b"")?;
@@ -689,9 +689,9 @@ mod windows_tests {
     #[test]
     fn query_shell_context_menu_items_smoke() {
         let dir = std::env::temp_dir();
-        let file = dir.join("cyberfiles_shell_menu_test.txt");
+        let file = dir.join("cyber_desktop_shell_menu_test.txt");
         fs::write(&file, b"test").expect("write temp file");
-        let subdir = dir.join("cyberfiles_shell_menu_test_dir");
+        let subdir = dir.join("cyber_desktop_shell_menu_test_dir");
         fs::create_dir_all(&subdir).expect("create temp dir");
 
         for (label, paths) in [

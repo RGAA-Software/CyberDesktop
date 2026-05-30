@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use cyberfiles_fs::{BreadcrumbMenuSection, DirectoryReadOptions, PathBreadcrumb};
+use cyber_desktop_fs::{BreadcrumbMenuSection, DirectoryReadOptions, PathBreadcrumb};
 use gpui::{App, Window};
 
 /// Callbacks for [`super::breadcrumb_bar::PathBreadcrumbBar`] (built once per main page).

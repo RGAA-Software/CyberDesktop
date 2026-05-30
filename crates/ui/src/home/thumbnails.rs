@@ -8,7 +8,7 @@ use gpui::{img, prelude::*, AnyElement, Context, Image, ImageFormat, ObjectFit, 
 use super::page::HomePage;
 
 #[cfg(windows)]
-use cyberfiles_platform_windows::shell_thumbnail_png_scaled;
+use cyber_desktop_platform_windows::shell_thumbnail_png_scaled;
 
 use crate::shell_icon::shell_icon_for_path;
 

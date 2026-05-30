@@ -3,10 +3,10 @@ use gpui_component::{menu::AppMenuBar, GlobalState};
 
 use rust_i18n::t;
 
-use cyberfiles_commands::ReopenClosedTab;
+use cyber_desktop_commands::ReopenClosedTab;
 
 use super::actions::ReopenClosedTabAt;
-use cyberfiles_core::load_config;
+use cyber_desktop_core::load_config;
 
 use super::actions::{About, Quit};
 use super::navigation::NavigationTarget;

@@ -1,6 +1,6 @@
 [package]
-name = "cyberfiles-assets"
-description = "Files app icons (ThemedIcon SVG) and assets for CyberFiles"
+name = "cyber-desktop-assets"
+description = "App icons (ThemedIcon SVG) and assets for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true

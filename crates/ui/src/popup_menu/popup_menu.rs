@@ -22,7 +22,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 /// Key context for CyberFiles popup menus (separate from gpui-component `PopupMenu`).
-const CONTEXT: &str = "CyberfilesPopupMenu";
+const CONTEXT: &str = "CyberDesktopPopupMenu";
 
 /// Default row height for menu and submenu rows.
 pub const DEFAULT_ITEM_ROW_HEIGHT: Pixels = px(32.);

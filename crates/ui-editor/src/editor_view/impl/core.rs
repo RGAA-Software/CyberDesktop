@@ -1,6 +1,6 @@
 //! `EngineEditor` — `core`.
 
-use cyberfiles_text_engine::parse_rope;
+use cyber_desktop_text_engine::parse_rope;
 
 use super::super::canvas::{cols_per_row, estimated_wrap_rows, measure_avg_char_width};
 use super::super::state::LONG_LINE_COL_THRESHOLD;

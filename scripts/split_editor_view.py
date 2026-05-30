@@ -60,7 +60,7 @@ def write_impl(path: str, start: int, end: int, wrap: bool = True) -> None:
             + "use std::ops::Range;\n"
             + "use std::path::PathBuf;\n"
             + "use std::time::SystemTime;\n\n"
-            + "use cyberfiles_text_engine::{load_file, Document, SyntaxState};\n"
+            + "use cyber_desktop_text_engine::{load_file, Document, SyntaxState};\n"
             + "use gpui::{px, App, Bounds, Context, Entity, FocusHandle, Pixels, Window};\n\n"
             + "use super::language::language_for_path;\n"
             + "use super::state::{\n"

@@ -5,11 +5,11 @@ pub use std::path::{Path, PathBuf};
 pub use std::rc::Rc;
 pub use std::time::{Duration, SystemTime};
 
-pub use cyberfiles_text_engine::{
+pub use cyber_desktop_text_engine::{
     search_directory, Cursor, Document, FileMatches, GlobalSearchOptions, Match,
     Position, SearchOptions, Searcher, SelectionSet, SyntaxState, TextBuffer,
 };
-pub use cyberfiles_ui::{
+pub use cyber_desktop_ui::{
     build_editor_settings, editor_menu_bar, set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, GoToLine,
     IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,

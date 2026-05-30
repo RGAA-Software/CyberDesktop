@@ -16,7 +16,7 @@ use crate::resizable::{h_resizable, resizable_panel, ResizableState};
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::ShellPanes;
 use crate::sidebar::render_sidebar;
-use cyberfiles_commands::PasteItems;
+use cyber_desktop_commands::PasteItems;
 
 impl MainPage {
     pub(super) fn render_content_column(
@@ -77,10 +77,10 @@ impl MainPage {
 
         let count = clipboard.paths.len();
         let operation_label = match clipboard.operation {
-            cyberfiles_fs::ClipboardOperation::Copy => {
+            cyber_desktop_fs::ClipboardOperation::Copy => {
                 t!("files.shelf.copying", count = count).to_string()
             }
-            cyberfiles_fs::ClipboardOperation::Cut => {
+            cyber_desktop_fs::ClipboardOperation::Cut => {
                 t!("files.shelf.cutting", count = count).to_string()
             }
         };

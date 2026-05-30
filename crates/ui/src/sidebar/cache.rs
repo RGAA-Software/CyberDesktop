@@ -1,4 +1,4 @@
-use cyberfiles_core::AppConfig;
+use cyber_desktop_core::AppConfig;
 
 use super::data::build_sidebar_sections;
 use super::model::SidebarSection;

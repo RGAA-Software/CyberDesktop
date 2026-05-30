@@ -1,4 +1,4 @@
-use cyberfiles_ui::{init, open_main_window, Assets, MainPage};
+use cyber_desktop_ui::{init, open_main_window, Assets, MainPage};
 
 fn main() {
     let app = gpui_platform::application().with_assets(Assets);

@@ -1,6 +1,6 @@
 [package]
-name = "cyberfiles-ui"
-description = "GPUI shell and views for CyberFiles"
+name = "cyber-desktop-ui"
+description = "GPUI shell and views for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
@@ -13,14 +13,14 @@ editor-shell = []
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
-cyberfiles-commands.workspace = true
-cyberfiles-core.workspace = true
-cyberfiles-fs.workspace = true
-cyberfiles-platform-windows.workspace = true
-cyberfiles-text-engine.workspace = true
+cyber-desktop-commands.workspace = true
+cyber-desktop-core.workspace = true
+cyber-desktop-fs.workspace = true
+cyber-desktop-platform-windows.workspace = true
+cyber-desktop-text-engine.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
-cyberfiles-assets.workspace = true
+cyber-desktop-assets.workspace = true
 rfd.workspace = true
 rust-i18n.workspace = true
 serde.workspace = true

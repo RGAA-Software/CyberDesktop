@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cyberfiles_core::{
+use cyber_desktop_core::{
     load_config, save_config, ClosedTabSession, SessionPaneLayout,
 };
 use gpui::{prelude::*, *};
@@ -22,7 +22,7 @@ impl MainPage {
             NavigationTarget::FileTag(name) => format!("tag:{name}"),
             NavigationTarget::Path(_) => current_path
                 .cloned()
-                .unwrap_or_else(cyberfiles_fs::home_navigation_path)
+                .unwrap_or_else(cyber_desktop_fs::home_navigation_path)
                 .to_string_lossy()
                 .into_owned(),
         }

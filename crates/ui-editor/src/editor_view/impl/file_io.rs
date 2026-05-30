@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use cyberfiles_text_engine::{load_file_with_progress, LoadProgress};
+use cyber_desktop_text_engine::{load_file_with_progress, LoadProgress};
 
 use super::super::imports::*;
 
@@ -108,7 +108,7 @@ impl EngineEditor {
     pub(crate) fn install_loaded(
         &mut self,
         target: usize,
-        loaded: cyberfiles_text_engine::LoadedFile,
+        loaded: cyber_desktop_text_engine::LoadedFile,
         path: PathBuf,
         restore: Option<(usize, Pixels)>,
         _cx: &mut Context<Self>,

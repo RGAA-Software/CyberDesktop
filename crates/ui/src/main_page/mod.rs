@@ -1,9 +1,9 @@
-use cyberfiles_core::{
+use cyber_desktop_core::{
     load_config, APP_NAME,
 };
 
 const MAX_CLOSED_TABS: usize = 12;
-use cyberfiles_commands::{
+use cyber_desktop_commands::{
     CopyItems, CutItems, FocusOmnibar, NavigateBack, NavigateForward, NavigateUp, PasteItems,
     ReopenClosedTab, SelectAll, FILE_BROWSER,
 };

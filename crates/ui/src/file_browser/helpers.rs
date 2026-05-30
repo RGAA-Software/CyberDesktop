@@ -388,16 +388,16 @@ fn resolve_cybereditor_exe() -> anyhow::Result<PathBuf> {
     if let Ok(current) = std::env::current_exe() {
         if let Some(dir) = current.parent() {
             #[cfg(windows)]
-            let name = "cybereditor.exe";
+            let name = "cyber_editor.exe";
             #[cfg(not(windows))]
-            let name = "cybereditor";
+            let name = "cyber_editor";
             let sibling = dir.join(name);
             if sibling.is_file() {
                 return Ok(sibling);
             }
         }
     }
-    Ok(PathBuf::from("cybereditor"))
+    Ok(PathBuf::from("cyber_editor"))
 }
 
 pub(super) fn is_executable_or_script_path(path: &Path) -> bool {

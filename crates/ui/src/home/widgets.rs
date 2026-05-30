@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use chrono::{DateTime, Local};
-use cyberfiles_fs::{
+use cyber_desktop_fs::{
     eject_drive, open_storage_sense_settings, recent_documents_enabled, DriveInfo, FileTagPreview,
     QuickAccessEntry, RecentItem,
 };
-use cyberfiles_platform_windows::open_item_properties;
+use cyber_desktop_platform_windows::open_item_properties;
 use gpui::{prelude::*, MouseButton, MouseDownEvent, *};
 use gpui_component::{
     alert::Alert,
@@ -31,7 +31,7 @@ use crate::popup_menu::{ContextMenuExt as _, PopupMenu, PopupMenuItem};
 use crate::shell_icon::shell_icon_for_path;
 
 #[cfg(windows)]
-use cyberfiles_platform_windows::{list_known_folder_folders, FOLDERID_NETWORK};
+use cyber_desktop_platform_windows::{list_known_folder_folders, FOLDERID_NETWORK};
 
 #[derive(Clone)]
 pub struct NetworkEntry {

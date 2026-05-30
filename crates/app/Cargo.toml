@@ -1,27 +1,27 @@
 [package]
-name = "cyberfiles"
-description = "CyberFiles desktop application"
+name = "cyber-desktop"
+description = "CyberDesktop — multi-app workspace (cyber_files, cyber_editor)"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
 build = "build.rs"
 
 [[bin]]
-name = "cyberfiles"
+name = "cyber_files"
 path = "src/main.rs"
 required-features = ["full-app"]
 
 [[bin]]
-name = "cybereditor"
+name = "cyber_editor"
 path = "src/cybereditor.rs"
 
 [features]
 default = ["full-app"]
-full-app = ["dep:cyberfiles-ui"]
+full-app = ["dep:cyber-desktop-ui"]
 
 [dependencies]
-cyberfiles-ui = { workspace = true, features = ["full-app"], optional = true }
-cyberfiles-ui-editor.workspace = true
+cyber-desktop-ui = { workspace = true, features = ["full-app"], optional = true }
+cyber-desktop-ui-editor.workspace = true
 gpui_platform.workspace = true
 
 [build-dependencies]

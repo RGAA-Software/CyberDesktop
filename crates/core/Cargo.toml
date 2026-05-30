@@ -1,6 +1,6 @@
 [package]
-name = "cyberfiles-core"
-description = "Shared constants and config for CyberFiles"
+name = "cyber-desktop-core"
+description = "Shared constants and config for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true

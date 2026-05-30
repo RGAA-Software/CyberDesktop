@@ -17,7 +17,7 @@ impl PaneShell {
     pub fn new(cx: &mut Context<Self>, target: NavigationTarget) -> Self {
         let initial_path = match &target {
             NavigationTarget::Path(path) => path.clone(),
-            _ => cyberfiles_fs::home_navigation_path(),
+            _ => cyber_desktop_fs::home_navigation_path(),
         };
         Self {
             target,

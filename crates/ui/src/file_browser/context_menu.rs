@@ -3,14 +3,14 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-use cyberfiles_commands::{
+use cyber_desktop_commands::{
     CompressItems, CopyItems, CopyPath, CutItems, DeleteItems, DeleteItemsPermanent, NewFile,
     NewFolder, OpenItem, PasteItems, RefreshDirectory, RenameItem, ShellProperties, ViewCards,
     ViewColumns, ViewDetails, ViewGrid,
 };
-use cyberfiles_core::{context_menu_item_prefs, load_config};
-use cyberfiles_fs::SortOption;
-use cyberfiles_platform_windows::{self as platform, ShellContextMenuEntry};
+use cyber_desktop_core::{context_menu_item_prefs, load_config};
+use cyber_desktop_fs::SortOption;
+use cyber_desktop_platform_windows::{self as platform, ShellContextMenuEntry};
 use gpui::{px, Context, Entity, Pixels, SharedString, Window};
 use gpui_component::{notification::Notification, Icon, IconName, WindowExt as _};
 

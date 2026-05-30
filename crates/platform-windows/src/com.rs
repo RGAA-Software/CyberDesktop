@@ -17,7 +17,7 @@ where
 {
     let (reply_tx, reply_rx) = mpsc::sync_channel(1);
     thread::Builder::new()
-        .name("cyberfiles-sta-task".into())
+        .name("cyber_desktop-sta-task".into())
         .spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
                 let _ = OleInitialize(None);
@@ -27,7 +27,7 @@ where
             }));
             let _ = reply_tx.send(result);
         })
-        .expect("spawn cyberfiles-sta-task");
+        .expect("spawn cyber_desktop-sta-task");
     match reply_rx.recv().expect("sta task reply") {
         Ok(value) => value,
         Err(payload) => std::panic::resume_unwind(payload),

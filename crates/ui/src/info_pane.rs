@@ -1,4 +1,4 @@
-use cyberfiles_fs::{
+use cyber_desktop_fs::{
     preview_kind, read_text_preview, FileItem, FileItemKind, PreviewKind,
 };
 use gpui::{img, prelude::*, ObjectFit, *};

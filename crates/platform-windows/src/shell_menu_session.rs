@@ -14,7 +14,7 @@ static SHELL_OP_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn shell_sta() -> Arc<StaMessageThread> {
     SHELL_STA
-        .get_or_init(|| Arc::new(StaMessageThread::new("cyberfiles-shell-menu")))
+        .get_or_init(|| Arc::new(StaMessageThread::new("cyber_desktop-shell-menu")))
         .clone()
 }
 

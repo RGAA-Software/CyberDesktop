@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use cyberfiles_core::{load_config, pinned_folder_paths, FileTagConfig};
+use cyber_desktop_core::{load_config, pinned_folder_paths, FileTagConfig};
 
 #[cfg(windows)]
-use cyberfiles_platform_windows::{
+use cyber_desktop_platform_windows::{
     list_shell_quick_access_folders, shell_pin_to_quick_access, shell_unpin_from_quick_access,
 };
 
@@ -115,7 +115,7 @@ pub fn eject_drive(drive: &crate::drives::DriveInfo) -> anyhow::Result<()> {
     if !drive.is_removable && !drive.is_network {
         anyhow::bail!("drive does not support eject");
     }
-    cyberfiles_platform_windows::eject_volume(&drive.path, drive.is_network)
+    cyber_desktop_platform_windows::eject_volume(&drive.path, drive.is_network)
 }
 
 #[cfg(not(windows))]
@@ -148,7 +148,7 @@ pub fn sync_unpin_from_shell_quick_access(_path: &Path) -> anyhow::Result<()> {
 /// Open Windows Storage Sense settings (Home drive cards).
 #[cfg(windows)]
 pub fn open_storage_sense_settings() -> anyhow::Result<()> {
-    cyberfiles_platform_windows::open_storage_sense_settings()
+    cyber_desktop_platform_windows::open_storage_sense_settings()
 }
 
 #[cfg(not(windows))]

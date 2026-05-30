@@ -1,6 +1,6 @@
 [package]
-name = "cyberfiles-text-engine"
-description = "High-performance text editing engine (rope buffer, encoding-aware loading) for CyberEditor"
+name = "cyber-desktop-text-engine"
+description = "High-performance text editing engine for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true

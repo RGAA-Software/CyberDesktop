@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use cyberfiles_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
-use cyberfiles_platform_windows::{open_item_properties, SHELL_RECYCLE_BIN_PATH};
+use cyber_desktop_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
+use cyber_desktop_platform_windows::{open_item_properties, SHELL_RECYCLE_BIN_PATH};
 use gpui::{prelude::*, ClickEvent, *};
 use gpui_component::{
     h_flex,

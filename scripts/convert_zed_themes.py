@@ -167,7 +167,7 @@ def main() -> int:
         return 1
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for old in OUT_DIR.glob("cyberfiles-*.json"):
+    for old in OUT_DIR.glob("cyber-desktop-*.json"):
         old.unlink()
 
     for zed_dir in sorted(ZED_THEMES.iterdir()):

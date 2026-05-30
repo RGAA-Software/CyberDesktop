@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use cyberfiles_fs::{
+use cyber_desktop_fs::{
     breadcrumb_dropdown_entries, breadcrumb_visible_layout_for_widths, BreadcrumbDropdownResult,
     BreadcrumbMenuSection, DirectoryReadOptions, OmnibarPathSuggestion, PathBreadcrumb,
     BREADCRUMB_BLOCK_GAP,

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cyberfiles_core::{self, save_config, AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH};
+use cyber_desktop_core::{self, save_config, AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH};
 use gpui::{px, App, SharedString};
 use gpui_component::{scroll::ScrollbarShow, ActiveTheme as _, Theme, ThemeMode};
 
@@ -10,7 +10,7 @@ use crate::i18n;
 
 fn persist_preferences(cx: &mut App) {
     let (window_width, window_height) = window_size_from_active(cx).unwrap_or_else(|| {
-        cyberfiles_core::load_config()
+        cyber_desktop_core::load_config()
             .map(|c| (c.window_width, c.window_height))
             .unwrap_or((WINDOW_WIDTH, WINDOW_HEIGHT))
     });
@@ -104,7 +104,7 @@ pub fn scrollbar_show_key(show: ScrollbarShow) -> SharedString {
 }
 
 fn mutate_config(cx: &mut App, mutate: impl FnOnce(&mut AppConfig)) {
-    let mut config = cyberfiles_core::load_config().unwrap_or_default();
+    let mut config = cyber_desktop_core::load_config().unwrap_or_default();
     mutate(&mut config);
     let _ = save_config(&config);
     refresh_main_page_sidebar(cx);
@@ -120,7 +120,7 @@ fn refresh_main_page_sidebar(cx: &mut App) {
 }
 
 pub fn sidebar_display_mode(_cx: &App) -> SharedString {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.sidebar_display_mode.into())
         .unwrap_or_else(|| "expanded".into())
 }
@@ -132,7 +132,7 @@ pub fn apply_sidebar_display_mode(mode: SharedString, cx: &mut App) {
 }
 
 pub fn sidebar_section_pinned(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_sidebar_section_pinned)
         .unwrap_or(true)
 }
@@ -142,7 +142,7 @@ pub fn apply_sidebar_section_pinned(enabled: bool, cx: &mut App) {
 }
 
 pub fn sidebar_section_library(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_sidebar_section_library)
         .unwrap_or(true)
 }
@@ -152,7 +152,7 @@ pub fn apply_sidebar_section_library(enabled: bool, cx: &mut App) {
 }
 
 pub fn sidebar_section_drives(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_sidebar_section_drives)
         .unwrap_or(true)
 }
@@ -162,7 +162,7 @@ pub fn apply_sidebar_section_drives(enabled: bool, cx: &mut App) {
 }
 
 pub fn sidebar_section_cloud(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_sidebar_section_cloud)
         .unwrap_or(true)
 }
@@ -172,7 +172,7 @@ pub fn apply_sidebar_section_cloud(enabled: bool, cx: &mut App) {
 }
 
 pub fn sidebar_section_network(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_sidebar_section_network)
         .unwrap_or(true)
 }
@@ -182,7 +182,7 @@ pub fn apply_sidebar_section_network(enabled: bool, cx: &mut App) {
 }
 
 pub fn sidebar_section_wsl(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_sidebar_section_wsl)
         .unwrap_or(true)
 }
@@ -192,7 +192,7 @@ pub fn apply_sidebar_section_wsl(enabled: bool, cx: &mut App) {
 }
 
 pub fn sidebar_section_file_tags(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_sidebar_section_file_tags)
         .unwrap_or(true)
 }
@@ -210,7 +210,7 @@ pub fn add_file_tag(name: SharedString, cx: &mut App) {
         if c.file_tags.iter().any(|tag| tag.name == trimmed) {
             return;
         }
-        c.file_tags.push(cyberfiles_core::FileTagConfig {
+        c.file_tags.push(cyber_desktop_core::FileTagConfig {
             name: trimmed,
             color: None,
             paths: Vec::new(),
@@ -286,7 +286,7 @@ pub fn file_tags_containing_paths(paths: &[PathBuf]) -> Vec<String> {
         .iter()
         .map(|p| p.to_string_lossy().into_owned())
         .collect();
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| {
             c.file_tags
                 .iter()
@@ -302,7 +302,7 @@ pub fn file_tags_containing_paths(paths: &[PathBuf]) -> Vec<String> {
 }
 
 pub fn context_menu_shell_submenu(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.context_menu_shell_extensions_submenu)
         .unwrap_or(true)
 }
@@ -312,7 +312,7 @@ pub fn apply_context_menu_shell_submenu(enabled: bool, cx: &mut App) {
 }
 
 pub fn context_menu_show_compress(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.context_menu_show_compress)
         .unwrap_or(true)
 }
@@ -322,7 +322,7 @@ pub fn apply_context_menu_show_compress(enabled: bool, cx: &mut App) {
 }
 
 pub fn context_menu_show_send_to(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.context_menu_show_send_to)
         .unwrap_or(true)
 }
@@ -332,7 +332,7 @@ pub fn apply_context_menu_show_send_to(enabled: bool, cx: &mut App) {
 }
 
 pub fn context_menu_show_pin(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.context_menu_show_pin)
         .unwrap_or(true)
 }
@@ -342,7 +342,7 @@ pub fn apply_context_menu_show_pin(enabled: bool, cx: &mut App) {
 }
 
 pub fn context_menu_show_open_in_terminal(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.context_menu_show_open_in_terminal)
         .unwrap_or(true)
 }
@@ -352,7 +352,7 @@ pub fn apply_context_menu_show_open_in_terminal(enabled: bool, cx: &mut App) {
 }
 
 pub fn context_menu_show_file_tags(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.context_menu_show_file_tags)
         .unwrap_or(true)
 }
@@ -362,7 +362,7 @@ pub fn apply_context_menu_show_file_tags(enabled: bool, cx: &mut App) {
 }
 
 pub fn context_menu_show_create_shortcut(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.context_menu_show_create_shortcut)
         .unwrap_or(true)
 }
@@ -372,7 +372,7 @@ pub fn apply_context_menu_show_create_shortcut(enabled: bool, cx: &mut App) {
 }
 
 pub fn home_widget_quick_access(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_home_quick_access)
         .unwrap_or(true)
 }
@@ -383,7 +383,7 @@ pub fn apply_home_widget_quick_access(enabled: bool, cx: &mut App) {
 }
 
 pub fn home_widget_drives(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_home_drives)
         .unwrap_or(true)
 }
@@ -394,7 +394,7 @@ pub fn apply_home_widget_drives(enabled: bool, cx: &mut App) {
 }
 
 pub fn home_widget_network(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_home_network)
         .unwrap_or(true)
 }
@@ -405,7 +405,7 @@ pub fn apply_home_widget_network(enabled: bool, cx: &mut App) {
 }
 
 pub fn home_widget_file_tags(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_home_file_tags)
         .unwrap_or(true)
 }
@@ -416,7 +416,7 @@ pub fn apply_home_widget_file_tags(enabled: bool, cx: &mut App) {
 }
 
 pub fn home_widget_recent(_cx: &App) -> bool {
-    cyberfiles_core::load_config()
+    cyber_desktop_core::load_config()
         .map(|c| c.show_home_recent)
         .unwrap_or(true)
 }
@@ -427,7 +427,7 @@ pub fn apply_home_widget_recent(enabled: bool, cx: &mut App) {
 }
 
 pub fn open_text_with_cybereditor(_cx: &App) -> bool {
-    cyberfiles_core::open_text_with_cybereditor_enabled()
+    cyber_desktop_core::open_text_with_cybereditor_enabled()
 }
 
 pub fn apply_open_text_with_cybereditor(enabled: bool, cx: &mut App) {
@@ -456,7 +456,7 @@ pub fn apply_config(config: &AppConfig, cx: &mut App) {
 }
 
 pub fn capture_config(cx: &App, window_width: f32, window_height: f32) -> AppConfig {
-    let prior = cyberfiles_core::load_config().unwrap_or_default();
+    let prior = cyber_desktop_core::load_config().unwrap_or_default();
     AppConfig {
         locale: i18n::locale().to_string(),
         dark_mode: cx.theme().mode.is_dark(),

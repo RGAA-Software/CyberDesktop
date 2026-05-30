@@ -19,14 +19,14 @@ edition = "2021"
 publish = false
 
 [workspace.dependencies]
-cyberfiles-assets = { path = "crates/assets" }
-cyberfiles-commands = { path = "crates/commands" }
-cyberfiles-core = { path = "crates/core" }
-cyberfiles-fs = { path = "crates/fs" }
-cyberfiles-platform-windows = { path = "crates/platform-windows" }
-cyberfiles-text-engine = { path = "crates/text-engine" }
-cyberfiles-ui = { path = "crates/ui", default-features = false }
-cyberfiles-ui-editor = { path = "crates/ui-editor" }
+cyber-desktop-assets = { path = "crates/assets" }
+cyber-desktop-commands = { path = "crates/commands" }
+cyber-desktop-core = { path = "crates/core" }
+cyber-desktop-fs = { path = "crates/fs" }
+cyber-desktop-platform-windows = { path = "crates/platform-windows" }
+cyber-desktop-text-engine = { path = "crates/text-engine" }
+cyber-desktop-ui = { path = "crates/ui", default-features = false }
+cyber-desktop-ui-editor = { path = "crates/ui-editor" }
 
 # zed-industries/zed (GPUI only)
 gpui = { git = "https://github.com/zed-industries/zed" }

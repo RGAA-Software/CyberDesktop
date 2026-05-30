@@ -201,8 +201,8 @@ impl FileBrowser {
                 self.navigate_to(path, cx);
             }
             FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
-                let use_cybereditor = cyberfiles_core::open_text_with_cybereditor_enabled()
-                    && cyberfiles_text_engine::is_cybereditor_openable(&path)
+                let use_cybereditor = cyber_desktop_core::open_text_with_cybereditor_enabled()
+                    && cyber_desktop_text_engine::is_cybereditor_openable(&path)
                     && !is_executable_or_script_path(&path);
                 let result = if use_cybereditor {
                     open_with_cybereditor(&path)

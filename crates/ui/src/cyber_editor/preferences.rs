@@ -1,6 +1,6 @@
 //! Preference apply/persist for CyberEditor (shared `settings.json` with CyberFiles).
 
-use cyberfiles_core::{load_config, save_config, AppConfig};
+use cyber_desktop_core::{load_config, save_config, AppConfig};
 use gpui::{px, App, SharedString};
 use gpui_component::{scroll::ScrollbarShow, ActiveTheme as _, Theme, ThemeMode};
 

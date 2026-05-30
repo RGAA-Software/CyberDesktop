@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use cyberfiles_text_engine::FileMatches;
+use cyber_desktop_text_engine::FileMatches;
 use gpui::{Entity, SharedString, Subscription};
 use gpui_component::{input::InputState, VirtualListScrollHandle};
 

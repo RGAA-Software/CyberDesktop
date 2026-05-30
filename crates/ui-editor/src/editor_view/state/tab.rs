@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::time::SystemTime;
 
-use cyberfiles_text_engine::{Document, FoldRange, SyntaxState};
+use cyber_desktop_text_engine::{Document, FoldRange, SyntaxState};
 use gpui::{px, Pixels};
 
 /// Per-tab state parked while another tab is active. The currently active tab's

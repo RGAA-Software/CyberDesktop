@@ -1,18 +1,18 @@
 [package]
-name = "cyberfiles-fs"
-description = "Filesystem model and local enumeration for CyberFiles"
+name = "cyber-desktop-fs"
+description = "Filesystem model and local enumeration for CyberDesktop"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-cyberfiles-core.workspace = true
+cyber-desktop-core.workspace = true
 unicode-width.workspace = true
 zip = "2.2"
 
 [target.'cfg(windows)'.dependencies]
-cyberfiles-platform-windows.workspace = true
+cyber-desktop-platform-windows.workspace = true
 flume = "0.11"
 lnk = "0.6"
 notify = "8.2"

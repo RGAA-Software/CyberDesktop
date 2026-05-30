@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock, RwLock};
 
-use cyberfiles_assets::Assets;
+use cyber_desktop_assets::Assets;
 use gpui::{
     point, px, App, AssetSource, Bounds, Corners, ImageCacheError, Pixels, RenderImage, Window,
 };

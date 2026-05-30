@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
-use cyberfiles_fs::{ClipboardOperation, FileClipboard};
+use cyber_desktop_fs::{ClipboardOperation, FileClipboard};
 use gpui::{App, AppContext, Entity, Global, SharedString, Window};
 
 use crate::main_page::MainPage;

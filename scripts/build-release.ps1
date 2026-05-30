@@ -11,13 +11,13 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 # Build CyberEditor (release).
 # Usage:
 #   .\scripts\build-release.ps1
-#   .\scripts\build-release.ps1 -Bin cyberfiles
+#   .\scripts\build-release.ps1 -Bin cyber_files
 #   .\scripts\build-release.ps1 -NoZedEngine
 
 param(
-    [string] $Package = "cyberfiles",
-    [ValidateSet("cybereditor", "cyberfiles")]
-    [string] $Bin = "cybereditor",
+    [string] $Package = "cyber-desktop",
+    [ValidateSet("cyber_editor", "cyber_files")]
+    [string] $Bin = "cyber_editor",
     [switch] $NoZedEngine
 )
 
@@ -26,7 +26,7 @@ $RepoRoot = Split-Path $PSScriptRoot -Parent
 Set-Location $RepoRoot
 
 $args = @("build", "--release", "-p", $Package, "--bin", $Bin)
-if ($Bin -eq "cybereditor" -and $NoZedEngine) {
+if ($Bin -eq "cyber_editor" -and $NoZedEngine) {
     Write-Warning "zed-engine was removed; -NoZedEngine has no effect."
 }
 

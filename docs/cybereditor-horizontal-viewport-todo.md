@@ -41,9 +41,9 @@ scroll_x .. scroll_x + view_w
 ## 验证
 
 ```powershell
-cargo test -p cyberfiles-text-engine
-cargo build -p cyberfiles --bin cybereditor --release
-cargo run -p cyberfiles --bin cybereditor --release -- <path-to-minified.js>
+cargo test -p cyber-desktop-text-engine
+cargo build -p cyber-desktop --bin cyber_editor --release
+cargo run -p cyber-desktop --bin cyber_editor --release -- <path-to-minified.js>
 ```
 
 - 打开 minified 单行：窗口可响应、可横向滚动
