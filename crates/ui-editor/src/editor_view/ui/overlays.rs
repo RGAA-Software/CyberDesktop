@@ -111,6 +111,46 @@ impl EngineEditor {
         )
     }
 
+    pub(crate) fn render_settings(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        if !self.show_settings {
+            return None;
+        }
+
+        let weak = cx.weak_entity();
+        Some(
+            Dialog::new(cx)
+                .width(px(560.0))
+                .title("Settings")
+                .overlay(true)
+                .overlay_closable(true)
+                .keyboard(true)
+                .on_cancel(move |_: &ClickEvent, _w, cx| {
+                    let _ = weak.update(cx, |this, cx| {
+                        this.show_settings = false;
+                        cx.notify();
+                    });
+                    true
+                })
+                .child(
+                    div()
+                        .w_full()
+                        .max_h(px(520.0))
+                        .overflow_y_scrollbar()
+                        .child(build_editor_settings(cx)),
+                )
+                .footer(
+                    DialogFooter::new().child(
+                        Button::new("settings-close")
+                            .label("Close")
+                            .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
+                                this.show_settings = false;
+                                cx.notify();
+                            })),
+                    ),
+                ),
+        )
+    }
+
     pub(crate) fn render_shortcuts(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         if !self.show_shortcuts {
             return None;

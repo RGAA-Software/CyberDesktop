@@ -14,4 +14,5 @@ pub(crate) mod paths {
     pub const REPLACE_ALL: &str = "icons/editor_replace_all.svg";
     pub const COUNT: &str = "icons/editor_count.svg";
     pub const GOTO: &str = "icons/editor_goto.svg";
+    pub const SETTINGS: &str = "icons/settings-2.svg";
 }

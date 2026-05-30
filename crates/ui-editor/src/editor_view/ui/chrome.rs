@@ -222,7 +222,20 @@ impl EngineEditor {
 
     pub(crate) fn render_title_bar(&self, cx: &mut Context<Self>) -> TitleBar {
         let menu_bar = editor_menu_bar(cx);
-        TitleBar::new().child(
+        let settings_btn = toolbar_icon_button("editor-settings")
+            .icon(toolbar_icon(IconName::Settings2).path(paths::SETTINGS))
+            .tooltip("Settings")
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _e: &MouseDownEvent, _w, cx| {
+                    cx.stop_propagation();
+                    this.toggle_settings(cx);
+                }),
+            );
+
+        TitleBar::new()
+            .trailing_before_controls(settings_btn)
+            .child(
             div()
                 .flex()
                 .flex_row()

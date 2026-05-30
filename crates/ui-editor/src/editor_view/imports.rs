@@ -10,7 +10,7 @@ pub use cyberfiles_text_engine::{
     Position, SearchOptions, Searcher, SelectionSet, SyntaxState, TextBuffer,
 };
 pub use cyberfiles_ui::{
-    editor_menu_bar, set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
+    build_editor_settings, editor_menu_bar, set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, GoToLine,
     IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
     ReplaceText, SaveFile, SaveFileAs, SelectAll, TitleBar, ToggleComment, ToggleLineNumbers,

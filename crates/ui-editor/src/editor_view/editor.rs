@@ -32,6 +32,8 @@ pub struct EngineEditor {
     pub(crate) show_about: bool,
     /// Whether the keyboard-shortcuts reference overlay is open.
     pub(crate) show_shortcuts: bool,
+    /// Whether the settings dialog is open.
+    pub(crate) show_settings: bool,
     /// Active vertical scrollbar-thumb drag: `(mouse_y_at_grab, scroll_y_at_grab)`.
     pub(crate) scrollbar_drag: Option<(Pixels, Pixels)>,
     /// Active horizontal scrollbar-thumb drag: `(mouse_x_at_grab, scroll_x_at_grab)`.
@@ -115,6 +117,7 @@ impl EngineEditor {
             show_line_numbers: true,
             show_about: false,
             show_shortcuts: false,
+            show_settings: false,
             scrollbar_drag: None,
             hscrollbar_drag: None,
             reveal_caret: false,

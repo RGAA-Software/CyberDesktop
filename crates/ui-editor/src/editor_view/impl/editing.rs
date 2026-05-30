@@ -114,6 +114,11 @@ impl EngineEditor {
         cx.notify();
     }
 
+    pub(crate) fn toggle_settings(&mut self, cx: &mut Context<Self>) {
+        self.show_settings = !self.show_settings;
+        cx.notify();
+    }
+
     // ---- Go to Line ------------------------------------------------------
 
 }

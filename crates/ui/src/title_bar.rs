@@ -22,6 +22,7 @@ const TITLE_BAR_LEFT_PADDING: Pixels = px(12.);
 pub struct TitleBar {
     style: StyleRefinement,
     children: SmallVec<[AnyElement; 1]>,
+    trailing_before_controls: SmallVec<[AnyElement; 2]>,
     on_close_window: Option<Rc<Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>>>,
 }
 
@@ -30,8 +31,16 @@ impl TitleBar {
         Self {
             style: StyleRefinement::default(),
             children: SmallVec::new(),
+            trailing_before_controls: SmallVec::new(),
             on_close_window: None,
         }
+    }
+
+    /// Icon buttons placed immediately left of the window controls (minimize / maximize / close).
+    pub fn trailing_before_controls(mut self, element: impl IntoElement) -> Self {
+        self.trailing_before_controls
+            .push(element.into_any_element());
+        self
     }
 
     pub fn title_bar_options() -> TitlebarOptions {
@@ -312,9 +321,18 @@ impl RenderOnce for TitleBar {
                         })
                         .children(self.children),
                 )
-                .child(WindowControls {
-                    on_close_window: self.on_close_window,
-                }),
+                .child(
+                    h_flex()
+                        .id("title-bar-trailing")
+                        .items_center()
+                        .flex_shrink_0()
+                        .h_full()
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .children(self.trailing_before_controls)
+                        .child(WindowControls {
+                            on_close_window: self.on_close_window,
+                        }),
+                ),
         )
     }
 }

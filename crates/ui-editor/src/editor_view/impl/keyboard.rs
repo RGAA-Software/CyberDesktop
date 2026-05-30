@@ -13,6 +13,9 @@ impl EngineEditor {
             if self.pending_close.is_some() {
                 self.pending_close = None;
                 cx.notify();
+            } else if self.show_settings {
+                self.show_settings = false;
+                cx.notify();
             } else if self.show_about {
                 self.show_about = false;
                 cx.notify();

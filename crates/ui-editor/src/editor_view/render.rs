@@ -36,6 +36,7 @@ impl Render for EngineEditor {
         let search_panel = self.render_search_panel(cx);
         let about = self.render_about(cx);
         let shortcuts = self.render_shortcuts(cx);
+        let settings = self.render_settings(cx);
         let close_confirm = self.render_close_confirm(cx);
         let recent = self.render_recent(cx);
         let scrollbar = self.render_scrollbar(cx);
@@ -131,6 +132,7 @@ impl Render for EngineEditor {
                     .children(search_panel)
                     .children(about)
                     .children(shortcuts)
+                    .children(settings)
                     .children(close_confirm)
                     .children(recent),
             )
