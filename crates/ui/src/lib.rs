@@ -34,7 +34,6 @@ mod status_center;
 mod shell_icon;
 #[cfg(feature = "full-app")]
 mod sidebar;
-#[cfg(feature = "full-app")]
 mod tab;
 mod theme;
 mod title_bar;
@@ -57,7 +56,8 @@ pub use i18n::{init_locale, locale, set_locale};
 #[cfg(feature = "full-app")]
 pub use main_page::MainPage;
 pub use popup_menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem};
-pub use title_bar::TitleBar;
+pub use tab::{Tab, TabBar};
+pub use title_bar::{TitleBar, TITLE_BAR_HEIGHT, title_bar_bottom_rule};
 pub use toolbar_button::{toolbar_icon, toolbar_icon_button, TOOLBAR_BUTTON_PX, TOOLBAR_ICON_BUTTON_SIZE};
 #[cfg(feature = "full-app")]
 pub use shell::open_main_window;

@@ -1,8 +1,19 @@
 //! UI fragment: `ui/chrome.rs`.
 
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
-use gpui_component::IconName;
+use cyberfiles_ui::{Tab, TabBar};
+use gpui_component::{
+    button::{Button, ButtonVariants as _},
+    h_flex,
+    label::Label,
+    IconName,
+};
 use super::super::imports::*;
+
+const EDITOR_TAB_BAR_HEIGHT: Pixels = px(30.);
+/// Fixed width per document tab (label truncates inside).
+const EDITOR_TAB_WIDTH: Pixels = px(150.);
+const EDITOR_TAB_CLOSE_RIGHT_INSET: Pixels = px(5.);
 
 impl EngineEditor {
     pub(crate) fn render_header(&self, cx: &mut Context<Self>) -> gpui::Div {
@@ -48,78 +59,63 @@ impl EngineEditor {
     }
 
     /// The tab strip (one chip per open document + a "new tab" button).
-    pub(crate) fn render_tab_bar(&self, cx: &mut Context<Self>) -> gpui::Div {
-        let theme = cx.theme();
+    pub(crate) fn render_tab_bar(&self, cx: &mut Context<Self>) -> TabBar {
         let active = self.active;
-        let mut strip = div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .h(px(30.0))
-            .bg(theme.tab_bar)
-            .text_size(px(12.0))
-            .border_b_1()
-            .border_color(theme.border);
-
-        for index in 0..self.tabs.len() {
-            let is_active = index == active;
-            let title = self.tab_title(index);
-            let close = toolbar_icon_button(("tab-close", index))
-                .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, _e: &MouseDownEvent, _w, cx| {
-                        cx.stop_propagation();
-                        this.close_tab(index, cx);
-                    }),
-                );
-
-            let chip = div()
-                .id(("tab", index))
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_1()
-                .px_2()
-                .h_full()
-                .max_w(px(220.0))
-                .border_r_1()
-                .border_color(theme.border)
-                .bg(if is_active {
-                    theme.tab_active
-                } else {
-                    theme.tab
-                })
-                .text_color(if is_active {
-                    theme.foreground
-                } else {
-                    theme.muted_foreground
-                })
-                .hover(|s| s.bg(theme.list_hover))
-                .child(
-                    div()
-                        .overflow_hidden()
-                        .child(SharedString::from(title)),
-                )
-                .child(close)
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, _e: &MouseDownEvent, _w, cx| {
-                        this.switch_to_tab(index, cx);
-                    }),
-                );
-            strip = strip.child(chip);
-        }
-
-        strip.child(
-            toolbar_icon_button("tab-new")
-                .icon(toolbar_icon(IconName::Plus).path("icons/plus.svg"))
-                .tooltip(t!("editor.tooltip.new_tab"))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _e: &MouseDownEvent, _w, cx| this.new_tab(cx)),
+        TabBar::new("editor-tab-bar")
+            .h(EDITOR_TAB_BAR_HEIGHT)
+            .tab_height(EDITOR_TAB_BAR_HEIGHT)
+            .w_full()
+            .track_scroll(&self.tab_bar_scroll_handle)
+            .bottom_border(true)
+            .menu(true)
+            .selected_index(active)
+            .last_empty_space(
+                h_flex().gap_1().pr_1().child(
+                    toolbar_icon_button("tab-new")
+                        .icon(toolbar_icon(IconName::Plus).path("icons/plus.svg"))
+                        .tooltip(t!("editor.tooltip.new_tab"))
+                        .on_click(cx.listener(|this, _, _, cx| this.new_tab(cx))),
                 ),
-        )
+            )
+            .children((0..self.tabs.len()).map(|index| {
+                let title = SharedString::from(self.tab_title(index));
+                let is_selected = index == active;
+                let close_color = if is_selected {
+                    cx.theme().tab_active_foreground
+                } else {
+                    cx.theme().muted_foreground
+                };
+                Tab::new()
+                    .w(EDITOR_TAB_WIDTH)
+                    .min_w(EDITOR_TAB_WIDTH)
+                    .max_w(EDITOR_TAB_WIDTH)
+                    .flex_shrink_0()
+                    .child(
+                        div()
+                            .w_full()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .flex()
+                            .items_center()
+                            .child(Label::new(title).text_left().truncate()),
+                    )
+                    .suffix(
+                        Button::new(format!("editor-tab-close-{index}"))
+                            .xsmall()
+                            .ghost()
+                            .mr(EDITOR_TAB_CLOSE_RIGHT_INSET)
+                            .text_color(close_color)
+                            .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
+                            .tooltip(t!("nav.close_tab"))
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                cx.stop_propagation();
+                                this.close_tab(index, cx);
+                            })),
+                    )
+            }))
+            .on_click(cx.listener(|this, ix: &usize, _, cx| {
+                this.switch_to_tab(*ix, cx);
+            }))
     }
 
     /// A banner shown when the active file was modified on disk by another app.

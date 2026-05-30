@@ -18,6 +18,11 @@ const TITLE_BAR_LEFT_PADDING: Pixels = px(80.);
 #[cfg(not(target_os = "macos"))]
 const TITLE_BAR_LEFT_PADDING: Pixels = px(12.);
 
+/// 1px bottom rule shared by [`TitleBar`] and [`crate::tab::TabBar::bottom_border`].
+pub fn title_bar_bottom_rule<T: Styled>(this: T, cx: &App) -> T {
+    this.border_b_1().border_color(cx.theme().title_bar_border)
+}
+
 #[derive(IntoElement)]
 pub struct TitleBar {
     style: StyleRefinement,
@@ -262,8 +267,7 @@ impl RenderOnce for TitleBar {
                 .items_center()
                 .h(TITLE_BAR_HEIGHT)
                 .pl(TITLE_BAR_LEFT_PADDING)
-                .border_b_1()
-                .border_color(cx.theme().title_bar_border)
+                .map(|this| title_bar_bottom_rule(this, cx))
                 .bg(cx.theme().title_bar)
                 .refine_style(&self.style)
                 .when(is_linux, |this| {

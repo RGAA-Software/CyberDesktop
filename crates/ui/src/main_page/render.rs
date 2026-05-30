@@ -35,7 +35,6 @@ impl MainPage {
         TabBar::new("main-tab-bar")
             .track_scroll(&self.tab_bar_scroll_handle)
             .with_size(Size::Medium)
-            .hide_bottom_border()
             .selected_index(active)
             .last_empty_space(
                 h_flex().gap_1().pr_1().child(

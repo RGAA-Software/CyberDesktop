@@ -402,6 +402,7 @@ pub struct Tab {
     variant: TabVariant,
     size: Size,
     pub(super) medium_titlebar: bool,
+    pub(super) fixed_height: Option<Pixels>,
     pub(super) disabled: bool,
     pub(super) selected: bool,
     pub(super) indicator_active: bool,
@@ -455,6 +456,7 @@ impl Default for Tab {
             variant: TabVariant::default(),
             size: Size::default(),
             medium_titlebar: false,
+            fixed_height: None,
             on_click: None,
         }
     }
@@ -551,6 +553,11 @@ impl Tab {
         self.medium_titlebar = medium_titlebar;
         self
     }
+
+    pub(crate) fn fixed_height(mut self, height: Pixels) -> Self {
+        self.fixed_height = Some(height);
+        self
+    }
 }
 
 impl ParentElement for Tab {
@@ -615,35 +622,40 @@ impl RenderOnce for Tab {
         let inner_paddings = self.variant.inner_paddings(self.size);
         let titlebar_medium =
             self.medium_titlebar && self.size == Size::Medium && self.variant == TabVariant::Tab;
-        if titlebar_medium {
+        let flat_chip = self.variant == TabVariant::Tab
+            && (self.fixed_height.is_some() || titlebar_medium);
+        if flat_chip {
             tab_style.borders = Edges::all(px(0.));
             tab_style.border_color = cx.theme().transparent;
-            tab_style.bg = cx.theme().transparent;
-            tab_style.inner_bg = if self.selected {
+            tab_style.bg = if self.selected {
                 cx.theme().tab_active
             } else {
                 cx.theme().transparent
             };
+            tab_style.inner_bg = cx.theme().transparent;
             hover_style.borders = Edges::all(px(0.));
             hover_style.border_color = cx.theme().transparent;
-            hover_style.bg = cx.theme().transparent;
-            hover_style.inner_bg = cx.theme().tab_active;
+            hover_style.bg = cx.theme().tab_active;
+            hover_style.inner_bg = cx.theme().transparent;
         }
-        let inner_margins = if titlebar_medium {
+        let chip_height = self.fixed_height.unwrap_or_else(|| {
+            if titlebar_medium {
+                px(34.)
+            } else {
+                self.variant.height(self.size)
+            }
+        });
+        let inner_margins = if flat_chip {
             Edges::all(px(0.))
         } else {
             self.variant.inner_margins(self.size)
         };
-        let inner_height = if titlebar_medium {
-            px(34.)
+        let inner_height = if flat_chip {
+            chip_height
         } else {
             self.variant.inner_height(self.size)
         };
-        let height = if titlebar_medium {
-            px(34.)
-        } else {
-            self.variant.height(self.size)
-        };
+        let height = chip_height;
 
         self.base
             .id(self.ix)

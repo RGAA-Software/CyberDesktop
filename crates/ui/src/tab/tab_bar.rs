@@ -10,6 +10,7 @@ use rust_i18n::t;
 use smallvec::SmallVec;
 
 use super::{Tab, TabVariant};
+use crate::title_bar::title_bar_bottom_rule;
 use gpui_component::animation::{ease_in_out_cubic, Lerp};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::menu::{DropdownMenu as _, PopupMenuItem};
@@ -51,7 +52,9 @@ pub struct TabBar {
     size: Size,
     menu: bool,
     medium_titlebar: bool,
-    hide_bottom_border: bool,
+    fixed_tab_height: Option<Pixels>,
+    /// Full-width bottom rule under the tab strip (`Tab` / `Underline` variants only).
+    bottom_border: bool,
     on_click: Option<Rc<dyn Fn(&usize, &mut Window, &mut App) + 'static>>,
 }
 
@@ -74,7 +77,8 @@ impl TabBar {
             on_click: None,
             menu: false,
             medium_titlebar: false,
-            hide_bottom_border: false,
+            fixed_tab_height: None,
+            bottom_border: false,
         }
     }
 
@@ -116,9 +120,16 @@ impl TabBar {
         self
     }
 
-    /// Hide the built-in full-width bottom border used by the `Tab` and `Underline` variants.
-    pub fn hide_bottom_border(mut self) -> Self {
-        self.hide_bottom_border = true;
+    /// Stretch each `Tab` chip to `height` (flat inner background, no side borders).
+    pub fn tab_height(mut self, height: Pixels) -> Self {
+        self.fixed_tab_height = Some(height);
+        self.size = Size::Medium;
+        self
+    }
+
+    /// Draw a full-width bottom rule under the tab strip (default off).
+    pub fn bottom_border(mut self, show: bool) -> Self {
+        self.bottom_border = show;
         self
     }
 
@@ -418,7 +429,8 @@ impl RenderOnce for TabBar {
         let mut item_metas: Vec<(Option<SharedString>, Option<Icon>, bool)> = Vec::new();
         let selected_index = self.selected_index;
         let on_click = self.on_click.clone();
-        let show_bottom_border = !self.hide_bottom_border
+        let fixed_tab_height = self.fixed_tab_height;
+        let show_bottom_border = self.bottom_border
             && (self.variant == TabVariant::Underline || self.variant == TabVariant::Tab);
 
         self.base
@@ -429,18 +441,7 @@ impl RenderOnce for TabBar {
             .items_center()
             .bg(bg)
             .text_color(cx.theme().tab_foreground)
-            .when(show_bottom_border, |this| {
-                this.child(
-                    div()
-                        .id("border-b")
-                        .absolute()
-                        .left_0()
-                        .bottom_0()
-                        .size_full()
-                        .border_b_1()
-                        .border_color(cx.theme().border),
-                )
-            })
+            .when(show_bottom_border, |this| title_bar_bottom_rule(this, cx))
             .rounded(self.variant.tab_bar_radius(self.size, cx))
             .paddings(paddings)
             .refine_style(&self.style)
@@ -480,6 +481,9 @@ impl RenderOnce for TabBar {
                                     .medium_titlebar(self.medium_titlebar)
                                     .with_variant(self.variant)
                                     .with_size(self.size);
+                                if let Some(height) = fixed_tab_height {
+                                    tab = tab.fixed_height(height);
+                                }
                                 tab.indicator_active = has_indicator;
                                 let tab = tab
                                     .when_some(self.selected_index, |this, selected_ix| {

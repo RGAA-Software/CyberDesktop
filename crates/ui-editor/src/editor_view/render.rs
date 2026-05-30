@@ -27,6 +27,9 @@ impl Render for EngineEditor {
         }
         let colors = super::ui::EditorColors::from_app(cx);
         let title_bar = self.render_title_bar(cx);
+        if let Some(ix) = self.pending_tab_scroll_to_ix.take() {
+            self.tab_bar_scroll_handle.scroll_to_item(ix);
+        }
         let tab_bar = self.render_tab_bar(cx);
         let disk_banner = self.render_disk_banner(cx);
         let header = self.render_header(cx);

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use cyberfiles_text_engine::{load_file, Document, SyntaxState};
-use gpui::{prelude::*, px, point, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, Size, Window};
+use gpui::{prelude::*, px, point, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, ScrollHandle, Size, Window};
 
 use super::language::language_for_path;
 use super::state::{
@@ -79,6 +79,8 @@ pub struct EngineEditor {
     /// state is held in the fields above and swapped back on switch.
     pub(crate) tabs: Vec<TabSlot>,
     pub(crate) active: usize,
+    pub(crate) tab_bar_scroll_handle: ScrollHandle,
+    pub(crate) pending_tab_scroll_to_ix: Option<usize>,
     /// `(mtime, len)` of the active document's file when last loaded/saved.
     pub(crate) file_meta: Option<(SystemTime, u64)>,
     /// The active file changed on disk underneath us.
@@ -151,6 +153,8 @@ impl EngineEditor {
             wrapped_visible: Vec::new(),
             tabs: vec![TabSlot::placeholder()],
             active: 0,
+            tab_bar_scroll_handle: ScrollHandle::new(),
+            pending_tab_scroll_to_ix: None,
             file_meta: None,
             disk_changed: false,
             recent: Vec::new(),

@@ -61,6 +61,7 @@ impl EngineEditor {
         // The Find-in-Files scope follows the active file; cancel any in-flight
         // search and clear stale results.
         self.retarget_search_panel();
+        self.pending_tab_scroll_to_ix = Some(index);
         cx.notify();
     }
 
@@ -82,6 +83,7 @@ impl EngineEditor {
         self.activate(index);
         self.document.set_caret(0);
         self.retarget_search_panel();
+        self.pending_tab_scroll_to_ix = Some(index);
         cx.notify();
     }
 
@@ -118,6 +120,7 @@ impl EngineEditor {
             self.tabs.remove(index);
             let next = index.min(self.tabs.len() - 1);
             self.activate(next);
+            self.pending_tab_scroll_to_ix = Some(next);
         } else {
             self.tabs.remove(index);
             if self.active > index {
