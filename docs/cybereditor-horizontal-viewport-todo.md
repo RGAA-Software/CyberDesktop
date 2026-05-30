@@ -33,7 +33,7 @@ scroll_x .. scroll_x + view_w
 
 ## Phase 3 — Soft wrap 路径
 
-- [ ] `prepaint_wrapped`：视口内按**子行**虚拟化，禁止对 300KB 单行一次 `shape_text`
+- [x] `prepaint_wrapped`：视口内按**子行**虚拟化，禁止对 300KB 单行一次 `shape_text`
 - [ ] 软换行下竖向滚动条子行精度（可选，见 engine-todo）
 
 ---
