@@ -1,8 +1,8 @@
 //! `EditorCanvas` types and GPUI [`Element`] wiring.
 
 use gpui::{
-    prelude::*, relative, App, Bounds, Element, ElementId, GlobalElementId, LayoutId, PaintQuad,
-    Pixels, ShapedLine, Style, Window, WrappedLine,
+    point, prelude::*, relative, App, Bounds, Element, ElementId, GlobalElementId,
+    Hitbox, HitboxBehavior, LayoutId, PaintQuad, Pixels, ShapedLine, Style, Window, WrappedLine,
 };
 
 use gpui::Entity;
@@ -25,6 +25,32 @@ pub(crate) struct CanvasPrepaint {
     pub(crate) carets: Vec<PaintQuad>,
     pub(crate) content_left: Pixels,
     pub(crate) gutter_left: Pixels,
+}
+
+pub(crate) struct EditorCanvasPrepaint {
+    pub(crate) canvas: CanvasPrepaint,
+    pub(crate) content_hitbox: Hitbox,
+    pub(crate) gutter_hitbox: Hitbox,
+}
+
+pub(crate) fn editor_hitboxes(
+    bounds: Bounds<Pixels>,
+    gutter_width: Pixels,
+    bottom_inset: Pixels,
+    window: &mut Window,
+) -> (Hitbox, Hitbox) {
+    let content_bounds = Bounds::from_corners(
+        point(bounds.left() + gutter_width, bounds.top()),
+        point(bounds.right(), bounds.bottom() - bottom_inset),
+    );
+    let gutter_bounds = Bounds::from_corners(
+        point(bounds.left(), bounds.top()),
+        point(bounds.left() + gutter_width, bounds.bottom() - bottom_inset),
+    );
+    (
+        window.insert_hitbox(content_bounds, HitboxBehavior::Normal),
+        window.insert_hitbox(gutter_bounds, HitboxBehavior::Normal),
+    )
 }
 
 pub(crate) struct VisibleRow {
@@ -51,7 +77,7 @@ impl IntoElement for EditorCanvas {
 
 impl Element for EditorCanvas {
     type RequestLayoutState = ();
-    type PrepaintState = CanvasPrepaint;
+    type PrepaintState = EditorCanvasPrepaint;
 
     fn id(&self) -> Option<ElementId> {
         None
@@ -109,8 +135,8 @@ impl Element for EditorCanvas {
         let default_color = colors.foreground;
         let font_size = style.font_size.to_pixels(window.rem_size());
 
-        if self.editor.read(cx).soft_wrap {
-            return prepaint_wrapped::prepaint_wrapped(
+        let canvas = if self.editor.read(cx).soft_wrap {
+            prepaint_wrapped::prepaint_wrapped(
                 self,
                 bounds,
                 &font,
@@ -119,19 +145,31 @@ impl Element for EditorCanvas {
                 font_size,
                 window,
                 cx,
-            );
-        }
+            )
+        } else {
+            prepaint::prepaint_normal(
+                self,
+                bounds,
+                &font,
+                colors,
+                default_color,
+                font_size,
+                window,
+                cx,
+            )
+        };
 
-        prepaint::prepaint_normal(
-            self,
-            bounds,
-            &font,
-            colors,
-            default_color,
-            font_size,
-            window,
-            cx,
-        )
+        let (gutter_width, bottom_inset) = {
+            let e = self.editor.read(cx);
+            (e.gutter_width, e.editor_bottom_inset())
+        };
+        let (content_hitbox, gutter_hitbox) =
+            editor_hitboxes(bounds, gutter_width, bottom_inset, window);
+        EditorCanvasPrepaint {
+            canvas,
+            content_hitbox,
+            gutter_hitbox,
+        }
     }
 
     fn paint(

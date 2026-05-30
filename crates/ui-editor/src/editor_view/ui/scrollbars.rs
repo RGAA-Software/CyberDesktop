@@ -155,6 +155,7 @@ impl EngineEditor {
                 .left(gutter)
                 .right(px(14.0))
                 .h(px(12.0))
+                .cursor_default()
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(|this, event: &MouseDownEvent, _w, cx| {
@@ -184,6 +185,7 @@ impl EngineEditor {
                         .w(metrics.thumb_w)
                         .rounded_full()
                         .bg(thumb)
+                        .cursor_default()
                         .hover(|s| s.bg(thumb_hover))
                         .on_mouse_down(
                             MouseButton::Left,
@@ -208,6 +210,7 @@ impl EngineEditor {
                 .right_0()
                 .h_full()
                 .w(px(12.0))
+                .cursor_default()
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(|this, event: &MouseDownEvent, _w, cx| {
@@ -239,6 +242,7 @@ impl EngineEditor {
                         .h(metrics.thumb_h)
                         .rounded_full()
                         .bg(thumb)
+                        .cursor_default()
                         .hover(|s| s.bg(thumb_hover))
                         .on_mouse_down(
                             MouseButton::Left,

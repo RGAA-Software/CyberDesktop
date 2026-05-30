@@ -1,11 +1,11 @@
 //! Paint shaped lines, selections, carets, and gutter.
 
 use gpui::{
-    point, prelude::*, App, Bounds, Element, ElementInputHandler, GlobalElementId, Pixels,
-    rgb, Window,
+    point, prelude::*, App, Bounds, CursorStyle, Element, ElementInputHandler, GlobalElementId,
+    Pixels, rgb, Window,
 };
 
-use super::element::{CanvasPrepaint, EditorCanvas};
+use super::element::{EditorCanvas, EditorCanvasPrepaint};
 use super::super::state::{VisibleLine, WrappedVisible};
 
 pub(crate) fn paint(
@@ -14,10 +14,12 @@ pub(crate) fn paint(
     _inspector_id: Option<&gpui::InspectorElementId>,
     bounds: Bounds<Pixels>,
     _request_layout: &mut <EditorCanvas as Element>::RequestLayoutState,
-    prepaint: &mut CanvasPrepaint,
+    prepaint: &mut EditorCanvasPrepaint,
     window: &mut Window,
     cx: &mut App,
 ) {
+        set_editor_cursors(prepaint, window);
+        let canvas_prepaint = &mut prepaint.canvas;
         let (focus_handle, line_height, gutter_width, bottom_inset) = {
             let e = canvas.editor.read(cx);
             (
@@ -43,12 +45,12 @@ pub(crate) fn paint(
             ),
         };
         window.with_content_mask(Some(content_mask), |window| {
-            for quad in prepaint.selections.drain(..) {
+            for quad in canvas_prepaint.selections.drain(..) {
                 window.paint_quad(quad);
             }
-            for row in &prepaint.rows {
+            for row in &canvas_prepaint.rows {
                 let _ = row.shaped.paint(
-                    point(prepaint.content_left, row.top),
+                    point(canvas_prepaint.content_left, row.top),
                     line_height,
                     gpui::TextAlign::Left,
                     None,
@@ -56,9 +58,9 @@ pub(crate) fn paint(
                     cx,
                 );
             }
-            for row in &prepaint.wrapped_rows {
+            for row in &canvas_prepaint.wrapped_rows {
                 let _ = row.wrapped.paint(
-                    point(prepaint.content_left, row.top),
+                    point(canvas_prepaint.content_left, row.top),
                     line_height,
                     gpui::TextAlign::Left,
                     None,
@@ -66,7 +68,7 @@ pub(crate) fn paint(
                     cx,
                 );
             }
-            for caret in prepaint.carets.drain(..) {
+            for caret in canvas_prepaint.carets.drain(..) {
                 window.paint_quad(caret);
             }
         });
@@ -78,9 +80,9 @@ pub(crate) fn paint(
             ),
         };
         window.with_content_mask(Some(gutter_mask), |window| {
-            for (top, shaped) in &prepaint.gutter {
+            for (top, shaped) in &canvas_prepaint.gutter {
                 let _ = shaped.paint(
-                    point(prepaint.gutter_left, *top),
+                    point(canvas_prepaint.gutter_left, *top),
                     line_height,
                     gpui::TextAlign::Left,
                     None,
@@ -90,7 +92,7 @@ pub(crate) fn paint(
             }
         });
 
-        let visible: Vec<VisibleLine> = prepaint
+        let visible: Vec<VisibleLine> = canvas_prepaint
             .rows
             .drain(..)
             .map(|r| VisibleLine {
@@ -100,7 +102,7 @@ pub(crate) fn paint(
                 shaped: r.shaped,
             })
             .collect();
-        let wrapped_visible: Vec<WrappedVisible> = prepaint
+        let wrapped_visible: Vec<WrappedVisible> = canvas_prepaint
             .wrapped_rows
             .drain(..)
             .map(|r| WrappedVisible {
@@ -115,4 +117,15 @@ pub(crate) fn paint(
             e.wrapped_visible = wrapped_visible;
         });
 
+}
+
+pub(crate) fn set_editor_cursors(
+    prepaint: &EditorCanvasPrepaint,
+    window: &mut Window,
+) {
+    // GPUI resolves cursor styles from the rendered frame when the mouse hit-test
+    // changes — no repaint required. Register styles unconditionally during paint
+    // (same as zed's EditorElement::paint_text / paint_line_numbers).
+    window.set_cursor_style(CursorStyle::Arrow, &prepaint.gutter_hitbox);
+    window.set_cursor_style(CursorStyle::IBeam, &prepaint.content_hitbox);
 }
