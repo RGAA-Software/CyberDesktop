@@ -82,6 +82,13 @@ pub fn init_editor_shell(cx: &mut App) {
     }
     #[cfg(feature = "full-app")]
     cx.set_global(crate::app_state::AppFileClipboard::default());
+    #[cfg(not(feature = "full-app"))]
+    {
+        use crate::cyber_editor::ExitEditor;
+        cx.on_action(|_: &ExitEditor, cx| {
+            cyber_desktop_core::flush_config();
+        });
+    }
 }
 
 #[cfg(feature = "full-app")]

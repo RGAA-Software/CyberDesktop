@@ -8,10 +8,11 @@ use std::time::Duration;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
-use crate::{APP_NAME, WINDOW_HEIGHT, WINDOW_WIDTH};
+use crate::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
 const CONFIG_SAVE_DEBOUNCE_MS: u64 = 300;
 
+static CONFIG_APP_ID: OnceLock<&'static str> = OnceLock::new();
 static CONFIG_CACHE: OnceLock<RwLock<AppConfig>> = OnceLock::new();
 static CONFIG_CACHE_INITIALIZED: AtomicBool = AtomicBool::new(false);
 static CONFIG_FLUSH_TX: OnceLock<mpsc::Sender<()>> = OnceLock::new();
@@ -484,8 +485,22 @@ pub fn pinned_folder_paths() -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
+/// Selects which on-disk settings file to use. Call once at process startup
+/// (before any `load_config` / `save_config`) with the exe id, e.g. `cyber_files`.
+pub fn set_config_app_id(id: &'static str) {
+    let _ = CONFIG_APP_ID.set(id);
+}
+
+fn config_app_id() -> &'static str {
+    CONFIG_APP_ID
+        .get()
+        .copied()
+        .expect("set_config_app_id must be called before using config")
+}
+
 pub fn config_path() -> Option<PathBuf> {
-    ProjectDirs::from("com", "cyber_desktop", APP_NAME).map(|dirs| dirs.config_dir().join(CONFIG_FILE))
+    ProjectDirs::from("com", "cyber_desktop", config_app_id())
+        .map(|dirs| dirs.config_dir().join(CONFIG_FILE))
 }
 
 /// Loads settings from the in-memory cache (disk on first access).
@@ -536,6 +551,10 @@ fn config_cache() -> &'static RwLock<AppConfig> {
 
 fn read_config_from_disk() -> Option<AppConfig> {
     let path = config_path()?;
+    read_config_file(&path)
+}
+
+fn read_config_file(path: &PathBuf) -> Option<AppConfig> {
     let data = fs::read_to_string(path).ok()?;
     serde_json::from_str(&data).ok()
 }

@@ -20,6 +20,7 @@ default = ["full-app"]
 full-app = ["dep:cyber-desktop-ui"]
 
 [dependencies]
+cyber-desktop-core.workspace = true
 cyber-desktop-ui = { workspace = true, features = ["full-app"], optional = true }
 cyber-desktop-ui-editor.workspace = true
 gpui_platform.workspace = true

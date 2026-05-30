@@ -1,4 +1,4 @@
-//! Preference apply/persist for CyberEditor (shared `settings.json` with CyberFiles).
+//! Preference apply/persist for CyberEditor (`cyber_editor/settings.json`).
 
 use cyber_desktop_core::{load_config, save_config, AppConfig};
 use gpui::{px, App, SharedString};

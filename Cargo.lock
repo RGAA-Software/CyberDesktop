@@ -1341,6 +1341,7 @@ checksum = "e2931af7e13dc045d8e9d26afccc6fa115d64e115c9c84b1166288b46f6782c2"
 name = "cyber-desktop"
 version = "0.1.0"
 dependencies = [
+ "cyber-desktop-core",
  "cyber-desktop-ui",
  "cyber-desktop-ui-editor",
  "embed-resource",
