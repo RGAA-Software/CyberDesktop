@@ -9,6 +9,7 @@ mod file_io;
 mod find;
 mod goto;
 mod keyboard;
+mod panel_drag;
 mod mouse_scroll;
 mod movement;
 mod recent;

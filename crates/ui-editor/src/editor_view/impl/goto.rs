@@ -22,6 +22,8 @@ impl EngineEditor {
 
     pub(crate) fn close_goto(&mut self, cx: &mut Context<Self>) {
         self.goto = None;
+        self.end_panel_drag();
+        self.clear_panel_origin(FloatingPanel::Goto);
         cx.notify();
     }
 

@@ -1,8 +1,9 @@
 //! UI fragment: `ui/search_panel_ui.rs`.
 
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
+use super::panel::panel_title_bar;
+use super::widgets::{panel_close_button, panel_input, panel_tool_lead, panel_tool_strip};
 use super::super::imports::*;
-use gpui::FontWeight;
 use gpui_component::{progress::Progress, IconName, StyledExt as _};
 
 fn search_progress_value(lines_scanned: usize, searching: bool) -> f32 {
@@ -26,11 +27,7 @@ impl EngineEditor {
                 .tooltip(tip)
         };
 
-        let controls = h_flex()
-            .w_full()
-            .items_center()
-            .gap_2()
-            .child(div().flex_1().child(Input::new(&panel.query).small()))
+        let search_tools = panel_tool_strip()
             .child(
                 toolbar_icon_button("file-search-go")
                     .icon(toolbar_icon(IconName::Search).path(paths::SEARCH))
@@ -80,15 +77,12 @@ impl EngineEditor {
                     }
                     cx.notify();
                 })),
-            )
-            .child(
-                toolbar_icon_button("file-search-close")
-                    .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
-                    .tooltip(t!("editor.find.close"))
-                    .on_click(
-                        cx.listener(|this, _: &ClickEvent, _w, cx| this.close_search_panel(cx)),
-                    ),
             );
+
+        let close = panel_close_button("file-search-close")
+            .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
+            .tooltip(t!("editor.find.close"))
+            .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_search_panel(cx)));
 
         let scope_label = panel
             .scope_path
@@ -100,7 +94,14 @@ impl EngineEditor {
         let header = v_flex()
             .w_full()
             .gap_2()
-            .child(controls)
+            .child(panel_input(&panel.query))
+            .child(
+                h_flex()
+                    .w_full()
+                    .items_center()
+                    .child(panel_tool_lead())
+                    .child(search_tools),
+            )
             .child(
                 Label::new(scope_hint)
                     .text_xs()
@@ -176,36 +177,41 @@ impl EngineEditor {
             .child(list)
             .scrollbar(&panel.scroll, ScrollbarAxis::Vertical);
 
+        let pos = self.resolved_panel_origin(FloatingPanel::SearchInFile);
+        let panel_size = self.resolved_search_panel_size();
+        let resize_hit = PANEL_RESIZE_HANDLE;
+
+        let resize_start = |edge: PanelResizeEdge| {
+            cx.listener(move |this, event: &MouseDownEvent, _window, cx| {
+                this.start_search_panel_resize(edge, event, cx);
+                cx.stop_propagation();
+            })
+        };
+
         Some(
             div()
                 .absolute()
-                .top_0()
-                .right_0()
-                .bottom_0()
-                .w(px(400.0))
-                .p_2()
+                .left(pos.x)
+                .top(pos.y)
+                .w(panel_size.width)
+                .h(panel_size.height)
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
                 .child(
                     v_flex()
                         .id("find-in-file-panel")
-                        .h_full()
+                        .size_full()
                         .popover_style(cx)
                         .shadow_xl()
                         .overflow_hidden()
-                        .child(
-                            h_flex()
-                                .px_3()
-                                .py_2()
-                                .items_center()
-                                .border_b_1()
-                                .border_color(cx.theme().border)
-                                .child(
-                                    Label::new(t!("editor.search_in_file.title"))
-                                        .text_sm()
-                                        .font_weight(FontWeight::SEMIBOLD),
-                                ),
-                        )
+                        .child(panel_title_bar(
+                            cx,
+                            t!("editor.search_in_file.title"),
+                            close,
+                            cx.listener(|this, event: &MouseDownEvent, _window, cx| {
+                                this.start_panel_drag(FloatingPanel::SearchInFile, event, cx);
+                            }),
+                        ))
                         .child(
                             v_flex()
                                 .flex_1()
@@ -216,6 +222,38 @@ impl EngineEditor {
                                 .child(Separator::horizontal().w_full())
                                 .child(results_list),
                         ),
+                )
+                .child(
+                    div()
+                        .id("file-search-resize-right")
+                        .absolute()
+                        .top_0()
+                        .right_0()
+                        .bottom(resize_hit)
+                        .w(resize_hit)
+                        .cursor_col_resize()
+                        .on_mouse_down(MouseButton::Left, resize_start(PanelResizeEdge::Right)),
+                )
+                .child(
+                    div()
+                        .id("file-search-resize-bottom")
+                        .absolute()
+                        .left_0()
+                        .right_0()
+                        .bottom_0()
+                        .h(resize_hit)
+                        .cursor_row_resize()
+                        .on_mouse_down(MouseButton::Left, resize_start(PanelResizeEdge::Bottom)),
+                )
+                .child(
+                    div()
+                        .id("file-search-resize-corner")
+                        .absolute()
+                        .right_0()
+                        .bottom_0()
+                        .size(resize_hit)
+                        .cursor_nwse_resize()
+                        .on_mouse_down(MouseButton::Left, resize_start(PanelResizeEdge::BottomRight)),
                 ),
         )
     }

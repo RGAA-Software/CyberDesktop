@@ -94,6 +94,8 @@ impl EngineEditor {
         self.find = None;
         self.input_target = InputTarget::Document;
         self.needs_focus = true;
+        self.end_panel_drag();
+        self.clear_panel_origin(FloatingPanel::Find);
         cx.notify();
     }
 

@@ -103,12 +103,28 @@ impl EngineEditor {
         if event.pressed_button != Some(MouseButton::Left)
             && (self.scrollbar_drag.is_some()
                 || self.hscrollbar_drag.is_some()
+                || self.panel_drag.is_some()
+                || self.panel_resize.is_some()
                 || self.is_selecting)
         {
             self.scrollbar_drag = None;
             self.hscrollbar_drag = None;
+            self.end_panel_drag();
+            self.end_panel_resize();
             self.is_selecting = false;
             cx.notify();
+            return;
+        }
+        if self.panel_resize.is_some() {
+            if event.pressed_button == Some(MouseButton::Left) {
+                self.resize_search_panel(event, cx);
+            }
+            return;
+        }
+        if self.panel_drag.is_some() {
+            if event.pressed_button == Some(MouseButton::Left) {
+                self.drag_panel(event, cx);
+            }
             return;
         }
         if let Some((start_y, start_scroll)) = self.scrollbar_drag {
@@ -145,6 +161,8 @@ impl EngineEditor {
         self.is_selecting = false;
         self.scrollbar_drag = None;
         self.hscrollbar_drag = None;
+        self.end_panel_drag();
+        self.end_panel_resize();
     }
 
     pub(crate) fn on_scroll(&mut self, event: &ScrollWheelEvent, window: &mut Window, cx: &mut Context<Self>) {

@@ -5,11 +5,12 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use cyberfiles_text_engine::{load_file, Document, SyntaxState};
-use gpui::{prelude::*, px, App, Bounds, Context, Entity, FocusHandle, Pixels, Window};
+use gpui::{prelude::*, px, point, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, Size, Window};
 
 use super::language::language_for_path;
 use super::state::{
-    FindState, GotoState, InputTarget, SearchPanelState, TabSlot, VisibleLine, WrappedVisible,
+    FindState, FloatingPanel, GotoState, InputTarget, PanelDrag, PanelResize, SearchPanelState,
+    TabSlot, VisibleLine, WrappedVisible,
 };
 use super::state::read_file_meta;
 
@@ -34,6 +35,13 @@ pub struct EngineEditor {
     pub(crate) show_shortcuts: bool,
     /// Whether the settings dialog is open.
     pub(crate) show_settings: bool,
+    /// Active floating-panel title-bar drag.
+    pub(crate) panel_drag: Option<PanelDrag>,
+    pub(crate) find_panel_pos: Option<Point<Pixels>>,
+    pub(crate) goto_panel_pos: Option<Point<Pixels>>,
+    pub(crate) search_panel_pos: Option<Point<Pixels>>,
+    pub(crate) search_panel_size: Option<Size<Pixels>>,
+    pub(crate) panel_resize: Option<PanelResize>,
     /// Active vertical scrollbar-thumb drag: `(mouse_y_at_grab, scroll_y_at_grab)`.
     pub(crate) scrollbar_drag: Option<(Pixels, Pixels)>,
     /// Active horizontal scrollbar-thumb drag: `(mouse_x_at_grab, scroll_x_at_grab)`.
@@ -118,6 +126,12 @@ impl EngineEditor {
             show_about: false,
             show_shortcuts: false,
             show_settings: false,
+            panel_drag: None,
+            find_panel_pos: None,
+            goto_panel_pos: None,
+            search_panel_pos: None,
+            search_panel_size: None,
+            panel_resize: None,
             scrollbar_drag: None,
             hscrollbar_drag: None,
             reveal_caret: false,

@@ -2,6 +2,7 @@
 
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
 use super::panel::floating_tool_panel;
+use super::widgets::{panel_close_button, panel_input, panel_tool_lead, panel_tool_strip};
 use super::super::imports::*;
 use gpui_component::IconName;
 
@@ -17,16 +18,7 @@ impl EngineEditor {
                 .tooltip(tip)
         };
 
-        let find_row = h_flex()
-            .w_full()
-            .items_center()
-            .gap_2()
-            .child(div().w(px(220.0)).child(Input::new(&find.query).small()))
-            .child(
-                Label::new(find.status.clone())
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground),
-            )
+        let find_tools = panel_tool_strip()
             .child(
                 toolbar_icon_button("find-count")
                     .icon(toolbar_icon(IconName::Search).path(paths::COUNT))
@@ -95,26 +87,40 @@ impl EngineEditor {
                     }
                     cx.notify();
                 })),
-            )
-            .child(
-                toolbar_icon_button("find-close")
-                    .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
-                    .tooltip(t!("editor.find.close"))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_find(cx))),
             );
+
+        let find_row = v_flex()
+            .w_full()
+            .gap_2()
+            .child(panel_input(&find.query))
+            .child(
+                h_flex()
+                    .w_full()
+                    .items_center()
+                    .child(
+                        Label::new(find.status.clone())
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .flex_1()
+                            .min_w_0()
+                            .truncate(),
+                    )
+                    .child(find_tools),
+            );
+
+        let close = panel_close_button("find-close")
+            .icon(toolbar_icon(IconName::Close).path(paths::CLOSE))
+            .tooltip(t!("editor.find.close"))
+            .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.close_find(cx)));
 
         let mut body = v_flex().w_full().gap_2().child(find_row);
 
         if replace_mode {
-            let replace_row = h_flex()
-                .w_full()
-                .items_center()
-                .gap_2()
-                .child(div().w(px(220.0)).child(Input::new(&find.replace).small()))
+            let replace_tools = panel_tool_strip()
                 .child(
-                    Button::new("replace-one")
-                        .xsmall()
-                        .label(t!("editor.find.replace"))
+                    toolbar_icon_button("replace-one")
+                        .icon(toolbar_icon(IconName::Replace).path(paths::REPLACE))
+                        .tooltip(t!("editor.find.replace"))
                         .on_click(
                             cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace(cx)),
                         ),
@@ -127,9 +133,20 @@ impl EngineEditor {
                             cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace_all(cx)),
                         ),
                 );
-            body = body
-                .child(Separator::horizontal().w_full())
-                .child(replace_row);
+
+            let replace_row = v_flex()
+                .w_full()
+                .gap_2()
+                .child(panel_input(&find.replace))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .items_center()
+                        .child(panel_tool_lead())
+                        .child(replace_tools),
+                );
+
+            body = body.child(replace_row);
         }
 
         let title = if replace_mode {
@@ -138,14 +155,25 @@ impl EngineEditor {
             t!("editor.find.title")
         };
 
+        let pos = self.resolved_panel_origin(FloatingPanel::Find);
+
         Some(
             div()
                 .absolute()
-                .top_2()
-                .right_4()
-                .w(px(520.0))
+                .left(pos.x)
+                .top(pos.y)
+                .w(FIND_PANEL_WIDTH)
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(floating_tool_panel(cx, "find-bar", title, body)),
+                .child(floating_tool_panel(
+                    cx,
+                    "find-bar",
+                    title,
+                    close,
+                    cx.listener(|this, event: &MouseDownEvent, _window, cx| {
+                        this.start_panel_drag(FloatingPanel::Find, event, cx);
+                    }),
+                    body,
+                )),
         )
     }
 }

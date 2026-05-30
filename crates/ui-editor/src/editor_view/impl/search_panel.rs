@@ -125,6 +125,10 @@ impl EngineEditor {
         self.search_panel = None;
         self.input_target = InputTarget::Document;
         self.needs_focus = true;
+        self.end_panel_drag();
+        self.end_panel_resize();
+        self.clear_panel_origin(FloatingPanel::SearchInFile);
+        self.search_panel_size = None;
         cx.notify();
     }
 
