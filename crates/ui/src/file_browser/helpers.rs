@@ -377,27 +377,24 @@ pub(super) fn open_with_system(path: &Path) -> anyhow::Result<()> {
 }
 
 pub(super) fn open_with_cybereditor(path: &Path) -> anyhow::Result<()> {
-    let editor = resolve_cybereditor_exe()?;
+    let Some(editor) = resolve_cybereditor_exe() else {
+        return open_with_system(path);
+    };
     std::process::Command::new(&editor)
         .arg(path)
         .spawn()?;
     Ok(())
 }
 
-fn resolve_cybereditor_exe() -> anyhow::Result<PathBuf> {
-    if let Ok(current) = std::env::current_exe() {
-        if let Some(dir) = current.parent() {
-            #[cfg(windows)]
-            let name = "cyber_editor.exe";
-            #[cfg(not(windows))]
-            let name = "cyber_editor";
-            let sibling = dir.join(name);
-            if sibling.is_file() {
-                return Ok(sibling);
-            }
-        }
-    }
-    Ok(PathBuf::from("cyber_editor"))
+fn resolve_cybereditor_exe() -> Option<PathBuf> {
+    let current = std::env::current_exe().ok()?;
+    let dir = current.parent()?;
+    #[cfg(windows)]
+    let name = "cyber_editor.exe";
+    #[cfg(not(windows))]
+    let name = "cyber_editor";
+    let sibling = dir.join(name);
+    sibling.is_file().then_some(sibling)
 }
 
 pub(super) fn is_executable_or_script_path(path: &Path) -> bool {
