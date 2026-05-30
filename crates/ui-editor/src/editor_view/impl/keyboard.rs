@@ -31,6 +31,9 @@ impl EngineEditor {
                 self.close_search_panel(cx);
             } else if self.find.is_some() {
                 self.close_find(cx);
+            } else if self.context_menu.is_some() {
+                self.dismiss_context_menu();
+                cx.notify();
             } else {
                 self.collapse_carets(cx);
             }

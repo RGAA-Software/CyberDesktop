@@ -83,7 +83,7 @@ impl EngineEditor {
             (self.line_height * lines, pos)
         } else {
             (
-                self.line_height * self.document.buffer().line_count() as f32,
+                self.line_height * self.display_line_count() as f32,
                 self.scroll_y,
             )
         };

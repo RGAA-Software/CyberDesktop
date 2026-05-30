@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use cyberfiles_text_engine::{load_file, Document, SyntaxState};
+use cyberfiles_text_engine::{load_file, Document, FoldRange, SyntaxState};
 use gpui::{prelude::*, px, point, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, ScrollHandle, Size, Window};
 
 use super::language::language_for_path;
@@ -13,6 +13,7 @@ use super::state::{
     TabSlot, VisibleLine, WrappedVisible,
 };
 use super::state::read_file_meta;
+use super::r#impl::{EditorContextMenuState, FOLD_GUTTER_WIDTH};
 
 /// A high-performance, engine-backed text editor surface.
 pub struct EngineEditor {
@@ -101,6 +102,14 @@ pub struct EngineEditor {
     pub(crate) caret_blink_visible: bool,
     /// Set once the caret-blink timer has been started.
     pub(crate) blink_started: bool,
+    /// Active indent-based folds for the current tab.
+    pub(crate) active_folds: Vec<FoldRange>,
+    /// Visible buffer lines after applying folds (non-wrap mode).
+    pub(crate) display_lines: Vec<usize>,
+    /// Right-click menu flyout, once built.
+    pub(crate) context_menu: Option<EditorContextMenuState>,
+    /// Position queued until the menu is built on the next frame.
+    pub(crate) context_menu_pending: Option<Point<Pixels>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,7 +121,7 @@ pub(crate) enum CloseTarget {
 
 impl EngineEditor {
     pub fn new(language: &str, document: Document, cx: &mut Context<Self>) -> Self {
-        Self {
+        let mut editor = Self {
             focus_handle: cx.focus_handle(),
             document,
             syntax: SyntaxState::new(language),
@@ -139,7 +148,7 @@ impl EngineEditor {
             reveal_caret: false,
             font_size: px(14.0),
             line_height: px(20.0),
-            gutter_width: px(48.0),
+            gutter_width: px(48.0) + FOLD_GUTTER_WIDTH,
             scroll_y: px(0.0),
             scroll_x: px(0.0),
             content_width: px(0.0),
@@ -165,7 +174,13 @@ impl EngineEditor {
             watch_started: false,
             caret_blink_visible: true,
             blink_started: false,
-        }
+            active_folds: Vec::new(),
+            display_lines: Vec::new(),
+            context_menu: None,
+            context_menu_pending: None,
+        };
+        editor.rebuild_display_lines();
+        editor
     }
 
     /// Convenience factory for [`open_window`]: builds an editor entity for `path`.
@@ -185,6 +200,7 @@ impl EngineEditor {
         };
         let mut editor = Self::new(language, document, cx);
         editor.document.set_caret(0);
+        editor.rebuild_display_lines();
         if let Some(p) = &path {
             editor.file_meta = read_file_meta(p);
             editor.push_recent(p.clone());

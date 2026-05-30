@@ -42,6 +42,7 @@ impl Render for EngineEditor {
         let settings = self.render_settings(window, cx);
         let close_confirm = self.render_close_confirm(cx);
         let recent = self.render_recent(cx);
+        let context_menu = self.render_context_menu_overlay(window);
         let scrollbar = self.render_scrollbar(cx);
         let hscrollbar = self.render_hscrollbar(cx);
         let canvas = EditorCanvas {
@@ -115,7 +116,13 @@ impl Render for EngineEditor {
                     .on_action(cx.listener(|this, _: &GoToLine, window, cx| {
                         this.open_goto(window, cx)
                     }))
+                    .on_action(cx.listener(|this, _: &ToggleFold, _w, cx| {
+                        this.toggle_fold_at_caret(cx)
+                    }))
+                    .on_action(cx.listener(|this, _: &FoldAll, _w, cx| this.fold_all(cx)))
+                    .on_action(cx.listener(|this, _: &UnfoldAll, _w, cx| this.unfold_all(cx)))
                     .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
+                    .on_mouse_down(MouseButton::Right, cx.listener(Self::on_mouse_right))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
                     .on_mouse_move(cx.listener(Self::on_mouse_move))
                     .on_scroll_wheel(cx.listener(Self::on_scroll))
@@ -137,7 +144,8 @@ impl Render for EngineEditor {
                     .children(shortcuts)
                     .children(settings)
                     .children(close_confirm)
-                    .children(recent),
+                    .children(recent)
+                    .child(context_menu),
             )
             .child(header)
     }

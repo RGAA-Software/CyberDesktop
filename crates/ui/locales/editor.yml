@@ -95,6 +95,22 @@ editor.menu.select_all:
   en: Select All
   zh-CN: 全选
   zh-HK: 全選
+editor.menu.select_line:
+  en: Select Line
+  zh-CN: 选择行
+  zh-HK: 選擇行
+editor.menu.toggle_fold:
+  en: Toggle Fold
+  zh-CN: 切换折叠
+  zh-HK: 切換摺疊
+editor.menu.fold_all:
+  en: Fold All
+  zh-CN: 全部折叠
+  zh-HK: 全部摺疊
+editor.menu.unfold_all:
+  en: Unfold All
+  zh-CN: 全部展开
+  zh-HK: 全部展開
 editor.menu.toggle_comment:
   en: Toggle Comment
   zh-CN: 切换注释

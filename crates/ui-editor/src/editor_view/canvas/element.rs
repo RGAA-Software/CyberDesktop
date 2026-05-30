@@ -1,7 +1,7 @@
 //! `EditorCanvas` types and GPUI [`Element`] wiring.
 
 use gpui::{
-    point, prelude::*, relative, App, Bounds, Element, ElementId, GlobalElementId,
+    point, prelude::*, px, relative, App, Bounds, Element, ElementId, GlobalElementId,
     Hitbox, HitboxBehavior, LayoutId, PaintQuad, Pixels, ShapedLine, Style, Window, WrappedLine,
 };
 
@@ -9,6 +9,7 @@ use gpui::Entity;
 
 use super::super::ui::EditorColors;
 use super::super::EngineEditor;
+use super::super::r#impl::FOLD_GUTTER_WIDTH;
 use super::{paint, prepaint, prepaint_wrapped};
 
 pub(crate) struct EditorCanvas {
@@ -21,10 +22,12 @@ pub(crate) struct CanvasPrepaint {
     /// Populated instead of `rows` when soft wrap is on.
     pub(crate) wrapped_rows: Vec<WrappedRow>,
     pub(crate) gutter: Vec<(Pixels, ShapedLine)>,
+    pub(crate) fold_gutter: Vec<(Pixels, bool)>,
     pub(crate) selections: Vec<PaintQuad>,
     pub(crate) carets: Vec<PaintQuad>,
     pub(crate) content_left: Pixels,
     pub(crate) gutter_left: Pixels,
+    pub(crate) fold_left: Pixels,
 }
 
 pub(crate) struct EditorCanvasPrepaint {
@@ -112,12 +115,16 @@ impl Element for EditorCanvas {
         self.editor.update(cx, |e, _| {
             e.refresh_syntax();
             e.last_bounds = Some(bounds);
-            let line_count = e.document.buffer().line_count();
+            let line_count = if e.soft_wrap {
+                e.document.buffer().line_count()
+            } else {
+                e.display_line_count()
+            };
             let digits = line_count.to_string().len().max(3);
             e.gutter_width = if e.show_line_numbers {
-                e.font_size * (digits as f32 + 2.0) * 0.6
+                e.font_size * (digits as f32 + 2.0) * 0.6 + FOLD_GUTTER_WIDTH + px(4.0)
             } else {
-                gpui::px(8.0)
+                FOLD_GUTTER_WIDTH + px(4.0)
             };
             let lane_inset = e.editor_bottom_inset();
             e.scroll_y = super::super::EngineEditor::clamp_scroll_y_for_lane(

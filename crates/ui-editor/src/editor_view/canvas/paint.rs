@@ -1,11 +1,12 @@
 //! Paint shaped lines, selections, carets, and gutter.
 
 use gpui::{
-    point, prelude::*, App, Bounds, CursorStyle, Element, ElementInputHandler, GlobalElementId,
-    Pixels, rgb, Window,
+    point, App, Bounds, CursorStyle, Element, ElementInputHandler, GlobalElementId,
+    Pixels, Window,
 };
 
 use super::element::{EditorCanvas, EditorCanvasPrepaint};
+use super::fold_icon;
 use super::super::state::{VisibleLine, WrappedVisible};
 
 pub(crate) fn paint(
@@ -19,6 +20,7 @@ pub(crate) fn paint(
     cx: &mut App,
 ) {
         set_editor_cursors(prepaint, window);
+        let fold_left = prepaint.canvas.fold_left;
         let canvas_prepaint = &mut prepaint.canvas;
         let (focus_handle, line_height, gutter_width, bottom_inset) = {
             let e = canvas.editor.read(cx);
@@ -80,6 +82,16 @@ pub(crate) fn paint(
             ),
         };
         window.with_content_mask(Some(gutter_mask), |window| {
+            for (top, collapsed) in &canvas_prepaint.fold_gutter {
+                fold_icon::paint_fold_chevron(
+                    window,
+                    cx,
+                    fold_left,
+                    *top,
+                    line_height,
+                    *collapsed,
+                );
+            }
             for (top, shaped) in &canvas_prepaint.gutter {
                 let _ = shaped.paint(
                     point(canvas_prepaint.gutter_left, *top),

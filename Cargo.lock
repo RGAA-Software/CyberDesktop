@@ -1482,6 +1482,7 @@ dependencies = [
 name = "cyberfiles-ui-editor"
 version = "0.1.0"
 dependencies = [
+ "cyberfiles-assets",
  "cyberfiles-text-engine",
  "cyberfiles-ui",
  "gpui",

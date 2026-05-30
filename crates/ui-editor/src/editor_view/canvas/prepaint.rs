@@ -8,6 +8,7 @@ use gpui::{
 
 use super::element::{CanvasPrepaint, EditorCanvas, VisibleRow};
 use super::super::editor::EngineEditor;
+use super::super::r#impl::FOLD_GUTTER_WIDTH;
 use super::super::ui::EditorColors;
 use super::super::text_util::char_to_byte;
 use super::syntax_paint::{build_runs, occurrence_word, word_occurrences};
@@ -77,27 +78,41 @@ pub(crate) fn prepaint_normal(
 
         let content_left = bounds.left() + gutter_width - scroll_x;
         let gutter_left = bounds.left() + px(4.0);
+        let fold_left = bounds.left() + gutter_width - FOLD_GUTTER_WIDTH;
 
-        let first_line = (f32::from(scroll_y) / f32::from(line_height)).floor() as usize;
+        let display_lines = if editor.display_lines.is_empty() {
+            (0..line_count).collect::<Vec<_>>()
+        } else {
+            editor.display_lines.clone()
+        };
+        let display_count = display_lines.len().max(1);
+        let first_display = (f32::from(scroll_y) / f32::from(line_height)).floor() as usize;
         let visible_count = (f32::from(viewport_h) / f32::from(line_height)).ceil() as usize + 2;
-        let last_line = (first_line + visible_count).min(line_count);
+        let last_display = (first_display + visible_count).min(display_count);
 
         let mut rows = Vec::new();
         let mut gutter = Vec::new();
+        let mut fold_gutter = Vec::new();
         let mut selections = Vec::new();
         let mut carets: Vec<PaintQuad> = Vec::new();
         let mut content_w = px(0.0);
         let highlight_word = occurrence_word(&editor.document);
 
-        for line in first_line..last_line {
-            let top = bounds.top() + line_height * line as f32 - scroll_y;
-            // Skip lines fully below the text lane (keep the line that ends at
-            // `content_bottom`; strict `>` was dropping the last row at scroll end).
+        for dix in first_display..last_display {
+            let Some(line) = display_lines.get(dix).copied() else {
+                break;
+            };
+            let top = bounds.top()
+                + line_height * (dix - first_display) as f32
+                - (scroll_y - line_height * first_display as f32);
             if top >= content_bottom {
                 break;
             }
             let line_start_char = buf.position_to_char(Position::new(line, 0));
-            let line_text = buf.line_text(line);
+            let mut line_text = buf.line_text(line);
+            if editor.is_folded_header(line) {
+                line_text.push_str("  \u{2026}");
+            }
             let line_char_len = buf.line_len_chars(line);
             let line_end_char = line_start_char + line_char_len;
             let line_start_byte = buf.char_to_byte(line_start_char);
@@ -165,7 +180,11 @@ pub(crate) fn prepaint_normal(
                 }
             }
 
-            // Gutter line number.
+            // Gutter line number + fold chevron.
+            let collapsed = editor.is_folded_header(line);
+            if collapsed || editor.crease_at(line).is_some() {
+                fold_gutter.push((top, collapsed));
+            }
             if show_line_numbers {
                 let num = format!("{:>width$} ", line + 1, width = digits);
                 let line_num_color = if line == caret_line {
@@ -213,7 +232,7 @@ pub(crate) fn prepaint_normal(
             e.scroll_y = EngineEditor::clamp_scroll_y_for_lane(
                 e.scroll_y,
                 e.line_height,
-                line_count,
+                e.display_line_count(),
                 bounds.size.height,
                 lane_inset,
             );
@@ -226,10 +245,12 @@ pub(crate) fn prepaint_normal(
             rows,
             wrapped_rows: Vec::new(),
             gutter,
+            fold_gutter,
             selections,
             carets,
             content_left,
             gutter_left,
+            fold_left,
         }
 
 }

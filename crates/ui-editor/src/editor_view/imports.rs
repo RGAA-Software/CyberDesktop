@@ -14,7 +14,7 @@ pub use cyberfiles_ui::{
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, GoToLine,
     IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
     ReplaceText, SaveFile, SaveFileAs, SelectAll, TitleBar, ToggleComment, ToggleLineNumbers,
-    ToggleSoftWrap, EDITOR_CONTEXT,
+    ToggleSoftWrap, ToggleFold, FoldAll, UnfoldAll, EDITOR_CONTEXT,
 };
 pub use rust_i18n::t;
 pub use gpui::{

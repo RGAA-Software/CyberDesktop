@@ -1,6 +1,7 @@
 //! Custom GPUI element: virtualized text surface with syntax highlighting.
 
 mod element;
+mod fold_icon;
 mod paint;
 mod prepaint;
 mod prepaint_wrapped;

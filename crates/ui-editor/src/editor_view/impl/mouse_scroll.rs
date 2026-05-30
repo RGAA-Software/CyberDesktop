@@ -69,6 +69,11 @@ impl EngineEditor {
 
     pub(crate) fn on_mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus_handle, cx);
+        self.dismiss_context_menu();
+        if let Some(line) = self.fold_gutter_hit(event.position) {
+            self.toggle_fold_at_line(line, cx);
+            return;
+        }
         self.input_target = InputTarget::Document;
         let idx = self.index_for_position(event.position);
         if event.click_count >= 3 {

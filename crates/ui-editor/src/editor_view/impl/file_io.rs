@@ -55,6 +55,8 @@ impl EngineEditor {
             self.marked_range = None;
             self.file_meta = meta;
             self.disk_changed = false;
+            self.active_folds.clear();
+            self.rebuild_display_lines();
             self.needs_focus = true;
             self.retarget_search_panel();
         } else if target < self.tabs.len() {
@@ -66,6 +68,7 @@ impl EngineEditor {
             slot.scroll_y = scroll_y;
             slot.file_meta = meta;
             slot.disk_changed = false;
+            slot.active_folds.clear();
         }
     }
 
@@ -120,6 +123,8 @@ impl EngineEditor {
         self.file_meta = None;
         self.disk_changed = false;
         self.marked_range = None;
+        self.active_folds.clear();
+        self.rebuild_display_lines();
         self.document.set_caret(0);
         cx.notify();
     }

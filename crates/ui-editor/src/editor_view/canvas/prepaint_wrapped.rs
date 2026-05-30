@@ -220,10 +220,12 @@ pub(crate) fn prepaint_wrapped(
             rows: Vec::new(),
             wrapped_rows,
             gutter,
+            fold_gutter: Vec::new(),
             selections,
             carets,
             content_left,
             gutter_left,
+            fold_left: bounds.left() + gutter_width - super::super::r#impl::FOLD_GUTTER_WIDTH,
         }
 
 }

@@ -22,6 +22,7 @@ pub mod loader;
 mod rope_scan;
 pub mod search;
 pub mod selection;
+pub mod fold;
 pub mod syntax;
 
 pub use buffer::{BytePoint, EditSummary, Position, TextBuffer};
@@ -38,4 +39,5 @@ pub use search::{
     FindInLinesOutcome, LineSearchHit, Match, SearchOptions, Searcher, FIND_IN_FILE_MAX_MATCHES,
 };
 pub use selection::{Cursor, SelectionSet};
+pub use fold::{build_display_lines, crease_at_line, display_line_count, fold_header, is_folded_header, is_line_hidden, line_indent, starts_indent, FoldRange};
 pub use syntax::{HighlightKind, HighlightSpan, SyntaxState, is_supported, supported_language_ids};

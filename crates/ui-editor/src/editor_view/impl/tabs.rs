@@ -34,6 +34,7 @@ impl EngineEditor {
         slot.scroll_y = self.scroll_y;
         slot.file_meta = self.file_meta;
         slot.disk_changed = self.disk_changed;
+        slot.active_folds = std::mem::take(&mut self.active_folds);
     }
 
     /// Pulls `tabs[index]` into the live fields and makes it active.
@@ -46,6 +47,8 @@ impl EngineEditor {
         self.scroll_y = slot.scroll_y;
         self.file_meta = slot.file_meta;
         self.disk_changed = slot.disk_changed;
+        self.active_folds = std::mem::take(&mut slot.active_folds);
+        self.rebuild_display_lines();
         self.active = index;
         self.marked_range = None;
         self.input_target = InputTarget::Document;

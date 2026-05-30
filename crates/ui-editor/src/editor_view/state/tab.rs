@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::time::SystemTime;
 
-use cyberfiles_text_engine::{Document, SyntaxState};
+use cyberfiles_text_engine::{Document, FoldRange, SyntaxState};
 use gpui::{px, Pixels};
 
 /// Per-tab state parked while another tab is active. The currently active tab's
@@ -18,6 +18,7 @@ pub(crate) struct TabSlot {
     pub(crate) file_meta: Option<(SystemTime, u64)>,
     /// Set when the file changed on disk since we last loaded/saved it.
     pub(crate) disk_changed: bool,
+    pub(crate) active_folds: Vec<FoldRange>,
 }
 
 impl TabSlot {
@@ -31,6 +32,7 @@ impl TabSlot {
             scroll_y: px(0.0),
             file_meta: None,
             disk_changed: false,
+            active_folds: Vec::new(),
         }
     }
 }

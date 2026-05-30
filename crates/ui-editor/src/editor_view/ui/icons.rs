@@ -15,4 +15,6 @@ pub(crate) mod paths {
     pub const COUNT: &str = "icons/editor_count.svg";
     pub const GOTO: &str = "icons/editor_goto.svg";
     pub const SETTINGS: &str = "icons/settings-2.svg";
+    pub const FOLD_EXPANDED: &str = "icons/chevron-down.svg";
+    pub const FOLD_COLLAPSED: &str = "icons/chevron-right.svg";
 }

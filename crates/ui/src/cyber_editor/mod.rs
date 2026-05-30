@@ -57,7 +57,10 @@ actions!(
         FindNext,
         FindPrevious,
         AboutEditor,
-        KeyboardShortcuts
+        KeyboardShortcuts,
+        ToggleFold,
+        FoldAll,
+        UnfoldAll,
     ]
 );
 
@@ -109,6 +112,12 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-l", ToggleLineNumbers, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-z", ToggleSoftWrap, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("alt-shift-f", ToggleFold, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("alt-shift-k", FoldAll, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("alt-shift-j", UnfoldAll, Some(EDITOR_CONTEXT)),
         KeyBinding::new("f3", FindNext, Some(EDITOR_CONTEXT)),
         KeyBinding::new("shift-f3", FindPrevious, Some(EDITOR_CONTEXT)),
         KeyBinding::new("f1", KeyboardShortcuts, Some(EDITOR_CONTEXT)),
@@ -157,5 +166,11 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-l", ToggleLineNumbers, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("alt-z", ToggleSoftWrap, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("alt-shift-f", ToggleFold, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("alt-shift-k", FoldAll, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("alt-shift-j", UnfoldAll, Some(EDITOR_CONTEXT)),
     ]);
 }

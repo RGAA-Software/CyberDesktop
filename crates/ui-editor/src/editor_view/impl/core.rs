@@ -23,6 +23,7 @@ impl EngineEditor {
     }
 
     pub(crate) fn changed(&mut self, cx: &mut Context<Self>) {
+        self.rebuild_display_lines();
         self.caret_blink_visible = true;
         self.ensure_caret_visible();
         cx.notify();
@@ -56,7 +57,12 @@ impl EngineEditor {
         let Some(b) = self.last_bounds else {
             return px(0.0);
         };
-        let total = self.line_height * self.document.buffer().line_count() as f32;
+        let lines = if self.soft_wrap {
+            self.document.buffer().line_count()
+        } else {
+            self.display_line_count()
+        };
+        let total = self.line_height * lines as f32;
         (total - b.size.height).max(px(0.0))
     }
 
