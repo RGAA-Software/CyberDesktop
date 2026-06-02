@@ -1,0 +1,75 @@
+[workspace]
+members = [
+    "crates/files-app",
+    "crates/editor-app",
+    "crates/app-examples",
+    "crates/app-assets",
+    "crates/app-media",
+    "crates/app-mpv-ffi",
+    "crates/files-commands",
+    "crates/files-core",
+    "crates/files-fs",
+    "crates/app-platform-windows",
+    "crates/app-sevenzip-ffi",
+    "crates/editor-text-engine",
+    "crates/app-ui",
+    "crates/files-ui",
+    "crates/editor-ui",
+]
+default-members = ["crates/files-app", "crates/editor-app"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace.dependencies]
+app-assets = { path = "crates/app-assets" }
+app-mpv-ffi = { path = "crates/app-mpv-ffi" }
+app-media = { path = "crates/app-media" }
+files-commands = { path = "crates/files-commands" }
+files-core = { path = "crates/files-core" }
+files-fs = { path = "crates/files-fs" }
+app-platform-windows = { path = "crates/app-platform-windows" }
+editor-text-engine = { path = "crates/editor-text-engine" }
+app-ui = { path = "crates/app-ui", default-features = false }
+files-ui = { path = "crates/files-ui", default-features = false }
+editor-ui = { path = "crates/editor-ui" }
+
+# zed-industries/zed (GPUI only)
+gpui = { git = "https://github.com/zed-industries/zed" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", package = "gpui_platform", features = ["font-kit"] }
+
+# longbridge/gpui-component (git only; see docs/dependency-policy.md)
+gpui-component = { git = "https://github.com/longbridge/gpui-component", features = ["tree-sitter-languages"] }
+gpui-component-assets = { git = "https://github.com/longbridge/gpui-component", package = "gpui-component-assets" }
+
+anyhow = "1.0"
+chrono = "0.4"
+rolling-file = "0.2"
+rust-i18n = "4"
+rfd = "0.15"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sys-locale = "0.3"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-log = "0.2"
+tracing-subscriber = "0.3"
+unicode-width = "0.2"
+embed-resource = "3"
+#[profile.release]
+#opt-level = 3
+#lto = "fat"
+#codegen-units = 1
+#panic = "abort"
+#strip = "symbols"
+#debug = false
+#incremental = false
+#
+#[profile.release.package."*"]
+#opt-level = 3
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow" }

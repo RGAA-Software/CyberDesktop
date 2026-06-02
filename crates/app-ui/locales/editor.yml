@@ -1,0 +1,639 @@
+_version: 2
+editor.app_name:
+  en: CyberEditor
+  zh-CN: CyberEditor
+  zh-HK: CyberEditor
+editor.untitled:
+  en: Untitled
+  zh-CN: 未命名
+  zh-HK: 未命名
+editor.menu.file:
+  en: File
+  zh-CN: 文件
+  zh-HK: 檔案
+editor.menu.edit:
+  en: Edit
+  zh-CN: 编辑
+  zh-HK: 編輯
+editor.menu.selection:
+  en: Selection
+  zh-CN: 选择
+  zh-HK: 選取
+editor.menu.view:
+  en: View
+  zh-CN: 视图
+  zh-HK: 檢視
+editor.menu.help:
+  en: Help
+  zh-CN: 帮助
+  zh-HK: 說明
+editor.menu.new:
+  en: New
+  zh-CN: 新建
+  zh-HK: 新建
+editor.menu.open:
+  en: Open...
+  zh-CN: 打开...
+  zh-HK: 開啟...
+editor.menu.save:
+  en: Save
+  zh-CN: 保存
+  zh-HK: 儲存
+editor.menu.save_as:
+  en: Save As...
+  zh-CN: 另存为...
+  zh-HK: 另存新檔...
+editor.menu.exit:
+  en: Exit
+  zh-CN: 退出
+  zh-HK: 結束
+editor.menu.undo:
+  en: Undo
+  zh-CN: 撤销
+  zh-HK: 復原
+editor.menu.redo:
+  en: Redo
+  zh-CN: 重做
+  zh-HK: 重做
+editor.menu.cut:
+  en: Cut
+  zh-CN: 剪切
+  zh-HK: 剪下
+editor.menu.copy:
+  en: Copy
+  zh-CN: 复制
+  zh-HK: 複製
+editor.menu.paste:
+  en: Paste
+  zh-CN: 粘贴
+  zh-HK: 貼上
+editor.menu.find:
+  en: Find...
+  zh-CN: 查找...
+  zh-HK: 尋找...
+editor.menu.find_in_file:
+  en: Find in File...
+  zh-CN: 在文件中查找...
+  zh-HK: 在檔案中尋找...
+editor.menu.replace:
+  en: Replace...
+  zh-CN: 替换...
+  zh-HK: 取代...
+editor.menu.replace_all:
+  en: Replace All...
+  zh-CN: 全部替换...
+  zh-HK: 全部取代...
+editor.menu.find_next:
+  en: Find Next
+  zh-CN: 查找下一个
+  zh-HK: 尋找下一個
+editor.menu.find_previous:
+  en: Find Previous
+  zh-CN: 查找上一个
+  zh-HK: 尋找上一個
+editor.menu.select_all:
+  en: Select All
+  zh-CN: 全选
+  zh-HK: 全選
+editor.menu.select_line:
+  en: Select Line
+  zh-CN: 选择行
+  zh-HK: 選擇行
+editor.menu.toggle_fold:
+  en: Toggle Fold
+  zh-CN: 切换折叠
+  zh-HK: 切換摺疊
+editor.menu.fold_all:
+  en: Fold All
+  zh-CN: 全部折叠
+  zh-HK: 全部摺疊
+editor.menu.unfold_all:
+  en: Unfold All
+  zh-CN: 全部展开
+  zh-HK: 全部展開
+editor.menu.toggle_comment:
+  en: Toggle Comment
+  zh-CN: 切换注释
+  zh-HK: 切換註解
+editor.menu.indent:
+  en: Indent
+  zh-CN: 增加缩进
+  zh-HK: 增加縮排
+editor.menu.outdent:
+  en: Outdent
+  zh-CN: 减少缩进
+  zh-HK: 減少縮排
+editor.menu.go_to_line:
+  en: Go to Line...
+  zh-CN: 转到行...
+  zh-HK: 移至行...
+editor.menu.line_numbers:
+  en: Line Numbers
+  zh-CN: 行号
+  zh-HK: 行號
+editor.menu.word_wrap:
+  en: Word Wrap
+  zh-CN: 自动换行
+  zh-HK: 自動換行
+editor.menu.keyboard_shortcuts:
+  en: Keyboard Shortcuts
+  zh-CN: 键盘快捷键
+  zh-HK: 鍵盤快捷鍵
+editor.menu.about:
+  en: About CyberEditor
+  zh-CN: 关于 CyberEditor
+  zh-HK: 關於 CyberEditor
+editor.tooltip.new_tab:
+  en: New tab
+  zh-CN: 新建标签页
+  zh-HK: 新建分頁
+editor.tooltip.settings:
+  en: Settings
+  zh-CN: 设置
+  zh-HK: 設定
+editor.status.ln_col:
+  en: "Ln %{line}, Col %{col}"
+  zh-CN: "行 %{line}, 列 %{col}"
+  zh-HK: "行 %{line}, 列 %{col}"
+editor.status.long_line:
+  en: "Long line (%{cols} cols)"
+  zh-CN: "超长行 (%{cols} 列)"
+  zh-HK: "超長行 (%{cols} 列)"
+editor.disk.changed:
+  en: This file changed on disk.
+  zh-CN: 文件已在磁盘上被修改。
+  zh-HK: 檔案已在磁碟上被修改。
+editor.disk.reload:
+  en: Reload
+  zh-CN: 重新加载
+  zh-HK: 重新載入
+editor.disk.ignore:
+  en: Ignore
+  zh-CN: 忽略
+  zh-HK: 忽略
+editor.recent.title:
+  en: Recent Files
+  zh-CN: 最近打开的文件
+  zh-HK: 最近開啟的檔案
+editor.recent.empty:
+  en: No recent files
+  zh-CN: 没有最近打开的文件
+  zh-HK: 沒有最近開啟的檔案
+editor.about.title:
+  en: About CyberEditor
+  zh-CN: 关于 CyberEditor
+  zh-HK: 關於 CyberEditor
+editor.about.tagline:
+  en: High-performance text & code editor
+  zh-CN: 高性能文本与代码编辑器
+  zh-HK: 高效能文字與程式碼編輯器
+editor.about.stack:
+  en: Rust · GPUI · rope text engine
+  zh-CN: Rust · GPUI · rope 文本引擎
+  zh-HK: Rust · GPUI · rope 文字引擎
+editor.shortcuts.title:
+  en: Keyboard Shortcuts
+  zh-CN: 键盘快捷键
+  zh-HK: 鍵盤快捷鍵
+editor.close:
+  en: Close
+  zh-CN: 关闭
+  zh-HK: 關閉
+editor.unsaved.title:
+  en: Unsaved Changes
+  zh-CN: 未保存的更改
+  zh-HK: 未儲存的變更
+editor.unsaved.single:
+  en: You have unsaved changes. Save before closing?
+  zh-CN: 有未保存的更改。关闭前是否保存？
+  zh-HK: 有未儲存的變更。關閉前是否儲存？
+editor.unsaved.multiple:
+  en: "%{count} files have unsaved changes. Save them before closing?"
+  zh-CN: "有 %{count} 个文件未保存。关闭前是否全部保存？"
+  zh-HK: "有 %{count} 個檔案未儲存。關閉前是否全部儲存？"
+editor.unsaved.tab:
+  en: 'Save changes to "%{name}" before closing?'
+  zh-CN: "关闭前是否保存对「%{name}」的更改？"
+  zh-HK: "關閉前是否儲存對「%{name}」的變更？"
+editor.save:
+  en: Save
+  zh-CN: 保存
+  zh-HK: 儲存
+editor.save_all:
+  en: Save All
+  zh-CN: 全部保存
+  zh-HK: 全部儲存
+editor.dont_save:
+  en: Don't Save
+  zh-CN: 不保存
+  zh-HK: 不儲存
+editor.find.title:
+  en: Find
+  zh-CN: 查找
+  zh-HK: 尋找
+editor.find.replace_title:
+  en: Find and Replace
+  zh-CN: 查找和替换
+  zh-HK: 尋找與取代
+editor.find.placeholder:
+  en: Find
+  zh-CN: 查找
+  zh-HK: 尋找
+editor.find.replace_placeholder:
+  en: Replace with
+  zh-CN: 替换为
+  zh-HK: 取代為
+editor.find.replace:
+  en: Replace
+  zh-CN: 替换
+  zh-HK: 取代
+editor.find.replace_all:
+  en: Replace all matches
+  zh-CN: 替换全部匹配
+  zh-HK: 取代全部符合項目
+editor.find.count:
+  en: Count all matches in document
+  zh-CN: 统计文档中的匹配数
+  zh-HK: 統計文件中的符合項目數
+editor.find.prev:
+  en: Find previous (Shift+F3)
+  zh-CN: 查找上一个 (Shift+F3)
+  zh-HK: 尋找上一個 (Shift+F3)
+editor.find.next:
+  en: Find next (F3)
+  zh-CN: 查找下一个 (F3)
+  zh-HK: 尋找下一個 (F3)
+editor.find.match_case:
+  en: Match case
+  zh-CN: 区分大小写
+  zh-HK: 大小寫相符
+editor.find.whole_word:
+  en: Whole word
+  zh-CN: 全字匹配
+  zh-HK: 全字相符
+editor.find.regex:
+  en: Regular expression
+  zh-CN: 正则表达式
+  zh-HK: 規則運算式
+editor.find.close:
+  en: Close (Esc)
+  zh-CN: 关闭 (Esc)
+  zh-HK: 關閉 (Esc)
+editor.find.bad_pattern:
+  en: Bad pattern
+  zh-CN: 无效的模式
+  zh-HK: 無效的模式
+editor.find.counting:
+  en: Counting…
+  zh-CN: 统计中…
+  zh-HK: 統計中…
+editor.find.count_zero:
+  en: "Count: 0 matches"
+  zh-CN: "计数：0 个匹配"
+  zh-HK: "計數：0 個符合"
+editor.find.count_one:
+  en: "Count: 1 match"
+  zh-CN: "计数：1 个匹配"
+  zh-HK: "計數：1 個符合"
+editor.find.count_many:
+  en: "Count: %{count} matches"
+  zh-CN: "计数：%{count} 个匹配"
+  zh-HK: "計數：%{count} 個符合"
+editor.find.no_matches:
+  en: No matches
+  zh-CN: 无匹配
+  zh-HK: 無符合項目
+editor.find.wrap_forward:
+  en: Reached end, continuing from start
+  zh-CN: 已到达末尾，从头继续
+  zh-HK: 已到達結尾，從開頭繼續
+editor.find.wrap_backward:
+  en: Reached start, continuing from end
+  zh-CN: 已到达开头，从末尾继续
+  zh-HK: 已到達開頭，從結尾繼續
+editor.find.replaced:
+  en: "Replaced %{count}"
+  zh-CN: "已替换 %{count} 处"
+  zh-HK: "已取代 %{count} 處"
+editor.goto.title:
+  en: Go to Line
+  zh-CN: 转到行
+  zh-HK: 移至行
+editor.goto.prompt:
+  en: "Line (1–%{last}):"
+  zh-CN: "行 (1–%{last})："
+  zh-HK: "行 (1–%{last})："
+editor.goto.action:
+  en: Go to line
+  zh-CN: 转到行
+  zh-HK: 移至行
+editor.search_in_file.title:
+  en: Find in File
+  zh-CN: 在文件中查找
+  zh-HK: 在檔案中尋找
+editor.search_in_file.placeholder:
+  en: Find in file
+  zh-CN: 在文件中查找
+  zh-HK: 在檔案中尋找
+editor.search_in_file.action:
+  en: Search in current file
+  zh-CN: 在当前文件中搜索
+  zh-HK: 在目前檔案中搜尋
+editor.search_in_file.scope:
+  en: "Current tab: %{name}"
+  zh-CN: "当前标签页：%{name}"
+  zh-HK: "目前分頁：%{name}"
+editor.search_in_file.searching:
+  en: Searching…
+  zh-CN: 搜索中…
+  zh-HK: 搜尋中…
+editor.search_in_file.progress:
+  en: "Searching… %{lines} lines, %{matches} matches"
+  zh-CN: "搜索中… %{lines} 行，%{matches} 个匹配"
+  zh-HK: "搜尋中… %{lines} 行，%{matches} 個符合"
+editor.search_in_file.no_results:
+  en: No results
+  zh-CN: 无结果
+  zh-HK: 無結果
+editor.search_in_file.limit:
+  en: "%{hits}+ matches (limit reached)"
+  zh-CN: "%{hits}+ 个匹配（已达上限）"
+  zh-HK: "%{hits}+ 個符合（已達上限）"
+editor.search_in_file.hits:
+  en: "%{hits} matches"
+  zh-CN: "%{hits} 个匹配"
+  zh-HK: "%{hits} 個符合"
+editor.goto.placeholder:
+  en: Line number
+  zh-CN: 行号
+  zh-HK: 行號
+editor.shortcuts.section.file:
+  en: File
+  zh-CN: 文件
+  zh-HK: 檔案
+editor.shortcuts.new_tab:
+  en: New tab
+  zh-CN: 新建标签页
+  zh-HK: 新建分頁
+editor.shortcuts.open_file:
+  en: Open file
+  zh-CN: 打开文件
+  zh-HK: 開啟檔案
+editor.shortcuts.save:
+  en: Save / Save As
+  zh-CN: 保存 / 另存为
+  zh-HK: 儲存 / 另存新檔
+editor.shortcuts.close_tab:
+  en: Close tab
+  zh-CN: 关闭标签页
+  zh-HK: 關閉分頁
+editor.shortcuts.next_tab:
+  en: Next / Prev tab
+  zh-CN: 下一个 / 上一个标签页
+  zh-HK: 下一個 / 上一個分頁
+editor.shortcuts.recent:
+  en: Recent files
+  zh-CN: 最近文件
+  zh-HK: 最近檔案
+editor.shortcuts.section.edit:
+  en: Edit
+  zh-CN: 编辑
+  zh-HK: 編輯
+editor.shortcuts.undo_redo:
+  en: Undo / Redo
+  zh-CN: 撤销 / 重做
+  zh-HK: 復原 / 重做
+editor.shortcuts.clipboard:
+  en: Cut / Copy / Paste
+  zh-CN: 剪切 / 复制 / 粘贴
+  zh-HK: 剪下 / 複製 / 貼上
+editor.shortcuts.select:
+  en: Select all / line
+  zh-CN: 全选 / 选行
+  zh-HK: 全選 / 選行
+editor.shortcuts.indent:
+  en: Indent / Outdent
+  zh-CN: 增加缩进 / 减少缩进
+  zh-HK: 增加縮排 / 減少縮排
+editor.shortcuts.comment:
+  en: Toggle comment
+  zh-CN: 切换注释
+  zh-HK: 切換註解
+editor.shortcuts.zoom:
+  en: Zoom in / out / reset
+  zh-CN: 放大 / 缩小 / 重置
+  zh-HK: 放大 / 縮小 / 重設
+editor.shortcuts.section.search:
+  en: Search & navigate
+  zh-CN: 搜索与导航
+  zh-HK: 搜尋與導覽
+editor.shortcuts.find_replace:
+  en: Find / Replace
+  zh-CN: 查找 / 替换
+  zh-HK: 尋找 / 取代
+editor.shortcuts.find_next:
+  en: Find next / prev
+  zh-CN: 查找下一个 / 上一个
+  zh-HK: 尋找下一個 / 上一個
+editor.shortcuts.find_in_file:
+  en: Find in file
+  zh-CN: 在文件中查找
+  zh-HK: 在檔案中尋找
+editor.shortcuts.go_to_line:
+  en: Go to line
+  zh-CN: 转到行
+  zh-HK: 移至行
+editor.shortcuts.add_occurrence:
+  en: Add next occurrence
+  zh-CN: 添加下一个匹配
+  zh-HK: 新增下一個符合項目
+editor.shortcuts.add_caret:
+  en: Add caret (mouse)
+  zh-CN: 添加光标 (鼠标)
+  zh-HK: 新增游標 (滑鼠)
+editor.shortcuts.select_word:
+  en: Select word / line
+  zh-CN: 选择词 / 行
+  zh-HK: 選取字 / 行
+editor.shortcuts.page:
+  en: Page up / down
+  zh-CN: 向上 / 向下翻页
+  zh-HK: 向上 / 向下翻頁
+editor.shortcuts.section.view:
+  en: View
+  zh-CN: 视图
+  zh-HK: 檢視
+editor.shortcuts.line_numbers:
+  en: Line numbers
+  zh-CN: 行号
+  zh-HK: 行號
+editor.shortcuts.word_wrap:
+  en: Word wrap
+  zh-CN: 自动换行
+  zh-HK: 自動換行
+editor.unsaved.discard_new:
+  en: Discard unsaved changes and create a new file?
+  zh-CN: 放弃未保存的更改并新建文件？
+  zh-HK: 捨棄未儲存的變更並新建檔案？
+editor.page.about.description:
+  en: |-
+    Notepad++-style text editor.
+    Editing surface: gpui-component code editor (tree-sitter highlighting).
+  zh-CN: |-
+    Notepad++ 风格文本编辑器。
+    编辑界面：gpui-component 代码编辑器（tree-sitter 语法高亮）。
+  zh-HK: |-
+    Notepad++ 風格文字編輯器。
+    編輯介面：gpui-component 程式碼編輯器（tree-sitter 語法醒目提示）。
+editor.goto.description:
+  en: Enter a 1-based line or line:column target.
+  zh-CN: 输入从 1 开始的行号或 行:列 目标。
+  zh-HK: 輸入從 1 開始的行號或 行:列 目標。
+editor.goto.invalid:
+  en: Enter a line number or line:column.
+  zh-CN: 请输入行号或 行:列。
+  zh-HK: 請輸入行號或 行:列。
+editor.find.enter:
+  en: Enter text to find.
+  zh-CN: 请输入要查找的文本。
+  zh-HK: 請輸入要尋找的文字。
+editor.find.description:
+  en: Enter text to find from the current cursor position.
+  zh-CN: 从当前光标位置开始查找文本。
+  zh-HK: 從目前游標位置開始尋找文字。
+editor.find.find_placeholder:
+  en: Enter text to find
+  zh-CN: 输入要查找的文本
+  zh-HK: 輸入要尋找的文字
+editor.replace.description:
+  en: Replace the next match from the current cursor position.
+  zh-CN: 从当前光标位置替换下一个匹配。
+  zh-HK: 從目前游標位置取代下一個符合項目。
+editor.replace_all.description:
+  en: Replace every match in the current document.
+  zh-CN: 替换当前文档中的所有匹配。
+  zh-HK: 取代目前文件中的所有符合項目。
+editor.find.no_match:
+  en: 'No match found for "%{query}".'
+  zh-CN: '未找到匹配项「%{query}」。'
+  zh-HK: '未找到符合項目「%{query}」。'
+editor.comment.unavailable:
+  en: Line comment toggle is not available for this language.
+  zh-CN: 此语言不支持切换行注释。
+  zh-HK: 此語言不支援切換行註解。
+editor.save.error:
+  en: "Failed to save %{path}: %{err}"
+  zh-CN: "保存 %{path} 失败：%{err}"
+  zh-HK: "儲存 %{path} 失敗：%{err}"
+editor.save.success:
+  en: "Saved %{path}"
+  zh-CN: "已保存 %{path}"
+  zh-HK: "已儲存 %{path}"
+editor.status.unsaved:
+  en: Unsaved
+  zh-CN: 未保存
+  zh-HK: 未儲存
+editor.status.modified:
+  en: Modified
+  zh-CN: 已修改
+  zh-HK: 已修改
+editor.status.saved:
+  en: Saved
+  zh-CN: 已保存
+  zh-HK: 已儲存
+editor.status.lines:
+  en: "Lines: %{count}"
+  zh-CN: "行数：%{count}"
+  zh-HK: "行數：%{count}"
+editor.status.chars:
+  en: "Chars: %{count}"
+  zh-CN: "字符：%{count}"
+  zh-HK: "字元：%{count}"
+editor.status.sel:
+  en: "Sel: %{count}"
+  zh-CN: "选区：%{count}"
+  zh-HK: "選取：%{count}"
+editor.status.rev:
+  en: "Rev: %{count}"
+  zh-CN: "版本：%{count}"
+  zh-HK: "版本：%{count}"
+editor.status.matches_zero:
+  en: "Matches: 0"
+  zh-CN: "匹配：0"
+  zh-HK: "符合：0"
+editor.status.matches_zero_total:
+  en: "Matches: 0/%{total}"
+  zh-CN: "匹配：0/%{total}"
+  zh-HK: "符合：0/%{total}"
+editor.status.matches:
+  en: "Matches: %{current}/%{total}"
+  zh-CN: "匹配：%{current}/%{total}"
+  zh-HK: "符合：%{current}/%{total}"
+editor.status.wrap_on:
+  en: Wrap On
+  zh-CN: 换行开
+  zh-HK: 換行開
+editor.status.wrap_off:
+  en: Wrap Off
+  zh-CN: 换行关
+  zh-HK: 換行關
+editor.toolbar.open:
+  en: Open File
+  zh-CN: 打开文件
+  zh-HK: 開啟檔案
+editor.toolbar.comment:
+  en: Comment
+  zh-CN: 注释
+  zh-HK: 註解
+editor.dialog.open_file:
+  en: Open File
+  zh-CN: 打开文件
+  zh-HK: 開啟檔案
+editor.dialog.save_as:
+  en: Save As
+  zh-CN: 另存为
+  zh-HK: 另存新檔
+editor.file_filter.text_code:
+  en: Text & code
+  zh-CN: 文本与代码
+  zh-HK: 文字與程式碼
+editor.file_filter.all:
+  en: All files
+  zh-CN: 所有文件
+  zh-HK: 所有檔案
+editor.backend.placeholder:
+  en: Open a UTF-8 text or code file
+  zh-CN: 打开 UTF-8 文本或代码文件
+  zh-HK: 開啟 UTF-8 文字或程式碼檔案
+editor.error.is_directory:
+  en: "%{path} is a directory, not a file."
+  zh-CN: "「%{path}」是目录，不是文件。"
+  zh-HK: "「%{path}」是目錄，不是檔案。"
+editor.error.open_failed:
+  en: "Failed to open %{path} as UTF-8 text: %{err}"
+  zh-CN: "无法以 UTF-8 文本打开 %{path}：%{err}"
+  zh-HK: "無法以 UTF-8 文字開啟 %{path}：%{err}"
+editor.no_file_open:
+  en: No file open
+  zh-CN: 未打开文件
+  zh-HK: 未開啟檔案
+editor.language:
+  en: "Language: %{name}"
+  zh-CN: "语言：%{name}"
+  zh-HK: "語言：%{name}"
+editor.indent.spaces:
+  en: "Spaces: %{size}"
+  zh-CN: "空格：%{size}"
+  zh-HK: "空格：%{size}"
+editor.indent.tabs:
+  en: Tabs
+  zh-CN: 制表符
+  zh-HK: 定位字元
+editor.indent.mixed:
+  en: Mixed Indent
+  zh-CN: 混合缩进
+  zh-HK: 混合縮排
+editor.indent.auto:
+  en: "Indent: Auto"
+  zh-CN: 缩进：自动
+  zh-HK: 縮排：自動

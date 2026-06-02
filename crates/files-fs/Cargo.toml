@@ -1,0 +1,33 @@
+[package]
+name = "files-fs"
+description = "Filesystem model and local enumeration for CyberDesktop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono = "0.4"
+anyhow.workspace = true
+app-media.workspace = true
+files-core.workspace = true
+tracing.workspace = true
+unicode-width.workspace = true
+zip = "2.2"
+sevenz-rust = "0.6"
+tar = "0.4"
+flate2 = "1"
+bzip2 = "0.5"
+xz2 = "0.1"
+unrar-ng = "0.7"
+
+[dev-dependencies]
+tempfile = "3"
+
+[target.'cfg(not(windows))'.dependencies]
+
+[target.'cfg(windows)'.dependencies]
+app-platform-windows.workspace = true
+flume = "0.11"
+lnk = "0.6"
+notify = "8.2"
+trash = { version = "5.2", default-features = false, features = ["coinit_multithreaded"] }

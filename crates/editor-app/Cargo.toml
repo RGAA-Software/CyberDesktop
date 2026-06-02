@@ -1,0 +1,19 @@
+[package]
+name = "editor-app"
+description = "CyberEditor application entrypoint"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "cyber_editor"
+path = "src/main.rs"
+
+[dependencies]
+files-core.workspace = true
+editor-ui.workspace = true
+gpui_platform.workspace = true
+
+[build-dependencies]
+embed-resource.workspace = true

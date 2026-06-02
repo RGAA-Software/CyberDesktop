@@ -1,0 +1,11 @@
+[package]
+name = "app-sevenzip-ffi"
+description = "In-process 7-Zip extraction via bundled 7z.dll (Igor Pavlov, LGPL)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+
+[target.'cfg(windows)'.build-dependencies]
+cc = "1"

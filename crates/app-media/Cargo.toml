@@ -1,0 +1,13 @@
+[package]
+name = "app-media"
+description = "Unified media backend contracts for CyberDesktop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+ffmpeg-next = "8.0"
+image = { version = "0.25", default-features = false, features = ["png"] }
+serde.workspace = true
+tracing.workspace = true

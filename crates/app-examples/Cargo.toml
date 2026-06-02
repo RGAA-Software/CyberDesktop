@@ -1,0 +1,22 @@
+[package]
+name = "app-examples"
+description = "Experimental GPUI demos for CyberDesktop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+app-assets.workspace = true
+app-mpv-ffi.workspace = true
+app-ui = { workspace = true, features = ["editor-shell"] }
+files-core.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+gpui_platform.workspace = true
+image = "0.25"
+raw-window-handle = "0.6"
+rfd.workspace = true
+smallvec = "1"
+tracing.workspace = true
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging"] }

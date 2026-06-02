@@ -1,0 +1,12 @@
+[package]
+name = "app-assets"
+description = "App icons (ThemedIcon SVG) and assets for CyberDesktop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gpui.workspace = true
+gpui-component-assets.workspace = true
+rust-embed = "8"

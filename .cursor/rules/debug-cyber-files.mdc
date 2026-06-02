@@ -1,0 +1,18 @@
+---
+description: After code changes, build and launch debug cyber_files; monitor terminal for crashes; user closes the window
+alwaysApply: true
+---
+
+# Debug cyber_files smoke run
+
+After making code changes (or when verifying a fix), default to this workflow unless the user opts out:
+
+1. **Build debug**: `cargo build -p files-app --bin cyber_files` (not `--release`).
+2. **Launch in a background terminal** from repo root:
+   `d:\source\CyberDesktop\target\debug\cyber_files.exe`
+   Set `RUST_BACKTRACE=1` when useful for diagnosing panics.
+3. **Monitor the terminal** for panics, aborts, or non-zero exit. Report crash output in the reply.
+4. **Do not auto-close the window** — the user inspects the UI and closes it manually.
+5. **Do not kill the process** unless the user asks or a follow-up run needs a clean start.
+
+If the build fails, fix compile errors before launching. If the app is already running from a prior turn, note that and still check terminal output for new crashes.

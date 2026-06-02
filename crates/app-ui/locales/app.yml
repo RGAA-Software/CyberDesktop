@@ -1,0 +1,2297 @@
+_version: 2
+nav.home:
+  en: Home
+  zh-CN: 首页
+  zh-HK: 首頁
+nav.files:
+  en: Files
+  zh-CN: 文件
+  zh-HK: 檔案
+nav.settings:
+  en: Settings
+  zh-CN: 设置
+  zh-HK: 設定
+nav.home.description:
+  en: CyberFiles workspace
+  zh-CN: CyberFiles 工作区
+  zh-HK: CyberFiles 工作區
+nav.files.description:
+  en: Browse and manage files
+  zh-CN: 浏览与管理文件
+  zh-HK: 瀏覽與管理檔案
+nav.settings.description:
+  en: Application preferences
+  zh-CN: 应用偏好设置
+  zh-HK: 應用程式偏好設定
+nav.path.placeholder:
+  en: Enter path…
+  zh-CN: 输入路径…
+  zh-HK: 輸入路徑…
+omnibar.command.placeholder:
+  en: Search commands…
+  zh-CN: 搜索命令…
+  zh-HK: 搜尋命令…
+omnibar.breadcrumb.empty:
+  en: No subfolders
+  zh-CN: 没有子文件夹
+  zh-HK: 沒有子資料夾
+omnibar.breadcrumb.access_denied:
+  en: Access denied
+  zh-CN: 访问被拒绝
+  zh-HK: 存取被拒
+omnibar.breadcrumb.loading:
+  en: Loading…
+  zh-CN: 加载中…
+  zh-HK: 載入中…
+omnibar.breadcrumb.quick_access:
+  en: Quick access
+  zh-CN: 快速访问
+  zh-HK: 快速存取
+omnibar.breadcrumb.drives:
+  en: Drives
+  zh-CN: 驱动器
+  zh-HK: 磁碟機
+omnibar.breadcrumb.root_tooltip:
+  en: Home
+  zh-CN: 首页
+  zh-HK: 首頁
+omnibar.breadcrumb.chevron_tooltip:
+  en: Show subfolders
+  zh-CN: 显示子文件夹
+  zh-HK: 顯示子資料夾
+omnibar.breadcrumb.ellipsis_tooltip:
+  en: Hidden path segments
+  zh-CN: 隐藏的路径段
+  zh-HK: 隱藏的路徑段
+nav.split_pane:
+  en: Toggle dual pane
+  zh-CN: 切换双栏
+  zh-HK: 切換雙欄
+nav.reopen_closed_tab:
+  en: Reopen closed tab
+  zh-CN: 重新打开已关闭的标签
+  zh-HK: 重新開啟已關閉的標籤
+nav.new_tab:
+  en: New tab
+  zh-CN: 新建标签页
+  zh-HK: 新增分頁
+nav.close_tab:
+  en: Close tab
+  zh-CN: 关闭标签页
+  zh-HK: 關閉分頁
+nav.theme_toggle:
+  en: Toggle light/dark theme
+  zh-CN: 切换浅色/深色主题
+  zh-HK: 切換淺色/深色主題
+nav.github:
+  en: Open GitHub repository
+  zh-CN: 打开 GitHub 仓库
+  zh-HK: 開啟 GitHub 儲存庫
+nav.notifications:
+  en: Notifications
+  zh-CN: 通知
+  zh-HK: 通知
+nav.back:
+  en: Back
+  zh-CN: 后退
+  zh-HK: 後退
+nav.forward:
+  en: Forward
+  zh-CN: 前进
+  zh-HK: 前進
+nav.up:
+  en: Up
+  zh-CN: 上级
+  zh-HK: 上層
+nav.refresh:
+  en: Refresh
+  zh-CN: 刷新
+  zh-HK: 重新整理
+nav.show_info_pane:
+  en: Show details pane
+  zh-CN: 显示详细信息窗格
+  zh-HK: 顯示詳細資訊窗格
+nav.hide_info_pane:
+  en: Hide details pane
+  zh-CN: 隐藏详细信息窗格
+  zh-HK: 隱藏詳細資訊窗格
+nav.pin_folder:
+  en: Pin folder to sidebar
+  zh-CN: 将文件夹固定到侧栏
+  zh-HK: 將資料夾固定到側欄
+files.open.folder:
+  en: Open folder
+  zh-CN: 打开文件夹
+  zh-HK: 開啟資料夾
+files.open.file:
+  en: Open file
+  zh-CN: 打开文件
+  zh-HK: 開啟檔案
+sidebar.workspace:
+  en: Workspace
+  zh-CN: 工作区
+  zh-HK: 工作區
+sidebar.main:
+  en: Main
+  zh-CN: 主菜单
+  zh-HK: 主選單
+sidebar.section.main:
+  en: Main
+  zh-CN: 主区域
+  zh-HK: 主區域
+sidebar.section.home:
+  en: Home
+  zh-CN: 主页
+  zh-HK: 主頁
+sidebar.section.pinned:
+  en: Pinned
+  zh-CN: 固定
+  zh-HK: 固定
+sidebar.section.drives:
+  en: Drives
+  zh-CN: 驱动器
+  zh-HK: 磁碟機
+sidebar.section.network:
+  en: Network
+  zh-CN: 网络
+  zh-HK: 網路
+sidebar.section.library:
+  en: Libraries
+  zh-CN: 库
+  zh-HK: 媒體櫃
+sidebar.section.cloud:
+  en: Cloud drives
+  zh-CN: 云驱动器
+  zh-HK: 雲端磁碟機
+sidebar.section.wsl:
+  en: WSL
+  zh-CN: WSL
+  zh-HK: WSL
+sidebar.section.file_tags:
+  en: File tags
+  zh-CN: 文件标签
+  zh-HK: 檔案標籤
+sidebar.toggle:
+  en: Toggle sidebar
+  zh-CN: 切换侧栏
+  zh-HK: 切換側欄
+sidebar.menu.open:
+  en: Open
+  zh-CN: 打开
+  zh-HK: 開啟
+sidebar.menu.open_new_tab:
+  en: Open in new tab
+  zh-CN: 在新标签页中打开
+  zh-HK: 在新分頁中開啟
+sidebar.menu.pin:
+  en: Pin to sidebar
+  zh-CN: 固定到侧栏
+  zh-HK: 固定到側欄
+sidebar.menu.unpin:
+  en: Unpin from sidebar
+  zh-CN: 从侧栏取消固定
+  zh-HK: 從側欄取消固定
+sidebar.menu.move_up:
+  en: Move up
+  zh-CN: 上移
+  zh-HK: 上移
+sidebar.menu.move_down:
+  en: Move down
+  zh-CN: 下移
+  zh-HK: 下移
+sidebar.menu.properties:
+  en: Properties
+  zh-CN: 属性
+  zh-HK: 內容
+sidebar.pinned.placeholder:
+  en: Pin folders in settings (coming soon)
+  zh-CN: 在设置中固定文件夹（即将推出）
+  zh-HK: 在設定中固定資料夾（即將推出）
+sidebar.network.placeholder:
+  en: Network locations (coming soon)
+  zh-CN: 网络位置（即将推出）
+  zh-HK: 網路位置（即將推出）
+main.status.home:
+  en: Home
+  zh-CN: 首页
+  zh-HK: 首頁
+main.status.settings:
+  en: Settings
+  zh-CN: 设置
+  zh-HK: 設定
+home.widget.quick_access:
+  en: Quick access
+  zh-CN: 快速访问
+  zh-HK: 快速存取
+home.widget.quick_access.placeholder:
+  en: Pinned and frequent folders will appear here.
+  zh-CN: 固定与常用文件夹将显示在此处。
+  zh-HK: 固定與常用資料夾將顯示於此處。
+home.widget.quick_access.empty:
+  en: Pin a folder from the toolbar (star) while browsing.
+  zh-CN: 浏览文件夹时点击工具栏星标即可固定。
+  zh-HK: 瀏覽資料夾時點擊工具列星號即可固定。
+home.menu.eject:
+  en: Eject
+  zh-CN: 弹出
+  zh-HK: 退出
+home.menu.disconnect:
+  en: Disconnect
+  zh-CN: 断开连接
+  zh-HK: 中斷連線
+home.eject.done:
+  en: Drive ejected
+  zh-CN: 已弹出驱动器
+  zh-HK: 已退出磁碟機
+home.eject.failed:
+  en: Could not eject drive
+  zh-CN: 无法弹出驱动器
+  zh-HK: 無法退出磁碟機
+home.menu.storage_sense:
+  en: Storage Sense
+  zh-CN: 存储感知
+  zh-HK: 儲存空間感知
+home.widget.recent.disabled:
+  en: Recent files are turned off in Windows privacy settings. Enable “Show recently opened items” in Settings → Personalization → Start to see recent files here.
+  zh-CN: Windows 隐私设置已关闭最近使用的文件。请在 设置 → 个性化 → 开始 中启用“显示最近打开的项目”。
+  zh-HK: Windows 隱私設定已關閉最近使用的檔案。請在 設定 → 個人化 → 開始 中啟用「顯示最近開啟的項目」。
+home.widget.move_up:
+  en: Move up
+  zh-CN: 上移
+  zh-HK: 上移
+home.widget.move_down:
+  en: Move down
+  zh-CN: 下移
+  zh-HK: 下移
+info_pane.tab.details:
+  en: Details
+  zh-CN: 详细信息
+  zh-HK: 詳細資訊
+info_pane.tab.preview:
+  en: Preview
+  zh-CN: 预览
+  zh-HK: 預覽
+info_pane.empty:
+  en: Select items to see details.
+  zh-CN: 选择项目以查看详细信息。
+  zh-HK: 選取項目以查看詳細資訊。
+info_pane.created:
+  en: Created
+  zh-CN: 创建时间
+  zh-HK: 建立時間
+info_pane.accessed:
+  en: Accessed
+  zh-CN: 访问时间
+  zh-HK: 存取時間
+info_pane.attributes:
+  en: Attributes
+  zh-CN: 属性
+  zh-HK: 屬性
+info_pane.tags:
+  en: Tags
+  zh-CN: 标签
+  zh-HK: 標籤
+info_pane.attr.readonly:
+  en: Read-only
+  zh-CN: 只读
+  zh-HK: 唯讀
+info_pane.attr.hidden:
+  en: Hidden
+  zh-CN: 隐藏
+  zh-HK: 隱藏
+info_pane.attr.system:
+  en: System
+  zh-CN: 系统
+  zh-HK: 系統
+info_pane.attr.directory:
+  en: Directory
+  zh-CN: 目录
+  zh-HK: 目錄
+info_pane.multi.title:
+  en: "%{count} items selected"
+  zh-CN: 已选择 %{count} 项
+  zh-HK: 已選取 %{count} 項
+info_pane.multi.total_size:
+  en: Total size
+  zh-CN: 总大小
+  zh-HK: 總大小
+info_pane.multi.types:
+  en: Contains
+  zh-CN: 包含
+  zh-HK: 包含
+info_pane.multi.extensions:
+  en: File types
+  zh-CN: 文件类型
+  zh-HK: 檔案類型
+info_pane.multi.files:
+  en: "%{count} files"
+  zh-CN: "%{count} 个文件"
+  zh-HK: "%{count} 個檔案"
+info_pane.multi.folders:
+  en: "%{count} folders"
+  zh-CN: "%{count} 个文件夹"
+  zh-HK: "%{count} 個資料夾"
+info_pane.multi.symlinks:
+  en: "%{count} links"
+  zh-CN: "%{count} 个链接"
+  zh-HK: "%{count} 個連結"
+info_pane.multi.other:
+  en: "%{count} other"
+  zh-CN: "%{count} 个其他"
+  zh-HK: "%{count} 個其他"
+info_pane.multi.extension_item:
+  en: ".%{ext} (%{count})"
+  zh-CN: ".%{ext} (%{count})"
+  zh-HK: ".%{ext} (%{count})"
+info_pane.multi.no_extension:
+  en: "no extension (%{count})"
+  zh-CN: "无扩展名 (%{count})"
+  zh-HK: "無副檔名 (%{count})"
+info_pane.preview.multi:
+  en: Select a single file to preview.
+  zh-CN: 选择单个文件以预览。
+  zh-HK: 選取單一檔案以預覽。
+info_pane.preview.pdf:
+  en: PDF preview is not available yet. Open the file with your default app.
+  zh-CN: 暂不支持 PDF 预览。请用默认应用打开该文件。
+  zh-HK: 暫不支援 PDF 預覽。請用預設應用程式開啟該檔案。
+info_pane.preview.kind.image:
+  en: Image preview
+  zh-CN: 图片预览
+  zh-HK: 圖片預覽
+info_pane.preview.kind.svg:
+  en: SVG preview
+  zh-CN: SVG 预览
+  zh-HK: SVG 預覽
+info_pane.preview.kind.markdown:
+  en: Markdown preview
+  zh-CN: Markdown 预览
+  zh-HK: Markdown 預覽
+info_pane.preview.kind.html:
+  en: HTML preview
+  zh-CN: HTML 预览
+  zh-HK: HTML 預覽
+info_pane.preview.kind.code:
+  en: Code preview
+  zh-CN: 代码预览
+  zh-HK: 程式碼預覽
+info_pane.preview.kind.text:
+  en: Text preview
+  zh-CN: 文本预览
+  zh-HK: 文字預覽
+info_pane.preview.kind.pdf:
+  en: PDF
+  zh-CN: PDF
+  zh-HK: PDF
+info_pane.path:
+  en: Path
+  zh-CN: 路径
+  zh-HK: 路徑
+info_pane.type:
+  en: Type
+  zh-CN: 类型
+  zh-HK: 類型
+info_pane.size:
+  en: Size
+  zh-CN: 大小
+  zh-HK: 大小
+info_pane.modified:
+  en: Modified
+  zh-CN: 修改时间
+  zh-HK: 修改時間
+info_pane.preview.empty:
+  en: Select a single file to preview.
+  zh-CN: 选择单个文件以预览。
+  zh-HK: 選取單一檔案以預覽。
+info_pane.preview.folder:
+  en: Folders cannot be previewed.
+  zh-CN: 无法预览文件夹。
+  zh-HK: 無法預覽資料夾。
+info_pane.preview.folder_summary:
+  en: Folder
+  zh-CN: 文件夹
+  zh-HK: 資料夾
+info_pane.folder.contains:
+  en: Contains
+  zh-CN: 包含
+  zh-HK: 包含
+info_pane.folder.loading:
+  en: Loading…
+  zh-CN: 加载中…
+  zh-HK: 載入中…
+info_pane.folder.empty:
+  en: Empty folder
+  zh-CN: 空文件夹
+  zh-HK: 空資料夾
+info_pane.folder.counts_error:
+  en: Could not read folder contents
+  zh-CN: 无法读取文件夹内容
+  zh-HK: 無法讀取資料夾內容
+info_pane.folder.size_on_disk:
+  en: Size on disk
+  zh-CN: 磁盘占用
+  zh-HK: 磁碟佔用
+info_pane.folder.calculating:
+  en: Calculating…
+  zh-CN: 计算中…
+  zh-HK: 計算中…
+info_pane.folder.size_error:
+  en: Could not calculate size
+  zh-CN: 无法计算大小
+  zh-HK: 無法計算大小
+info_pane.folder.calc_size:
+  en: Calculate size
+  zh-CN: 计算大小
+  zh-HK: 計算大小
+info_pane.preview.media:
+  en: Open this file with your default app to play it.
+  zh-CN: 请用默认应用打开此文件进行播放。
+  zh-HK: 請用預設應用程式開啟此檔案以播放。
+info_pane.preview.kind.audio:
+  en: Audio
+  zh-CN: 音频
+  zh-HK: 音訊
+info_pane.audio.play:
+  en: Play
+  zh-CN: 播放
+  zh-HK: 播放
+info_pane.audio.pause:
+  en: Pause
+  zh-CN: 暂停
+  zh-HK: 暫停
+info_pane.audio.duration:
+  en: Duration
+  zh-CN: 时长
+  zh-HK: 時長
+info_pane.audio.duration_unknown:
+  en: Unknown duration
+  zh-CN: 时长未知
+  zh-HK: 時長未知
+info_pane.audio.play_error:
+  en: Playback failed
+  zh-CN: 播放失败
+  zh-HK: 播放失敗
+info_pane.audio.no_output:
+  en: No audio output device is available.
+  zh-CN: 没有可用的音频输出设备。
+  zh-HK: 沒有可用的音訊輸出裝置。
+info_pane.audio.stop:
+  en: Stop
+  zh-CN: 停止
+  zh-HK: 停止
+info_pane.audio.starting:
+  en: Starting playback…
+  zh-CN: 正在开始播放…
+  zh-HK: 正在開始播放…
+info_pane.audio.no_selection:
+  en: Select an audio file in the file list.
+  zh-CN: 请在文件列表中选择一个音频文件。
+  zh-HK: 請在檔案列表中選取一個音訊檔案。
+info_pane.audio.artist:
+  en: Artist
+  zh-CN: 艺术家
+  zh-HK: 藝術家
+info_pane.audio.album:
+  en: Album
+  zh-CN: 专辑
+  zh-HK: 專輯
+info_pane.audio.codec:
+  en: Codec
+  zh-CN: 编码
+  zh-HK: 編碼
+info_pane.audio.sample_rate:
+  en: Sample rate
+  zh-CN: 采样率
+  zh-HK: 取樣率
+info_pane.audio.channels:
+  en: Channels
+  zh-CN: 声道
+  zh-HK: 聲道
+info_pane.audio.channels_mono:
+  en: Mono
+  zh-CN: 单声道
+  zh-HK: 單聲道
+info_pane.audio.channels_stereo:
+  en: Stereo
+  zh-CN: 立体声
+  zh-HK: 立體聲
+info_pane.audio.channels_count:
+  en: "%{count} channels"
+  zh-CN: "%{count} 声道"
+  zh-HK: "%{count} 聲道"
+info_pane.audio.bitrate:
+  en: Bitrate
+  zh-CN: 比特率
+  zh-HK: 位元率
+info_pane.audio.file_size:
+  en: File size
+  zh-CN: 文件大小
+  zh-HK: 檔案大小
+info_pane.preview.kind.video:
+  en: Video
+  zh-CN: 视频
+  zh-HK: 影片
+info_pane.video.duration:
+  en: Duration
+  zh-CN: 时长
+  zh-HK: 時長
+info_pane.video.duration_unknown:
+  en: Unknown
+  zh-CN: 未知
+  zh-HK: 未知
+info_pane.video.resolution:
+  en: Resolution
+  zh-CN: 分辨率
+  zh-HK: 解析度
+info_pane.video.frame_rate:
+  en: Frame rate
+  zh-CN: 帧率
+  zh-HK: 幀率
+info_pane.video.codec:
+  en: Codec
+  zh-CN: 编码
+  zh-HK: 編碼
+info_pane.video.bitrate:
+  en: Bitrate
+  zh-CN: 比特率
+  zh-HK: 位元率
+info_pane.video.file_size:
+  en: File size
+  zh-CN: 文件大小
+  zh-HK: 檔案大小
+info_pane.video.audio:
+  en: Audio track
+  zh-CN: 音轨
+  zh-HK: 音軌
+info_pane.video.audio_yes:
+  en: Yes
+  zh-CN: 有
+  zh-HK: 有
+info_pane.video.audio_no:
+  en: No
+  zh-CN: 无
+  zh-HK: 無
+info_pane.video.play:
+  en: Play preview
+  zh-CN: 播放预览
+  zh-HK: 播放預覽
+info_pane.video.replay:
+  en: Replay
+  zh-CN: 重新播放
+  zh-HK: 重新播放
+info_pane.video.stop:
+  en: Stop
+  zh-CN: 停止
+  zh-HK: 停止
+info_pane.video.starting:
+  en: Starting preview…
+  zh-CN: 正在开始预览…
+  zh-HK: 正在開始預覽…
+info_pane.video.ended:
+  en: Preview ended
+  zh-CN: 预览结束
+  zh-HK: 預覽結束
+info_pane.video.no_selection:
+  en: Select a video file in the file list.
+  zh-CN: 请在文件列表中选择一个视频文件。
+  zh-HK: 請在檔案列表中選取一個影片檔案。
+info_pane.preview.unsupported:
+  en: Preview is not available for this file type.
+  zh-CN: 此文件类型不支持预览。
+  zh-HK: 此檔案類型不支援預覽。
+info_pane.preview.error:
+  en: Preview failed
+  zh-CN: 预览失败
+  zh-HK: 預覽失敗
+home.widget.drives:
+  en: Drives
+  zh-CN: 驱动器
+  zh-HK: 磁碟機
+home.widget.network:
+  en: Network
+  zh-CN: 网络
+  zh-HK: 網路
+home.widget.network.placeholder:
+  en: Network computers and shares (coming soon).
+  zh-CN: 网络计算机与共享（即将推出）。
+  zh-HK: 網路電腦與共用（即將推出）。
+home.widget.network.empty:
+  en: No network locations found.
+  zh-CN: 未找到网络位置。
+  zh-HK: 找不到網路位置。
+home.widget.tags:
+  en: File tags
+  zh-CN: 文件标签
+  zh-HK: 檔案標籤
+home.widget.tags.placeholder:
+  en: Tagged files widget (coming soon).
+  zh-CN: 标签文件小部件（即将推出）。
+  zh-HK: 標籤檔案小工具（即將推出）。
+home.widget.tags.empty:
+  en: No file tags configured. Add tags in Settings.
+  zh-CN: 未配置文件标签。请在设置中添加。
+  zh-HK: 未設定檔案標籤。請在設定中新增。
+file_tag.empty:
+  en: No files yet
+  zh-CN: 暂无文件
+  zh-HK: 暫無檔案
+home.widget.recent:
+  en: Recent files
+  zh-CN: 最近文件
+  zh-HK: 最近檔案
+home.widget.recent.placeholder:
+  en: Recently opened files (coming soon).
+  zh-CN: 最近打开的文件（即将推出）。
+  zh-HK: 最近開啟的檔案（即將推出）。
+home.widget.recent.empty:
+  en: No recent files found.
+  zh-CN: 暂无最近文件。
+  zh-HK: 暫無最近檔案。
+home.loading:
+  en: Loading…
+  zh-CN: 加载中…
+  zh-HK: 載入中…
+home.menu.widgets:
+  en: Widgets
+  zh-CN: 小组件
+  zh-HK: 小工具
+home.widget.tags.preview.empty:
+  en: No files in this tag yet.
+  zh-CN: 此标签下暂无文件。
+  zh-HK: 此標籤下暫無檔案。
+settings.page.home:
+  en: Home
+  zh-CN: 首页
+  zh-HK: 首頁
+settings.group.home_widgets:
+  en: Home widgets
+  zh-CN: 首页小组件
+  zh-HK: 首頁小工具
+settings.home.widget.quick_access:
+  en: Quick access
+  zh-CN: 快速访问
+  zh-HK: 快速存取
+settings.home.widget.drives:
+  en: Drives
+  zh-CN: 驱动器
+  zh-HK: 磁碟機
+settings.home.widget.network:
+  en: Network locations
+  zh-CN: 网络位置
+  zh-HK: 網路位置
+settings.home.widget.file_tags:
+  en: File tags
+  zh-CN: 文件标签
+  zh-HK: 檔案標籤
+settings.home.widget.recent:
+  en: Recent files
+  zh-CN: 最近文件
+  zh-HK: 最近檔案
+nav.recycle_bin:
+  en: Recycle Bin
+  zh-CN: 回收站
+  zh-HK: 資源回收筒
+nav.recycle_bin.placeholder:
+  en: Open the Recycle Bin from the sidebar to browse deleted items in Explorer, or use Delete to send files here.
+  zh-CN: 从侧栏打开回收站文件夹；删除文件时会移入回收站。
+  zh-HK: 從側欄開啟資源回收筒；刪除檔案時會移入回收筒。
+sidebar.section.places:
+  en: Places
+  zh-CN: 位置
+  zh-HK: 位置
+main.status.recycle_bin:
+  en: Recycle Bin
+  zh-CN: 回收站
+  zh-HK: 資源回收筒
+main.status.file_tag:
+  en: File tag
+  zh-CN: 文件标签
+  zh-HK: 檔案標籤
+search.placeholder:
+  en: Filter folder...
+  zh-CN: 搜索...
+  zh-HK: 搜尋...
+search.global.placeholder:
+  en: "Search here — try readme, tag:Work, or $kind:=document"
+  zh-CN: "搜索当前位置 — 如 readme、tag:标签名、$kind:=document"
+  zh-HK: "搜尋目前位置 — 如 readme、tag:標籤名、$kind:=document"
+search.help.title:
+  en: Query syntax
+  zh-CN: 查询语法
+  zh-HK: 查詢語法
+search.help.plain:
+  en: "readme — match file names"
+  zh-CN: "readme — 匹配文件名"
+  zh-HK: "readme — 匹配檔名"
+search.help.tag:
+  en: "tag:Name — files with tag"
+  zh-CN: "tag:标签名 — 按标签筛选"
+  zh-HK: "tag:標籤名 — 按標籤篩選"
+search.help.aqs:
+  en: "$kind:=document — Windows indexed search"
+  zh-CN: "$kind:=document — Windows 索引搜索（文档类型）"
+  zh-HK: "$kind:=document — Windows 索引搜尋（文件類型）"
+search.history.title:
+  en: Recent searches
+  zh-CN: 最近搜索
+  zh-HK: 最近搜尋
+search.history.empty:
+  en: No recent searches yet — press Enter to search
+  zh-CN: 暂无记录 — 按 Enter 搜索后会出现在这里
+  zh-HK: 暫無記錄 — 按 Enter 搜尋後會出現在這裡
+search.history.no_match:
+  en: No matching recent searches
+  zh-CN: 无匹配的历史记录
+  zh-HK: 無符合的歷史記錄
+search.back_to_folder:
+  en: Back to folder (Esc or Alt+←)
+  zh-CN: 返回原文件夹 (Esc 或 Alt+←)
+  zh-HK: 返回原資料夾 (Esc 或 Alt+←)
+search.results.hint:
+  en: Press Esc or click a folder in the breadcrumb to return. Use ← in the toolbar to go back.
+  zh-CN: 按 Esc 或点击面包屑中的文件夹路径可返回；工具栏 ← 亦可后退。
+  zh-HK: 按 Esc 或點擊麵包屑中的資料夾路徑可返回；工具列 ← 亦可後退。
+search.results:
+  en: Search
+  zh-CN: 搜索
+  zh-HK: 搜尋
+search.status.running:
+  en: Searching
+  zh-CN: 正在搜索
+  zh-HK: 正在搜尋
+files.column.path:
+  en: Path
+  zh-CN: 路径
+  zh-HK: 路徑
+page.home.welcome:
+  en: Welcome to %{app}
+  zh-CN: 欢迎使用 %{app}
+  zh-HK: 歡迎使用 %{app}
+page.home.overview:
+  en: Main workspace overview.
+  zh-CN: 主工作区概览。
+  zh-HK: 主工作區概覽。
+page.files.title:
+  en: Files
+  zh-CN: 文件
+  zh-HK: 檔案
+page.files.placeholder:
+  en: File browser placeholder — list drives and folders here.
+  zh-CN: 文件浏览器占位 — 在此列出驱动器与文件夹。
+  zh-HK: 檔案瀏覽器占位 — 在此列出磁碟與資料夾。
+files.column.name:
+  en: Name
+  zh-CN: 名称
+  zh-HK: 名稱
+files.column.type:
+  en: Type
+  zh-CN: 类型
+  zh-HK: 類型
+files.column.size:
+  en: Size
+  zh-CN: 大小
+  zh-HK: 大小
+files.column.modified:
+  en: Modified
+  zh-CN: 修改时间
+  zh-HK: 修改時間
+files.sort.name:
+  en: Name
+  zh-CN: 名称
+  zh-HK: 名稱
+files.sort.modified:
+  en: Modified
+  zh-CN: 修改时间
+  zh-HK: 修改時間
+files.sort.created:
+  en: Created
+  zh-CN: 创建时间
+  zh-HK: 建立時間
+files.sort.size:
+  en: Size
+  zh-CN: 大小
+  zh-HK: 大小
+files.sort.type:
+  en: Type
+  zh-CN: 类型
+  zh-HK: 類型
+files.sort.tag:
+  en: Tag
+  zh-CN: 标签
+  zh-HK: 標籤
+files.sort.path:
+  en: Path
+  zh-CN: 路径
+  zh-HK: 路徑
+files.sort.toggle_direction:
+  en: Toggle sort direction
+  zh-CN: 切换排序方向
+  zh-HK: 切換排序方向
+files.sort.ascending:
+  en: Ascending
+  zh-CN: 升序
+  zh-HK: 遞增
+files.sort.descending:
+  en: Descending
+  zh-CN: 降序
+  zh-HK: 遞減
+files.group.none:
+  en: Group by none
+  zh-CN: 不分组
+  zh-HK: 不分組
+files.group.name:
+  en: Group by name
+  zh-CN: 按名称分组
+  zh-HK: 按名稱分組
+files.group.modified:
+  en: Group by modified
+  zh-CN: 按修改时间分组
+  zh-HK: 按修改時間分組
+files.group.created:
+  en: Group by created
+  zh-CN: 按创建时间分组
+  zh-HK: 按建立時間分組
+files.group.size:
+  en: Group by size
+  zh-CN: 按大小分组
+  zh-HK: 按大小分組
+files.group.type:
+  en: Group by type
+  zh-CN: 按类型分组
+  zh-HK: 按類型分組
+files.group.tag:
+  en: Group by tag
+  zh-CN: 按标签分组
+  zh-HK: 按標籤分組
+files.group.tag.untagged:
+  en: Untagged
+  zh-CN: 无标签
+  zh-HK: 無標籤
+files.group.date.year:
+  en: Year
+  zh-CN: 年
+  zh-HK: 年
+files.group.date.month:
+  en: Month
+  zh-CN: 月
+  zh-HK: 月
+files.group.date.day:
+  en: Day
+  zh-CN: 日
+  zh-HK: 日
+files.group.date.future:
+  en: Future
+  zh-CN: 将来
+  zh-HK: 將來
+files.group.date.today:
+  en: Today
+  zh-CN: 今天
+  zh-HK: 今天
+files.group.date.yesterday:
+  en: Yesterday
+  zh-CN: 昨天
+  zh-HK: 昨天
+files.group.date.earlier_week:
+  en: Earlier this week
+  zh-CN: 本周早些时候
+  zh-HK: 本週較早
+files.group.date.last_week:
+  en: Last week
+  zh-CN: 上周
+  zh-HK: 上週
+files.group.date.earlier_month:
+  en: Earlier this month
+  zh-CN: 本月早些时候
+  zh-HK: 本月較早
+files.group.date.last_month:
+  en: Last month
+  zh-CN: 上月
+  zh-HK: 上月
+files.group.date.earlier_year:
+  en: Earlier this year
+  zh-CN: 今年早些时候
+  zh-HK: 今年較早
+files.group.date.last_year:
+  en: Last year
+  zh-CN: 去年
+  zh-HK: 去年
+files.group.date.unknown:
+  en: Unknown
+  zh-CN: 未知
+  zh-HK: 未知
+files.group.date.month_year:
+  en: "%{month} %{year}"
+  zh-CN: "%{year}年%{month}"
+  zh-HK: "%{year}年%{month}"
+files.group.date.long:
+  en: "%{weekday}, %{month} %{day}, %{year}"
+  zh-CN: "%{year}年%{month}%{day}日 %{weekday}"
+  zh-HK: "%{year}年%{month}%{day}日 %{weekday}"
+files.group.size.folder:
+  en: Folders
+  zh-CN: 文件夹
+  zh-HK: 資料夾
+files.group.size.empty:
+  en: Empty
+  zh-CN: 空
+  zh-HK: 空
+files.group.size.tiny:
+  en: Tiny (<16 KB)
+  zh-CN: 极小 (<16 KB)
+  zh-HK: 極小 (<16 KB)
+files.group.size.small:
+  en: Small (<1 MB)
+  zh-CN: 小 (<1 MB)
+  zh-HK: 小 (<1 MB)
+files.group.size.medium:
+  en: Medium (<128 MB)
+  zh-CN: 中 (<128 MB)
+  zh-HK: 中 (<128 MB)
+files.group.size.large:
+  en: Large (<1 GB)
+  zh-CN: 大 (<1 GB)
+  zh-HK: 大 (<1 GB)
+files.group.size.huge:
+  en: Huge
+  zh-CN: 巨大
+  zh-HK: 巨大
+files.group.type.folder:
+  en: Folders
+  zh-CN: 文件夹
+  zh-HK: 資料夾
+files.group.type.symlink:
+  en: Shortcuts
+  zh-CN: 快捷方式
+  zh-HK: 捷徑
+files.group.type.other:
+  en: Other
+  zh-CN: 其他
+  zh-HK: 其他
+files.group.type.file:
+  en: File
+  zh-CN: 文件
+  zh-HK: 檔案
+files.calendar.january:
+  en: January
+  zh-CN: 1月
+  zh-HK: 1月
+files.calendar.february:
+  en: February
+  zh-CN: 2月
+  zh-HK: 2月
+files.calendar.march:
+  en: March
+  zh-CN: 3月
+  zh-HK: 3月
+files.calendar.april:
+  en: April
+  zh-CN: 4月
+  zh-HK: 4月
+files.calendar.may:
+  en: May
+  zh-CN: 5月
+  zh-HK: 5月
+files.calendar.june:
+  en: June
+  zh-CN: 6月
+  zh-HK: 6月
+files.calendar.july:
+  en: July
+  zh-CN: 7月
+  zh-HK: 7月
+files.calendar.august:
+  en: August
+  zh-CN: 8月
+  zh-HK: 8月
+files.calendar.september:
+  en: September
+  zh-CN: 9月
+  zh-HK: 9月
+files.calendar.october:
+  en: October
+  zh-CN: 10月
+  zh-HK: 10月
+files.calendar.november:
+  en: November
+  zh-CN: 11月
+  zh-HK: 11月
+files.calendar.december:
+  en: December
+  zh-CN: 12月
+  zh-HK: 12月
+files.calendar.sunday:
+  en: Sunday
+  zh-CN: 星期日
+  zh-HK: 星期日
+files.calendar.monday:
+  en: Monday
+  zh-CN: 星期一
+  zh-HK: 星期一
+files.calendar.tuesday:
+  en: Tuesday
+  zh-CN: 星期二
+  zh-HK: 星期二
+files.calendar.wednesday:
+  en: Wednesday
+  zh-CN: 星期三
+  zh-HK: 星期三
+files.calendar.thursday:
+  en: Thursday
+  zh-CN: 星期四
+  zh-HK: 星期四
+files.calendar.friday:
+  en: Friday
+  zh-CN: 星期五
+  zh-HK: 星期五
+files.calendar.saturday:
+  en: Saturday
+  zh-CN: 星期六
+  zh-HK: 星期六
+files.show_hidden.on:
+  en: Show hidden items
+  zh-CN: 显示隐藏项
+  zh-HK: 顯示隱藏項目
+files.show_hidden.off:
+  en: Hide hidden items
+  zh-CN: 隐藏隐藏项
+  zh-HK: 隱藏隱藏項目
+files.show_hidden.items:
+  en: Hidden items
+  zh-CN: 隐藏的项目
+  zh-HK: 隱藏的項目
+files.show_extensions.on:
+  en: Show file extensions
+  zh-CN: 显示文件扩展名
+  zh-HK: 顯示檔案副檔名
+files.show_extensions.off:
+  en: Hide file extensions
+  zh-CN: 隐藏文件扩展名
+  zh-HK: 隱藏檔案副檔名
+files.show_extensions.items:
+  en: File name extensions
+  zh-CN: 文件名扩展名
+  zh-HK: 檔名副檔名
+files.new_folder:
+  en: New folder
+  zh-CN: 新建文件夹
+  zh-HK: 新增資料夾
+files.new_folder.success:
+  en: Folder created.
+  zh-CN: 文件夹已创建。
+  zh-HK: 資料夾已建立。
+files.new_file:
+  en: New file
+  zh-CN: 新建文件
+  zh-HK: 新增檔案
+files.new_file.success:
+  en: File created.
+  zh-CN: 文件已创建。
+  zh-HK: 檔案已建立。
+files.properties.error:
+  en: Properties failed
+  zh-CN: 无法打开属性
+  zh-HK: 無法開啟內容
+files.context_menu.error:
+  en: Context menu failed
+  zh-CN: 无法打开上下文菜单
+  zh-HK: 無法開啟內容選單
+files.drop.error:
+  en: Drop failed
+  zh-CN: 拖放失败
+  zh-HK: 拖放失敗
+files.drag.preview_moving:
+  en: Moving %{count} items
+  zh-CN: 移动 %{count} 个项目
+  zh-HK: 移動 %{count} 個項目
+files.drag.preview_copying:
+  en: Copying %{count} items
+  zh-CN: 复制 %{count} 个项目
+  zh-HK: 複製 %{count} 個項目
+files.drag.move_to_folder:
+  en: Move to %{name}
+  zh-CN: 移动到 %{name}
+  zh-HK: 移動到 %{name}
+files.drag.copy_to_folder:
+  en: Copy to %{name}
+  zh-CN: 复制到 %{name}
+  zh-HK: 複製到 %{name}
+files.drag.link_to_folder:
+  en: Create link in %{name}
+  zh-CN: 在 %{name} 中创建快捷方式
+  zh-HK: 在 %{name} 中建立捷徑
+files.drag.open_with_target:
+  en: Open with %{name}
+  zh-CN: 用 %{name} 打开
+  zh-HK: 用 %{name} 開啟
+files.drag.cannot_drop_here:
+  en: Cannot drop here
+  zh-CN: 无法拖入此处
+  zh-HK: 無法拖入此處
+files.drag.cannot_use_target:
+  en: Cannot use this item to open
+  zh-CN: 无法用此文件打开
+  zh-HK: 無法用此檔案開啟
+files.transfer.copying:
+  en: Copying %{count} items…
+  zh-CN: 正在复制 %{count} 个项目…
+  zh-HK: 正在複製 %{count} 個項目…
+files.transfer.moving:
+  en: Moving %{count} items…
+  zh-CN: 正在移动 %{count} 个项目…
+  zh-HK: 正在移動 %{count} 個項目…
+files.transfer.linking:
+  en: Creating %{count} shortcuts…
+  zh-CN: 正在创建 %{count} 个快捷方式…
+  zh-HK: 正在建立 %{count} 個捷徑…
+files.transfer.pasting:
+  en: Pasting %{count} items…
+  zh-CN: 正在粘贴 %{count} 个项目…
+  zh-HK: 正在貼上 %{count} 個項目…
+files.transfer.done:
+  en: Operation completed
+  zh-CN: 操作完成
+  zh-HK: 操作完成
+files.transfer.failed:
+  en: Operation failed
+  zh-CN: 操作失败
+  zh-HK: 操作失敗
+files.transfer.cancelled:
+  en: Operation cancelled
+  zh-CN: 操作已取消
+  zh-HK: 操作已取消
+files.transfer.cancel:
+  en: Cancel
+  zh-CN: 取消
+  zh-HK: 取消
+files.status.clear:
+  en: Clear
+  zh-CN: 清除
+  zh-HK: 清除
+files.status.clear_all:
+  en: Clear all
+  zh-CN: 全部清除
+  zh-HK: 全部清除
+files.status.completed:
+  en: Completed
+  zh-CN: 已完成
+  zh-HK: 已完成
+files.status.failed:
+  en: Failed
+  zh-CN: 失败
+  zh-HK: 失敗
+files.status.cancelled:
+  en: Cancelled
+  zh-CN: 已取消
+  zh-HK: 已取消
+files.status_center.title:
+  en: Status Center
+  zh-CN: 状态中心
+  zh-HK: 狀態中心
+files.status_center.clear_completed:
+  en: Clear completed
+  zh-CN: 清除已完成
+  zh-HK: 清除已完成
+files.status_center.empty:
+  en: No file operations
+  zh-CN: 没有文件操作
+  zh-HK: 沒有檔案操作
+files.status_center.badge:
+  en: operations
+  zh-CN: 个操作
+  zh-HK: 個操作
+files.transfer.progress:
+  en: "%{completed} / %{total}"
+  zh-CN: "%{completed} / %{total}"
+  zh-HK: "%{completed} / %{total}"
+files.transfer.compressing:
+  en: Compressing %{count} items…
+  zh-CN: 正在压缩 %{count} 个项目…
+  zh-HK: 正在壓縮 %{count} 個項目…
+files.compress.done:
+  en: Archive created
+  zh-CN: 已创建压缩包
+  zh-HK: 已建立壓縮檔
+files.compress.failed:
+  en: Compress failed
+  zh-CN: 压缩失败
+  zh-HK: 壓縮失敗
+files.extract.extracting:
+  en: Extracting %{count} items…
+  zh-CN: 正在解压 %{count} 个项目…
+  zh-HK: 正在解壓 %{count} 個項目…
+files.extract.done:
+  en: Archive extracted
+  zh-CN: 已解压
+  zh-HK: 已解壓
+files.extract.failed:
+  en: Extract failed
+  zh-CN: 解压失败
+  zh-HK: 解壓失敗
+files.shelf.copying:
+  en: "%{count} items copied to shelf"
+  zh-CN: 剪贴板中有 %{count} 个已复制项目
+  zh-HK: 剪貼簿中有 %{count} 個已複製項目
+files.shelf.cutting:
+  en: "%{count} items on shelf (cut)"
+  zh-CN: 剪贴板中有 %{count} 个已剪切项目
+  zh-HK: 剪貼簿中有 %{count} 個已剪下項目
+files.shelf.clear:
+  en: Clear shelf
+  zh-CN: 清空剪贴板
+  zh-HK: 清空剪貼簿
+files.shelf.paste:
+  en: Paste
+  zh-CN: 粘贴
+  zh-HK: 貼上
+files.shelf.preview_one:
+  en: "%{name}"
+  zh-CN: "%{name}"
+  zh-HK: "%{name}"
+files.shelf.preview_many:
+  en: "%{name} +%{rest}"
+  zh-CN: "%{name} 等 %{rest} 项"
+  zh-HK: "%{name} 等 %{rest} 項"
+settings.group.context_menu:
+  en: Context menu
+  zh-CN: 右键菜单
+  zh-HK: 右鍵選單
+settings.context_menu.compress:
+  en: Compress to ZIP
+  zh-CN: 压缩为 ZIP
+  zh-HK: 壓縮為 ZIP
+settings.context_menu.extract:
+  en: Extract archives
+  zh-CN: 解压压缩包
+  zh-HK: 解壓壓縮檔
+settings.context_menu.send_to:
+  en: Send to
+  zh-CN: 发送到
+  zh-HK: 傳送到
+settings.context_menu.pin:
+  en: Pin to sidebar
+  zh-CN: 固定到侧栏
+  zh-HK: 固定到側欄
+settings.context_menu.open_in_terminal:
+  en: Open in terminal
+  zh-CN: 在终端中打开
+  zh-HK: 在終端機中開啟
+settings.context_menu.file_tags:
+  en: Add / remove file tags
+  zh-CN: 添加 / 移除文件标签
+  zh-HK: 新增 / 移除檔案標籤
+settings.context_menu.create_shortcut:
+  en: Create shortcut
+  zh-CN: 创建快捷方式
+  zh-HK: 建立捷徑
+files.conflict.title:
+  en: File already exists
+  zh-CN: 文件已存在
+  zh-HK: 檔案已存在
+files.conflict.description:
+  en: "%{name} already exists at %{path}. Replace it?"
+  zh-CN: "%{name} 已存在于 %{path}。是否替换？"
+  zh-HK: "%{name} 已存在於 %{path}。是否取代？"
+files.conflict.replace:
+  en: Replace
+  zh-CN: 替换
+  zh-HK: 取代
+files.conflict.skip:
+  en: Skip
+  zh-CN: 跳过
+  zh-HK: 略過
+files.conflict.replace_all:
+  en: Replace all
+  zh-CN: 全部替换
+  zh-HK: 全部取代
+files.conflict.skip_all:
+  en: Skip all
+  zh-CN: 全部跳过
+  zh-HK: 全部略過
+files.menu.open_with_choose:
+  en: Choose another app…
+  zh-CN: 选择其他应用…
+  zh-HK: 選擇其他應用程式…
+files.menu.open:
+  en: Open
+  zh-CN: 打开
+  zh-HK: 開啟
+files.menu.rename:
+  en: Rename
+  zh-CN: 重命名
+  zh-HK: 重新命名
+files.menu.copy:
+  en: Copy
+  zh-CN: 复制
+  zh-HK: 複製
+files.menu.cut:
+  en: Cut
+  zh-CN: 剪切
+  zh-HK: 剪下
+files.menu.paste:
+  en: Paste
+  zh-CN: 粘贴
+  zh-HK: 貼上
+files.menu.refresh:
+  en: Refresh
+  zh-CN: 刷新
+  zh-HK: 重新整理
+files.menu.delete:
+  en: Delete
+  zh-CN: 删除
+  zh-HK: 刪除
+files.menu.properties:
+  en: Properties
+  zh-CN: 属性
+  zh-HK: 內容
+files.menu.shell_menu:
+  en: Show in Explorer
+  zh-CN: 在资源管理器中显示
+  zh-HK: 在檔案總管中顯示
+files.menu.layout:
+  en: Layout
+  zh-CN: 布局
+  zh-HK: 配置
+files.menu.sort:
+  en: Sort
+  zh-CN: 排序
+  zh-HK: 排序
+files.menu.new:
+  en: New
+  zh-CN: 新建
+  zh-HK: 新增
+files.menu.copy_path:
+  en: Copy path
+  zh-CN: 复制路径
+  zh-HK: 複製路徑
+files.menu.drag_out_experimental:
+  en: Drag to Explorer (experimental)
+  zh-CN: 拖到资源管理器（实验）
+  zh-HK: 拖曳到檔案總管（實驗）
+files.menu.drag_out_experimental.ready:
+  en: Paths copied to Explorer clipboard. Paste in Explorer with Ctrl+V.
+  zh-CN: 已复制到资源管理器剪贴板，可在资源管理器中按 Ctrl+V 粘贴。
+  zh-HK: 已複製到檔案總管剪貼簿，可在檔案總管按 Ctrl+V 貼上。
+files.menu.drag_out_experimental.error:
+  en: Could not prepare Explorer drag data
+  zh-CN: 无法准备资源管理器拖拽数据
+  zh-HK: 無法準備檔案總管拖曳資料
+files.menu.open_file_location:
+  en: Open file location
+  zh-CN: 打开文件所在位置
+  zh-HK: 開啟檔案位置
+files.menu.delete_permanent:
+  en: Delete permanently
+  zh-CN: 永久删除
+  zh-HK: 永久刪除
+files.menu.shell_overflow:
+  en: More options
+  zh-CN: 更多选项
+  zh-HK: 更多選項
+files.menu.show_more_options:
+  en: Show more options
+  zh-CN: 显示更多选项
+  zh-HK: 顯示更多選項
+files.menu.shell_loading:
+  en: Loading Shell extensions…
+  zh-CN: 正在加载 Shell 扩展…
+  zh-HK: 正在載入 Shell 擴充功能…
+files.menu.shell_empty:
+  en: No Shell extensions for this selection
+  zh-CN: 当前所选没有可用的 Shell 扩展
+  zh-HK: 目前所選沒有可用的 Shell 擴充功能
+files.menu.open_with:
+  en: Open with
+  zh-CN: 打开方式
+  zh-HK: 開啟方式
+files.menu.open_in_new_window:
+  en: Open in new window
+  zh-CN: 在新窗口中打开
+  zh-HK: 在新視窗中開啟
+files.menu.create_shortcut:
+  en: Create shortcut
+  zh-CN: 创建快捷方式
+  zh-HK: 建立捷徑
+files.menu.compress:
+  en: Compress
+  zh-CN: 压缩
+  zh-HK: 壓縮
+files.menu.extract_here:
+  en: Extract here
+  zh-CN: 解压到此处
+  zh-HK: 解壓到此處
+files.menu.extract_to_folder:
+  en: Extract to folder
+  zh-CN: 解压到文件夹
+  zh-HK: 解壓到資料夾
+files.menu.send_to:
+  en: Send to
+  zh-CN: 发送到
+  zh-HK: 傳送到
+files.menu.add_to_tag:
+  en: Add to tag
+  zh-CN: 添加到标签
+  zh-HK: 新增至標籤
+files.menu.remove_from_tag:
+  en: Remove from tag
+  zh-CN: 从标签移除
+  zh-HK: 從標籤移除
+files.menu.not_in_file_tags:
+  en: Not in any tag
+  zh-CN: 不在任何标签中
+  zh-HK: 不在任何標籤中
+files.menu.no_file_tags:
+  en: No tags — create one in Settings → Tags
+  zh-CN: 无标签 — 请在设置 → 标签 中创建
+  zh-HK: 無標籤 — 請在設定 → 標籤 中建立
+files.menu.edit_file_tags:
+  en: Edit file tags
+  zh-CN: 编辑文件标签
+  zh-HK: 編輯檔案標籤
+files.menu.not_implemented:
+  en: Coming soon
+  zh-CN: 即将推出
+  zh-HK: 即將推出
+files.open_new_window.error:
+  en: Could not open in Explorer
+  zh-CN: 无法在资源管理器中打开
+  zh-HK: 無法在檔案總管中開啟
+files.open_with.error:
+  en: Could not open Open with dialog
+  zh-CN: 无法打开「打开方式」对话框
+  zh-HK: 無法開啟「開啟方式」對話方塊
+files.create_shortcut.error:
+  en: Could not create shortcut
+  zh-CN: 无法创建快捷方式
+  zh-HK: 無法建立捷徑
+files.create_shortcut.success:
+  en: Shortcut created
+  zh-CN: 快捷方式已创建
+  zh-HK: 捷徑已建立
+files.menu.open_in_new_pane:
+  en: Open in new pane
+  zh-CN: 在新窗格中打开
+  zh-HK: 在新窗格中開啟
+files.menu.open_in_terminal:
+  en: Open in Windows Terminal
+  zh-CN: 在 Windows 终端中打开
+  zh-HK: 在 Windows 終端機中開啟
+files.menu.create_folder_from_selection:
+  en: Create folder with selection
+  zh-CN: 用所选内容创建文件夹
+  zh-HK: 用所選內容建立資料夾
+files.create_folder_from_selection.success:
+  en: Folder created and items moved.
+  zh-CN: 已创建文件夹并移动项目。
+  zh-HK: 已建立資料夾並移動項目。
+files.terminal.error:
+  en: Could not open terminal
+  zh-CN: 无法打开终端
+  zh-HK: 無法開啟終端機
+files.view.details:
+  en: Details
+  zh-CN: 详细信息
+  zh-HK: 詳細資料
+files.view.grid:
+  en: Grid
+  zh-CN: 网格
+  zh-HK: 格狀
+files.view.list:
+  en: List
+  zh-CN: 列表
+  zh-HK: 清單
+files.view.increase_size:
+  en: Increase icon size
+  zh-CN: 放大图标
+  zh-HK: 放大圖示
+files.view.decrease_size:
+  en: Decrease icon size
+  zh-CN: 缩小图标
+  zh-HK: 縮小圖示
+files.view.cards:
+  en: Cards
+  zh-CN: 卡片
+  zh-HK: 卡片
+files.view.columns:
+  en: Columns
+  zh-CN: 分栏
+  zh-HK: 分欄
+settings.context_menu.shell_submenu:
+  en: Shell extensions in «Show more options»
+  zh-CN: Shell 扩展放在「显示更多选项」中
+  zh-HK: Shell 擴充功能放在「顯示更多選項」中
+settings.context_menu.shell_submenu.description:
+  en: "Matches Files — third-party Explorer verbs appear only under Show more options, not in the main flyout. Hold Shift while right-clicking for extended verbs."
+  zh-CN: 与 Files 一致：第三方资源管理器动词仅出现在「显示更多选项」子菜单。按住 Shift 并右键可显示扩展动词。
+  zh-HK: 與 Files 一致：第三方檔案總管動詞僅出現在「顯示更多選項」子選單。按住 Shift 並以右鍵點擊可顯示延伸動詞。
+files.recycle.hint:
+  en: Recycle Bin — deleted items use Explorer shell listing.
+  zh-CN: 回收站 — 已删除项目通过系统文件夹浏览。
+  zh-HK: 資源回收筒 — 已刪除項目透過系統資料夾瀏覽。
+files.recycle.restore:
+  en: Restore
+  zh-CN: 还原
+  zh-HK: 還原
+files.recycle.restore_all:
+  en: Restore all
+  zh-CN: 全部还原
+  zh-HK: 全部還原
+files.recycle.empty:
+  en: Empty Recycle Bin
+  zh-CN: 清空回收站
+  zh-HK: 清空資源回收筒
+files.recycle.empty.title:
+  en: Empty Recycle Bin?
+  zh-CN: 清空回收站？
+  zh-HK: 清空資源回收筒？
+files.recycle.empty.confirm:
+  en: All items in the Recycle Bin will be permanently deleted. This cannot be undone.
+  zh-CN: 回收站中的所有项目将被永久删除，此操作无法撤销。
+  zh-HK: 資源回收筒中的所有項目將被永久刪除，此操作無法復原。
+files.recycle.empty.action:
+  en: Empty Recycle Bin
+  zh-CN: 清空回收站
+  zh-HK: 清空資源回收筒
+files.recycle.restore.in_progress:
+  en: Restoring %{count} items…
+  zh-CN: 正在还原 %{count} 个项目…
+  zh-HK: 正在還原 %{count} 個項目…
+files.recycle.restore.success:
+  en: Items restored.
+  zh-CN: 已还原。
+  zh-HK: 已還原。
+files.recycle.restore.failed:
+  en: Restore failed
+  zh-CN: 还原失败
+  zh-HK: 還原失敗
+files.recycle.restore_all.success:
+  en: All items restored.
+  zh-CN: 已全部还原。
+  zh-HK: 已全部還原。
+files.recycle.empty.in_progress:
+  en: Emptying Recycle Bin…
+  zh-CN: 正在清空回收站…
+  zh-HK: 正在清空資源回收筒…
+files.recycle.empty.success:
+  en: Recycle Bin emptied.
+  zh-CN: 回收站已清空。
+  zh-HK: 資源回收筒已清空。
+files.recycle.empty.failed:
+  en: Failed to empty Recycle Bin
+  zh-CN: 清空回收站失败
+  zh-HK: 清空資源回收筒失敗
+files.rename.prompt:
+  en: Rename
+  zh-CN: 重命名
+  zh-HK: 重新命名
+files.rename.confirm:
+  en: Save
+  zh-CN: 保存
+  zh-HK: 儲存
+files.rename.success:
+  en: Item renamed.
+  zh-CN: 已重命名。
+  zh-HK: 已重新命名。
+files.undo.done:
+  en: Undo completed.
+  zh-CN: 已撤销。
+  zh-HK: 已撤銷。
+files.undo.failed:
+  en: Undo failed
+  zh-CN: 撤销失败
+  zh-HK: 撤銷失敗
+files.redo.done:
+  en: Redo completed.
+  zh-CN: 已重做。
+  zh-HK: 已重做。
+files.redo.failed:
+  en: Redo failed
+  zh-CN: 重做失败
+  zh-HK: 重做失敗
+files.delete.deleting:
+  en: Deleting %{count} items…
+  zh-CN: 正在删除 %{count} 个项目…
+  zh-HK: 正在刪除 %{count} 個項目…
+files.delete.title:
+  en: Delete items?
+  zh-CN: 删除项目？
+  zh-HK: 刪除項目？
+files.delete.description_many:
+  en: Move %{count} items to the Recycle Bin?
+  zh-CN: 将 %{count} 个项目移到回收站？
+  zh-HK: 將 %{count} 個項目移到資源回收筒？
+files.delete.confirm:
+  en: Delete
+  zh-CN: 删除
+  zh-HK: 刪除
+files.delete.success:
+  en: Items moved to Recycle Bin.
+  zh-CN: 已移到回收站。
+  zh-HK: 已移到資源回收筒。
+files.delete_permanent.title:
+  en: Delete permanently?
+  zh-CN: 永久删除？
+  zh-HK: 永久刪除？
+files.delete_permanent.confirm:
+  en: Delete permanently
+  zh-CN: 永久删除
+  zh-HK: 永久刪除
+files.delete_permanent.success:
+  en: Items deleted permanently.
+  zh-CN: 已永久删除。
+  zh-HK: 已永久刪除。
+files.paste.success:
+  en: Items pasted.
+  zh-CN: 已粘贴。
+  zh-HK: 已貼上。
+files.paste.error:
+  en: Paste failed
+  zh-CN: 粘贴失败
+  zh-HK: 貼上失敗
+files.delete.error:
+  en: Delete failed
+  zh-CN: 删除失败
+  zh-HK: 刪除失敗
+files.cancel:
+  en: Cancel
+  zh-CN: 取消
+  zh-HK: 取消
+files.status.items:
+  en: items
+  zh-CN: 项
+  zh-HK: 項
+files.status.selected:
+  en: selected
+  zh-CN: 已选
+  zh-HK: 已選
+files.status.local:
+  en: Local filesystem
+  zh-CN: 本地文件系统
+  zh-HK: 本機檔案系統
+files.type.folder:
+  en: Folder
+  zh-CN: 文件夹
+  zh-HK: 資料夾
+files.type.file:
+  en: File
+  zh-CN: 文件
+  zh-HK: 檔案
+files.type.symlink:
+  en: Symlink
+  zh-CN: 符号链接
+  zh-HK: 符號連結
+files.type.other:
+  en: Item
+  zh-CN: 项目
+  zh-HK: 項目
+page.settings.title:
+  en: Settings
+  zh-CN: 设置
+  zh-HK: 設定
+page.unknown:
+  en: Unknown page
+  zh-CN: 未知页面
+  zh-HK: 未知頁面
+menu.about:
+  en: About
+  zh-CN: 关于
+  zh-HK: 關於
+menu.view:
+  en: View
+  zh-CN: 查看
+  zh-HK: 檢視
+menu.appearance:
+  en: Appearance
+  zh-CN: 外观
+  zh-HK: 外觀
+menu.light:
+  en: Light
+  zh-CN: 浅色
+  zh-HK: 淺色
+menu.dark:
+  en: Dark
+  zh-CN: 深色
+  zh-HK: 深色
+menu.quit:
+  en: Quit
+  zh-CN: 退出
+  zh-HK: 退出
+menu.edit:
+  en: Edit
+  zh-CN: 编辑
+  zh-HK: 編輯
+menu.undo:
+  en: Undo
+  zh-CN: 撤销
+  zh-HK: 撤銷
+menu.redo:
+  en: Redo
+  zh-CN: 重做
+  zh-HK: 重做
+menu.cut:
+  en: Cut
+  zh-CN: 剪切
+  zh-HK: 剪下
+menu.copy:
+  en: Copy
+  zh-CN: 复制
+  zh-HK: 複製
+menu.paste:
+  en: Paste
+  zh-CN: 粘贴
+  zh-HK: 貼上
+menu.select_all:
+  en: Select All
+  zh-CN: 全选
+  zh-HK: 全選
+menu.theme:
+  en: Theme
+  zh-CN: 主题
+  zh-HK: 主題
+menu.language:
+  en: Language
+  zh-CN: 语言
+  zh-HK: 語言
+settings.page.general:
+  en: General
+  zh-CN: 常规
+  zh-HK: 一般
+settings.page.about:
+  en: About
+  zh-CN: 关于
+  zh-HK: 關於
+settings.page.sidebar:
+  en: Sidebar
+  zh-CN: 侧栏
+  zh-HK: 側欄
+settings.page.folders:
+  en: Folders
+  zh-CN: 文件夹
+  zh-HK: 資料夾
+settings.page.tags:
+  en: Tags
+  zh-CN: 标签
+  zh-HK: 標籤
+settings.page.actions:
+  en: Actions
+  zh-CN: 快捷键
+  zh-HK: 快速鍵
+settings.page.search:
+  en: Search
+  zh-CN: 搜索
+  zh-HK: 搜尋
+settings.page.tabs:
+  en: Tabs
+  zh-CN: 标签页
+  zh-HK: 分頁
+settings.group.search:
+  en: Search reference
+  zh-CN: 搜索使用说明
+  zh-HK: 搜尋使用說明
+settings.group.tabs:
+  en: Tabs
+  zh-CN: 标签页
+  zh-HK: 分頁
+settings.tabs.auto_restore:
+  en: Restore previously opened tabs on launch
+  zh-CN: 启动时恢复上次打开的标签页
+  zh-HK: 啟動時恢復上次開啟的分頁
+settings.tabs.auto_restore.description:
+  en: When disabled, CyberFiles always starts with a single Home tab instead of restoring saved tabs.
+  zh-CN: 关闭后，CyberFiles 启动时始终只打开一个首页标签页，不恢复已保存的标签页。
+  zh-HK: 關閉後，CyberFiles 啟動時始終只開啟一個首頁分頁，不恢復已儲存的分頁。
+settings.search.description:
+  en: Quick reference for global search — shortcuts, query syntax, scope, results, and history.
+  zh-CN: 全局搜索使用说明 — 快捷键、查询语法、搜索范围、结果页与历史记录，便于随时查阅。
+  zh-HK: 全局搜尋使用說明 — 快速鍵、查詢語法、搜尋範圍、結果頁與歷史記錄，便於隨時查閱。
+settings.search.section.shortcuts:
+  en: Shortcuts
+  zh-CN: 快捷键
+  zh-HK: 快速鍵
+settings.search.section.syntax:
+  en: Query syntax
+  zh-CN: 查询语法
+  zh-HK: 查詢語法
+settings.search.section.scope:
+  en: Search scope
+  zh-CN: 搜索范围
+  zh-HK: 搜尋範圍
+settings.search.section.results:
+  en: Results page
+  zh-CN: 结果页
+  zh-HK: 結果頁
+settings.search.section.history:
+  en: Search history
+  zh-CN: 搜索历史
+  zh-HK: 搜尋歷史
+settings.search.item.global_mode:
+  en: "%{key} — Enter Omnibar global search (search current location)"
+  zh-CN: "%{key} — 进入 Omnibar 全局搜索（搜索当前位置）"
+  zh-HK: "%{key} — 進入 Omnibar 全局搜尋（搜尋目前位置）"
+settings.search.item.path_mode:
+  en: "%{key} — Edit path in Omnibar (exclusive with search mode)"
+  zh-CN: "%{key} — 编辑 Omnibar 路径（与搜索模式互斥）"
+  zh-HK: "%{key} — 編輯 Omnibar 路徑（與搜尋模式互斥）"
+settings.search.item.submit:
+  en: "Enter — Submit search and open results in the current tab"
+  zh-CN: "Enter — 提交搜索并在当前标签页打开结果"
+  zh-HK: "Enter — 提交搜尋並在目前分頁開啟結果"
+settings.search.item.history_up_down:
+  en: "↑ / ↓ — Move through recent searches and suggestions"
+  zh-CN: "↑ / ↓ — 在搜索历史与建议间移动"
+  zh-HK: "↑ / ↓ — 在搜尋歷史與建議間移動"
+settings.search.item.history_tab:
+  en: "Tab — Fill the selected history entry into the input"
+  zh-CN: "Tab — 将选中的历史项填入输入框"
+  zh-HK: "Tab — 將選中的歷史項填入輸入框"
+settings.search.item.esc_mode:
+  en: "Esc — Exit search input mode or close the suggestion panel"
+  zh-CN: "Esc — 退出搜索输入模式或关闭建议面板"
+  zh-HK: "Esc — 退出搜尋輸入模式或關閉建議面板"
+settings.search.item.esc_back:
+  en: "Esc or %{key} — Return from results page to the original folder"
+  zh-CN: "Esc 或 %{key} — 从结果页返回原文件夹"
+  zh-HK: "Esc 或 %{key} — 從結果頁返回原資料夾"
+settings.search.item.refresh:
+  en: "%{key} — Re-run the current search on the results page"
+  zh-CN: "%{key} — 在结果页重新执行搜索"
+  zh-HK: "%{key} — 在結果頁重新執行搜尋"
+settings.search.item.list_filter:
+  en: "Toolbar search box — Filters the file list in the current view only (not global search)"
+  zh-CN: "工具栏搜索框 — 仅过滤当前视图中的文件列表（非全局搜索）"
+  zh-HK: "工具列搜尋框 — 僅過濾目前檢視中的檔案清單（非全局搜尋）"
+settings.search.item.plain:
+  en: "readme — Match file names recursively under the search scope"
+  zh-CN: "readme — 在搜索范围内按文件名递归匹配"
+  zh-HK: "readme — 在搜尋範圍內按檔名遞迴匹配"
+settings.search.item.tag:
+  en: "tag:Name — Show files with that tag (optional text filters by name)"
+  zh-CN: "tag:标签名 — 显示带该标签的文件（后面可加文字再按文件名过滤）"
+  zh-HK: "tag:標籤名 — 顯示帶該標籤的檔案（後面可加文字再按檔名過濾）"
+settings.search.item.aqs:
+  en: "$kind:=document — Windows indexed search (AQS syntax after $)"
+  zh-CN: "$kind:=document — Windows 索引搜索（$ 后为 AQS 语法）"
+  zh-HK: "$kind:=document — Windows 索引搜尋（$ 後為 AQS 語法）"
+settings.search.item.aqs_fallback:
+  en: "If Windows Search is unavailable, AQS queries fall back to recursive file-name scan"
+  zh-CN: "Windows 索引不可用时，AQS 查询会自动降级为文件名递归扫描"
+  zh-HK: "Windows 索引不可用時，AQS 查詢會自動降級為檔名遞迴掃描"
+settings.search.item.aqs_examples:
+  en: "Examples: $*.pdf, $datemodified:this week, $kind:=picture"
+  zh-CN: "示例：$*.pdf、$datemodified:this week、$kind:=picture"
+  zh-HK: "示例：$*.pdf、$datemodified:this week、$kind:=picture"
+settings.search.item.scope_folder:
+  en: "In a folder tab — Search scope is the current folder"
+  zh-CN: "在文件夹标签页 — 搜索范围为当前文件夹"
+  zh-HK: "在資料夾分頁 — 搜尋範圍為目前資料夾"
+settings.search.item.scope_home:
+  en: "On Home — Search scope is the home root path"
+  zh-CN: "在主页 — 搜索范围为主页根路径"
+  zh-HK: "在主頁 — 搜尋範圍為主頁根路徑"
+settings.search.item.scope_repeat:
+  en: "Searching again from results — Scope stays the same as the previous search"
+  zh-CN: "在结果页再次搜索 — 范围与上次搜索相同"
+  zh-HK: "在結果頁再次搜尋 — 範圍與上次搜尋相同"
+settings.search.item.results_sort:
+  en: "Results sort by path by default; Name, Path, and Modified columns are shown"
+  zh-CN: "结果默认按路径排序；显示名称、路径、修改时间列"
+  zh-HK: "結果預設按路徑排序；顯示名稱、路徑、修改時間欄"
+settings.search.item.results_open:
+  en: "Double-click a result — Jump to its folder and select the item"
+  zh-CN: "双击结果 — 跳转到所在文件夹并选中该项"
+  zh-HK: "雙擊結果 — 跳轉到所在資料夾並選中該項"
+settings.search.item.results_breadcrumb:
+  en: "Breadcrumb shows Original path › Search: query; click the folder part to go back"
+  zh-CN: "面包屑显示「原路径 › 搜索: 查询词」；点击文件夹部分可返回"
+  zh-HK: "麵包屑顯示「原路徑 › 搜尋: 查詢詞」；點擊資料夾部分可返回"
+settings.search.item.results_status:
+  en: "Long searches show progress in the status center; cancel stops the scan"
+  zh-CN: "耗时搜索在状态栏显示进度；取消可停止扫描"
+  zh-HK: "耗時搜尋在狀態列顯示進度；取消可停止掃描"
+settings.search.item.history_save:
+  en: "Each submitted query (Enter) is saved to recent search history"
+  zh-CN: "每次 Enter 提交的查询会保存到最近搜索历史"
+  zh-HK: "每次 Enter 提交的查詢會保存到最近搜尋歷史"
+settings.search.item.history_panel:
+  en: "%{key} — Dropdown shows syntax tips and recent searches (even when history is empty)"
+  zh-CN: "%{key} — 下拉面板显示语法提示与最近搜索（无历史时也有提示）"
+  zh-HK: "%{key} — 下拉面板顯示語法提示與最近搜尋（無歷史時也有提示）"
+settings.group.actions:
+  en: Keyboard shortcuts
+  zh-CN: 键盘快捷键
+  zh-HK: 鍵盤快速鍵
+settings.actions.description:
+  en: Click Record to capture a new shortcut. Changes apply immediately.
+  zh-CN: 点击「录制」捕获新快捷键，更改立即生效。
+  zh-HK: 點擊「錄製」捕獲新快捷鍵，變更立即生效。
+settings.actions.navigate_back:
+  en: Back
+  zh-CN: 后退
+  zh-HK: 後退
+settings.actions.navigate_forward:
+  en: Forward
+  zh-CN: 前进
+  zh-HK: 前進
+settings.actions.navigate_up:
+  en: Up
+  zh-CN: 上级
+  zh-HK: 上層
+settings.actions.refresh:
+  en: Refresh
+  zh-CN: 刷新
+  zh-HK: 重新整理
+settings.actions.open:
+  en: Open
+  zh-CN: 打开
+  zh-HK: 開啟
+settings.actions.rename:
+  en: Rename
+  zh-CN: 重命名
+  zh-HK: 重新命名
+settings.actions.delete:
+  en: Delete (recycle)
+  zh-CN: 删除（回收站）
+  zh-HK: 刪除（資源回收筒）
+settings.actions.delete_permanent:
+  en: Delete permanently
+  zh-CN: 永久删除
+  zh-HK: 永久刪除
+settings.actions.select_all:
+  en: Select all
+  zh-CN: 全选
+  zh-HK: 全選
+settings.actions.copy:
+  en: Copy
+  zh-CN: 复制
+  zh-HK: 複製
+settings.actions.cut:
+  en: Cut
+  zh-CN: 剪切
+  zh-HK: 剪下
+settings.actions.paste:
+  en: Paste
+  zh-CN: 粘贴
+  zh-HK: 貼上
+settings.actions.copy_path:
+  en: Copy path
+  zh-CN: 复制路径
+  zh-HK: 複製路徑
+settings.actions.new_folder:
+  en: New folder
+  zh-CN: 新建文件夹
+  zh-HK: 新建資料夾
+settings.actions.new_file:
+  en: New file
+  zh-CN: 新建文件
+  zh-HK: 新建檔案
+settings.actions.focus_search:
+  en: Focus search
+  zh-CN: 聚焦搜索
+  zh-HK: 聚焦搜尋
+settings.actions.focus_omnibar:
+  en: Focus path bar
+  zh-CN: 聚焦路径栏
+  zh-HK: 聚焦路徑列
+settings.actions.reopen_tab:
+  en: Reopen closed tab
+  zh-CN: 重新打开已关闭的标签
+  zh-HK: 重新開啟已關閉的標籤
+settings.actions.view_details:
+  en: Details view
+  zh-CN: 详细信息视图
+  zh-HK: 詳細資料檢視
+settings.actions.view_list:
+  en: List view
+  zh-CN: 列表视图
+  zh-HK: 清單檢視
+settings.actions.view_grid:
+  en: Grid view
+  zh-CN: 网格视图
+  zh-HK: 網格檢視
+settings.actions.view_cards:
+  en: Cards view
+  zh-CN: 卡片视图
+  zh-HK: 卡片檢視
+settings.actions.view_columns:
+  en: Columns view
+  zh-CN: 分栏视图
+  zh-HK: 分欄檢視
+settings.actions.navigate_previous:
+  en: Select previous item
+  zh-CN: 选择上一项
+  zh-HK: 選擇上一項
+settings.actions.navigate_next:
+  en: Select next item
+  zh-CN: 选择下一项
+  zh-HK: 選擇下一項
+settings.actions.cancel_rename:
+  en: Cancel rename
+  zh-CN: 取消重命名
+  zh-HK: 取消重新命名
+settings.actions.undo:
+  en: Undo
+  zh-CN: 撤销
+  zh-HK: 復原
+settings.actions.redo:
+  en: Redo
+  zh-CN: 重做
+  zh-HK: 重做
+settings.actions.record:
+  en: Record
+  zh-CN: 录制
+  zh-HK: 錄製
+settings.actions.reset:
+  en: Reset
+  zh-CN: 重置
+  zh-HK: 重設
+settings.actions.reset_all:
+  en: Reset all shortcuts
+  zh-CN: 重置全部快捷键
+  zh-HK: 重設全部快捷鍵
+settings.actions.press_key:
+  en: Press a key…
+  zh-CN: 请按键…
+  zh-HK: 請按鍵…
+settings.actions.conflict:
+  en: Conflicts with "%{action}"
+  zh-CN: 与「%{action}」冲突
+  zh-HK: 與「%{action}」衝突
+settings.group.folders:
+  en: Pinned folders
+  zh-CN: 固定文件夹
+  zh-HK: 固定資料夾
+settings.folders.pinned:
+  en: Pinned locations
+  zh-CN: 固定位置
+  zh-HK: 固定位置
+settings.folders.pinned.description:
+  en: Pin folders from the sidebar or file context menu. Remove them here.
+  zh-CN: 在侧栏或文件右键菜单中固定文件夹，可在此移除。
+  zh-HK: 在側欄或檔案右鍵選單中固定資料夾，可在此移除。
+settings.folders.empty:
+  en: No pinned folders yet.
+  zh-CN: 尚无固定文件夹。
+  zh-HK: 尚無固定資料夾。
+settings.group.tags:
+  en: File tags
+  zh-CN: 文件标签
+  zh-HK: 檔案標籤
+settings.tags.list:
+  en: Tags
+  zh-CN: 标签列表
+  zh-HK: 標籤列表
+settings.tags.list.description:
+  en: Tags group files in the sidebar and on Home. Assign paths from the file context menu.
+  zh-CN: 标签用于在侧栏和主页分组文件。在文件右键菜单中分配路径。
+  zh-HK: 標籤用於在側欄與首頁分組檔案。在檔案右鍵選單中指派路徑。
+settings.tags.clear_color:
+  en: Clear color
+  zh-CN: 清除颜色
+  zh-HK: 清除顏色
+settings.tags.empty:
+  en: No file tags yet.
+  zh-CN: 尚无文件标签。
+  zh-HK: 尚無檔案標籤。
+settings.tags.path_count:
+  en: "%{count} paths"
+  zh-CN: "%{count} 个路径"
+  zh-HK: "%{count} 個路徑"
+settings.tags.remove:
+  en: Remove
+  zh-CN: 移除
+  zh-HK: 移除
+settings.tags.change_color:
+  en: Change color
+  zh-CN: 更换颜色
+  zh-HK: 更換顏色
+settings.tags.add:
+  en: New tag
+  zh-CN: 新建标签
+  zh-HK: 新建標籤
+settings.tags.add.description:
+  en: Enter a name and press Enter to create a tag, then assign paths from the file context menu.
+  zh-CN: 输入名称后按 Enter 创建标签，然后从文件右键菜单分配路径。
+  zh-HK: 輸入名稱後按 Enter 建立標籤，然後從檔案右鍵選單指派路徑。
+settings.tags.add.placeholder:
+  en: New tag name
+  zh-CN: 新标签名称
+  zh-HK: 新標籤名稱
+settings.group.sidebar:
+  en: Sidebar
+  zh-CN: 侧栏
+  zh-HK: 側欄
+settings.sidebar.display_mode:
+  en: Display mode
+  zh-CN: 显示模式
+  zh-HK: 顯示模式
+settings.sidebar.display_mode.description:
+  en: Expanded list, compact icons, or minimal off-canvas (like Files).
+  zh-CN: 展开列表、仅图标紧凑模式，或最小化抽屉模式（对齐 Files）。
+  zh-HK: 展開列表、僅圖示緊湊模式，或最小化抽屜模式（對齊 Files）。
+settings.sidebar.mode.expanded:
+  en: Expanded
+  zh-CN: 展开
+  zh-HK: 展開
+settings.sidebar.mode.compact:
+  en: Compact (icons)
+  zh-CN: 紧凑（图标）
+  zh-HK: 緊湊（圖示）
+settings.sidebar.mode.minimal:
+  en: Minimal (off-canvas)
+  zh-CN: 最小（抽屉）
+  zh-HK: 最小（抽屜）
+settings.sidebar.section.pinned:
+  en: Pinned
+  zh-CN: 固定
+  zh-HK: 固定
+settings.sidebar.section.library:
+  en: Library
+  zh-CN: 库
+  zh-HK: 媒體庫
+settings.sidebar.section.drives:
+  en: Drives
+  zh-CN: 驱动器
+  zh-HK: 磁碟機
+settings.sidebar.section.cloud:
+  en: Cloud drives
+  zh-CN: 云盘
+  zh-HK: 雲端磁碟
+settings.sidebar.section.network:
+  en: Network
+  zh-CN: 网络
+  zh-HK: 網路
+settings.sidebar.section.wsl:
+  en: WSL
+  zh-CN: WSL
+  zh-HK: WSL
+settings.sidebar.section.file_tags:
+  en: File tags
+  zh-CN: 文件标签
+  zh-HK: 檔案標籤
+settings.group.appearance:
+  en: Appearance
+  zh-CN: 外观
+  zh-HK: 外觀
+settings.group.interface:
+  en: Interface
+  zh-CN: 界面
+  zh-HK: 介面
+settings.group.file_open:
+  en: File opening
+  zh-CN: 文件打开
+  zh-HK: 檔案開啟
+settings.open_with_cybereditor:
+  en: Open text files with CyberEditor
+  zh-CN: 使用 CyberEditor 打开文本文件
+  zh-HK: 使用 CyberEditor 開啟文字檔
+settings.open_with_cybereditor.description:
+  en: When enabled, double-clicking supported code and text files in CyberFiles opens them in CyberEditor.
+  zh-CN: 开启后，在 CyberFiles 中双击支持的代码或文本文件时，将使用 CyberEditor 打开。
+  zh-HK: 開啟後，在 CyberFiles 中雙擊支援的程式碼或文字檔時，將使用 CyberEditor 開啟。
+settings.dark_mode:
+  en: Dark Mode
+  zh-CN: 深色模式
+  zh-HK: 深色模式
+settings.dark_mode.description:
+  en: Switch between light and dark themes.
+  zh-CN: 在浅色与深色主题之间切换。
+  zh-HK: 在淺色與深色主題之間切換。
+settings.language:
+  en: Language
+  zh-CN: 语言
+  zh-HK: 語言
+settings.language.description:
+  en: Display language for CyberFiles and built-in components.
+  zh-CN: CyberFiles 与内置组件的显示语言。
+  zh-HK: CyberFiles 與內建元件的顯示語言。
+settings.color_theme:
+  en: Color Theme
+  zh-CN: 配色主题
+  zh-HK: 配色主題
+settings.color_theme.description:
+  en: Choose a color theme from the theme registry.
+  zh-CN: 从主题库中选择配色方案。
+  zh-HK: 從主題庫中選擇配色方案。
+settings.font_size:
+  en: Font Size
+  zh-CN: 字号
+  zh-HK: 字級
+settings.font_size.description:
+  en: Base font size for the application UI.
+  zh-CN: 应用界面基础字号。
+  zh-HK: 應用程式介面基礎字級。
+settings.font_size.small:
+  en: Small
+  zh-CN: 小
+  zh-HK: 小
+settings.font_size.medium:
+  en: Medium
+  zh-CN: 中
+  zh-HK: 中
+settings.font_size.large:
+  en: Large
+  zh-CN: 大
+  zh-HK: 大
+settings.radius.default:
+  en: 6px (default)
+  zh-CN: 6px（默认）
+  zh-HK: 6px（預設）
+settings.border_radius:
+  en: Border Radius
+  zh-CN: 圆角
+  zh-HK: 圓角
+settings.border_radius.description:
+  en: Corner radius for cards, inputs, and panels.
+  zh-CN: 卡片、输入框与面板的圆角大小。
+  zh-HK: 卡片、輸入框與面板的圓角大小。
+settings.scrollbar:
+  en: Scrollbar
+  zh-CN: 滚动条
+  zh-HK: 捲軸
+settings.scrollbar.description:
+  en: When scrollbars are shown in scrollable areas.
+  zh-CN: 可滚动区域中滚动条的显示方式。
+  zh-HK: 可捲動區域中捲軸的顯示方式。
+settings.scrollbar.scrolling:
+  en: Show while scrolling
+  zh-CN: 滚动时显示
+  zh-HK: 捲動時顯示
+settings.scrollbar.hover:
+  en: Show on hover
+  zh-CN: 悬停时显示
+  zh-HK: 懸停時顯示
+settings.scrollbar.always:
+  en: Always show
+  zh-CN: 始终显示
+  zh-HK: 始終顯示
+settings.list_highlight:
+  en: List Active Highlight
+  zh-CN: 列表选中高亮
+  zh-HK: 列表選取高亮
+settings.list_highlight.description:
+  en: Highlight the active row in lists and tables.
+  zh-CN: 在列表与表格中高亮当前行。
+  zh-HK: 在列表與表格中高亮目前列。
+settings.group.persistence:
+  en: Persistence
+  zh-CN: 持久化
+  zh-HK: 持久化
+settings.save:
+  en: Save Settings
+  zh-CN: 保存设置
+  zh-HK: 儲存設定
+settings.save.description:
+  en: Save current preferences and window size. They are applied automatically on the next launch.
+  zh-CN: 保存当前偏好与窗口大小，下次启动时自动应用。
+  zh-HK: 儲存目前偏好與視窗大小，下次啟動時自動套用。
+settings.save.success:
+  en: Settings saved.
+  zh-CN: 设置已保存。
+  zh-HK: 設定已儲存。
+settings.save.error:
+  en: Failed to save settings.
+  zh-CN: 保存设置失败。
+  zh-HK: 儲存設定失敗。
+settings.about.description:
+  en: A cross-platform file workspace built with GPUI and gpui-component.
+  zh-CN: 基于 GPUI 与 gpui-component 的跨平台文件工作区。
+  zh-HK: 基於 GPUI 與 gpui-component 的跨平台檔案工作區。
