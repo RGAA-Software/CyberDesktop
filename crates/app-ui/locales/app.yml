@@ -2187,6 +2187,14 @@ settings.open_with_cybereditor.description:
   en: When enabled, double-clicking supported code and text files in CyberFiles opens them in CyberEditor.
   zh-CN: 开启后，在 CyberFiles 中双击支持的代码或文本文件时，将使用 CyberEditor 打开。
   zh-HK: 開啟後，在 CyberFiles 中雙擊支援的程式碼或文字檔時，將使用 CyberEditor 開啟。
+settings.disable_direct_composition:
+  en: Disable DirectComposition
+  zh-CN: 禁用 DirectComposition
+  zh-HK: 停用 DirectComposition
+settings.disable_direct_composition.description:
+  en: Improves compatibility for embedded native video surfaces such as mpv on Windows, but may change transparency and window composition behavior. Restart CyberFiles after changing this.
+  zh-CN: 提升 Windows 下嵌入原生视频表面（例如 mpv）的兼容性，但可能改变透明效果和窗口合成行为。修改后请重启 CyberFiles。
+  zh-HK: 提升 Windows 下嵌入原生影片表面（例如 mpv）的相容性，但可能改變透明效果和視窗合成行為。修改後請重新啟動 CyberFiles。
 settings.dark_mode:
   en: Dark Mode
   zh-CN: 深色模式

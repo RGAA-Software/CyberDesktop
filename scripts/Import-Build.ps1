@@ -38,8 +38,6 @@ function Invoke-CyberAppBuild {
 
     $cargoArgs = @("build", "-p", $target.Package, "--bin", $Bin)
     $previousRustflags = $env:RUSTFLAGS
-    $previousFfmpegDir = $env:FFMPEG_DIR
-    $ffmpegDir = Join-Path $script:CyberDesktopRepoRoot "third_party\ffmpeg"
     if ($Profile -eq "release") {
         $cargoArgs += "--release"
         $nativeFlag = "-C target-cpu=native"
@@ -51,7 +49,6 @@ function Invoke-CyberAppBuild {
 
     Push-Location $script:CyberDesktopRepoRoot
     try {
-        $env:FFMPEG_DIR = $ffmpegDir
         Write-Host "cargo $($cargoArgs -join ' ')" -ForegroundColor Cyan
         & cargo @cargoArgs
         if ($LASTEXITCODE -ne 0) {
@@ -67,7 +64,6 @@ function Invoke-CyberAppBuild {
     }
     finally {
         $env:RUSTFLAGS = $previousRustflags
-        $env:FFMPEG_DIR = $previousFfmpegDir
         Pop-Location
     }
 }

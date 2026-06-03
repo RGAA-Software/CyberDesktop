@@ -1,7 +1,9 @@
 use std::ffi::{c_char, c_double, c_int, c_void, CStr, CString};
+use std::fs;
 use std::path::Path;
 use std::ptr;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
 use libloading::{Library, Symbol};
@@ -18,8 +20,11 @@ const MPV_RENDER_PARAM_SW_POINTER: c_int = 20;
 const MPV_EVENT_NONE: c_int = 0;
 const MPV_EVENT_END_FILE: c_int = 7;
 const MPV_EVENT_FILE_LOADED: c_int = 8;
+const MPV_EVENT_SHUTDOWN: c_int = 1;
 
 const MPV_RENDER_UPDATE_FRAME: u64 = 1;
+const MPV_FORMAT_INT64: c_int = 4;
+const MPV_FORMAT_DOUBLE: c_int = 5;
 
 const MPV_RENDER_API_TYPE_SW: &[u8] = b"sw\0";
 const MPV_SW_FORMAT_RGB0: &[u8] = b"rgb0\0";
@@ -56,6 +61,9 @@ type MpvSetOptionString =
 type MpvCommand = unsafe extern "C" fn(*mut mpv_handle, *const *const c_char) -> c_int;
 type MpvWaitEvent = unsafe extern "C" fn(*mut mpv_handle, c_double) -> *mut mpv_event;
 type MpvErrorString = unsafe extern "C" fn(c_int) -> *const c_char;
+type MpvGetProperty = unsafe extern "C" fn(*mut mpv_handle, *const c_char, c_int, *mut c_void) -> c_int;
+type MpvGetPropertyString = unsafe extern "C" fn(*mut mpv_handle, *const c_char) -> *mut c_char;
+type MpvFree = unsafe extern "C" fn(*mut c_void);
 type MpvRenderContextCreate = unsafe extern "C" fn(
     *mut *mut mpv_render_context,
     *mut mpv_handle,
@@ -75,6 +83,9 @@ struct MpvApi {
     mpv_command: MpvCommand,
     mpv_wait_event: MpvWaitEvent,
     mpv_error_string: MpvErrorString,
+    mpv_get_property: MpvGetProperty,
+    mpv_get_property_string: MpvGetPropertyString,
+    mpv_free: MpvFree,
     mpv_render_context_create: MpvRenderContextCreate,
     mpv_render_context_update: MpvRenderContextUpdate,
     mpv_render_context_render: MpvRenderContextRender,
@@ -96,6 +107,9 @@ impl MpvApi {
                 mpv_command: *load_symbol(&library, b"mpv_command\0")?,
                 mpv_wait_event: *load_symbol(&library, b"mpv_wait_event\0")?,
                 mpv_error_string: *load_symbol(&library, b"mpv_error_string\0")?,
+                mpv_get_property: *load_symbol(&library, b"mpv_get_property\0")?,
+                mpv_get_property_string: *load_symbol(&library, b"mpv_get_property_string\0")?,
+                mpv_free: *load_symbol(&library, b"mpv_free\0")?,
                 mpv_render_context_create: *load_symbol(&library, b"mpv_render_context_create\0")?,
                 mpv_render_context_update: *load_symbol(&library, b"mpv_render_context_update\0")?,
                 mpv_render_context_render: *load_symbol(&library, b"mpv_render_context_render\0")?,
@@ -140,6 +154,24 @@ pub struct VideoFrame {
     pub rgb0_bytes: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct MpvMediaInfo {
+    pub duration: Option<Duration>,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub audio_codec: Option<String>,
+    pub video_codec: Option<String>,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u16>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub frame_rate_milli: Option<u32>,
+    pub bitrate_kbps: Option<u32>,
+    pub file_size: Option<u64>,
+    pub has_audio: bool,
+}
+
 pub struct MpvPlayer {
     api: Arc<MpvApi>,
     handle: *mut mpv_handle,
@@ -149,6 +181,12 @@ pub struct MpvPlayer {
 }
 
 pub struct MpvEmbedPlayer {
+    api: Arc<MpvApi>,
+    handle: *mut mpv_handle,
+    ended: bool,
+}
+
+pub struct MpvAudioPlayer {
     api: Arc<MpvApi>,
     handle: *mut mpv_handle,
     ended: bool,
@@ -411,6 +449,15 @@ impl MpvEmbedPlayer {
         self.ended
     }
 
+    pub fn poll_events(&mut self) {
+        self.drain_events();
+    }
+
+    pub fn time_pos(&self) -> Result<Option<Duration>> {
+        self.get_property_double("time-pos")
+            .map(|value| value.filter(|secs| *secs >= 0.0).map(Duration::from_secs_f64))
+    }
+
     fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
         let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
         let value = CString::new(value)
@@ -428,6 +475,10 @@ impl MpvEmbedPlayer {
         let mut raw = owned.iter().map(|item| item.as_ptr()).collect::<Vec<_>>();
         raw.push(ptr::null());
         Ok(unsafe { (self.api.mpv_command)(self.handle, raw.as_ptr()) })
+    }
+
+    fn get_property_double(&self, name: &str) -> Result<Option<f64>> {
+        get_property_double(&self.api, self.handle, name)
     }
 
     fn drain_events(&mut self) {
@@ -453,6 +504,348 @@ impl MpvEmbedPlayer {
     }
 }
 
+impl MpvAudioPlayer {
+    pub fn new() -> Result<Self> {
+        let api = MpvApi::load()?;
+        let handle = unsafe { (api.mpv_create)() };
+        if handle.is_null() {
+            bail!("mpv_create returned null");
+        }
+
+        let mut player = Self {
+            api,
+            handle,
+            ended: false,
+        };
+
+        player.set_option("terminal", "no")?;
+        player.set_option("msg-level", "all=warn")?;
+        player.set_option("vo", "null")?;
+        player.set_option("keep-open", "yes")?;
+        player.set_option("idle", "yes")?;
+        player.set_option("osc", "no")?;
+        player.set_option("input-default-bindings", "no")?;
+        player.set_option("input-vo-keyboard", "no")?;
+
+        let init_status = unsafe { (player.api.mpv_initialize)(player.handle) };
+        player
+            .api
+            .status_to_result(init_status, "initialize audio libmpv")?;
+        Ok(player)
+    }
+
+    pub fn load_file(&mut self, path: &Path) -> Result<()> {
+        let path = path
+            .to_str()
+            .ok_or_else(|| anyhow!("path is not valid UTF-8: {}", path.display()))?;
+        let status = self.command(&["loadfile", path, "replace"])?;
+        self.api
+            .status_to_result(status, "load file with audio libmpv")?;
+        self.ended = false;
+        self.drain_events();
+        Ok(())
+    }
+
+    pub fn set_pause(&mut self, paused: bool) -> Result<()> {
+        let value = if paused { "yes" } else { "no" };
+        let status = self.command(&["set", "pause", value])?;
+        self.api.status_to_result(status, "set pause")?;
+        Ok(())
+    }
+
+    pub fn stop(&mut self) -> Result<()> {
+        let status = self.command(&["stop"])?;
+        self.api.status_to_result(status, "stop playback")?;
+        self.ended = true;
+        Ok(())
+    }
+
+    pub fn ended(&self) -> bool {
+        self.ended
+    }
+
+    pub fn poll_events(&mut self) {
+        self.drain_events();
+    }
+
+    pub fn time_pos(&self) -> Result<Option<Duration>> {
+        self.get_property_double("time-pos")
+            .map(|value| value.filter(|secs| *secs >= 0.0).map(Duration::from_secs_f64))
+    }
+
+    pub fn duration(&self) -> Result<Option<Duration>> {
+        self.get_property_double("duration")
+            .map(|value| value.filter(|secs| *secs > 0.0).map(Duration::from_secs_f64))
+    }
+
+    fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
+        let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
+        let value = CString::new(value)
+            .with_context(|| format!("build C string value for option {name:?}"))?;
+        let status =
+            unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
+        self.api
+            .status_to_result(status, &format!("set libmpv option {}", name.to_string_lossy()))
+    }
+
+    fn command(&self, items: &[&str]) -> Result<c_int> {
+        let owned = items
+            .iter()
+            .map(|item| CString::new(*item).with_context(|| format!("build command argument {item:?}")))
+            .collect::<Result<Vec<_>>>()?;
+        let mut raw = owned.iter().map(|item| item.as_ptr()).collect::<Vec<_>>();
+        raw.push(ptr::null());
+        Ok(unsafe { (self.api.mpv_command)(self.handle, raw.as_ptr()) })
+    }
+
+    fn get_property_double(&self, name: &str) -> Result<Option<f64>> {
+        get_property_double(&self.api, self.handle, name)
+    }
+
+    fn drain_events(&mut self) {
+        loop {
+            let event = unsafe { (self.api.mpv_wait_event)(self.handle, 0.0) };
+            if event.is_null() {
+                break;
+            }
+            let event = unsafe { &*event };
+            match event.event_id {
+                MPV_EVENT_NONE => break,
+                MPV_EVENT_FILE_LOADED => {
+                    self.ended = false;
+                }
+                MPV_EVENT_END_FILE => {
+                    self.ended = true;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+pub fn probe_media(path: &Path) -> Result<MpvMediaInfo> {
+    let api = MpvApi::load()?;
+    let handle = unsafe { (api.mpv_create)() };
+    if handle.is_null() {
+        bail!("mpv_create returned null");
+    }
+
+    let mut probe = MpvProbeHandle { api, handle };
+    probe.set_option("terminal", "no")?;
+    probe.set_option("msg-level", "all=warn")?;
+    probe.set_option("vo", "null")?;
+    probe.set_option("ao", "null")?;
+    probe.set_option("idle", "yes")?;
+    probe.set_option("pause", "yes")?;
+
+    let init_status = unsafe { (probe.api.mpv_initialize)(probe.handle) };
+    probe
+        .api
+        .status_to_result(init_status, "initialize mpv probe handle")?;
+
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| anyhow!("path is not valid UTF-8: {}", path.display()))?;
+    let status = probe.command(&["loadfile", path_str, "replace"])?;
+    probe
+        .api
+        .status_to_result(status, "load file for mpv probe")?;
+    probe.wait_until_loaded()?;
+
+    let duration = get_property_double(&probe.api, probe.handle, "duration")?
+        .filter(|secs| *secs > 0.0)
+        .map(Duration::from_secs_f64);
+    let title = metadata_value(&probe.api, probe.handle, &["metadata/by-key/title", "metadata/by-key/TITLE"])?;
+    let artist = metadata_value(
+        &probe.api,
+        probe.handle,
+        &[
+            "metadata/by-key/artist",
+            "metadata/by-key/ARTIST",
+            "metadata/by-key/album_artist",
+            "metadata/by-key/ALBUMARTIST",
+        ],
+    )?;
+    let album = metadata_value(&probe.api, probe.handle, &["metadata/by-key/album", "metadata/by-key/ALBUM"])?;
+    let video_codec = get_property_string(&probe.api, probe.handle, "video-codec")?;
+    let audio_codec = match get_property_string(&probe.api, probe.handle, "audio-codec-name")? {
+        Some(codec) => Some(codec),
+        None => get_property_string(&probe.api, probe.handle, "audio-codec")?,
+    };
+    let sample_rate = get_property_i64(&probe.api, probe.handle, "audio-params/samplerate")?
+        .filter(|value| *value > 0)
+        .map(|value| value as u32);
+    let channels = get_property_i64(&probe.api, probe.handle, "audio-params/channel-count")?
+        .filter(|value| *value > 0)
+        .map(|value| value as u16);
+    let width = get_property_i64(&probe.api, probe.handle, "width")?
+        .filter(|value| *value > 0)
+        .map(|value| value as u32);
+    let height = get_property_i64(&probe.api, probe.handle, "height")?
+        .filter(|value| *value > 0)
+        .map(|value| value as u32);
+    let frame_rate_milli = get_property_double(&probe.api, probe.handle, "estimated-vf-fps")?
+        .or_else(|| get_property_double(&probe.api, probe.handle, "container-fps").ok().flatten())
+        .filter(|fps| *fps > 0.0)
+        .map(|fps| (fps * 1000.0).round() as u32);
+    let bitrate_kbps = get_property_i64(&probe.api, probe.handle, "video-bitrate")?
+        .or_else(|| get_property_i64(&probe.api, probe.handle, "audio-bitrate").ok().flatten())
+        .or_else(|| get_property_i64(&probe.api, probe.handle, "video-params/bitrate").ok().flatten())
+        .filter(|value| *value > 0)
+        .map(|value| (value as u64 / 1000) as u32);
+    let file_size = fs::metadata(path).ok().map(|meta| meta.len());
+
+    Ok(MpvMediaInfo {
+        duration,
+        title,
+        artist,
+        album,
+        audio_codec: audio_codec.clone(),
+        video_codec,
+        sample_rate,
+        channels,
+        width,
+        height,
+        frame_rate_milli,
+        bitrate_kbps,
+        file_size,
+        has_audio: audio_codec.is_some(),
+    })
+}
+
+struct MpvProbeHandle {
+    api: Arc<MpvApi>,
+    handle: *mut mpv_handle,
+}
+
+impl MpvProbeHandle {
+    fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
+        let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
+        let value = CString::new(value)
+            .with_context(|| format!("build C string value for option {name:?}"))?;
+        let status =
+            unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
+        self.api
+            .status_to_result(status, &format!("set mpv probe option {}", name.to_string_lossy()))
+    }
+
+    fn command(&self, items: &[&str]) -> Result<c_int> {
+        let owned = items
+            .iter()
+            .map(|item| CString::new(*item).with_context(|| format!("build command argument {item:?}")))
+            .collect::<Result<Vec<_>>>()?;
+        let mut raw = owned.iter().map(|item| item.as_ptr()).collect::<Vec<_>>();
+        raw.push(ptr::null());
+        Ok(unsafe { (self.api.mpv_command)(self.handle, raw.as_ptr()) })
+    }
+
+    fn wait_until_loaded(&mut self) -> Result<()> {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if Instant::now() >= deadline {
+                bail!("timed out waiting for mpv to load media");
+            }
+            let event = unsafe { (self.api.mpv_wait_event)(self.handle, 0.25) };
+            if event.is_null() {
+                continue;
+            }
+            let event = unsafe { &*event };
+            match event.event_id {
+                MPV_EVENT_FILE_LOADED => return Ok(()),
+                MPV_EVENT_END_FILE => return Ok(()),
+                MPV_EVENT_SHUTDOWN => bail!("mpv probe shut down before file loaded"),
+                MPV_EVENT_NONE => continue,
+                _ => {}
+            }
+        }
+    }
+}
+
+fn metadata_value(api: &Arc<MpvApi>, handle: *mut mpv_handle, names: &[&str]) -> Result<Option<String>> {
+    for name in names {
+        if let Some(value) = get_property_string(api, handle, name)? {
+            return Ok(Some(value));
+        }
+    }
+    Ok(None)
+}
+
+impl Drop for MpvProbeHandle {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.handle.is_null() {
+                (self.api.mpv_terminate_destroy)(self.handle);
+                self.handle = ptr::null_mut();
+            }
+        }
+    }
+}
+
+fn get_property_i64(api: &Arc<MpvApi>, handle: *mut mpv_handle, name: &str) -> Result<Option<i64>> {
+    let property = CString::new(name).with_context(|| format!("build property name {name}"))?;
+    let mut value = 0_i64;
+    let status = unsafe {
+        (api.mpv_get_property)(
+            handle,
+            property.as_ptr(),
+            MPV_FORMAT_INT64,
+            (&mut value as *mut i64).cast(),
+        )
+    };
+    if status >= 0 {
+        Ok(Some(value))
+    } else if api.error_text(status).contains("property unavailable") {
+        Ok(None)
+    } else {
+        Err(anyhow!("read mpv property {name}: {}", api.error_text(status)))
+    }
+}
+
+fn get_property_double(
+    api: &Arc<MpvApi>,
+    handle: *mut mpv_handle,
+    name: &str,
+) -> Result<Option<f64>> {
+    let property = CString::new(name).with_context(|| format!("build property name {name}"))?;
+    let mut value = 0_f64;
+    let status = unsafe {
+        (api.mpv_get_property)(
+            handle,
+            property.as_ptr(),
+            MPV_FORMAT_DOUBLE,
+            (&mut value as *mut f64).cast(),
+        )
+    };
+    if status >= 0 {
+        Ok(Some(value))
+    } else if api.error_text(status).contains("property unavailable") {
+        Ok(None)
+    } else {
+        Err(anyhow!("read mpv property {name}: {}", api.error_text(status)))
+    }
+}
+
+fn get_property_string(
+    api: &Arc<MpvApi>,
+    handle: *mut mpv_handle,
+    name: &str,
+) -> Result<Option<String>> {
+    let property = CString::new(name).with_context(|| format!("build property name {name}"))?;
+    let value = unsafe { (api.mpv_get_property_string)(handle, property.as_ptr()) };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let text = unsafe { CStr::from_ptr(value) }.to_string_lossy().trim().to_string();
+    unsafe {
+        (api.mpv_free)(value.cast());
+    }
+    if text.is_empty() || text == "null" {
+        Ok(None)
+    } else {
+        Ok(Some(text))
+    }
+}
+
 impl Drop for MpvPlayer {
     fn drop(&mut self) {
         unsafe {
@@ -469,6 +862,17 @@ impl Drop for MpvPlayer {
 }
 
 impl Drop for MpvEmbedPlayer {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.handle.is_null() {
+                (self.api.mpv_terminate_destroy)(self.handle);
+                self.handle = ptr::null_mut();
+            }
+        }
+    }
+}
+
+impl Drop for MpvAudioPlayer {
     fn drop(&mut self) {
         unsafe {
             if !self.handle.is_null() {

@@ -141,6 +141,9 @@ pub struct AppConfig {
     /// When true, open supported text/code files with CyberEditor on double-click.
     #[serde(default = "default_true")]
     pub open_text_with_cybereditor: bool,
+    /// When true, GPUI disables Windows DirectComposition for the main Files window.
+    #[serde(default = "default_true")]
+    pub disable_direct_composition: bool,
     /// When true, reopen the last saved set of tabs on application launch.
     #[serde(default = "default_true")]
     pub auto_restore_tabs: bool,
@@ -260,6 +263,7 @@ impl Default for AppConfig {
             context_menu_show_file_tags: true,
             context_menu_show_create_shortcut: true,
             open_text_with_cybereditor: true,
+            disable_direct_composition: true,
             auto_restore_tabs: true,
             session_pane_layouts: Vec::new(),
             session_closed_tabs: Vec::new(),
@@ -435,6 +439,12 @@ pub fn context_menu_item_prefs() -> ContextMenuItemPrefs {
 pub fn open_text_with_cybereditor_enabled() -> bool {
     load_config()
         .map(|c| c.open_text_with_cybereditor)
+        .unwrap_or(true)
+}
+
+pub fn disable_direct_composition_enabled() -> bool {
+    load_config()
+        .map(|c| c.disable_direct_composition)
         .unwrap_or(true)
 }
 

@@ -1,18 +1,15 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::Duration;
 
-use app_media::{
-    extract_video_poster, probe_media, spawn_video_decode, AudioFileMetadata, MediaSource,
-    VideoDecodeEvent, VideoDecodeHandle, VideoFileMetadata,
-};
+#[cfg(windows)]
+use app_mpv_ffi::{probe_media as probe_mpv_media, MpvEmbedPlayer};
+use app_media::{AudioFileMetadata, VideoFileMetadata};
 use files_fs::{
     count_directory_entries, directory_tree_size, extension_type_counts, multi_select_summary,
     parse_tag_color_hex, preview_kind, read_audio_metadata, read_text_preview,
     DirectoryReadOptions, FileItem, FileItemKind, FolderEntryCounts, PreviewKind,
 };
 use gpui::{img, prelude::*, rgb, ObjectFit, *};
-use image::{Frame as ImageFrame, RgbaImage};
 use gpui_component::{
     alert::Alert,
     button::Button,
@@ -21,10 +18,20 @@ use gpui_component::{
     label::Label,
     progress::Progress,
     scroll::ScrollableElement as _,
-    v_flex, ActiveTheme as _, IconName,
+    v_flex, ActiveTheme as _, ElementExt, IconName,
 };
+#[cfg(windows)]
+use raw_window_handle::RawWindowHandle;
 use rust_i18n::t;
-use smallvec::smallvec;
+#[cfg(windows)]
+use windows::Win32::Foundation::HWND;
+#[cfg(windows)]
+use windows::Win32::UI::WindowsAndMessaging::{
+    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, SW_HIDE, SW_SHOW, WS_BORDER,
+    WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_VISIBLE,
+};
+#[cfg(windows)]
+use windows::core::w;
 
 use crate::audio_log::audio_log;
 use crate::audio_player::AudioPlayer;
@@ -81,11 +88,92 @@ struct VideoPreview {
     path: PathBuf,
     generation: u64,
     metadata: VideoMetadataState,
-    poster: VideoPosterState,
     playback: VideoPlaybackState,
-    current_frame: Option<Arc<RenderImage>>,
     current_position: Duration,
     preview_error: Option<String>,
+}
+
+#[cfg(windows)]
+struct NativeVideoSurface {
+    hwnd: HWND,
+}
+
+#[cfg(windows)]
+fn window_hwnd(window: &Window) -> Option<isize> {
+    let handle = raw_window_handle::HasWindowHandle::window_handle(window).ok()?;
+    match handle.as_raw() {
+        RawWindowHandle::Win32(window) => Some(window.hwnd.get() as isize),
+        _ => None,
+    }
+}
+
+#[cfg(windows)]
+impl NativeVideoSurface {
+    fn new(parent_hwnd: isize) -> anyhow::Result<Self> {
+        let hwnd = unsafe {
+            CreateWindowExW(
+                Default::default(),
+                w!("STATIC"),
+                w!("MPV INFO PANE"),
+                WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_BORDER,
+                0,
+                0,
+                1,
+                1,
+                HWND(parent_hwnd as _),
+                None,
+                None,
+                None,
+            )
+        }?;
+
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_SHOW);
+        }
+
+        Ok(Self {
+            hwnd,
+        })
+    }
+
+    fn hwnd(&self) -> isize {
+        self.hwnd.0 as isize
+    }
+
+    fn set_visible(&self, visible: bool) {
+        unsafe {
+            let _ = ShowWindow(self.hwnd, if visible { SW_SHOW } else { SW_HIDE });
+        }
+    }
+
+    fn set_bounds(&self, window: &Window, bounds: Bounds<Pixels>) {
+        let scale = window.scale_factor();
+        let left = (f32::from(bounds.origin.x) * scale).round() as i32;
+        let top = (f32::from(bounds.origin.y) * scale).round() as i32;
+        let right =
+            ((f32::from(bounds.origin.x) + f32::from(bounds.size.width)) * scale).round() as i32;
+        let bottom =
+            ((f32::from(bounds.origin.y) + f32::from(bounds.size.height)) * scale).round() as i32;
+
+        if right <= left || bottom <= top {
+            self.set_visible(false);
+            return;
+        }
+
+        unsafe {
+            let _ = MoveWindow(self.hwnd, left, top, right - left, bottom - top, true);
+        }
+        self.set_visible(true);
+    }
+}
+
+#[cfg(windows)]
+impl Drop for NativeVideoSurface {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = DestroyWindow(self.hwnd);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,13 +181,6 @@ enum VideoMetadataState {
     Loading,
     Ready(VideoFileMetadata),
     Unknown,
-}
-
-#[derive(Debug, Clone)]
-enum VideoPosterState {
-    Loading,
-    Ready(Arc<Vec<u8>>),
-    Unavailable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,9 +204,13 @@ pub struct InfoPane {
     audio_status: Option<String>,
     video_preview: Option<VideoPreview>,
     video_generation: u64,
-    video_decode: Option<VideoDecodeHandle>,
-    video_poll_generation: u64,
     video_status: Option<String>,
+    #[cfg(windows)]
+    video_host_bounds: Option<Bounds<Pixels>>,
+    #[cfg(windows)]
+    native_video_surface: Option<NativeVideoSurface>,
+    #[cfg(windows)]
+    embedded_video_player: Option<MpvEmbedPlayer>,
 }
 
 impl InfoPane {
@@ -143,9 +228,13 @@ impl InfoPane {
             audio_status: None,
             video_preview: None,
             video_generation: 0,
-            video_decode: None,
-            video_poll_generation: 0,
             video_status: None,
+            #[cfg(windows)]
+            video_host_bounds: None,
+            #[cfg(windows)]
+            native_video_surface: None,
+            #[cfg(windows)]
+            embedded_video_player: None,
         }
     }
 
@@ -250,9 +339,7 @@ impl InfoPane {
             path: path.to_path_buf(),
             generation: self.video_generation,
             metadata: VideoMetadataState::Loading,
-            poster: VideoPosterState::Loading,
             playback: VideoPlaybackState::Idle,
-            current_frame: None,
             current_position: Duration::ZERO,
             preview_error: None,
         });
@@ -269,9 +356,27 @@ impl InfoPane {
         cx.spawn(async move |pane, cx| {
             let metadata = cx
                 .background_spawn(async move {
-                    probe_media(&MediaSource::File(path_for_probe))
-                        .map(|result| result.metadata.video)
-                        .map_err(|error| error.to_string())
+                    #[cfg(windows)]
+                    {
+                        probe_mpv_media(&path_for_probe)
+                            .map(|result| {
+                                Some(VideoFileMetadata {
+                                    duration: result.duration,
+                                    codec: result.video_codec,
+                                    width: result.width,
+                                    height: result.height,
+                                    frame_rate_milli: result.frame_rate_milli,
+                                    bitrate_kbps: result.bitrate_kbps,
+                                    file_size: result.file_size,
+                                    has_audio: result.has_audio,
+                                })
+                            })
+                            .map_err(|error| error.to_string())
+                    }
+                    #[cfg(not(windows))]
+                    {
+                        Ok(None)
+                    }
                 })
                 .await;
             let _ = pane.update(cx, |pane, cx| {
@@ -294,38 +399,6 @@ impl InfoPane {
                         preview.preview_error = Some(error);
                     }
                 }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    fn schedule_video_poster_load(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        let generation = self
-            .video_preview
-            .as_ref()
-            .filter(|preview| preview.path == path)
-            .map(|preview| preview.generation)
-            .unwrap_or(self.video_generation);
-        let path_for_poster = path.clone();
-        cx.spawn(async move |pane, cx| {
-            let poster = cx
-                .background_spawn(async move {
-                    extract_video_poster(&MediaSource::File(path_for_poster)).ok()
-                })
-                .await;
-            let _ = pane.update(cx, |pane, cx| {
-                let Some(preview) = pane.video_preview.as_mut() else {
-                    return;
-                };
-                if preview.generation != generation || preview.path != path {
-                    return;
-                }
-                preview.poster = match (&preview.poster, poster) {
-                    (VideoPosterState::Ready(_), _) => return,
-                    (_, Some(poster)) => VideoPosterState::Ready(Arc::new(poster.png_bytes)),
-                    (_, None) => VideoPosterState::Unavailable,
-                };
                 cx.notify();
             });
         })
@@ -395,8 +468,102 @@ impl InfoPane {
 
     fn start_video_preview(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         self.ensure_video_preview_state(&path);
-        self.schedule_video_metadata_load(path.clone(), cx);
-        self.schedule_video_poster_load(path.clone(), cx);
+        self.schedule_video_metadata_load(path, cx);
+    }
+
+    #[cfg(windows)]
+    fn embedded_video_active_for_path(&self, path: &Path) -> bool {
+        self.video_preview.as_ref().is_some_and(|preview| {
+            preview.path == path
+                && matches!(
+                    preview.playback,
+                    VideoPlaybackState::Starting | VideoPlaybackState::Playing
+                )
+                && self.embedded_video_player.is_some()
+                && self.native_video_surface.is_some()
+        })
+    }
+
+    #[cfg(windows)]
+    fn ensure_native_video_surface(
+        &mut self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> anyhow::Result<isize> {
+        if let Some(surface) = self.native_video_surface.as_ref() {
+            return Ok(surface.hwnd());
+        }
+
+        let parent_hwnd =
+            window_hwnd(window).ok_or_else(|| anyhow::anyhow!("resolve top-level hwnd"))?;
+        let surface = NativeVideoSurface::new(parent_hwnd)?;
+        let hwnd = surface.hwnd();
+        self.native_video_surface = Some(surface);
+        cx.notify();
+        Ok(hwnd)
+    }
+
+    #[cfg(windows)]
+    fn update_native_video_surface_bounds(&mut self, window: &Window) {
+        let Some(surface) = self.native_video_surface.as_ref() else {
+            return;
+        };
+        let Some(bounds) = self.video_host_bounds else {
+            surface.set_visible(false);
+            return;
+        };
+        surface.set_bounds(window, bounds);
+    }
+
+    #[cfg(windows)]
+    fn play_embedded_video_preview(
+        &mut self,
+        path: &Path,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> anyhow::Result<()> {
+        let target_wid = self.ensure_native_video_surface(window, cx)?;
+        if self.embedded_video_player.is_none() {
+            self.embedded_video_player = Some(MpvEmbedPlayer::new(target_wid)?);
+        }
+        let player = self
+            .embedded_video_player
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("create embedded mpv player"))?;
+        player.load_file(path)?;
+        self.update_native_video_surface_bounds(window);
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn sync_embedded_video_state(&mut self, cx: &mut Context<Self>) {
+        let Some(player) = self.embedded_video_player.as_mut() else {
+            return;
+        };
+        player.poll_events();
+        if let Some(preview) = self.video_preview.as_mut() {
+            if matches!(
+                preview.playback,
+                VideoPlaybackState::Starting | VideoPlaybackState::Playing
+            ) {
+                if let Ok(Some(position)) = player.time_pos() {
+                    preview.current_position = position;
+                }
+            }
+        }
+        if !player.ended() {
+            return;
+        }
+        if let Some(preview) = self.video_preview.as_mut() {
+            if matches!(
+                preview.playback,
+                VideoPlaybackState::Starting | VideoPlaybackState::Playing
+            ) {
+                preview.playback = VideoPlaybackState::Finished;
+                self.video_status = Some(t!("info_pane.video.ended").to_string());
+                cx.notify();
+            }
+        }
     }
 
     fn selected_video_path(&self) -> Option<PathBuf> {
@@ -430,144 +597,74 @@ impl InfoPane {
             self.video_status = None;
         } else {
             self.ensure_video_preview_state(&path);
-            self.play_video_preview(path, cx);
+            self.play_video_preview(path, _window, cx);
         }
         cx.notify();
     }
 
-    fn play_video_preview(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+    fn play_video_preview(&mut self, path: PathBuf, window: &Window, cx: &mut Context<Self>) {
         self.stop_video_preview(cx);
         self.ensure_video_preview_state(&path);
 
-        let Some(preview) = self.video_preview.as_mut() else {
+        if let Some(preview) = self.video_preview.as_mut() {
+            preview.playback = VideoPlaybackState::Starting;
+            preview.current_position = Duration::ZERO;
+            preview.preview_error = None;
+        } else {
             return;
-        };
-        preview.playback = VideoPlaybackState::Starting;
-        preview.current_position = Duration::ZERO;
-        preview.preview_error = None;
+        }
         self.video_status = Some(t!("info_pane.video.starting").to_string());
-        self.video_decode = Some(spawn_video_decode(MediaSource::File(path.clone())));
-        self.start_video_poll(&path, cx);
+
+        #[cfg(windows)]
+        {
+            match self.play_embedded_video_preview(&path, window, cx) {
+                Ok(()) => {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        preview.playback = VideoPlaybackState::Playing;
+                    }
+                    self.video_status = Some(format!(
+                        "mpv embedded playback: {}",
+                        path.display()
+                    ));
+                    return;
+                }
+                Err(error) => {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        preview.playback = VideoPlaybackState::Idle;
+                        preview.preview_error =
+                            Some(format!("mpv embed failed: {error:#}"));
+                    }
+                    self.embedded_video_player = None;
+                    self.native_video_surface = None;
+                    self.video_status = None;
+                    return;
+                }
+            }
+        }
     }
 
-    fn stop_video_preview(&mut self, cx: &mut Context<Self>) {
-        let was_active = self.video_decode.is_some()
-            || self.video_preview.as_ref().is_some_and(|preview| preview.current_frame.is_some());
+    fn stop_video_preview(&mut self, _cx: &mut Context<Self>) {
+        #[cfg(windows)]
+        let was_active =
+            self.embedded_video_player.is_some() || self.native_video_surface.is_some();
+        #[cfg(not(windows))]
+        let was_active = false;
         if !was_active {
             return;
         }
-        self.video_poll_generation = self.video_poll_generation.wrapping_add(1);
-        if let Some(handle) = self.video_decode.take() {
-            handle.cancel();
+        #[cfg(windows)]
+        {
+            if let Some(player) = self.embedded_video_player.as_mut() {
+                let _ = player.stop();
+            }
+            self.embedded_video_player = None;
+            self.native_video_surface = None;
+            self.video_host_bounds = None;
         }
         if let Some(preview) = self.video_preview.as_mut() {
             preview.playback = VideoPlaybackState::Idle;
             preview.current_position = Duration::ZERO;
-            if let Some(image) = preview.current_frame.take() {
-                cx.drop_image(image, None);
-            }
         }
-    }
-
-    fn start_video_poll(&mut self, path: &Path, cx: &mut Context<Self>) {
-        self.video_poll_generation = self.video_poll_generation.wrapping_add(1);
-        let generation = self.video_poll_generation;
-        let path = path.to_path_buf();
-        cx.spawn(async move |pane, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(16))
-                    .await;
-
-                let mut keep_polling = false;
-                let update_ok = pane.update(cx, |pane, cx| {
-                    if pane.video_poll_generation != generation {
-                        return;
-                    }
-
-                    let Some(preview) = pane.video_preview.as_mut() else {
-                        return;
-                    };
-                    if preview.path != path {
-                        return;
-                    }
-
-                    let Some(handle) = pane.video_decode.as_ref() else {
-                        return;
-                    };
-
-                    keep_polling = true;
-                    let mut latest_frame = None;
-
-                    loop {
-                        match handle.try_recv() {
-                            Ok(VideoDecodeEvent::Frame(frame)) => {
-                                latest_frame = Some(frame);
-                            }
-                            Ok(VideoDecodeEvent::Finished) => {
-                                preview.playback = VideoPlaybackState::Finished;
-                                pane.video_status = None;
-                                pane.video_decode = None;
-                                pane.video_poll_generation = pane.video_poll_generation.wrapping_add(1);
-                                keep_polling = false;
-                                cx.notify();
-                                break;
-                            }
-                            Ok(VideoDecodeEvent::Error(error)) => {
-                                preview.playback = VideoPlaybackState::Idle;
-                                preview.preview_error = Some(error);
-                                pane.video_status = None;
-                                pane.video_decode = None;
-                                pane.video_poll_generation = pane.video_poll_generation.wrapping_add(1);
-                                keep_polling = false;
-                                cx.notify();
-                                break;
-                            }
-                            Err(std::sync::mpsc::TryRecvError::Empty) => {
-                                break;
-                            }
-                            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                                preview.playback = VideoPlaybackState::Idle;
-                                pane.video_status = None;
-                                pane.video_decode = None;
-                                pane.video_poll_generation = pane.video_poll_generation.wrapping_add(1);
-                                keep_polling = false;
-                                cx.notify();
-                                break;
-                            }
-                        }
-                    }
-
-                    if let Some(frame) = latest_frame {
-                        match render_image_from_video_frame(frame.width, frame.height, frame.bgra_bytes) {
-                            Ok(image) => {
-                                if let Some(old_image) = preview.current_frame.replace(image) {
-                                    cx.drop_image(old_image, None);
-                                }
-                                preview.current_position = frame.position;
-                                preview.playback = VideoPlaybackState::Playing;
-                                pane.video_status = None;
-                                cx.notify();
-                            }
-                            Err(error) => {
-                                preview.playback = VideoPlaybackState::Idle;
-                                preview.preview_error = Some(error.to_string());
-                                pane.video_status = None;
-                                pane.video_decode = None;
-                                pane.video_poll_generation = pane.video_poll_generation.wrapping_add(1);
-                                keep_polling = false;
-                                cx.notify();
-                            }
-                        }
-                    }
-                });
-
-                if update_ok.is_err() || !keep_polling {
-                    break;
-                }
-            }
-        })
-        .detach();
     }
 
     fn toggle_audio_playback(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
@@ -913,6 +1010,12 @@ fn format_folder_contains(counts: &FolderEntryCounts) -> String {
 
 impl Render for InfoPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        #[cfg(windows)]
+        {
+            self.sync_embedded_video_state(cx);
+            self.update_native_video_surface_bounds(window);
+        }
+
         let selected_tab = self.selected_tab;
         let selection = self.selection.clone();
         let show_calc_size = self.show_calculate_size_button();
@@ -1400,14 +1503,13 @@ fn video_preview_panel(
         .as_ref()
         .filter(|preview| preview.path == path);
     let metadata = preview.and_then(video_preview_metadata);
-    let current_frame = preview.and_then(|preview| preview.current_frame.clone());
-    let has_current_frame = current_frame.is_some();
-    let poster = preview.and_then(video_preview_poster);
     let metadata_loading = preview.is_some_and(|preview| preview.metadata == VideoMetadataState::Loading);
-    let poster_loading = !has_current_frame
-        && preview.is_some_and(|preview| matches!(preview.poster, VideoPosterState::Loading));
     let preview_error = preview.and_then(|preview| preview.preview_error.clone());
     let is_playing = preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Starting | VideoPlaybackState::Playing));
+    #[cfg(windows)]
+    let embed_active = pane.embedded_video_active_for_path(path);
+    #[cfg(not(windows))]
+    let embed_active = false;
     let progress = preview
         .map(|preview| video_progress_fraction(preview, metadata))
         .unwrap_or(0.);
@@ -1422,6 +1524,8 @@ fn video_preview_panel(
         preview.map(|preview| video_time_line(preview, metadata))
     });
     let detail_lines = video_metadata_lines(path, metadata);
+    #[cfg(windows)]
+    let entity = cx.entity().downgrade();
 
     v_flex()
         .w_full()
@@ -1438,26 +1542,42 @@ fn video_preview_panel(
                         .text_color(cx.theme().foreground),
                 ),
         )
-        .when_some(current_frame, |panel, image| {
-            panel.child(
-                img(image)
-                    .w_full()
-                    .max_h(px(260.))
-                    .object_fit(ObjectFit::Contain),
-            )
+        .when(embed_active, |panel| {
+            #[cfg(windows)]
+            {
+                panel.child(
+                    div()
+                        .w_full()
+                        .h(px(220.))
+                        .rounded(cx.theme().radius)
+                        .border_1()
+                        .border_color(cx.theme().primary.opacity(0.35))
+                        .bg(gpui::rgba(0x0d121aff))
+                        .on_prepaint(move |bounds, _, cx| {
+                            let _ = entity.update(cx, |this, cx| {
+                                let changed = this
+                                    .video_host_bounds
+                                    .map(|prev| {
+                                        (prev.origin.x - bounds.origin.x).abs() > px(0.5)
+                                            || (prev.origin.y - bounds.origin.y).abs() > px(0.5)
+                                            || (prev.size.width - bounds.size.width).abs() > px(0.5)
+                                            || (prev.size.height - bounds.size.height).abs() > px(0.5)
+                                    })
+                                    .unwrap_or(true);
+                                if changed {
+                                    this.video_host_bounds = Some(bounds);
+                                    cx.notify();
+                                }
+                            });
+                        }),
+                )
+            }
+            #[cfg(not(windows))]
+            {
+                panel
+            }
         })
-        .when_some(poster.cloned().filter(|_| !has_current_frame), |panel, bytes| {
-            panel.child(
-                img(Arc::new(Image::from_bytes(
-                    ImageFormat::Png,
-                    bytes.as_ref().clone(),
-                )))
-                    .w_full()
-                    .max_h(px(260.))
-                    .object_fit(ObjectFit::Contain),
-            )
-        })
-        .when(poster_loading && poster.is_none(), |panel| {
+        .when(!embed_active, |panel| {
             panel.child(
                 div()
                     .w_full()
@@ -1470,7 +1590,7 @@ fn video_preview_panel(
                     .items_center()
                     .justify_center()
                     .child(
-                        Label::new(t!("info_pane.folder.loading").to_string())
+                        Label::new(t!("info_pane.video.play").to_string())
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     ),
@@ -1539,13 +1659,6 @@ fn video_preview_metadata(preview: &VideoPreview) -> Option<&VideoFileMetadata> 
     }
 }
 
-fn video_preview_poster(preview: &VideoPreview) -> Option<&Arc<Vec<u8>>> {
-    match &preview.poster {
-        VideoPosterState::Ready(bytes) => Some(bytes),
-        _ => None,
-    }
-}
-
 fn video_time_line(preview: &VideoPreview, metadata: Option<&VideoFileMetadata>) -> String {
     let total = metadata.and_then(|metadata| metadata.duration);
     if matches!(preview.playback, VideoPlaybackState::Finished) {
@@ -1580,16 +1693,6 @@ fn video_progress_fraction(preview: &VideoPreview, metadata: Option<&VideoFileMe
         return 0.;
     }
     (preview.current_position.as_secs_f32() / total.as_secs_f32()).clamp(0., 1.)
-}
-
-fn render_image_from_video_frame(
-    width: u32,
-    height: u32,
-    bgra_bytes: Vec<u8>,
-) -> anyhow::Result<Arc<RenderImage>> {
-    let image = RgbaImage::from_raw(width, height, bgra_bytes)
-        .ok_or_else(|| anyhow::anyhow!("video frame buffer size does not match frame dimensions"))?;
-    Ok(Arc::new(RenderImage::new(smallvec![ImageFrame::new(image)])))
 }
 
 fn video_metadata_lines(path: &Path, metadata: Option<&VideoFileMetadata>) -> Vec<(String, String)> {

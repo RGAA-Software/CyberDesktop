@@ -473,6 +473,14 @@ pub fn apply_open_text_with_cybereditor(enabled: bool, cx: &mut App) {
     mutate_config(cx, |c| c.open_text_with_cybereditor = enabled);
 }
 
+pub fn disable_direct_composition(_cx: &App) -> bool {
+    files_core::disable_direct_composition_enabled()
+}
+
+pub fn apply_disable_direct_composition(enabled: bool, cx: &mut App) {
+    mutate_config(cx, |c| c.disable_direct_composition = enabled);
+}
+
 pub fn auto_restore_tabs(_cx: &App) -> bool {
     files_core::load_config()
         .map(|c| c.auto_restore_tabs)
@@ -563,6 +571,7 @@ pub fn capture_config(cx: &App, window_width: f32, window_height: f32) -> AppCon
         context_menu_show_file_tags: prior.context_menu_show_file_tags,
         context_menu_show_create_shortcut: prior.context_menu_show_create_shortcut,
         open_text_with_cybereditor: prior.open_text_with_cybereditor,
+        disable_direct_composition: prior.disable_direct_composition,
         auto_restore_tabs: prior.auto_restore_tabs,
         session_pane_layouts: prior.session_pane_layouts,
         session_closed_tabs: prior.session_closed_tabs,

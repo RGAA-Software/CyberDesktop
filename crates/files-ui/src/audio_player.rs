@@ -2,18 +2,13 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use app_media::{
-    spawn_audio_decode, AudioDecodeEvent, AudioDecodeHandle, MediaController, MediaEvent,
-    MediaSessionState, MediaSource,
-};
-use anyhow::Context as _;
-use rodio::{buffer::SamplesBuffer, OutputStream, OutputStreamHandle, Sink};
+use app_media::MediaSessionState;
+use app_mpv_ffi::{probe_media as probe_mpv_media, MpvAudioPlayer};
 
 use crate::audio_log::audio_log;
 
-/// Non-blocking handle; `OutputStream` + playback live on `info-pane-audio`.
 pub struct AudioPlayer {
     cmd_tx: Sender<AudioCommand>,
     state: Arc<Mutex<AudioState>>,
@@ -39,45 +34,10 @@ enum AudioCommand {
 }
 
 struct PlaybackSession {
-    sink: Arc<Sink>,
+    player: MpvAudioPlayer,
     path: PathBuf,
     total: Option<Duration>,
-    started_at: Instant,
-    paused_at: Option<Instant>,
-    paused_total: Duration,
-    decode_done: bool,
-    decoder: AudioDecodeHandle,
-}
-
-impl PlaybackSession {
-    fn position(&self) -> Duration {
-        let elapsed = match self.paused_at {
-            Some(paused_at) => paused_at.saturating_duration_since(self.started_at),
-            None => Instant::now().saturating_duration_since(self.started_at),
-        };
-        let position = elapsed.saturating_sub(self.paused_total);
-        self.total.map_or(position, |total| position.min(total))
-    }
-
-    fn toggle_pause(&mut self) {
-        if self.sink.is_paused() {
-            if let Some(paused_at) = self.paused_at.take() {
-                self.paused_total += Instant::now().saturating_duration_since(paused_at);
-            }
-            self.sink.play();
-        } else {
-            self.paused_at = Some(Instant::now());
-            self.sink.pause();
-        }
-    }
-
-    fn finish_decode(&self) -> bool {
-        self.decode_done
-    }
-
-    fn cancel_decode(&self) {
-        self.decoder.cancel();
-    }
+    paused: bool,
 }
 
 impl AudioPlayer {
@@ -85,7 +45,7 @@ impl AudioPlayer {
         audio_log!("AudioPlayer::start spawning thread");
         let (cmd_tx, cmd_rx) = mpsc::channel();
         let state = Arc::new(Mutex::new(AudioState {
-            output_ok: false,
+            output_ok: true,
             active_path: None,
             total: None,
             position: Duration::ZERO,
@@ -117,14 +77,13 @@ impl AudioPlayer {
     pub fn play(&self, path: PathBuf) {
         audio_log!("play command send {}", path.display());
         if let Ok(mut guard) = self.state.lock() {
-            // Mark the requested path immediately so UI selection refreshes
-            // don't clear playback before the audio thread consumes Play.
             guard.active_path = Some(path.clone());
             guard.total = None;
             guard.position = Duration::ZERO;
             guard.paused = false;
             guard.play_error = None;
             guard.finished = false;
+            guard.media_state = MediaSessionState::Probing;
         }
         self.send(AudioCommand::Play(path));
     }
@@ -171,6 +130,10 @@ impl AudioPlayer {
         let mut guard = self.state.lock().expect("audio state");
         if guard.active_path.as_deref() == Some(path) && guard.finished {
             guard.finished = false;
+             guard.active_path = None;
+             guard.total = None;
+             guard.position = Duration::ZERO;
+             guard.paused = false;
             true
         } else {
             false
@@ -185,189 +148,129 @@ impl AudioPlayer {
 }
 
 fn audio_thread_main(cmd_rx: Receiver<AudioCommand>, state: Arc<Mutex<AudioState>>) {
-    let (media_controller, media_events) = MediaController::new();
-    audio_log!("audio thread: OutputStream::try_default");
-    let t0 = Instant::now();
-    let output = OutputStream::try_default();
-    audio_log!(
-        "audio thread: OutputStream done in {:?} err={}",
-        t0.elapsed(),
-        output.is_err()
-    );
-
-    let Ok((stream, handle)) = output else {
-        let error = output.err().map(|e| e.to_string()).unwrap_or_default();
-        audio_log!("audio thread: no output: {error}");
-        if let Ok(mut guard) = state.lock() {
-            guard.output_ok = false;
-            guard.media_state = MediaSessionState::Failed;
-            guard.play_error = Some(if error.is_empty() {
-                "no audio output device".into()
-            } else {
-                error
-            });
-        }
-        drain_commands_failed(cmd_rx, &state);
-        return;
-    };
-    let _stream = stream;
+    let mut session: Option<PlaybackSession> = None;
 
     if let Ok(mut guard) = state.lock() {
         guard.output_ok = true;
         guard.media_state = MediaSessionState::Idle;
         guard.play_error = None;
     }
-    audio_log!("audio thread: ready");
-
-    let mut session: Option<PlaybackSession> = None;
 
     loop {
         match cmd_rx.recv_timeout(Duration::from_millis(100)) {
             Ok(AudioCommand::Play(path)) => {
                 audio_log!("audio thread: Play {}", path.display());
-                if let Ok(mut guard) = state.lock() {
-                    guard.media_state = MediaSessionState::Probing;
-                    guard.play_error = None;
-                    guard.finished = false;
+                if let Some(mut old) = session.take() {
+                    let _ = old.player.stop();
                 }
-                let _ = media_controller.open(MediaSource::File(path.clone()));
-                let _ = media_controller.play();
-                session = start_playback(&handle, &path, &state);
-                if let Some(session) = session.as_ref() {
-                    audio_log!(
-                        "audio thread: playing empty={} paused={} pos={:?}",
-                        session.sink.empty(),
-                        session.sink.is_paused(),
-                        session.sink.get_pos()
-                    );
-                }
+                session = start_playback(&path, &state);
             }
             Ok(AudioCommand::TogglePause) => {
                 if let Some(session) = session.as_mut() {
-                    session.toggle_pause();
-                    if session.sink.is_paused() {
-                        let _ = media_controller.pause();
-                    } else {
-                        let _ = media_controller.play();
+                    let paused = !session.paused;
+                    match session.player.set_pause(paused) {
+                        Ok(()) => {
+                            session.paused = paused;
+                            sync_session_state(&state, session, None);
+                        }
+                        Err(error) => {
+                            set_play_error(&state, &session.path, error.to_string());
+                        }
                     }
-                    sync_session_state(&state, session);
                 }
             }
             Ok(AudioCommand::Stop) => {
-                if let Some(session) = session.take() {
-                    session.cancel_decode();
+                if let Some(mut session) = session.take() {
+                    let _ = session.player.stop();
                 }
-                let _ = media_controller.stop();
-                session = None;
                 clear_playback_state(&state);
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                if let Some(session) = session.as_mut() {
-                    drain_audio_decode_events(session, &state);
-                }
-                let track_finished = session.as_ref().is_some_and(|session| {
-                    session.sink.empty()
-                        && session.finish_decode()
-                        && session.started_at.elapsed() > Duration::from_millis(400)
-                        && session.position() > Duration::ZERO
-                });
-                if track_finished {
-                    audio_log!("audio thread: track finished");
-                    let _ = media_controller.stop();
-                    session = None;
-                    if let Ok(mut guard) = state.lock() {
-                        guard.finished = true;
-                        guard.active_path = None;
-                        guard.position = Duration::ZERO;
-                        guard.paused = false;
-                        guard.media_state = MediaSessionState::Ended;
+                let mut finished_path = None;
+                if let Some(active) = session.as_mut() {
+                    active.player.poll_events();
+                    if active.player.ended() {
+                        audio_log!("audio thread: track finished");
+                        finished_path = Some(active.path.clone());
+                    } else {
+                        let position = active.player.time_pos().unwrap_or(None);
+                        let total = active.player.duration().unwrap_or(None).or(active.total);
+                        active.total = total;
+                        sync_session_state(&state, active, position);
                     }
-                } else if let Some(session) = session.as_ref() {
-                    sync_session_state(&state, session);
+                }
+                if let Some(path) = finished_path {
+                    session = None;
+                    mark_finished(&state, path);
                 }
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
-
-        drain_media_events(&media_events, &state);
     }
 }
 
-fn drain_commands_failed(cmd_rx: Receiver<AudioCommand>, state: &Arc<Mutex<AudioState>>) {
-    while let Ok(cmd) = cmd_rx.recv() {
-        if matches!(cmd, AudioCommand::Play(_)) {
-            if let Ok(mut guard) = state.lock() {
-                if guard.play_error.is_none() {
-                    guard.play_error = Some("no audio output device".into());
-                }
-            }
-        }
-    }
-}
-
-fn start_playback(
-    handle: &OutputStreamHandle,
-    path: &Path,
-    state: &Arc<Mutex<AudioState>>,
-) -> Option<PlaybackSession> {
+fn start_playback(path: &Path, state: &Arc<Mutex<AudioState>>) -> Option<PlaybackSession> {
     let result = (|| {
-        let sink = Arc::new(Sink::try_new(handle).context("open audio output")?);
-        sink.set_volume(1.0);
-        sink.play();
-        let total = files_fs::audio_file_duration(path);
-        let decoder = spawn_audio_decode(MediaSource::File(path.to_path_buf()));
+        let metadata = probe_mpv_media(path).ok();
+        let mut player = MpvAudioPlayer::new()?;
+        player.load_file(path)?;
         Ok::<_, anyhow::Error>(PlaybackSession {
-            sink,
+            player,
             path: path.to_path_buf(),
-            total,
-            started_at: Instant::now(),
-            paused_at: None,
-            paused_total: Duration::ZERO,
-            decode_done: false,
-            decoder,
+            total: metadata.as_ref().and_then(|info| info.duration),
+            paused: false,
         })
     })();
 
     match result {
         Ok(session) => {
             if let Ok(mut guard) = state.lock() {
+                guard.output_ok = true;
                 guard.play_error = None;
                 guard.finished = false;
                 guard.active_path = Some(session.path.clone());
                 guard.total = session.total;
                 guard.position = Duration::ZERO;
                 guard.paused = false;
+                guard.media_state = MediaSessionState::Playing;
             }
             Some(session)
         }
         Err(error) => {
             audio_log!("start_playback: err {error:#}");
             if let Ok(mut guard) = state.lock() {
+                guard.output_ok = false;
                 guard.play_error = Some(error.to_string());
                 guard.active_path = None;
                 guard.total = None;
                 guard.position = Duration::ZERO;
                 guard.paused = false;
                 guard.finished = false;
+                guard.media_state = MediaSessionState::Failed;
             }
             None
         }
     }
 }
 
-fn sync_session_state(state: &Arc<Mutex<AudioState>>, session: &PlaybackSession) {
+fn sync_session_state(
+    state: &Arc<Mutex<AudioState>>,
+    session: &PlaybackSession,
+    position: Option<Duration>,
+) {
     if let Ok(mut guard) = state.lock() {
         guard.active_path = Some(session.path.clone());
         guard.total = session.total;
-        guard.position = session.position();
-        guard.paused = session.sink.is_paused();
+        guard.position = position.unwrap_or(guard.position);
+        guard.paused = session.paused;
         guard.play_error = None;
         guard.finished = false;
-        if session.sink.is_paused() {
-            guard.media_state = MediaSessionState::Paused;
+        guard.output_ok = true;
+        guard.media_state = if session.paused {
+            MediaSessionState::Paused
         } else {
-            guard.media_state = MediaSessionState::Playing;
-        }
+            MediaSessionState::Playing
+        };
     }
 }
 
@@ -383,94 +286,21 @@ fn clear_playback_state(state: &Arc<Mutex<AudioState>>) {
     }
 }
 
-fn drain_media_events(event_rx: &Receiver<MediaEvent>, state: &Arc<Mutex<AudioState>>) {
-    while let Ok(event) = event_rx.try_recv() {
-        match event {
-            MediaEvent::Probed(metadata) => {
-                if let Ok(mut guard) = state.lock() {
-                    if metadata.source_path.as_ref() == guard.active_path.as_ref() {
-                        guard.total = metadata
-                            .audio
-                            .as_ref()
-                            .and_then(|audio| audio.duration)
-                            .or(metadata.duration)
-                            .or(guard.total);
-                    }
-                }
-            }
-            MediaEvent::StateChanged(media_state) => {
-                if let Ok(mut guard) = state.lock() {
-                    guard.media_state = media_state;
-                }
-            }
-            MediaEvent::PositionUpdated(position) => {
-                if let Ok(mut guard) = state.lock() {
-                    if matches!(guard.media_state, MediaSessionState::Seeking | MediaSessionState::Ended) {
-                        guard.position = position;
-                    }
-                }
-            }
-            MediaEvent::Error(error) => {
-                audio_log!("media session event error: {error}");
-            }
-        }
+fn mark_finished(state: &Arc<Mutex<AudioState>>, path: PathBuf) {
+    if let Ok(mut guard) = state.lock() {
+        guard.finished = true;
+        guard.active_path = Some(path);
+        guard.position = Duration::ZERO;
+        guard.paused = false;
+        guard.media_state = MediaSessionState::Ended;
     }
 }
 
-fn drain_audio_decode_events(session: &mut PlaybackSession, state: &Arc<Mutex<AudioState>>) {
-    loop {
-        match session.decoder.try_recv() {
-            Ok(AudioDecodeEvent::Chunk(chunk)) => {
-                session.total = session.total.or_else(|| {
-                    if chunk.sample_rate == 0 || chunk.channels == 0 {
-                        None
-                    } else {
-                        None
-                    }
-                });
-                append_chunk_samples(
-                    &chunk.samples,
-                    chunk.channels,
-                    chunk.sample_rate,
-                    &session.sink,
-                );
-            }
-            Ok(AudioDecodeEvent::Finished) => {
-                session.decode_done = true;
-                break;
-            }
-            Ok(AudioDecodeEvent::Error(error)) => {
-                audio_log!("decode thread: err {error}");
-                session.decode_done = true;
-                if let Ok(mut guard) = state.lock() {
-                    if guard.active_path.as_deref() == Some(session.path.as_path()) {
-                        guard.play_error = Some(error);
-                    }
-                }
-                break;
-            }
-            Err(mpsc::TryRecvError::Empty) => break,
-            Err(mpsc::TryRecvError::Disconnected) => {
-                session.decode_done = true;
-                break;
-            }
+fn set_play_error(state: &Arc<Mutex<AudioState>>, path: &Path, error: String) {
+    if let Ok(mut guard) = state.lock() {
+        if guard.active_path.as_deref() == Some(path) {
+            guard.play_error = Some(error);
+            guard.media_state = MediaSessionState::Failed;
         }
     }
-}
-
-fn append_chunk_samples(
-    frame_samples: &[f32],
-    out_channels: u16,
-    out_rate: u32,
-    sink: &Sink,
-) {
-    if frame_samples.is_empty() {
-        return;
-    }
-
-    sink.append(SamplesBuffer::new(
-        out_channels.max(1),
-        out_rate.max(1),
-        frame_samples.to_vec(),
-    ));
 }

@@ -9,6 +9,7 @@ publish.workspace = true
 chrono = "0.4"
 anyhow.workspace = true
 app-media.workspace = true
+app-mpv-ffi.workspace = true
 files-core.workspace = true
 tracing.workspace = true
 unicode-width.workspace = true

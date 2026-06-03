@@ -1,7 +1,8 @@
 use std::path::Path;
 use std::time::Duration;
 
-use app_media::{probe_media, AudioFileMetadata, MediaSource};
+use app_media::AudioFileMetadata;
+use app_mpv_ffi::probe_media as probe_mpv_media;
 
 /// Estimated duration from container metadata (no full decode).
 pub fn audio_file_duration(path: &Path) -> Option<Duration> {
@@ -9,9 +10,17 @@ pub fn audio_file_duration(path: &Path) -> Option<Duration> {
 }
 
 pub fn read_audio_metadata(path: &Path) -> Option<AudioFileMetadata> {
-    probe_media(&MediaSource::File(path.to_path_buf()))
-        .ok()
-        .and_then(|result| result.metadata.audio)
+    probe_mpv_media(path).ok().map(|result| AudioFileMetadata {
+        duration: result.duration,
+        title: result.title,
+        artist: result.artist,
+        album: result.album,
+        codec: result.audio_codec,
+        sample_rate: result.sample_rate,
+        channels: result.channels,
+        bitrate_kbps: result.bitrate_kbps,
+        file_size: result.file_size,
+    })
 }
 
 #[cfg(test)]
