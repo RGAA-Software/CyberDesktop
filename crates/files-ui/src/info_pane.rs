@@ -3,7 +3,7 @@ use std::time::Duration;
 
 #[cfg(windows)]
 use app_mpv_ffi::{probe_media as probe_mpv_media, MpvEmbedPlayer};
-use app_media::{AudioFileMetadata, VideoFileMetadata};
+use app_media::{AudioFileMetadata, MediaSessionState, VideoFileMetadata};
 use files_fs::{
     count_directory_entries, directory_tree_size, extension_type_counts, multi_select_summary,
     parse_tag_color_hex, preview_kind, read_audio_metadata, read_text_preview,
@@ -16,7 +16,6 @@ use gpui_component::{
     description_list::{DescriptionItem, DescriptionList},
     h_flex,
     label::Label,
-    progress::Progress,
     scroll::ScrollableElement as _,
     slider::{Slider, SliderEvent, SliderState},
     v_flex, ActiveTheme as _, ElementExt, IconName,
@@ -203,7 +202,11 @@ pub struct InfoPane {
     audio_preview: Option<AudioPreview>,
     audio_generation: u64,
     audio_poll_generation: u64,
+    audio_seek_dragging: bool,
+    audio_seek_preview_position: Option<Duration>,
     audio_status: Option<String>,
+    audio_seek_slider: Entity<SliderState>,
+    _audio_seek_slider_subscriptions: Vec<Subscription>,
     video_preview: Option<VideoPreview>,
     video_generation: u64,
     video_poll_generation: u64,
@@ -221,6 +224,21 @@ pub struct InfoPane {
 
 impl InfoPane {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let audio_seek_slider =
+            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
+        let audio_seek_slider_subscriptions = vec![cx.subscribe(
+            &audio_seek_slider,
+            |this, _, event: &SliderEvent, cx| match event {
+                SliderEvent::Change(value) => {
+                    this.audio_seek_dragging = true;
+                    this.preview_audio_seek_fraction(value.start(), cx);
+                }
+                SliderEvent::Release(value) => {
+                    this.audio_seek_dragging = false;
+                    this.commit_audio_seek_fraction(value.start(), cx);
+                }
+            },
+        )];
         let video_seek_slider =
             cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
         let video_seek_slider_subscriptions = vec![cx.subscribe(
@@ -247,7 +265,11 @@ impl InfoPane {
             audio_preview: None,
             audio_generation: 0,
             audio_poll_generation: 0,
+            audio_seek_dragging: false,
+            audio_seek_preview_position: None,
             audio_status: None,
+            audio_seek_slider,
+            _audio_seek_slider_subscriptions: audio_seek_slider_subscriptions,
             video_preview: None,
             video_generation: 0,
             video_poll_generation: 0,
@@ -473,6 +495,7 @@ impl InfoPane {
         self.stop_audio_poll();
         self.audio_preview = None;
         self.audio_status = None;
+        self.audio_seek_preview_position = None;
         self.stop_video_poll();
         self.video_seek_dragging = false;
         self.stop_video_preview(cx);
@@ -954,6 +977,8 @@ impl InfoPane {
     fn stop_audio_playback(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.audio_player.stop();
         self.stop_audio_poll();
+        self.audio_seek_dragging = false;
+        self.audio_seek_preview_position = None;
         self.audio_status = None;
         if let Some(preview) = self.audio_preview.as_mut() {
             preview.play_error = None;
@@ -992,6 +1017,11 @@ impl InfoPane {
 
                         if player.is_active_path(&path) {
                             pane.audio_status = None;
+                        if let Some(target) = pane.audio_seek_preview_position {
+                            if state.position.abs_diff(target) <= Duration::from_millis(250) {
+                                pane.audio_seek_preview_position = None;
+                            }
+                        }
                         if let Some(total) = state.total {
                             if let Some(preview) = pane.audio_preview.as_mut() {
                                 if preview.path == path {
@@ -1012,6 +1042,8 @@ impl InfoPane {
                         }
                         if player.take_finished(&path) {
                             audio_log!("poll gen={generation} track finished");
+                            pane.audio_seek_preview_position = None;
+                            pane.audio_status = Some(t!("info_pane.audio.ended").to_string());
                             pane.stop_audio_poll();
                             keep_polling = false;
                         }
@@ -1074,18 +1106,12 @@ impl InfoPane {
         if total.is_zero() {
             return 0.;
         }
-        let position = self
-            .audio_player
-            .position(path)
-            .unwrap_or(Duration::ZERO);
+        let position = self.audio_current_position(path);
         (position.as_secs_f32() / total.as_secs_f32()).clamp(0., 1.)
     }
 
     fn audio_time_line(&self, path: &Path) -> String {
-        let position = self
-            .audio_player
-            .position(path)
-            .unwrap_or(Duration::ZERO);
+        let position = self.audio_current_position(path);
         let total = self
             .audio_total_duration(path)
             .map(format_audio_duration)
@@ -1097,13 +1123,97 @@ impl InfoPane {
         )
     }
 
+    fn audio_current_position(&self, path: &Path) -> Duration {
+        if self
+            .selected_audio_path()
+            .as_deref()
+            .is_some_and(|selected| selected == path)
+        {
+            if let Some(position) = self.audio_seek_preview_position {
+                return position;
+            }
+        }
+        self.audio_player.position(path).unwrap_or(Duration::ZERO)
+    }
+
     fn audio_play_button_label(&self, path: &Path) -> String {
         let player = &self.audio_player;
         if player.is_active_path(path) && !player.is_paused() {
             t!("info_pane.audio.pause").to_string()
+        } else if player.is_active_path(path) && player.is_paused() {
+            t!("info_pane.audio.resume").to_string()
+        } else if self.audio_is_finished(path) {
+            t!("info_pane.audio.replay").to_string()
         } else {
             t!("info_pane.audio.play").to_string()
         }
+    }
+
+    fn audio_is_finished(&self, path: &Path) -> bool {
+        let state = self.audio_player.snapshot();
+        state.active_path.is_none() && state.media_state == MediaSessionState::Ended && self
+            .audio_preview
+            .as_ref()
+            .is_some_and(|preview| preview.path == path)
+    }
+
+    fn preview_audio_seek_fraction(&mut self, fraction: f32, cx: &mut Context<Self>) {
+        let Some(path) = self.selected_audio_path() else {
+            return;
+        };
+        let Some(total) = self.audio_total_duration(&path) else {
+            return;
+        };
+        let position = Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
+        self.audio_seek_preview_position = Some(position);
+        cx.notify();
+    }
+
+    fn commit_audio_seek_fraction(&mut self, fraction: f32, cx: &mut Context<Self>) {
+        let Some(path) = self.selected_audio_path() else {
+            return;
+        };
+        let Some(total) = self.audio_total_duration(&path) else {
+            return;
+        };
+        if !self.audio_player.is_active_path(&path) {
+            return;
+        }
+        let target = Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
+        self.audio_seek_preview_position = Some(target);
+        self.audio_player.seek_to(target);
+        self.start_audio_poll(&path, cx);
+        cx.notify();
+    }
+
+    fn seek_audio_relative(&mut self, seconds: f64, cx: &mut Context<Self>) {
+        let Some(path) = self.selected_audio_path() else {
+            return;
+        };
+        if !self.audio_player.is_active_path(&path) {
+            return;
+        }
+        self.audio_seek_preview_position = None;
+        self.audio_player.seek_relative(seconds);
+        self.start_audio_poll(&path, cx);
+        cx.notify();
+    }
+
+    fn sync_audio_seek_slider(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.audio_seek_dragging {
+            return;
+        }
+        let Some(path) = self.selected_audio_path() else {
+            return;
+        };
+        let fraction = self.audio_progress_fraction(&path);
+        let current = self.audio_seek_slider.read(cx).value().start();
+        if (current - fraction).abs() <= 0.001 {
+            return;
+        }
+        self.audio_seek_slider.update(cx, |slider, cx| {
+            slider.set_value(fraction, window, cx);
+        });
     }
 
     fn start_folder_counts(&mut self, path: PathBuf, read_options: DirectoryReadOptions, cx: &mut Context<Self>) {
@@ -1243,6 +1353,7 @@ impl Render for InfoPane {
             self.sync_embedded_video_state(cx);
             self.update_native_video_surface_bounds(window);
         }
+        self.sync_audio_seek_slider(window, cx);
         self.sync_video_seek_slider(window, cx);
 
         let selected_tab = self.selected_tab;
@@ -1575,7 +1686,8 @@ fn audio_preview_panel(
         .and_then(AudioPreview::metadata);
     let status = pane.audio_status.clone();
     let is_active = pane.audio_player.is_active_path(path);
-    let progress = pane.audio_progress_fraction(path);
+    let is_paused = is_active && pane.audio_player.is_paused();
+    let can_seek = is_active && pane.audio_total_duration(path).is_some();
     let time_line = pane.audio_time_line(path);
     let metadata_loading = pane.audio_preview.as_ref().is_some_and(|preview| {
         preview.path == path && preview.metadata == AudioMetadataState::Loading
@@ -1601,14 +1713,9 @@ fn audio_preview_panel(
                 ),
         )
         .child(
-            Progress::new("info-pane-audio-progress")
-                .w_full()
-                .h(px(4.))
-                .value(if is_active {
-                    progress * 100.
-                } else {
-                    0.
-                }),
+            Slider::new(&pane.audio_seek_slider)
+                .disabled(!can_seek)
+                .w_full(),
         )
         .child(
             Label::new(if metadata_loading && !is_active {
@@ -1638,6 +1745,7 @@ fn audio_preview_panel(
         .child(
             h_flex()
                 .gap_2()
+                .flex_wrap()
                 .child(
                     Button::new("info-pane-audio-play")
                         .label(play_label)
@@ -1646,7 +1754,29 @@ fn audio_preview_panel(
                             this.toggle_audio_playback(window, cx);
                         })),
                 )
-                .when(is_active, |row| {
+                .child(
+                    Button::new("info-pane-audio-backward")
+                        .label(t!("info_pane.audio.backward").to_string())
+                        .when(!can_seek, |this| this.opacity(0.5))
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            cx.stop_propagation();
+                            if this.selected_audio_path().is_some() {
+                                this.seek_audio_relative(-5.0, cx);
+                            }
+                        })),
+                )
+                .child(
+                    Button::new("info-pane-audio-forward")
+                        .label(t!("info_pane.audio.forward").to_string())
+                        .when(!can_seek, |this| this.opacity(0.5))
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            cx.stop_propagation();
+                            if this.selected_audio_path().is_some() {
+                                this.seek_audio_relative(5.0, cx);
+                            }
+                        })),
+                )
+                .when(is_active || is_paused || pane.audio_is_finished(path), |row| {
                     row.child(
                         Button::new("info-pane-audio-stop")
                             .label(t!("info_pane.audio.stop").to_string())

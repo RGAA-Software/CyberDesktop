@@ -30,6 +30,8 @@ pub struct AudioState {
 enum AudioCommand {
     Play(PathBuf),
     TogglePause,
+    SeekRelative(f64),
+    SeekTo(Duration),
     Stop,
 }
 
@@ -95,6 +97,14 @@ impl AudioPlayer {
     pub fn stop(&self) {
         audio_log!("stop command send");
         self.send(AudioCommand::Stop);
+    }
+
+    pub fn seek_relative(&self, seconds: f64) {
+        self.send(AudioCommand::SeekRelative(seconds));
+    }
+
+    pub fn seek_to(&self, position: Duration) {
+        self.send(AudioCommand::SeekTo(position));
     }
 
     pub fn is_active_path(&self, path: &Path) -> bool {
@@ -184,6 +194,32 @@ fn audio_thread_main(cmd_rx: Receiver<AudioCommand>, state: Arc<Mutex<AudioState
                     let _ = session.player.stop();
                 }
                 clear_playback_state(&state);
+            }
+            Ok(AudioCommand::SeekRelative(seconds)) => {
+                if let Some(session) = session.as_mut() {
+                    match session.player.seek_relative(seconds) {
+                        Ok(()) => {
+                            let position = session.player.time_pos().unwrap_or(None);
+                            sync_session_state(&state, session, position);
+                        }
+                        Err(error) => {
+                            set_play_error(&state, &session.path, error.to_string());
+                        }
+                    }
+                }
+            }
+            Ok(AudioCommand::SeekTo(position)) => {
+                if let Some(session) = session.as_mut() {
+                    match session.player.seek_to(position) {
+                        Ok(()) => {
+                            let position = session.player.time_pos().unwrap_or(Some(position));
+                            sync_session_state(&state, session, position);
+                        }
+                        Err(error) => {
+                            set_play_error(&state, &session.path, error.to_string());
+                        }
+                    }
+                }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 let mut finished_path = None;

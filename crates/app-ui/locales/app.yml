@@ -459,6 +459,14 @@ info_pane.audio.pause:
   en: Pause
   zh-CN: 暂停
   zh-HK: 暫停
+info_pane.audio.resume:
+  en: Resume
+  zh-CN: 继续
+  zh-HK: 繼續
+info_pane.audio.replay:
+  en: Replay
+  zh-CN: 重新播放
+  zh-HK: 重新播放
 info_pane.audio.duration:
   en: Duration
   zh-CN: 时长
@@ -479,10 +487,22 @@ info_pane.audio.stop:
   en: Stop
   zh-CN: 停止
   zh-HK: 停止
+info_pane.audio.backward:
+  en: -5s
+  zh-CN: 后退 5 秒
+  zh-HK: 後退 5 秒
+info_pane.audio.forward:
+  en: +5s
+  zh-CN: 前进 5 秒
+  zh-HK: 前進 5 秒
 info_pane.audio.starting:
   en: Starting playback…
   zh-CN: 正在开始播放…
   zh-HK: 正在開始播放…
+info_pane.audio.ended:
+  en: Playback ended
+  zh-CN: 播放结束
+  zh-HK: 播放結束
 info_pane.audio.no_selection:
   en: Select an audio file in the file list.
   zh-CN: 请在文件列表中选择一个音频文件。
