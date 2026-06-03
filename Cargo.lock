@@ -131,6 +131,7 @@ name = "app-mpv-ffi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "image",
  "libloading",
  "tracing",
 ]

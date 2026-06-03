@@ -3,9 +3,11 @@ use std::fs;
 use std::path::Path;
 use std::ptr;
 use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
+use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use libloading::{Library, Symbol};
 use tracing::{info, warn};
 
@@ -257,6 +259,11 @@ impl MpvPlayer {
         self.ended
     }
 
+    pub fn time_pos(&self) -> Result<Option<Duration>> {
+        get_property_double(&self.api, self.handle, "time-pos")
+            .map(|value| value.filter(|secs| *secs >= 0.0).map(Duration::from_secs_f64))
+    }
+
     pub fn render_frame(&mut self, width: u32, height: u32) -> Result<Option<VideoFrame>> {
         if width == 0 || height == 0 {
             return Ok(None);
@@ -315,6 +322,18 @@ impl MpvPlayer {
             height,
             rgb0_bytes: bytes,
         }))
+    }
+
+    pub fn wait_until_loaded(&mut self, timeout: Duration) -> Result<()> {
+        let deadline = Instant::now() + timeout;
+        while !self.file_loaded {
+            if Instant::now() >= deadline {
+                bail!("timed out waiting for mpv file load");
+            }
+            self.drain_events();
+            thread::sleep(Duration::from_millis(10));
+        }
+        Ok(())
     }
 
     fn has_pending_frame(&self) -> bool {
@@ -515,6 +534,15 @@ impl MpvEmbedPlayer {
                 _ => {}
             }
         }
+    }
+}
+
+impl MpvPlayer {
+    pub fn seek_to(&mut self, position: Duration) -> Result<()> {
+        let seconds = format!("{:.3}", position.as_secs_f64().max(0.0));
+        let status = self.command(&["seek", &seconds, "absolute"])?;
+        self.api.status_to_result(status, "seek absolute")?;
+        Ok(())
     }
 }
 
@@ -739,6 +767,66 @@ pub fn probe_media(path: &Path) -> Result<MpvMediaInfo> {
         file_size,
         has_audio: audio_codec.is_some(),
     })
+}
+
+pub fn extract_video_poster_png(path: &Path, max_edge: u32) -> Result<Vec<u8>> {
+    let info = probe_media(path)?;
+    let width = info.width.unwrap_or(640).max(1);
+    let height = info.height.unwrap_or(360).max(1);
+    let max_edge = max_edge.max(64);
+    let scale = (max_edge as f32 / width as f32)
+        .min(max_edge as f32 / height as f32)
+        .min(1.0);
+    let target_width = ((width as f32 * scale).round() as u32).max(1);
+    let target_height = ((height as f32 * scale).round() as u32).max(1);
+
+    let mut player = MpvPlayer::new()?;
+    player.load_file(path)?;
+    player.set_pause(false)?;
+    let target = if let Some(duration) = info.duration {
+        let target = if duration > Duration::from_secs(8) {
+            Duration::from_secs(1)
+        } else if duration > Duration::from_secs(2) {
+            Duration::from_secs_f64((duration.as_secs_f64() * 0.15).max(0.25))
+        } else {
+            Duration::from_secs_f64((duration.as_secs_f64() * 0.25).max(0.1))
+        };
+        target.min(duration)
+    } else {
+        Duration::from_secs(1)
+    };
+    player.wait_until_loaded(Duration::from_secs(2))?;
+    let _ = player.seek_to(target);
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let frame = loop {
+        if let Some(frame) = player.render_frame(target_width, target_height)? {
+            let reached_target = player
+                .time_pos()?
+                .is_some_and(|position| position + Duration::from_millis(100) >= target);
+            if reached_target {
+                break frame;
+            }
+        }
+        if Instant::now() >= deadline {
+            bail!("timed out rendering video poster");
+        }
+        thread::sleep(Duration::from_millis(15));
+    };
+
+    let mut rgba_bytes = frame.rgb0_bytes;
+    for pixel in rgba_bytes.chunks_exact_mut(4) {
+        pixel[3] = 0xFF;
+    }
+
+    let mut png = Vec::new();
+    PngEncoder::new(&mut png).write_image(
+        &rgba_bytes,
+        frame.width,
+        frame.height,
+        ColorType::Rgba8.into(),
+    )?;
+    Ok(png)
 }
 
 struct MpvProbeHandle {

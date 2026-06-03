@@ -11,4 +11,4 @@ publish.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 libloading = "0.8"
-
+image = { version = "0.25", default-features = false, features = ["png"] }

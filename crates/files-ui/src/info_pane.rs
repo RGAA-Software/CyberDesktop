@@ -521,7 +521,7 @@ impl InfoPane {
 
     fn start_video_preview(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         self.ensure_video_preview_state(&path);
-        self.schedule_video_metadata_load(path, cx);
+        self.schedule_video_metadata_load(path.clone(), cx);
     }
 
     #[cfg(windows)]
@@ -536,6 +536,22 @@ impl InfoPane {
                 )
                 && self.embedded_video_player.is_some()
                 && self.native_video_surface.is_some()
+        })
+    }
+
+    #[cfg(windows)]
+    fn embedded_video_loaded_for_path(&self, path: &Path) -> bool {
+        self.video_preview.as_ref().is_some_and(|preview| {
+            preview.path == path
+                && self.embedded_video_player.is_some()
+                && self.native_video_surface.is_some()
+                && matches!(
+                    preview.playback,
+                    VideoPlaybackState::Paused
+                        | VideoPlaybackState::Starting
+                        | VideoPlaybackState::Playing
+                        | VideoPlaybackState::Finished
+                )
         })
     }
 
@@ -590,6 +606,23 @@ impl InfoPane {
             .as_mut()
             .ok_or_else(|| anyhow::anyhow!("create embedded mpv player"))?;
         player.load_file(path)?;
+        self.update_native_video_surface_bounds(window);
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn prepare_embedded_video_preview(
+        &mut self,
+        path: &Path,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> anyhow::Result<()> {
+        self.play_embedded_video_preview(path, window, cx)?;
+        let player = self
+            .embedded_video_player
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("create embedded mpv player"))?;
+        player.set_pause(true)?;
         self.update_native_video_surface_bounds(window);
         Ok(())
     }
@@ -756,6 +789,35 @@ impl InfoPane {
                     self.native_video_surface = None;
                     self.video_status = None;
                     return;
+                }
+            }
+        }
+    }
+
+    fn prepare_video_preview(&mut self, path: PathBuf, window: &Window, cx: &mut Context<Self>) {
+        self.stop_video_poll();
+        self.stop_video_preview(cx);
+        self.ensure_video_preview_state(&path);
+
+        #[cfg(windows)]
+        {
+            match self.prepare_embedded_video_preview(&path, window, cx) {
+                Ok(()) => {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        preview.playback = VideoPlaybackState::Paused;
+                        preview.preview_error = None;
+                    }
+                    self.video_status = None;
+                    self.start_video_poll_for_current(cx);
+                }
+                Err(error) => {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        preview.playback = VideoPlaybackState::Idle;
+                        preview.preview_error = Some(format!("mpv embed failed: {error:#}"));
+                    }
+                    self.embedded_video_player = None;
+                    self.native_video_surface = None;
+                    self.video_status = None;
                 }
             }
         }
@@ -1352,6 +1414,13 @@ impl Render for InfoPane {
         {
             self.sync_embedded_video_state(cx);
             self.update_native_video_surface_bounds(window);
+            if self.selected_tab == 1 {
+                if let Some(path) = self.selected_video_path() {
+                    if !self.embedded_video_loaded_for_path(&path) {
+                        self.prepare_video_preview(path, window, cx);
+                    }
+                }
+            }
         }
         self.sync_audio_seek_slider(window, cx);
         self.sync_video_seek_slider(window, cx);
@@ -1938,7 +2007,7 @@ fn video_preview_panel(
             panel.child(
                 div()
                     .w_full()
-                    .h(px(180.))
+                    .h(px(220.))
                     .rounded(cx.theme().radius)
                     .border_1()
                     .border_color(cx.theme().border)
@@ -1947,7 +2016,7 @@ fn video_preview_panel(
                     .items_center()
                     .justify_center()
                     .child(
-                        Label::new(t!("info_pane.video.play").to_string())
+                        Label::new(t!("info_pane.folder.loading").to_string())
                             .text_xs()
                             .text_color(cx.theme().muted_foreground),
                     ),
