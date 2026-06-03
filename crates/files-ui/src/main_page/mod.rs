@@ -121,7 +121,7 @@ impl MainPage {
             tab_bar_scroll_handle: ScrollHandle::new(),
             pending_tab_scroll_to_ix: Some(active_tab),
             show_info_pane,
-            info_pane: cx.new(|_| InfoPane::new()),
+            info_pane: cx.new(|cx| InfoPane::new(cx)),
             omnibar_show_full_path: false,
             omnibar_search_mode: false,
             omnibar_search_input: None,

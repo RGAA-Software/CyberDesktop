@@ -579,14 +579,34 @@ info_pane.video.replay:
   en: Replay
   zh-CN: 重新播放
   zh-HK: 重新播放
+info_pane.video.pause:
+  en: Pause
+  zh-CN: 暂停
+  zh-HK: 暫停
+info_pane.video.resume:
+  en: Resume
+  zh-CN: 继续
+  zh-HK: 繼續
 info_pane.video.stop:
   en: Stop
   zh-CN: 停止
   zh-HK: 停止
+info_pane.video.backward:
+  en: -5s
+  zh-CN: 后退 5 秒
+  zh-HK: 後退 5 秒
+info_pane.video.forward:
+  en: +5s
+  zh-CN: 前进 5 秒
+  zh-HK: 前進 5 秒
 info_pane.video.starting:
   en: Starting preview…
   zh-CN: 正在开始预览…
   zh-HK: 正在開始預覽…
+info_pane.video.paused:
+  en: Preview paused
+  zh-CN: 预览已暂停
+  zh-HK: 預覽已暫停
 info_pane.video.ended:
   en: Preview ended
   zh-CN: 预览结束

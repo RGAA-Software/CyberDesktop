@@ -458,6 +458,20 @@ impl MpvEmbedPlayer {
             .map(|value| value.filter(|secs| *secs >= 0.0).map(Duration::from_secs_f64))
     }
 
+    pub fn seek_to(&mut self, position: Duration) -> Result<()> {
+        let seconds = format!("{:.3}", position.as_secs_f64().max(0.0));
+        let status = self.command(&["seek", &seconds, "absolute"])?;
+        self.api.status_to_result(status, "seek absolute")?;
+        Ok(())
+    }
+
+    pub fn seek_relative(&mut self, seconds: f64) -> Result<()> {
+        let seconds = format!("{seconds:.3}");
+        let status = self.command(&["seek", &seconds, "relative"])?;
+        self.api.status_to_result(status, "seek relative")?;
+        Ok(())
+    }
+
     fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
         let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
         let value = CString::new(value)

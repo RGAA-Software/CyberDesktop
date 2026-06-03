@@ -18,6 +18,7 @@ use gpui_component::{
     label::Label,
     progress::Progress,
     scroll::ScrollableElement as _,
+    slider::{Slider, SliderEvent, SliderState},
     v_flex, ActiveTheme as _, ElementExt, IconName,
 };
 #[cfg(windows)]
@@ -188,6 +189,7 @@ enum VideoPlaybackState {
     Idle,
     Starting,
     Playing,
+    Paused,
     Finished,
 }
 
@@ -204,7 +206,11 @@ pub struct InfoPane {
     audio_status: Option<String>,
     video_preview: Option<VideoPreview>,
     video_generation: u64,
+    video_poll_generation: u64,
+    video_seek_dragging: bool,
     video_status: Option<String>,
+    video_seek_slider: Entity<SliderState>,
+    _video_seek_slider_subscriptions: Vec<Subscription>,
     #[cfg(windows)]
     video_host_bounds: Option<Bounds<Pixels>>,
     #[cfg(windows)]
@@ -214,7 +220,23 @@ pub struct InfoPane {
 }
 
 impl InfoPane {
-    pub fn new() -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        let video_seek_slider =
+            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
+        let video_seek_slider_subscriptions = vec![cx.subscribe(
+            &video_seek_slider,
+            |this, _, event: &SliderEvent, cx| match event {
+                SliderEvent::Change(value) => {
+                    this.video_seek_dragging = true;
+                    this.preview_video_seek_fraction(value.start(), cx);
+                }
+                SliderEvent::Release(value) => {
+                    this.video_seek_dragging = false;
+                    this.commit_video_seek_fraction(value.start(), cx);
+                }
+            },
+        )];
+
         Self {
             selected_tab: 0,
             selection: InfoPaneSelection::None,
@@ -228,7 +250,11 @@ impl InfoPane {
             audio_status: None,
             video_preview: None,
             video_generation: 0,
+            video_poll_generation: 0,
+            video_seek_dragging: false,
             video_status: None,
+            video_seek_slider,
+            _video_seek_slider_subscriptions: video_seek_slider_subscriptions,
             #[cfg(windows)]
             video_host_bounds: None,
             #[cfg(windows)]
@@ -407,6 +433,8 @@ impl InfoPane {
 
     pub fn set_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
         if !visible {
+            self.stop_video_poll();
+            self.video_seek_dragging = false;
             self.stop_video_preview(cx);
             self.video_status = None;
         }
@@ -445,6 +473,8 @@ impl InfoPane {
         self.stop_audio_poll();
         self.audio_preview = None;
         self.audio_status = None;
+        self.stop_video_poll();
+        self.video_seek_dragging = false;
         self.stop_video_preview(cx);
         self.video_preview = None;
         self.video_status = None;
@@ -477,7 +507,9 @@ impl InfoPane {
             preview.path == path
                 && matches!(
                     preview.playback,
-                    VideoPlaybackState::Starting | VideoPlaybackState::Playing
+                    VideoPlaybackState::Starting
+                        | VideoPlaybackState::Playing
+                        | VideoPlaybackState::Paused
                 )
                 && self.embedded_video_player.is_some()
                 && self.native_video_surface.is_some()
@@ -508,6 +540,10 @@ impl InfoPane {
         let Some(surface) = self.native_video_surface.as_ref() else {
             return;
         };
+        if self.selected_tab != 1 {
+            surface.set_visible(false);
+            return;
+        }
         let Some(bounds) = self.video_host_bounds else {
             surface.set_visible(false);
             return;
@@ -540,30 +576,79 @@ impl InfoPane {
         let Some(player) = self.embedded_video_player.as_mut() else {
             return;
         };
+        let mut changed = false;
         player.poll_events();
         if let Some(preview) = self.video_preview.as_mut() {
             if matches!(
                 preview.playback,
-                VideoPlaybackState::Starting | VideoPlaybackState::Playing
+                VideoPlaybackState::Starting | VideoPlaybackState::Playing | VideoPlaybackState::Paused
             ) {
                 if let Ok(Some(position)) = player.time_pos() {
-                    preview.current_position = position;
+                    if preview.current_position != position {
+                        preview.current_position = position;
+                        changed = true;
+                    }
                 }
             }
         }
-        if !player.ended() {
-            return;
-        }
-        if let Some(preview) = self.video_preview.as_mut() {
-            if matches!(
-                preview.playback,
-                VideoPlaybackState::Starting | VideoPlaybackState::Playing
-            ) {
-                preview.playback = VideoPlaybackState::Finished;
-                self.video_status = Some(t!("info_pane.video.ended").to_string());
-                cx.notify();
+        if player.ended() {
+            if let Some(preview) = self.video_preview.as_mut() {
+                if matches!(
+                    preview.playback,
+                    VideoPlaybackState::Starting | VideoPlaybackState::Playing | VideoPlaybackState::Paused
+                ) {
+                    preview.playback = VideoPlaybackState::Finished;
+                    self.video_status = Some(t!("info_pane.video.ended").to_string());
+                    self.stop_video_poll();
+                    changed = true;
+                }
             }
         }
+        if changed {
+            cx.notify();
+        }
+    }
+
+    fn stop_video_poll(&mut self) {
+        self.video_poll_generation = self.video_poll_generation.wrapping_add(1);
+    }
+
+    fn start_video_poll(&mut self, path: &Path, cx: &mut Context<Self>) {
+        self.video_poll_generation = self.video_poll_generation.wrapping_add(1);
+        let generation = self.video_poll_generation;
+        let path = path.to_path_buf();
+        cx.spawn(async move |pane, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(200))
+                    .await;
+
+                let mut keep_polling = false;
+                let update_ok = pane.update(cx, |pane, cx| {
+                    if pane.video_poll_generation != generation {
+                        return;
+                    }
+                    keep_polling = pane.video_preview.as_ref().is_some_and(|preview| {
+                        preview.path == path
+                            && matches!(
+                                preview.playback,
+                                VideoPlaybackState::Starting
+                                    | VideoPlaybackState::Playing
+                                    | VideoPlaybackState::Paused
+                            )
+                    });
+                    if !keep_polling {
+                        return;
+                    }
+                    #[cfg(windows)]
+                    pane.sync_embedded_video_state(cx);
+                });
+                if update_ok.is_err() || !keep_polling {
+                    break;
+                }
+            }
+        })
+        .detach();
     }
 
     fn selected_video_path(&self) -> Option<PathBuf> {
@@ -587,24 +672,33 @@ impl InfoPane {
             return;
         };
 
-        let is_active = self
+        let current_state = self
             .video_preview
             .as_ref()
-            .is_some_and(|preview| preview.path == path && matches!(preview.playback, VideoPlaybackState::Starting | VideoPlaybackState::Playing));
+            .filter(|preview| preview.path == path)
+            .map(|preview| preview.playback);
 
-        if is_active {
-            self.stop_video_preview(cx);
-            self.video_status = None;
-        } else {
-            self.ensure_video_preview_state(&path);
-            self.play_video_preview(path, _window, cx);
+        match current_state {
+            Some(VideoPlaybackState::Starting | VideoPlaybackState::Playing) => {
+                self.pause_video_preview(cx);
+            }
+            Some(VideoPlaybackState::Paused) => {
+                self.resume_video_preview(cx);
+            }
+            _ => {
+                self.ensure_video_preview_state(&path);
+                self.play_video_preview(path, _window, cx);
+            }
         }
         cx.notify();
     }
 
     fn play_video_preview(&mut self, path: PathBuf, window: &Window, cx: &mut Context<Self>) {
+        self.stop_video_poll();
         self.stop_video_preview(cx);
+
         self.ensure_video_preview_state(&path);
+        self.selected_tab = 1;
 
         if let Some(preview) = self.video_preview.as_mut() {
             preview.playback = VideoPlaybackState::Starting;
@@ -626,6 +720,7 @@ impl InfoPane {
                         "mpv embedded playback: {}",
                         path.display()
                     ));
+                    self.start_video_poll_for_current(cx);
                     return;
                 }
                 Err(error) => {
@@ -641,6 +736,138 @@ impl InfoPane {
                 }
             }
         }
+    }
+
+    fn pause_video_preview(&mut self, cx: &mut Context<Self>) {
+        #[cfg(windows)]
+        {
+            if let Some(player) = self.embedded_video_player.as_mut() {
+                if player.set_pause(true).is_ok() {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        preview.playback = VideoPlaybackState::Paused;
+                    }
+                    self.video_status = Some(t!("info_pane.video.paused").to_string());
+                    cx.notify();
+                }
+            }
+        }
+    }
+
+    fn resume_video_preview(&mut self, cx: &mut Context<Self>) {
+        #[cfg(windows)]
+        {
+            if let Some(player) = self.embedded_video_player.as_mut() {
+                if player.set_pause(false).is_ok() {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        preview.playback = VideoPlaybackState::Playing;
+                    }
+                    self.video_status = None;
+                    self.start_video_poll_for_current(cx);
+                    cx.notify();
+                }
+            }
+        }
+    }
+
+    fn seek_video_relative(&mut self, seconds: f64, cx: &mut Context<Self>) {
+        #[cfg(windows)]
+        {
+            if let Some(player) = self.embedded_video_player.as_mut() {
+                if player.seek_relative(seconds).is_ok() {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        if let Ok(Some(position)) = player.time_pos() {
+                            preview.current_position = position;
+                        } else if seconds.is_sign_positive() {
+                            preview.current_position += Duration::from_secs_f64(seconds);
+                        } else {
+                            preview.current_position = preview
+                                .current_position
+                                .saturating_sub(Duration::from_secs_f64(-seconds));
+                        }
+                    }
+                    cx.notify();
+                }
+            }
+        }
+    }
+
+    fn preview_video_seek_fraction(&mut self, fraction: f32, cx: &mut Context<Self>) {
+        let Some(total) = self.video_preview_total_duration() else {
+            return;
+        };
+        if let Some(preview) = self.video_preview.as_mut() {
+            let secs = total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0));
+            preview.current_position = Duration::from_secs_f64(secs);
+            cx.notify();
+        }
+    }
+
+    fn commit_video_seek_fraction(&mut self, fraction: f32, cx: &mut Context<Self>) {
+        let Some(total) = self.video_preview_total_duration() else {
+            return;
+        };
+        let target = Duration::from_secs_f64(
+            total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)),
+        );
+        #[cfg(windows)]
+        {
+            if let Some(player) = self.embedded_video_player.as_mut() {
+                if player.seek_to(target).is_ok() {
+                    if let Some(preview) = self.video_preview.as_mut() {
+                        preview.current_position = target;
+                        if matches!(preview.playback, VideoPlaybackState::Finished) {
+                            preview.playback = VideoPlaybackState::Paused;
+                        }
+                    }
+                    self.video_status = None;
+                    self.start_video_poll_for_current(cx);
+                    cx.notify();
+                }
+            }
+        }
+    }
+
+    fn stop_video_playback(&mut self, cx: &mut Context<Self>) {
+        self.stop_video_poll();
+        self.stop_video_preview(cx);
+        self.video_seek_dragging = false;
+        self.video_status = None;
+        cx.notify();
+    }
+
+    fn start_video_poll_for_current(&mut self, cx: &mut Context<Self>) {
+        if let Some(path) = self.video_preview.as_ref().map(|preview| preview.path.clone()) {
+            self.start_video_poll(&path, cx);
+        }
+    }
+
+    fn video_preview_total_duration(&self) -> Option<Duration> {
+        self.video_preview
+            .as_ref()
+            .and_then(video_preview_metadata)
+            .and_then(|metadata| metadata.duration)
+    }
+
+    fn sync_video_seek_slider(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.video_seek_dragging {
+            return;
+        }
+        let fraction = self
+            .video_preview
+            .as_ref()
+            .and_then(|preview| {
+                video_preview_metadata(preview).map(|metadata| {
+                    video_progress_fraction(preview, Some(metadata))
+                })
+            })
+            .unwrap_or(0.0);
+        let current = self.video_seek_slider.read(cx).value().start();
+        if (current - fraction).abs() <= 0.001 {
+            return;
+        }
+        self.video_seek_slider.update(cx, |slider, cx| {
+            slider.set_value(fraction, window, cx);
+        });
     }
 
     fn stop_video_preview(&mut self, _cx: &mut Context<Self>) {
@@ -665,6 +892,7 @@ impl InfoPane {
             preview.playback = VideoPlaybackState::Idle;
             preview.current_position = Duration::ZERO;
         }
+        self.video_seek_dragging = false;
     }
 
     fn toggle_audio_playback(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
@@ -1015,6 +1243,7 @@ impl Render for InfoPane {
             self.sync_embedded_video_state(cx);
             self.update_native_video_surface_bounds(window);
         }
+        self.sync_video_seek_slider(window, cx);
 
         let selected_tab = self.selected_tab;
         let selection = self.selection.clone();
@@ -1032,9 +1261,6 @@ impl Render for InfoPane {
                     .w_full()
                     .selected_index(selected_tab)
                     .on_click(cx.listener(|this, ix: &usize, _, cx| {
-                        if this.selected_tab != *ix && *ix != 1 {
-                            this.stop_video_preview(cx);
-                        }
                         this.selected_tab = *ix;
                         cx.notify();
                     }))
@@ -1506,15 +1732,16 @@ fn video_preview_panel(
     let metadata_loading = preview.is_some_and(|preview| preview.metadata == VideoMetadataState::Loading);
     let preview_error = preview.and_then(|preview| preview.preview_error.clone());
     let is_playing = preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Starting | VideoPlaybackState::Playing));
+    let is_paused = preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Paused));
     #[cfg(windows)]
     let embed_active = pane.embedded_video_active_for_path(path);
     #[cfg(not(windows))]
     let embed_active = false;
-    let progress = preview
-        .map(|preview| video_progress_fraction(preview, metadata))
-        .unwrap_or(0.);
+    let can_seek = metadata.and_then(|metadata| metadata.duration).is_some();
     let playback_label = if is_playing {
-        t!("info_pane.video.stop").to_string()
+        t!("info_pane.video.pause").to_string()
+    } else if is_paused {
+        t!("info_pane.video.resume").to_string()
     } else if preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Finished)) {
         t!("info_pane.video.replay").to_string()
     } else {
@@ -1604,14 +1831,19 @@ fn video_preview_panel(
             )
         })
         .child(
-            Progress::new("info-pane-video-progress")
+            v_flex()
                 .w_full()
-                .h(px(4.))
-                .value(progress * 100.),
+                .gap_1()
+                .child(
+                    Slider::new(&pane.video_seek_slider)
+                        .disabled(!can_seek)
+                        .w_full(),
+                ),
         )
         .child(
             h_flex()
                 .gap_2()
+                .flex_wrap()
                 .child(
                     Button::new("info-pane-video-play")
                         .label(playback_label)
@@ -1620,6 +1852,37 @@ fn video_preview_panel(
                             this.toggle_video_playback(window, cx);
                         })),
                 ),
+        )
+        .child(
+            h_flex()
+                .gap_2()
+                .flex_wrap()
+                .child(
+                    Button::new("info-pane-video-backward")
+                        .label(t!("info_pane.video.backward").to_string())
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            cx.stop_propagation();
+                            this.seek_video_relative(-5.0, cx);
+                        })),
+                )
+                .child(
+                    Button::new("info-pane-video-forward")
+                        .label(t!("info_pane.video.forward").to_string())
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            cx.stop_propagation();
+                            this.seek_video_relative(5.0, cx);
+                        })),
+                )
+                .when(is_playing || is_paused || preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Finished)), |row| {
+                    row.child(
+                        Button::new("info-pane-video-stop")
+                            .label(t!("info_pane.video.stop").to_string())
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                cx.stop_propagation();
+                                this.stop_video_playback(cx);
+                            })),
+                    )
+                }),
         )
         .when_some(status, |panel, status| {
             panel.child(
