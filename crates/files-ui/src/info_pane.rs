@@ -1757,6 +1757,7 @@ fn audio_preview_panel(
     let is_active = pane.audio_player.is_active_path(path);
     let is_paused = is_active && pane.audio_player.is_paused();
     let can_seek = is_active && pane.audio_total_duration(path).is_some();
+    let can_stop = is_active || is_paused || pane.audio_is_finished(path);
     let time_line = pane.audio_time_line(path);
     let metadata_loading = pane.audio_preview.as_ref().is_some_and(|preview| {
         preview.path == path && preview.metadata == AudioMetadataState::Loading
@@ -1827,9 +1828,9 @@ fn audio_preview_panel(
                     Button::new("info-pane-audio-backward")
                         .label(t!("info_pane.audio.backward").to_string())
                         .when(!can_seek, |this| this.opacity(0.5))
-                        .on_click(cx.listener(|this, _, _, cx| {
+                        .on_click(cx.listener(move |this, _, _, cx| {
                             cx.stop_propagation();
-                            if this.selected_audio_path().is_some() {
+                            if can_seek {
                                 this.seek_audio_relative(-5.0, cx);
                             }
                         })),
@@ -1838,23 +1839,24 @@ fn audio_preview_panel(
                     Button::new("info-pane-audio-forward")
                         .label(t!("info_pane.audio.forward").to_string())
                         .when(!can_seek, |this| this.opacity(0.5))
-                        .on_click(cx.listener(|this, _, _, cx| {
+                        .on_click(cx.listener(move |this, _, _, cx| {
                             cx.stop_propagation();
-                            if this.selected_audio_path().is_some() {
+                            if can_seek {
                                 this.seek_audio_relative(5.0, cx);
                             }
                         })),
                 )
-                .when(is_active || is_paused || pane.audio_is_finished(path), |row| {
-                    row.child(
-                        Button::new("info-pane-audio-stop")
-                            .label(t!("info_pane.audio.stop").to_string())
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                cx.stop_propagation();
+                .child(
+                    Button::new("info-pane-audio-stop")
+                        .label(t!("info_pane.audio.stop").to_string())
+                        .when(!can_stop, |this| this.opacity(0.5))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            cx.stop_propagation();
+                            if can_stop {
                                 this.stop_audio_playback(window, cx);
-                            })),
-                    )
-                }),
+                            }
+                        })),
+                ),
         )
         .when_some(status, |panel, message| {
             panel.child(
@@ -1937,6 +1939,9 @@ fn video_preview_panel(
     #[cfg(not(windows))]
     let embed_active = false;
     let can_seek = metadata.and_then(|metadata| metadata.duration).is_some();
+    let can_stop = is_playing
+        || is_paused
+        || preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Finished));
     let playback_label = if is_playing {
         t!("info_pane.video.pause").to_string()
     } else if is_paused {
@@ -2059,29 +2064,36 @@ fn video_preview_panel(
                 .child(
                     Button::new("info-pane-video-backward")
                         .label(t!("info_pane.video.backward").to_string())
-                        .on_click(cx.listener(|this, _, _, cx| {
+                        .when(!can_seek, |this| this.opacity(0.5))
+                        .on_click(cx.listener(move |this, _, _, cx| {
                             cx.stop_propagation();
-                            this.seek_video_relative(-5.0, cx);
+                            if can_seek {
+                                this.seek_video_relative(-5.0, cx);
+                            }
                         })),
                 )
                 .child(
                     Button::new("info-pane-video-forward")
                         .label(t!("info_pane.video.forward").to_string())
-                        .on_click(cx.listener(|this, _, _, cx| {
+                        .when(!can_seek, |this| this.opacity(0.5))
+                        .on_click(cx.listener(move |this, _, _, cx| {
                             cx.stop_propagation();
-                            this.seek_video_relative(5.0, cx);
+                            if can_seek {
+                                this.seek_video_relative(5.0, cx);
+                            }
                         })),
                 )
-                .when(is_playing || is_paused || preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Finished)), |row| {
-                    row.child(
-                        Button::new("info-pane-video-stop")
-                            .label(t!("info_pane.video.stop").to_string())
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                cx.stop_propagation();
+                .child(
+                    Button::new("info-pane-video-stop")
+                        .label(t!("info_pane.video.stop").to_string())
+                        .when(!can_stop, |this| this.opacity(0.5))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            cx.stop_propagation();
+                            if can_stop {
                                 this.stop_video_playback(cx);
-                            })),
-                    )
-                }),
+                            }
+                        })),
+                ),
         )
         .when_some(status, |panel, status| {
             panel.child(
