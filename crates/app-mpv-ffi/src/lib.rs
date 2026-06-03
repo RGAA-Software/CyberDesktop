@@ -174,6 +174,16 @@ pub struct MpvMediaInfo {
     pub has_audio: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct SubtitleTrack {
+    pub id: i64,
+    pub title: Option<String>,
+    pub lang: Option<String>,
+    pub selected: bool,
+    pub external: bool,
+    pub external_filename: Option<String>,
+}
+
 pub struct MpvPlayer {
     api: Arc<MpvApi>,
     handle: *mut mpv_handle,
@@ -555,6 +565,88 @@ impl MpvEmbedPlayer {
                 _ => {}
             }
         }
+    }
+
+    pub fn sub_add(&mut self, path: &Path, flag: &str) -> Result<()> {
+        let path = path
+            .to_str()
+            .ok_or_else(|| anyhow!("subtitle path is not valid UTF-8: {}", path.display()))?;
+        let status = self.command(&["sub-add", path, flag])?;
+        self.api.status_to_result(status, "sub-add")?;
+        Ok(())
+    }
+
+    pub fn set_sid(&mut self, id: i64) -> Result<()> {
+        let value = if id < 0 { "no" } else { &id.to_string() };
+        let status = self.command(&["set", "sid", value])?;
+        self.api.status_to_result(status, "set sid")?;
+        Ok(())
+    }
+
+    pub fn set_sub_visibility(&mut self, visible: bool) -> Result<()> {
+        let value = if visible { "yes" } else { "no" };
+        let status = self.command(&["set", "sub-visibility", value])?;
+        self.api.status_to_result(status, "set sub-visibility")?;
+        Ok(())
+    }
+
+    pub fn sub_visibility(&self) -> Result<bool> {
+        match get_property_string(&self.api, self.handle, "sub-visibility")? {
+            Some(v) => Ok(v == "yes"),
+            None => Ok(true),
+        }
+    }
+
+    pub fn current_sid(&self) -> Result<Option<i64>> {
+        get_property_i64(&self.api, self.handle, "sid")
+    }
+
+    pub fn subtitle_tracks(&self) -> Result<Vec<SubtitleTrack>> {
+        let count = match get_property_i64(&self.api, self.handle, "track-list/count")? {
+            Some(c) if c > 0 => c as usize,
+            _ => return Ok(Vec::new()),
+        };
+
+        let mut tracks = Vec::new();
+        for i in 0..count {
+            let track_type =
+                get_property_string(&self.api, self.handle, &format!("track-list/{i}/type"))?;
+            if track_type.as_deref() != Some("sub") {
+                continue;
+            }
+            let id = get_property_i64(&self.api, self.handle, &format!("track-list/{i}/id"))?
+                .unwrap_or(0);
+            let title =
+                get_property_string(&self.api, self.handle, &format!("track-list/{i}/title"))?;
+            let lang =
+                get_property_string(&self.api, self.handle, &format!("track-list/{i}/lang"))?;
+            let selected =
+                get_property_string(&self.api, self.handle, &format!("track-list/{i}/selected"))?
+                    .map(|s| s == "yes")
+                    .unwrap_or(false);
+            let external =
+                get_property_string(&self.api, self.handle, &format!("track-list/{i}/external"))?
+                    .map(|s| s == "yes")
+                    .unwrap_or(false);
+            let external_filename = if external {
+                get_property_string(
+                    &self.api,
+                    self.handle,
+                    &format!("track-list/{i}/external-filename"),
+                )?
+            } else {
+                None
+            };
+            tracks.push(SubtitleTrack {
+                id,
+                title,
+                lang,
+                selected,
+                external,
+                external_filename,
+            });
+        }
+        Ok(tracks)
     }
 }
 

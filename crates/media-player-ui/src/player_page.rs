@@ -35,6 +35,18 @@ enum LoopMode {
     All,
 }
 
+fn is_subtitle_file(path: &Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    matches!(
+        ext.as_str(),
+        "srt" | "ass" | "ssa" | "vtt" | "sub" | "idx" | "smi"
+    )
+}
+
 fn is_media_file(path: &Path) -> bool {
     let ext = path
         .extension()
@@ -91,6 +103,9 @@ pub struct PlayerPage {
     seek_dragging: bool,
     volume: f64,
     muted: bool,
+    sub_visible: bool,
+    sub_tracks: Vec<app_mpv_ffi::SubtitleTrack>,
+    current_sub_id: Option<i64>,
     _seek_subscription: Subscription,
     _volume_subscription: Subscription,
 }
@@ -151,6 +166,9 @@ impl PlayerPage {
             seek_dragging: false,
             volume: config.volume.clamp(0.0, 100.0),
             muted: config.muted,
+            sub_visible: true,
+            sub_tracks: Vec::new(),
+            current_sub_id: None,
             config,
             _seek_subscription: seek_subscription,
             _volume_subscription: volume_subscription,
@@ -263,6 +281,7 @@ impl PlayerPage {
         player.load_file(path)?;
         self.is_playing = true;
         self.is_paused = false;
+        self.auto_load_subtitles(path);
         Ok(())
     }
 
@@ -303,6 +322,13 @@ impl PlayerPage {
                                 this.current_position = player.time_pos().unwrap_or(None);
                                 if let (Some(pos), Some(path)) = (this.current_position, this.playlist.current().cloned()) {
                                     this.config.record_position(&path, pos.as_secs_f64());
+                                }
+                                if let Ok(tracks) = player.subtitle_tracks() {
+                                    this.sub_tracks = tracks;
+                                }
+                                if let Ok(sid) = player.current_sid() {
+                                    this.current_sub_id = sid;
+                                    this.sub_visible = sid.is_some();
                                 }
                                 if player.ended() {
                                     if this.loop_mode == LoopMode::Single {
@@ -561,6 +587,93 @@ impl PlayerPage {
             _ => 1.0,
         };
         self.apply_speed();
+    }
+
+    fn toggle_sub_visibility(&mut self) {
+        self.sub_visible = !self.sub_visible;
+        #[cfg(windows)]
+        if let Some(player) = self.embedded_player.as_mut() {
+            let _ = player.set_sub_visibility(self.sub_visible);
+        }
+    }
+
+    fn cycle_sub_track(&mut self) {
+        #[cfg(windows)]
+        if let Some(player) = self.embedded_player.as_mut() {
+            if let Ok(tracks) = player.subtitle_tracks() {
+                self.sub_tracks = tracks;
+            }
+            let ids: Vec<i64> = self.sub_tracks.iter().map(|t| t.id).collect();
+            if ids.is_empty() {
+                return;
+            }
+            let next_id = match self.current_sub_id {
+                Some(id) => {
+                    let pos = ids.iter().position(|&x| x == id);
+                    match pos {
+                        Some(p) if p + 1 < ids.len() => Some(ids[p + 1]),
+                        _ => None,
+                    }
+                }
+                None => Some(ids[0]),
+            };
+            let target = next_id.unwrap_or(-1);
+            let _ = player.set_sid(target);
+            self.current_sub_id = next_id;
+            self.sub_visible = next_id.is_some();
+            let _ = player.set_sub_visibility(self.sub_visible);
+        }
+    }
+
+    fn auto_load_subtitles(&mut self, video_path: &Path) {
+        let Some(dir) = video_path.parent() else { return };
+        let Some(stem) = video_path.file_stem() else { return };
+        let stem = stem.to_string_lossy();
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+
+        let mut found = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() || !is_subtitle_file(&path) {
+                continue;
+            }
+            if let Some(name) = path.file_stem() {
+                let name = name.to_string_lossy();
+                if name.starts_with(&*stem) {
+                    found.push(path);
+                }
+            }
+        }
+        found.sort();
+
+        #[cfg(windows)]
+        if let Some(player) = self.embedded_player.as_mut() {
+            for path in found {
+                let _ = player.sub_add(&path, "auto");
+            }
+        }
+    }
+
+    fn open_subtitle_dialog(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            let paths = rfd::FileDialog::new()
+                .set_title("Open Subtitle Files")
+                .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt", "sub", "idx", "smi"])
+                .add_filter("All Files", &["*"])
+                .pick_files();
+
+            if let Some(paths) = paths {
+                let _ = this.update(cx, |this, _cx| {
+                    #[cfg(windows)]
+                    if let Some(player) = this.embedded_player.as_mut() {
+                        for path in paths {
+                            let _ = player.sub_add(&path, "select");
+                        }
+                    }
+                });
+            }
+        })
+        .detach();
     }
 
     fn open_file_dialog(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
@@ -928,6 +1041,35 @@ impl Render for PlayerPage {
                                     .label("Open Folder")
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.open_folder_dialog(window, cx);
+                                    })),
+                            )
+                            .child(
+                                Button::new("load-sub-btn")
+                                    .label("Load Sub")
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.open_subtitle_dialog(window, cx);
+                                    })),
+                            )
+                            .child(
+                                Button::new("sub-track-btn")
+                                    .label({
+                                        let has_subs = !self.sub_tracks.is_empty();
+                                        let active = self.current_sub_id.is_some() && self.sub_visible;
+                                        if !has_subs {
+                                            "CC".into()
+                                        } else if active {
+                                            let label = self.current_sub_id.and_then(|id| {
+                                                self.sub_tracks.iter().find(|t| t.id == id)
+                                                    .and_then(|t| t.lang.clone())
+                                                    .or_else(|| Some(format!("{}", id)))
+                                            });
+                                            label.map(|l| format!("CC {}", l)).unwrap_or_else(|| "CC".into())
+                                        } else {
+                                            "CC Off".into()
+                                        }
+                                    })
+                                    .on_click(cx.listener(|this, _, _window, _cx| {
+                                        this.cycle_sub_track();
                                     })),
                             ),
                     ),
