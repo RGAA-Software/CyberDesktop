@@ -5,8 +5,9 @@ $script:CyberDesktopRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Pat
 
 function Get-CyberAppTargets {
     $ordered = [ordered]@{
-        cyber_files  = @{ Package = "files-app"; Features = @() }
-        cyber_editor = @{ Package = "editor-app"; Features = @() }
+        cyber_files       = @{ Package = "files-app"; Features = @() }
+        cyber_editor      = @{ Package = "editor-app"; Features = @() }
+        cyber_media_player = @{ Package = "media-player-app"; Features = @() }
     }
     foreach ($key in $ordered.Keys) {
         [PSCustomObject]@{
@@ -20,7 +21,7 @@ function Get-CyberAppTargets {
 function Invoke-CyberAppBuild {
     param(
         [Parameter(Mandatory)]
-        [ValidateSet("cyber_files", "cyber_editor")]
+        [ValidateSet("cyber_files", "cyber_editor", "cyber_media_player")]
         [string] $Bin,
 
         [ValidateSet("debug", "release")]
@@ -28,8 +29,9 @@ function Invoke-CyberAppBuild {
     )
 
     $targets = [ordered]@{
-        cyber_files  = @{ Package = "files-app"; Features = @() }
-        cyber_editor = @{ Package = "editor-app"; Features = @() }
+        cyber_files        = @{ Package = "files-app"; Features = @() }
+        cyber_editor       = @{ Package = "editor-app"; Features = @() }
+        cyber_media_player = @{ Package = "media-player-app"; Features = @() }
     }
     $target = $targets[$Bin]
     if (-not $target) {

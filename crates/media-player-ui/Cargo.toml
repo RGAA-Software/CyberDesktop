@@ -1,0 +1,28 @@
+[package]
+name = "media-player-ui"
+description = "GPUI views for Cyber Media Player"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+default = ["full-app"]
+full-app = []
+
+[dependencies]
+anyhow.workspace = true
+app-assets.workspace = true
+app-mpv-ffi.workspace = true
+app-ui = { workspace = true, features = ["full-app"] }
+directories = "5"
+gpui.workspace = true
+gpui-component.workspace = true
+gpui_platform.workspace = true
+raw-window-handle = "0.6"
+rfd.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging"] }

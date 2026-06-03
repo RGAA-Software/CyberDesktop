@@ -2,6 +2,7 @@
 members = [
     "crates/files-app",
     "crates/editor-app",
+    "crates/media-player-app",
     "crates/app-examples",
     "crates/app-assets",
     "crates/app-media",
@@ -15,6 +16,7 @@ members = [
     "crates/app-ui",
     "crates/files-ui",
     "crates/editor-ui",
+    "crates/media-player-ui",
 ]
 default-members = ["crates/files-app", "crates/editor-app"]
 resolver = "2"
@@ -36,6 +38,8 @@ editor-text-engine = { path = "crates/editor-text-engine" }
 app-ui = { path = "crates/app-ui", default-features = false }
 files-ui = { path = "crates/files-ui", default-features = false }
 editor-ui = { path = "crates/editor-ui" }
+media-player-app = { path = "crates/media-player-app" }
+media-player-ui = { path = "crates/media-player-ui" }
 
 # zed-industries/zed (GPUI only)
 gpui = { git = "https://github.com/zed-industries/zed" }

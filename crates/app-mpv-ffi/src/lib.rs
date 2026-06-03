@@ -491,6 +491,27 @@ impl MpvEmbedPlayer {
         Ok(())
     }
 
+    pub fn set_volume(&mut self, volume: f64) -> Result<()> {
+        let value = format!("{:.1}", volume.max(0.0));
+        let status = self.command(&["set", "volume", &value])?;
+        self.api.status_to_result(status, "set volume")?;
+        Ok(())
+    }
+
+    pub fn set_mute(&mut self, mute: bool) -> Result<()> {
+        let value = if mute { "yes" } else { "no" };
+        let status = self.command(&["set", "mute", value])?;
+        self.api.status_to_result(status, "set mute")?;
+        Ok(())
+    }
+
+    pub fn set_speed(&mut self, speed: f64) -> Result<()> {
+        let value = format!("{:.2}", speed.max(0.1));
+        let status = self.command(&["set", "speed", &value])?;
+        self.api.status_to_result(status, "set speed")?;
+        Ok(())
+    }
+
     fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
         let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
         let value = CString::new(value)
@@ -631,6 +652,27 @@ impl MpvAudioPlayer {
         let seconds = format!("{seconds:.3}");
         let status = self.command(&["seek", &seconds, "relative"])?;
         self.api.status_to_result(status, "seek relative")?;
+        Ok(())
+    }
+
+    pub fn set_volume(&mut self, volume: f64) -> Result<()> {
+        let value = format!("{:.1}", volume.max(0.0));
+        let status = self.command(&["set", "volume", &value])?;
+        self.api.status_to_result(status, "set volume")?;
+        Ok(())
+    }
+
+    pub fn set_mute(&mut self, mute: bool) -> Result<()> {
+        let value = if mute { "yes" } else { "no" };
+        let status = self.command(&["set", "mute", value])?;
+        self.api.status_to_result(status, "set mute")?;
+        Ok(())
+    }
+
+    pub fn set_speed(&mut self, speed: f64) -> Result<()> {
+        let value = format!("{:.2}", speed.max(0.1));
+        let status = self.command(&["set", "speed", &value])?;
+        self.api.status_to_result(status, "set speed")?;
         Ok(())
     }
 

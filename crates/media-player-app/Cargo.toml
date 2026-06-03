@@ -1,0 +1,19 @@
+[package]
+name = "media-player-app"
+description = "Cyber Media Player application entrypoint"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "cyber_media_player"
+path = "src/main.rs"
+
+[dependencies]
+files-core.workspace = true
+media-player-ui.workspace = true
+gpui_platform.workspace = true
+
+[build-dependencies]
+embed-resource.workspace = true
