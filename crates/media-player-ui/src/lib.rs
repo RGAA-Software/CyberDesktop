@@ -1,6 +1,8 @@
 #[cfg(feature = "full-app")]
 mod audio_player;
 #[cfg(feature = "full-app")]
+mod audio_visualizer;
+#[cfg(feature = "full-app")]
 mod media_player_config;
 #[cfg(feature = "full-app")]
 mod player_page;

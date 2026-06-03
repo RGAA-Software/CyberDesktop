@@ -15,6 +15,7 @@ use gpui_component::{
 use app_ui::title_bar::TitleBar;
 
 use crate::audio_player::AudioPlayer;
+use crate::audio_visualizer::{AudioVisualizer, SPECTRUM_BANDS};
 use crate::media_player_config::MediaPlayerConfig;
 use crate::playlist::Playlist;
 use crate::video_surface::{window_hwnd, NativeVideoSurface};
@@ -106,6 +107,9 @@ pub struct PlayerPage {
     sub_visible: bool,
     sub_tracks: Vec<app_mpv_ffi::SubtitleTrack>,
     current_sub_id: Option<i64>,
+    visualizer: Option<AudioVisualizer>,
+    visualizer_spectrum: Vec<f32>,
+    visualizer_generation: u64,
     _seek_subscription: Subscription,
     _volume_subscription: Subscription,
 }
@@ -169,6 +173,9 @@ impl PlayerPage {
             sub_visible: true,
             sub_tracks: Vec::new(),
             current_sub_id: None,
+            visualizer: None,
+            visualizer_spectrum: vec![0.0; SPECTRUM_BANDS],
+            visualizer_generation: 0,
             config,
             _seek_subscription: seek_subscription,
             _volume_subscription: volume_subscription,
@@ -194,9 +201,12 @@ impl PlayerPage {
         self.total_duration = info.as_ref().and_then(|i| i.duration);
 
         if is_video {
+            self.visualizer = None;
             self.load_video(path, window, cx)?;
             self.media_type = Some(MediaType::Video);
         } else {
+            self.visualizer = AudioVisualizer::start();
+            self.start_visualizer_poll(cx);
             if self.audio_player.is_none() {
                 self.audio_player = Some(AudioPlayer::start());
             }
@@ -494,6 +504,30 @@ impl PlayerPage {
         self.is_playing = false;
         self.is_paused = false;
         self.current_position = None;
+        self.visualizer = None;
+    }
+
+    fn start_visualizer_poll(&mut self, cx: &mut Context<Self>) {
+        self.visualizer_generation = self.visualizer_generation.wrapping_add(1);
+        let generation = self.visualizer_generation;
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(Duration::from_millis(33)).await;
+                let ok = this.update(cx, |this, cx| {
+                    if this.visualizer_generation != generation {
+                        return false;
+                    }
+                    if let Some(viz) = this.visualizer.as_ref() {
+                        this.visualizer_spectrum = viz.spectrum();
+                        cx.notify();
+                    }
+                    true
+                });
+                if ok.is_err() || !ok.unwrap_or(false) {
+                    break;
+                }
+            }
+        }).detach();
     }
 
     fn commit_seek(&mut self, fraction: f32, cx: &mut Context<Self>) {
@@ -903,6 +937,24 @@ impl Render for PlayerPage {
                     .and_then(|p| p.file_name())
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| "No file".to_string());
+                let max_bar_height = 180.0;
+                let bar_width = 3.0;
+                let gap = 1.0;
+                let spectrum_bars: Vec<_> = self
+                    .visualizer_spectrum
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &energy)| {
+                        let height = energy * max_bar_height;
+                        div()
+                            .id(("spectrum-bar", i))
+                            .w(px(bar_width))
+                            .h(px(height.max(4.0)))
+                            .rounded(px(2.0))
+                            .bg(gpui::hsla(0.0, 0.0, 1.0, 0.4f32 + energy * 0.6))
+                            .into_any_element()
+                    })
+                    .collect();
                 div()
                     .id("audio-host")
                     .flex_1()
@@ -915,9 +967,17 @@ impl Render for PlayerPage {
                     .gap(px(8.))
                     .child(
                         div()
-                            .text_color(cx.theme().muted_foreground)
-                            .text_lg()
-                            .child("Audio"),
+                            .px(px(16.))
+                            .py(px(8.))
+                            .rounded(px(8.))
+                            .bg(gpui::rgba(0x1a1f2eff))
+                            .child(
+                                h_flex()
+                                    .items_end()
+                                    .gap(px(gap))
+                                    .h(px(max_bar_height))
+                                    .children(spectrum_bars),
+                            ),
                     )
                     .child(
                         div()
