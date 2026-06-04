@@ -138,6 +138,15 @@ pub struct AppConfig {
     pub context_menu_show_file_tags: bool,
     #[serde(default = "default_true")]
     pub context_menu_show_create_shortcut: bool,
+    /// Show «Open in new pane» in the file list context menu (Files `ShowOpenInNewPane`).
+    #[serde(default = "default_true")]
+    pub show_open_in_new_pane: bool,
+    /// When true, new tabs start in dual-pane mode (Files `AlwaysOpenDualPaneInNewTab`).
+    #[serde(default)]
+    pub always_open_dual_pane_in_new_tab: bool,
+    /// Default split direction for new dual-pane layouts: `vertical` or `horizontal`.
+    #[serde(default = "default_shell_pane_arrangement")]
+    pub shell_pane_arrangement: String,
     /// When true, open supported text/code files with CyberEditor on double-click.
     #[serde(default = "default_true")]
     pub open_text_with_cybereditor: bool,
@@ -176,13 +185,30 @@ pub struct SessionPaneLayout {
     /// `primary` or `secondary`.
     #[serde(default = "default_session_pane_side")]
     pub active_side: String,
-    /// Encoded navigation target for the secondary pane (same format as `session_tabs`).
+    /// Encoded navigation target for the primary pane (same format as `session_tabs`).
+    #[serde(default)]
+    pub primary_tab: String,
+    /// Encoded navigation target for the secondary pane.
     #[serde(default)]
     pub secondary_tab: String,
+    /// `vertical` (side-by-side) or `horizontal` (stacked). D2 layout uses this.
+    #[serde(default = "default_shell_pane_arrangement")]
+    pub arrangement: String,
+    /// Primary pane share along the split axis (0.0–1.0). D2 splitter uses this.
+    #[serde(default = "default_split_ratio")]
+    pub split_ratio: f32,
 }
 
 fn default_session_pane_side() -> String {
     "primary".into()
+}
+
+fn default_shell_pane_arrangement() -> String {
+    "vertical".into()
+}
+
+fn default_split_ratio() -> f32 {
+    0.5
 }
 
 /// Sidebar file tag entry (Files `FileTagsManager` subset).
@@ -265,6 +291,9 @@ impl Default for AppConfig {
             context_menu_show_open_in_terminal: true,
             context_menu_show_file_tags: true,
             context_menu_show_create_shortcut: true,
+            show_open_in_new_pane: true,
+            always_open_dual_pane_in_new_tab: false,
+            shell_pane_arrangement: default_shell_pane_arrangement(),
             open_text_with_cybereditor: true,
             open_media_with_cybermediaplayer: true,
             disable_direct_composition: true,
@@ -404,6 +433,7 @@ pub struct ContextMenuItemPrefs {
     pub open_in_terminal: bool,
     pub file_tags: bool,
     pub create_shortcut: bool,
+    pub open_in_new_pane: bool,
 }
 
 impl Default for ContextMenuItemPrefs {
@@ -416,6 +446,7 @@ impl Default for ContextMenuItemPrefs {
             open_in_terminal: true,
             file_tags: true,
             create_shortcut: true,
+            open_in_new_pane: true,
         }
     }
 }
@@ -430,6 +461,7 @@ impl From<&AppConfig> for ContextMenuItemPrefs {
             open_in_terminal: c.context_menu_show_open_in_terminal,
             file_tags: c.context_menu_show_file_tags,
             create_shortcut: c.context_menu_show_create_shortcut,
+            open_in_new_pane: c.show_open_in_new_pane,
         }
     }
 }

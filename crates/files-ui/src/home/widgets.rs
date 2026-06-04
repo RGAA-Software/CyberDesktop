@@ -702,7 +702,7 @@ fn folder_context_menu(
     path: &PathBuf,
     is_pinned: bool,
     _window: &mut Window,
-    _cx: &mut App,
+    cx: &mut App,
 ) -> PopupMenu {
     let path_string = path.to_string_lossy().to_string();
     let path_open = path.clone();
@@ -720,6 +720,15 @@ fn folder_context_menu(
             AppNavigation::open_path_in_new_tab(path_tab.clone(), cx);
         }),
     );
+    if crate::shell::preferences::show_open_in_new_pane(cx) {
+        let path_pane = path.clone();
+        menu = menu.item(
+            PopupMenuItem::new(t!("files.menu.open_in_new_pane")).on_click(move |_, _, cx| {
+                AppNavigation::open_path_in_secondary_pane(path_pane.clone(), cx);
+                cx.stop_propagation();
+            }),
+        );
+    }
     if is_pinned {
         menu = menu.item(
             PopupMenuItem::new(t!("sidebar.menu.unpin")).on_click(move |_, _, cx| {

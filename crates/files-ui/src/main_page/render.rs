@@ -132,6 +132,13 @@ impl MainPage {
                         .flex()
                         .overflow_hidden()
                         .items_center()
+                        .on_mouse_down(
+                            MouseButton::Right,
+                            cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                                this.open_tab_bar_context_menu(event.position, window, cx);
+                                cx.stop_propagation();
+                            }),
+                        )
                         .child(
                             div()
                                 .w_full()
@@ -297,6 +304,7 @@ impl MainPage {
                     .child(self.render_omnibar(window, cx)),
             )
             .child({
+                let dual_pane = self.dual_pane_active(cx);
                 let mut trailing = h_flex()
                     .id("nav-trailing")
                     .flex_none()
@@ -306,6 +314,9 @@ impl MainPage {
                         toolbar_icon_button("nav-split-pane")
                             .icon(toolbar_icon(IconName::LayoutDashboard).path("icons/splitscreen.svg"))
                             .tooltip(t!("nav.split_pane"))
+                            .when(dual_pane, |btn| {
+                                btn.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
+                            })
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.toggle_dual_pane(cx);
                             })),

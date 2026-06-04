@@ -26,10 +26,10 @@ use chrono::{DateTime, Local};
 use files_commands::{
     CancelRename, CompressItems, CopyItems, CopyPath, CutItems, DeleteItems,
     DeleteItemsPermanent, ExtractHere, ExtractToFolder, EmptyRecycleBin, FocusSearch,
-    NavigateNext, NavigatePrevious, NewFile, NewFolder, OpenItem, PasteItems, RedoOperation,
-    RefreshDirectory,
-    RenameItem, RestoreAllRecycleItems, RestoreRecycleItems, SelectAll,
-    ShellProperties, UndoOperation, ViewCards, ViewColumns, ViewDetails, ViewGrid, ViewList, FILE_BROWSER,
+    NavigateNext, NavigatePrevious, NewFile, NewFolder, OpenInNewPane, OpenItem, PasteItems,
+    RedoOperation, RefreshDirectory, RenameItem, RestoreAllRecycleItems, RestoreRecycleItems,
+    SelectAll, ShellProperties, UndoOperation, ViewCards, ViewColumns, ViewDetails, ViewGrid,
+    ViewList, FILE_BROWSER,
 };
 use files_core::{
     file_group_from_config, file_group_date_unit_from_config, file_sort_prefs_from_config, file_view_mode_from_config,
@@ -125,7 +125,6 @@ actions!(
         GroupBySize,
         GroupByType,
         GroupByTag,
-        OpenInNewPane,
         OpenInNewWindow,
         OpenInTerminal,
         OpenWithDialog,

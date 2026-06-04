@@ -1,3 +1,4 @@
+use files_core::load_config;
 use gpui::{prelude::*, *};
 
 use super::MainPage;
@@ -10,7 +11,16 @@ impl MainPage {
     pub(super) fn add_tab(&mut self, target: NavigationTarget, cx: &mut Context<Self>) {
         let id = self.next_tab_id;
         self.next_tab_id += 1;
-        let shell = cx.new(|cx| ShellPanes::new(cx, target));
+        let open_dual = load_config()
+            .map(|c| c.always_open_dual_pane_in_new_tab)
+            .unwrap_or(false);
+        let shell = cx.new(|cx| {
+            let mut shell = ShellPanes::new(cx, target);
+            if open_dual {
+                shell.open_secondary_at_active(cx);
+            }
+            shell
+        });
         self.tabs.push(super::TabEntry { id, shell });
         self.active_tab = self.tabs.len() - 1;
         self.pending_tab_scroll_to_ix = Some(self.active_tab);

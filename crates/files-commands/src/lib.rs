@@ -50,6 +50,14 @@ actions!(
         ExtractToFolder,
         ReopenClosedTab,
         ToggleShowFileExtensions,
+        ToggleDualPane,
+        FocusOtherPane,
+        CloseActivePane,
+        OpenInNewPane,
+        SplitPaneVertically,
+        SplitPaneHorizontally,
+        ArrangePanesVertically,
+        ArrangePanesHorizontally,
     ]
 );
 

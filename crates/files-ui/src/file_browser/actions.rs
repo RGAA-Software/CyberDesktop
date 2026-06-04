@@ -6,10 +6,20 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_open_item(&mut self, _: &OpenItem, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_open_item(&mut self, _: &OpenItem, window: &mut Window, cx: &mut Context<Self>) {
         if self.renaming.is_some() {
             cx.stop_propagation();
             return;
+        }
+        let mods = window.modifiers();
+        if mods.control && mods.shift {
+            if let Some(path) = self.primary_path() {
+                if path.is_dir() {
+                    AppNavigation::open_path_in_secondary_pane(path, cx);
+                    cx.stop_propagation();
+                    return;
+                }
+            }
         }
         self.open_focused(cx);
     }
@@ -324,6 +334,9 @@ impl FileBrowser {
         let Some(path) = self.primary_path() else {
             return;
         };
+        if !path.is_dir() {
+            return;
+        }
         AppNavigation::open_path_in_secondary_pane(path, cx);
     }
 

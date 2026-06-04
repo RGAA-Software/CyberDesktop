@@ -287,6 +287,37 @@ impl AppNavigation {
         page.update(cx, |page, cx| page.open_path_in_secondary_pane(path, cx));
     }
 
+    /// Focus the primary CyberFiles window (e.g. before dual-pane commands from Settings).
+    pub fn activate_main_window(cx: &mut App) {
+        let _ = MainWindowState::update_main_window(cx, |window, _| {
+            window.activate_window();
+        });
+    }
+
+    pub fn run_toggle_dual_pane(cx: &mut App) {
+        Self::activate_main_window(cx);
+        let page = cx.global::<Self>().main_page();
+        let _ = page.update(cx, |page, cx| page.toggle_dual_pane(cx));
+    }
+
+    pub fn run_split_pane_vertically(cx: &mut App) {
+        Self::activate_main_window(cx);
+        let page = cx.global::<Self>().main_page();
+        let _ = page.update(cx, |page, cx| page.split_pane_vertically(cx));
+    }
+
+    pub fn run_split_pane_horizontally(cx: &mut App) {
+        Self::activate_main_window(cx);
+        let page = cx.global::<Self>().main_page();
+        let _ = page.update(cx, |page, cx| page.split_pane_horizontally(cx));
+    }
+
+    pub fn run_close_active_pane(cx: &mut App) {
+        Self::activate_main_window(cx);
+        let page = cx.global::<Self>().main_page();
+        let _ = page.update(cx, |page, cx| page.close_active_pane(cx));
+    }
+
     pub fn focus_search(window: &mut Window, cx: &mut (impl AppContext + BorrowMut<App>)) {
         let page = cx.borrow_mut().global::<Self>().0.clone();
         page.update(cx, |page, cx| page.enter_omnibar_search_mode(window, cx));

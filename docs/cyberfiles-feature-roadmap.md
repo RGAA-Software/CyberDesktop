@@ -2,7 +2,7 @@
 
 本文针对 CyberFiles 相对 [Files](https://github.com/files-community/Files)（参考实现：`../Files`）尚缺的能力，给出**逐步可执行**的实现方案。每一节标注真实文件、数据结构、配置项、i18n key、边界情况与测试要点，目标是照着做即可落地。
 
-> 说明：原「4. Undo/Redo」与「6. 撤销/重做」为同一功能，已合并为第 4 节。本文现共 **18 个功能域**（§1–§8 为核心文件体验；§9–§18 为扩展能力）。
+> 说明：原「4. Undo/Redo」与「6. 撤销/重做」为同一功能，已合并为第 4 节。本文现共 **19 个功能域**（§1–§8 为核心文件体验；§9–§18 为扩展能力；§19 为双栏）。
 
 ---
 
@@ -41,9 +41,39 @@
 
 ### 当前 Sprint（下一步）
 
-1. **§8B 拖出到资源管理器** — OLE `DoDragDrop` / `CF_HDROP`（实验性）。
-2. **§10 Info pane / 预览增强**。
-3. 可选：Grid/Cards 视图的分组头；§1 的 Extract… 对话框与加密包密码。
+1. **§19 双栏（Dual Pane）** — 对照 `../Files` 的 `ShellPanesPage`（见下文 D0–D4 子阶段）；**已完成**。
+2. **§8B 拖出到资源管理器** — OLE `DoDragDrop` / `CF_HDROP`（实验性）。
+3. **§10 Info pane / 预览增强**。
+4. 可选：Grid/Cards 视图的分组头；§1 的 Extract… 对话框与加密包密码。
+
+### §19 双栏 — 子排期（对照 Files）
+
+| 序 | 阶段 | 内容 | 依赖 | 状态 |
+|----|------|------|------|------|
+| D0 | 基础稳固 | 双路径会话、`session_tabs` 存主栏路径、活跃窗格与 Chrome 一致、非活跃栏清选择、工具栏开/关态 | 无 | **已完成** |
+| D1 | 命令与入口 | `ToggleDualPane` / `FocusOtherPane` / `CloseActivePane` / `OpenInNewPane` / `SplitPane*` 进 `files-commands`；默认快捷键 | D0 | **已完成**（菜单/设置项留 D4） |
+| D2 | 可拖分栏 | 自定义 splitter（禁止第三层 `h_resizable` 嵌套）；`split_ratio` + 横/竖 `arrangement` 持久化；双击均分、拖窄关副栏 | D0 | **已完成** |
+| D3 | 窄窗自适应 | 宽度 ≤750px 收起副栏并记住路径，拉宽恢复 | D2 | **已完成** |
+| D4 | 增强 | 设置项（默认双栏、分栏方向、显示「在新窗格打开」）；查看菜单分栏子菜单 | D1 | **已完成** |
+
+**Files 参考路径（`../Files`）：**
+
+- `src/Files.App/Views/ShellPanesPage.xaml[.cs]` — 双栏容器 + `GridSplitter`
+- `src/Files.App/Data/EventArguments/PaneNavigationArguments.cs` — 左右路径序列化
+- `src/Files.App/Actions/Show/ToggleDualPaneAction.cs` — Ctrl+Shift+S
+- `src/Files.App/Actions/Navigation/SplitPane*.cs`、`FocusOtherPane.cs`、`CloseActivePaneAction.cs`
+
+**CyberDesktop 实现路径：**
+
+| 区域 | 文件 |
+|------|------|
+| 布局 | `crates/files-ui/src/shell/shell_panes.rs` |
+| 会话 | `crates/files-ui/src/main_page/session.rs`、`crates/files-core/src/config.rs`（`SessionPaneLayout`） |
+| 命令 | `crates/files-commands/src/lib.rs`、`action_specs.rs` |
+| 外层 layout | `crates/files-ui/src/main_page/render_shell.rs`（避免第三层 resizable 栈溢出） |
+| i18n | `crates/app-ui/locales/app.yml` |
+
+**已知约束：** 主界面已有 `main-layout` + `main-with-info-pane` 两层 `files-ui` resizable；双栏内不可再嵌套 `gpui_component::h_resizable`（会 stack overflow），D2 用轻量 splitter 或扁平 layout。
 
 通用约定：
 - 所有用户可见文案走 `rust_i18n::t!`，并在 `crates/files-app-ui/locales/app.yml`（含 `en`/`zh-CN`/`zh-Hant`）补 key。
@@ -874,3 +904,66 @@ cargo build
 cargo test -p files-fs        # 纯逻辑单测（archive/group/history/omnibar）
 ```
 UI 行为以 `scripts/debug/cyberfiles.ps1`（或 `scripts/build-debug-cyberfiles.ps1`）跑起来手动验收。
+
+---
+
+## 19. 双栏（Dual Pane，对照 Files `ShellPanesPage`）
+
+### 现状（CyberDesktop）
+
+- `ShellPanes`：主/副 `PaneShell` 常驻；`dual_pane` 控制显示；副栏点击聚焦；`open_path_in_secondary_pane` + 右键「在新窗格打开」（仅文件夹）。
+- 布局：可拖 `PaneSplitDrag` + `split_ratio` / `arrangement`（禁止第三层 `h_resizable` 嵌套）。
+- 会话：`SessionPaneLayout { primary_tab, secondary_tab, arrangement, split_ratio, dual_pane, active_side }`；`session_tabs` 存主栏路径。
+- 命令：`files-commands`（`ToggleDualPane`、`SplitPane*`、`ArrangePanes*`、`FocusOtherPane`、`CloseActivePane`、`OpenInNewPane`）；查看菜单 / 标签栏右键 / 首页与设置页空白右键 / 侧栏与首页项「在新窗格打开」。
+
+### 目标（对齐 Files 行为）
+
+| 能力 | Files | CyberDesktop 目标 |
+|------|-------|-------------------|
+| 切换双栏 | Ctrl+Shift+S | D1 |
+| 垂直/水平分栏 | Alt+Shift+V / H | D2 + D4 |
+| 聚焦另一栏 | Ctrl+Shift+Right | D1 |
+| 关闭当前栏 | Ctrl+Alt+W | D1 |
+| 文件夹→副栏 | Ctrl+Shift+Enter | D1 |
+| 可拖比例 | GridSplitter | D2（自定义 splitter） |
+| 窄窗收起 | 宽度 ≤750px | D3 |
+| 会话 | 左右路径 + 排列 | D0 起 `primary_tab` + `secondary_tab` |
+
+双栏**不**镜像导航；Omnibar / 侧栏 / 状态栏 / Info pane 仅跟 **active pane**（与 Files `ActivePaneOrColumn` 一致）。
+
+### D0 — 基础稳固（实施要点）
+
+1. **`SessionPaneLayout` 扩展**（`config.rs`）：`primary_tab`、`arrangement`（`vertical`/`horizontal`）、`split_ratio`（默认 `0.5`，D2 使用）。
+2. **`persist_session`**：`session_tabs[i]` = 主栏编码路径；`capture_shell_layout` 同时写入 `primary_tab` / `secondary_tab`。
+3. **`restore_layout`**：恢复主栏 + 副栏路径与 `active_side`。
+4. **焦点**：`activate_pane` 时清空非活跃栏 `FileBrowser` 选择。
+5. **`toggle_dual_pane`**：开启时副栏导航到主栏当前位置；关闭时仅隐藏副栏。
+6. **工具栏**：双栏开启时按钮高亮（accent）。
+
+### D1 — 命令与入口
+
+- `files-commands`：`ToggleDualPane`、`FocusOtherPane`、`CloseActivePane`；`OpenInNewPane` 迁入并注册默认键（可配置）。
+- `MainPage` `.on_action` 绑定；`settings.actions.*` i18n。
+- 列表/详细信息视图：**Ctrl+Shift+Enter** → `open_path_in_secondary_pane`（目录项）。
+
+### D2 — 可拖分栏 + 排列方向
+
+- `shell_panes.rs`：中间拖拽手柄；比例写 `split_ratio`；竖向 `v_flex` 布局。
+- 双击手柄均分；副栏宽度过窄自动 `close_other_pane`。
+- **禁止**在 `shell_panes` 内使用第三层 `gpui_component::h_resizable`。
+
+### D3 — 窄窗
+
+- 常量 `MULTI_PANE_WIDTH_THRESHOLD = 750`；窄窗隐藏副栏并缓存 `secondary_tab`；拉宽恢复。
+
+### D4 — 设置与菜单
+
+- General：`always_open_dual_pane_in_new_tab`、`shell_pane_arrangement`、`show_open_in_new_pane`（`config.rs`）。
+- 应用菜单 / 标签栏右键：垂直/水平分栏子菜单。
+
+### 测试要点
+
+- 双栏开关 → 重启 → 左右路径、活跃侧正确。
+- 副栏聚焦时保存会话 → 重启后主栏路径不丢。
+- 切换双栏无 stack overflow；快捷键在设置页可改键。
+- D2 后：拖 splitter、双击均分、拖窄关副栏。

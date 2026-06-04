@@ -6,8 +6,13 @@ use gpui::{prelude::*, *};
 
 use super::MainPage;
 use crate::file_ops::{file_transfer_kind_for_drop, spawn_file_transfer};
+use crate::shell::app_menus;
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::{PaneShell, ShellPanes};
+
+fn refresh_dual_pane_menus(cx: &mut App) {
+    app_menus::reload(cx);
+}
 
 impl MainPage {
     pub fn open_path_in_new_tab(&mut self, path: PathBuf, cx: &mut Context<Self>) {
@@ -27,6 +32,7 @@ impl MainPage {
             });
             shell.set_active(crate::shell::PaneSide::Secondary, cx);
         });
+        refresh_dual_pane_menus(cx);
         cx.notify();
     }
 
@@ -73,7 +79,7 @@ impl MainPage {
         cx.notify();
     }
 
-    pub(super) fn active_shell(&self) -> Entity<ShellPanes> {
+    pub(crate) fn active_shell(&self) -> Entity<ShellPanes> {
         self.tabs[self.active_tab].shell.clone()
     }
 
@@ -128,10 +134,85 @@ impl MainPage {
         cx.notify();
     }
 
-    pub(super) fn toggle_dual_pane(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn toggle_dual_pane(&mut self, cx: &mut Context<Self>) {
         let shell = self.active_shell();
         shell.update(cx, |shell, cx| shell.toggle_dual_pane(cx));
         self.persist_session(cx);
+        refresh_dual_pane_menus(cx);
+        cx.notify();
+    }
+
+    pub(super) fn focus_other_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let shell = self.active_shell();
+        shell.update(cx, |shell, cx| shell.focus_other_pane(window, cx));
+        self.persist_session(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn close_active_pane(&mut self, cx: &mut Context<Self>) {
+        let shell = self.active_shell();
+        shell.update(cx, |shell, cx| shell.close_active_pane(cx));
+        self.persist_session(cx);
+        refresh_dual_pane_menus(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn dual_pane_active(&self, cx: &App) -> bool {
+        self.active_shell().read(cx).dual_pane()
+    }
+
+    pub(super) fn adapt_active_shell_viewport(&mut self, width: Pixels, cx: &mut Context<Self>) {
+        let shell = self.active_shell();
+        shell.update(cx, |shell, cx| {
+            shell.adapt_viewport_width(width, |pane, app| Self::encode_pane_session(pane, app), cx);
+        });
+    }
+
+    pub(crate) fn split_pane_vertically(&mut self, cx: &mut Context<Self>) {
+        if self.dual_pane_active(cx) {
+            self.arrange_panes_vertically(cx);
+            return;
+        }
+        let shell = self.active_shell();
+        shell.update(cx, |shell, cx| {
+            shell.split_pane(crate::shell::PaneArrangement::Vertical, cx);
+        });
+        self.persist_session(cx);
+        refresh_dual_pane_menus(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn split_pane_horizontally(&mut self, cx: &mut Context<Self>) {
+        if self.dual_pane_active(cx) {
+            self.arrange_panes_horizontally(cx);
+            return;
+        }
+        let shell = self.active_shell();
+        shell.update(cx, |shell, cx| {
+            shell.split_pane(crate::shell::PaneArrangement::Horizontal, cx);
+        });
+        self.persist_session(cx);
+        refresh_dual_pane_menus(cx);
+        cx.notify();
+    }
+
+    pub(super) fn arrange_panes_vertically(&mut self, cx: &mut Context<Self>) {
+        let shell = self.active_shell();
+        shell.update(cx, |shell, cx| {
+            shell.arrange_panes(crate::shell::PaneArrangement::Vertical, cx);
+        });
+        self.persist_session(cx);
+        refresh_dual_pane_menus(cx);
+        cx.notify();
+    }
+
+    pub(super) fn arrange_panes_horizontally(&mut self, cx: &mut Context<Self>) {
+        let shell = self.active_shell();
+        shell.update(cx, |shell, cx| {
+            shell.arrange_panes(crate::shell::PaneArrangement::Horizontal, cx);
+        });
+        self.persist_session(cx);
+        refresh_dual_pane_menus(cx);
         cx.notify();
     }
 

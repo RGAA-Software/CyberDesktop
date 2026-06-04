@@ -5,9 +5,9 @@ use std::sync::{Arc, RwLock};
 
 use files_commands::{
     CompressItems, CopyItems, CopyPath, CutItems, DeleteItems, DeleteItemsPermanent, EmptyRecycleBin,
-    ExtractHere, ExtractToFolder, NewFile, NewFolder, OpenItem, PasteItems, RefreshDirectory,
-    RenameItem, RestoreAllRecycleItems, RestoreRecycleItems, ShellProperties, ViewCards,
-    ViewColumns, ViewDetails, ViewGrid,
+    ExtractHere, ExtractToFolder, NewFile, NewFolder, OpenInNewPane, OpenItem, PasteItems,
+    RefreshDirectory, RenameItem, RestoreAllRecycleItems, RestoreRecycleItems, ShellProperties,
+    ViewCards, ViewColumns, ViewDetails, ViewGrid,
 };
 use files_core::{context_menu_item_prefs, load_config};
 use super::helpers::build_sort_prefs_menu;
@@ -22,7 +22,7 @@ use rust_i18n::t;
 
 use super::{
     normalize_paths_for_shell_cache, shell_submenu_snapshot, BrowseLocation,
-    CreateFolderFromSelection, CreateShortcut, FileBrowser, OpenInNewPane, OpenInNewWindow,
+    CreateFolderFromSelection, CreateShortcut, FileBrowser, OpenInNewWindow,
     OpenInTerminal, OpenWithDialog, ShellMenuCache, ShellSubmenuSnapshot, ViewMode,
 };
 use crate::app_state::{AppFileClipboard, AppNavigation};
@@ -843,11 +843,13 @@ fn build_directory_item_menu(
             Icon::new(IconName::ExternalLink).path("icons/external-link.svg"),
             Box::new(OpenInNewWindow),
         );
-        menu = menu.menu_with_icon(
-            t!("files.menu.open_in_new_pane"),
-            Icon::new(IconName::PanelLeftOpen).path("icons/splitscreen.svg"),
-            Box::new(OpenInNewPane),
-        );
+        if item_prefs.open_in_new_pane && single_dir {
+            menu = menu.menu_with_icon(
+                t!("files.menu.open_in_new_pane"),
+                Icon::new(IconName::PanelLeftOpen).path("icons/splitscreen.svg"),
+                Box::new(OpenInNewPane),
+            );
+        }
     }
 
     menu = menu.separator();

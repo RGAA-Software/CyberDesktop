@@ -499,6 +499,48 @@ pub fn apply_auto_restore_tabs(enabled: bool, cx: &mut App) {
     mutate_config(cx, |c| c.auto_restore_tabs = enabled);
 }
 
+pub fn show_open_in_new_pane(_cx: &App) -> bool {
+    files_core::load_config()
+        .map(|c| c.show_open_in_new_pane)
+        .unwrap_or(true)
+}
+
+pub fn apply_show_open_in_new_pane(enabled: bool, cx: &mut App) {
+    mutate_config(cx, |c| c.show_open_in_new_pane = enabled);
+}
+
+pub fn always_open_dual_pane_in_new_tab(_cx: &App) -> bool {
+    files_core::load_config()
+        .map(|c| c.always_open_dual_pane_in_new_tab)
+        .unwrap_or(false)
+}
+
+pub fn apply_always_open_dual_pane_in_new_tab(enabled: bool, cx: &mut App) {
+    mutate_config(cx, |c| c.always_open_dual_pane_in_new_tab = enabled);
+}
+
+pub fn shell_pane_arrangement(_cx: &App) -> SharedString {
+    files_core::load_config()
+        .map(|c| c.shell_pane_arrangement.clone())
+        .unwrap_or_else(|| "vertical".into())
+        .into()
+}
+
+pub fn apply_shell_pane_arrangement(value: SharedString, cx: &mut App) {
+    let key = value.to_string();
+    mutate_config(cx, |c| c.shell_pane_arrangement = key.clone());
+    if let Some(nav) = cx.try_global::<crate::app_state::AppNavigation>() {
+        let arrangement = crate::shell::PaneArrangement::from_config(key.as_str());
+        let page = nav.main_page();
+        let _ = page.update(cx, |page, cx| {
+            page.active_shell().update(cx, |shell, cx| {
+                shell.set_arrangement(arrangement, cx);
+            });
+            cx.notify();
+        });
+    }
+}
+
 fn refresh_home_if_active(cx: &mut App) {
     if let Some(nav) = cx.try_global::<crate::app_state::AppNavigation>() {
         let page = nav.main_page();
@@ -578,6 +620,9 @@ pub fn capture_config(cx: &App, window_width: f32, window_height: f32) -> AppCon
         context_menu_show_open_in_terminal: prior.context_menu_show_open_in_terminal,
         context_menu_show_file_tags: prior.context_menu_show_file_tags,
         context_menu_show_create_shortcut: prior.context_menu_show_create_shortcut,
+        show_open_in_new_pane: prior.show_open_in_new_pane,
+        always_open_dual_pane_in_new_tab: prior.always_open_dual_pane_in_new_tab,
+        shell_pane_arrangement: prior.shell_pane_arrangement,
         open_text_with_cybereditor: prior.open_text_with_cybereditor,
         open_media_with_cybermediaplayer: prior.open_media_with_cybermediaplayer,
         disable_direct_composition: prior.disable_direct_composition,

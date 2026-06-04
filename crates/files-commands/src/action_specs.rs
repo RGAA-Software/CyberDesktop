@@ -1,11 +1,13 @@
 use gpui::KeyBinding;
 
 use crate::{
-    CancelRename, CopyItems, CopyPath, CutItems, DeleteItems, DeleteItemsPermanent, FILE_BROWSER,
-    FocusOmnibar, FocusSearch, NavigateBack, NavigateForward, NavigateNext, NavigatePrevious,
-    NavigateUp, NewFile, NewFolder, OpenItem, PasteItems, RedoOperation, RefreshDirectory,
-    ReopenClosedTab, RenameItem, SelectAll, UndoOperation, ViewCards, ViewColumns, ViewDetails,
-    ViewGrid, ViewList,
+    CancelRename, CloseActivePane, CopyItems, CopyPath, CutItems, DeleteItems,
+    DeleteItemsPermanent, FILE_BROWSER, FocusOmnibar, FocusOtherPane, FocusSearch, NavigateBack,
+    NavigateForward, NavigateNext, NavigatePrevious, NavigateUp, NewFile, NewFolder, OpenInNewPane,
+    OpenItem, PasteItems, RedoOperation, RefreshDirectory, ReopenClosedTab, RenameItem, SelectAll,
+    SplitPaneHorizontally, SplitPaneVertically,
+    ToggleDualPane, UndoOperation, ViewCards,
+    ViewColumns, ViewDetails, ViewGrid, ViewList,
 };
 
 pub struct ActionSpec {
@@ -214,6 +216,48 @@ pub fn action_specs() -> &'static [ActionSpec] {
             context: None,
             i18n_key: "settings.actions.redo",
         },
+        ActionSpec {
+            id: "toggle_dual_pane",
+            default_keystroke: "ctrl-shift-s",
+            default_keystroke_mac: None,
+            context: None,
+            i18n_key: "settings.actions.toggle_dual_pane",
+        },
+        ActionSpec {
+            id: "focus_other_pane",
+            default_keystroke: "ctrl-shift-right",
+            default_keystroke_mac: None,
+            context: None,
+            i18n_key: "settings.actions.focus_other_pane",
+        },
+        ActionSpec {
+            id: "close_active_pane",
+            default_keystroke: "ctrl-alt-w",
+            default_keystroke_mac: None,
+            context: None,
+            i18n_key: "settings.actions.close_active_pane",
+        },
+        ActionSpec {
+            id: "open_in_new_pane",
+            default_keystroke: "ctrl-shift-enter",
+            default_keystroke_mac: None,
+            context: Some(FILE_BROWSER),
+            i18n_key: "settings.actions.open_in_new_pane",
+        },
+        ActionSpec {
+            id: "split_pane_vertically",
+            default_keystroke: "alt-shift-v",
+            default_keystroke_mac: None,
+            context: None,
+            i18n_key: "settings.actions.split_pane_vertically",
+        },
+        ActionSpec {
+            id: "split_pane_horizontally",
+            default_keystroke: "alt-shift-h",
+            default_keystroke_mac: None,
+            context: None,
+            i18n_key: "settings.actions.split_pane_horizontally",
+        },
     ]
 }
 
@@ -261,6 +305,12 @@ pub fn key_binding_for(spec: &ActionSpec, keystroke: &str) -> Option<KeyBinding>
         "select_all" => KeyBinding::new(keystroke, SelectAll, spec.context),
         "undo_operation" => KeyBinding::new(keystroke, UndoOperation, spec.context),
         "redo_operation" => KeyBinding::new(keystroke, RedoOperation, spec.context),
+        "toggle_dual_pane" => KeyBinding::new(keystroke, ToggleDualPane, spec.context),
+        "focus_other_pane" => KeyBinding::new(keystroke, FocusOtherPane, spec.context),
+        "close_active_pane" => KeyBinding::new(keystroke, CloseActivePane, spec.context),
+        "open_in_new_pane" => KeyBinding::new(keystroke, OpenInNewPane, spec.context),
+        "split_pane_vertically" => KeyBinding::new(keystroke, SplitPaneVertically, spec.context),
+        "split_pane_horizontally" => KeyBinding::new(keystroke, SplitPaneHorizontally, spec.context),
         _ => return None,
     })
 }

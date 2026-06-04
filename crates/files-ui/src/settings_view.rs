@@ -30,7 +30,9 @@ use crate::shell::preferences::{
     apply_context_menu_show_pin, apply_context_menu_show_send_to, apply_font_size,
     apply_home_widget_drives, apply_home_widget_file_tags, apply_home_widget_network,
     apply_home_widget_quick_access, apply_home_widget_recent, apply_locale,
-    apply_auto_restore_tabs,
+    apply_always_open_dual_pane_in_new_tab, apply_auto_restore_tabs, apply_shell_pane_arrangement,
+    apply_show_open_in_new_pane, always_open_dual_pane_in_new_tab, shell_pane_arrangement,
+    show_open_in_new_pane,
     apply_disable_direct_composition,
     apply_open_media_with_cybermediaplayer,
     apply_open_text_with_cybereditor, apply_scrollbar_show,
@@ -869,14 +871,52 @@ pub fn build_settings(cx: &App) -> Settings {
                 .groups(vec![search_settings_group()]),
             SettingPage::new(ts(t!("settings.page.tabs")))
                 .icon(tabs_icon())
-                .groups(vec![SettingGroup::new()
-                    .title(ts(t!("settings.group.tabs")))
-                    .items(vec![SettingItem::new(
-                        ts(t!("settings.tabs.auto_restore")),
-                        SettingField::switch(auto_restore_tabs, apply_auto_restore_tabs)
-                            .default_value(auto_restore_tabs(cx)),
-                    )
-                    .description(ts(t!("settings.tabs.auto_restore.description")))]),
+                .groups(vec![
+                    SettingGroup::new()
+                        .title(ts(t!("settings.group.tabs")))
+                        .items(vec![SettingItem::new(
+                            ts(t!("settings.tabs.auto_restore")),
+                            SettingField::switch(auto_restore_tabs, apply_auto_restore_tabs)
+                                .default_value(auto_restore_tabs(cx)),
+                        )
+                        .description(ts(t!("settings.tabs.auto_restore.description")))]),
+                    SettingGroup::new()
+                        .title(ts(t!("settings.group.dual_pane")))
+                        .items(vec![
+                            SettingItem::new(
+                                ts(t!("settings.dual_pane.always_open")),
+                                SettingField::switch(
+                                    always_open_dual_pane_in_new_tab,
+                                    apply_always_open_dual_pane_in_new_tab,
+                                )
+                                .default_value(always_open_dual_pane_in_new_tab(cx)),
+                            )
+                            .description(ts(t!("settings.dual_pane.always_open.description"))),
+                            SettingItem::new(
+                                ts(t!("settings.dual_pane.arrangement")),
+                                SettingField::dropdown(
+                                    vec![
+                                        ("vertical".into(), ts(t!("settings.dual_pane.vertical"))),
+                                        (
+                                            "horizontal".into(),
+                                            ts(t!("settings.dual_pane.horizontal")),
+                                        ),
+                                    ],
+                                    shell_pane_arrangement,
+                                    apply_shell_pane_arrangement,
+                                )
+                                .default_value(shell_pane_arrangement(cx)),
+                            )
+                            .description(ts(t!("settings.dual_pane.arrangement.description"))),
+                            SettingItem::new(
+                                ts(t!("settings.dual_pane.show_open_in_new_pane")),
+                                SettingField::switch(show_open_in_new_pane, apply_show_open_in_new_pane)
+                                    .default_value(show_open_in_new_pane(cx)),
+                            )
+                            .description(ts(
+                                t!("settings.dual_pane.show_open_in_new_pane.description"),
+                            )),
+                        ]),
                 ]),
             SettingPage::new(ts(t!("settings.page.home")))
                 .icon(home_icon())

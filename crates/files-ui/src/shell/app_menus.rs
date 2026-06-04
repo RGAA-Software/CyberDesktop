@@ -3,12 +3,16 @@ use gpui_component::{menu::AppMenuBar, GlobalState};
 
 use rust_i18n::t;
 
-use files_commands::ReopenClosedTab;
+use files_commands::{
+    ArrangePanesHorizontally, ArrangePanesVertically, CloseActivePane, FocusOtherPane,
+    ReopenClosedTab, SplitPaneHorizontally, SplitPaneVertically, ToggleDualPane,
+};
 
 use super::actions::ReopenClosedTabAt;
 use files_core::load_config;
 
 use super::actions::{About, Quit};
+use super::dual_pane_menu::dual_pane_menu_state;
 use super::navigation::NavigationTarget;
 
 struct AppMenuState {
@@ -43,30 +47,69 @@ pub fn reload(cx: &mut App) {
 }
 
 fn update_app_menu(cx: &mut App) {
-    let state = cx.global::<AppMenuState>();
-    let title = state.title.clone();
-    let app_menu_bar = state.menu_bar.clone();
+    let (title, app_menu_bar) = {
+        let state = cx.global::<AppMenuState>();
+        (state.title.clone(), state.menu_bar.clone())
+    };
 
-    cx.set_menus(build_menus(title.clone()));
-    let menus = build_menus(title)
+    let menus_for_platform = build_menus(title.clone(), cx);
+    cx.set_menus(menus_for_platform);
+
+    let owned: Vec<_> = build_menus(title, cx)
         .into_iter()
         .map(|menu| menu.owned())
         .collect();
-    GlobalState::global_mut(cx).set_app_menus(menus);
+    GlobalState::global_mut(cx).set_app_menus(owned);
 
     app_menu_bar.update(cx, |menu_bar, cx| {
         menu_bar.reload(cx);
     });
 }
 
-fn build_view_menu_items() -> Vec<MenuItem> {
+fn build_dual_pane_menu_items(cx: &mut App) -> Vec<MenuItem> {
+    let state = dual_pane_menu_state(cx);
+    let mut items = Vec::new();
+
+    if state.multi_pane_available && !state.dual {
+        items.push(MenuItem::submenu(Menu {
+            name: t!("menu.split_pane").into(),
+            items: vec![
+                MenuItem::action(t!("menu.split_pane_vertical"), SplitPaneVertically),
+                MenuItem::action(t!("menu.split_pane_horizontal"), SplitPaneHorizontally),
+            ],
+            disabled: false,
+        }));
+        items.push(MenuItem::action(t!("nav.split_pane"), ToggleDualPane));
+    }
+
+    if state.dual {
+        items.push(MenuItem::submenu(Menu {
+            name: t!("menu.arrange_panes").into(),
+            items: vec![
+                MenuItem::action(t!("menu.split_pane_vertical"), ArrangePanesVertically),
+                MenuItem::action(t!("menu.split_pane_horizontal"), ArrangePanesHorizontally),
+            ],
+            disabled: false,
+        }));
+        items.push(MenuItem::action(t!("nav.focus_other_pane"), FocusOtherPane));
+        items.push(MenuItem::action(t!("nav.close_pane"), CloseActivePane));
+    }
+
+    if !items.is_empty() {
+        items.push(MenuItem::separator());
+    }
+    items
+}
+
+fn build_view_menu_items(cx: &mut App) -> Vec<MenuItem> {
     let closed = load_config()
         .map(|c| c.session_closed_tabs)
         .unwrap_or_default();
 
-    let mut items = vec![
+    let mut items = build_dual_pane_menu_items(cx);
+    items.push(
         MenuItem::action(t!("nav.reopen_closed_tab"), ReopenClosedTab).disabled(closed.is_empty()),
-    ];
+    );
 
     if closed.is_empty() {
         return items;
@@ -81,7 +124,7 @@ fn build_view_menu_items() -> Vec<MenuItem> {
     items
 }
 
-fn build_menus(title: impl Into<SharedString>) -> Vec<Menu> {
+fn build_menus(title: impl Into<SharedString>, cx: &mut App) -> Vec<Menu> {
     vec![
         Menu {
             name: title.into(),
@@ -94,7 +137,7 @@ fn build_menus(title: impl Into<SharedString>) -> Vec<Menu> {
         },
         Menu {
             name: t!("menu.view").into(),
-            items: build_view_menu_items(),
+            items: build_view_menu_items(cx),
             disabled: false,
         },
     ]

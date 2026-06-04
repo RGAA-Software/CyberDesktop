@@ -9,6 +9,7 @@ use gpui_component::{
 };
 use rust_i18n::t;
 
+use crate::app_state::AppNavigation;
 use crate::drag::DraggedFilePaths;
 use crate::icons::{
     delete_icon_element, folder_icon_element, home_icon_element, inbox_icon_element, sidebar_icon,
@@ -298,7 +299,7 @@ fn build_entry_context_menu(
     page: &Entity<MainPage>,
     entry: &SidebarEntry,
     _window: &mut Window,
-    _cx: &mut App,
+    cx: &mut App,
 ) -> PopupMenu {
     let target = entry.target.clone();
     let pinned = entry.pinned_in_settings;
@@ -322,6 +323,16 @@ fn build_entry_context_menu(
                 let _ = page_tab.update(cx, |p, cx| p.open_path_in_new_tab(path_tab.clone(), cx));
             }),
         );
+
+        if crate::shell::preferences::show_open_in_new_pane(cx) {
+            let path_pane = path.clone();
+            menu = menu.item(
+                PopupMenuItem::new(t!("files.menu.open_in_new_pane")).on_click(move |_, _, cx| {
+                    AppNavigation::open_path_in_secondary_pane(path_pane.clone(), cx);
+                    cx.stop_propagation();
+                }),
+            );
+        }
 
         if pinned {
             let page_unpin = page.clone();

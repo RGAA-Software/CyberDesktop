@@ -14,13 +14,20 @@ mod pane_shell;
 #[cfg(feature = "full-app")]
 pub mod preferences;
 #[cfg(feature = "full-app")]
+mod pane_split;
+#[cfg(feature = "full-app")]
+mod dual_pane_menu;
+#[cfg(feature = "full-app")]
 mod shell_panes;
 mod window;
 
 #[cfg(feature = "full-app")]
 pub use pane_shell::PaneShell;
 #[cfg(feature = "full-app")]
-pub use shell_panes::{PaneSide, ShellPanes};
+pub use dual_pane_menu::{
+    append_dual_pane_popup_menu, dual_pane_menu_state, DualPanePopupProfile,
+};
+pub use shell_panes::{PaneArrangement, PaneSide, ShellPanes};
 #[cfg(feature = "full-app")]
 pub use window::open_main_window;
 

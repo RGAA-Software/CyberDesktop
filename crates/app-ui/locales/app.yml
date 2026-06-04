@@ -67,6 +67,14 @@ nav.split_pane:
   en: Toggle dual pane
   zh-CN: 切换双栏
   zh-HK: 切換雙欄
+nav.close_pane:
+  en: Close pane
+  zh-CN: 关闭窗格
+  zh-HK: 關閉窗格
+nav.focus_other_pane:
+  en: Focus other pane
+  zh-CN: 聚焦另一窗格
+  zh-HK: 聚焦另一窗格
 nav.reopen_closed_tab:
   en: Reopen closed tab
   zh-CN: 重新打开已关闭的标签
@@ -1739,6 +1747,22 @@ menu.view:
   en: View
   zh-CN: 查看
   zh-HK: 檢視
+menu.split_pane:
+  en: Split pane
+  zh-CN: 分栏
+  zh-HK: 分欄
+menu.split_pane_vertical:
+  en: Split vertically
+  zh-CN: 垂直分栏
+  zh-HK: 垂直分欄
+menu.split_pane_horizontal:
+  en: Split horizontally
+  zh-CN: 水平分栏
+  zh-HK: 水平分欄
+menu.arrange_panes:
+  en: Arrange panes
+  zh-CN: 排列窗格
+  zh-HK: 排列窗格
 menu.appearance:
   en: Appearance
   zh-CN: 外观
@@ -1831,6 +1855,42 @@ settings.group.tabs:
   en: Tabs
   zh-CN: 标签页
   zh-HK: 分頁
+settings.group.dual_pane:
+  en: Dual pane
+  zh-CN: 双栏
+  zh-HK: 雙欄
+settings.dual_pane.always_open:
+  en: Always open tabs in dual pane mode
+  zh-CN: 新标签页始终以双栏模式打开
+  zh-HK: 新分頁始終以雙欄模式開啟
+settings.dual_pane.always_open.description:
+  en: When enabled, each new tab shows two panes side by side (or stacked per arrangement below).
+  zh-CN: 开启后，每个新建标签页默认显示两个窗格（按下方分栏方向排列）。
+  zh-HK: 開啟後，每個新建分頁預設顯示兩個窗格（依下方分欄方向排列）。
+settings.dual_pane.arrangement:
+  en: Dual pane split direction
+  zh-CN: 双栏分栏方向
+  zh-HK: 雙欄分欄方向
+settings.dual_pane.vertical:
+  en: Vertical (side by side)
+  zh-CN: 垂直（左右并排）
+  zh-HK: 垂直（左右並排）
+settings.dual_pane.horizontal:
+  en: Horizontal (stacked)
+  zh-CN: 水平（上下堆叠）
+  zh-HK: 水平（上下堆疊）
+settings.dual_pane.arrangement.description:
+  en: Default layout when opening or splitting a second pane. Existing tabs keep their current direction until changed from the View menu.
+  zh-CN: 打开或拆分第二个窗格时的默认布局。已打开的标签页保持当前方向，直至通过「查看」菜单更改。
+  zh-HK: 開啟或拆分第二個窗格時的預設版面。已開啟的分頁保持目前方向，直至透過「檢視」選單變更。
+settings.dual_pane.show_open_in_new_pane:
+  en: Show «Open in new pane» in context menu
+  zh-CN: 在右键菜单中显示「在新窗格中打开」
+  zh-HK: 在右鍵選單中顯示「在新窗格中開啟」
+settings.dual_pane.show_open_in_new_pane.description:
+  en: Hides the command when off; Ctrl+Shift+Enter still opens folders in the secondary pane when dual pane is active.
+  zh-CN: 关闭后隐藏该命令；双栏开启时仍可用 Ctrl+Shift+Enter 在副栏打开文件夹。
+  zh-HK: 關閉後隱藏該命令；雙欄開啟時仍可用 Ctrl+Shift+Enter 在副欄開啟資料夾。
 settings.tabs.auto_restore:
   en: Restore previously opened tabs on launch
   zh-CN: 启动时恢复上次打开的标签页
@@ -2035,6 +2095,30 @@ settings.actions.reopen_tab:
   en: Reopen closed tab
   zh-CN: 重新打开已关闭的标签
   zh-HK: 重新開啟已關閉的標籤
+settings.actions.toggle_dual_pane:
+  en: Toggle dual pane
+  zh-CN: 切换双栏
+  zh-HK: 切換雙欄
+settings.actions.focus_other_pane:
+  en: Focus other pane
+  zh-CN: 聚焦另一窗格
+  zh-HK: 聚焦另一窗格
+settings.actions.close_active_pane:
+  en: Close active pane
+  zh-CN: 关闭当前窗格
+  zh-HK: 關閉目前窗格
+settings.actions.open_in_new_pane:
+  en: Open in new pane
+  zh-CN: 在新窗格中打开
+  zh-HK: 在新窗格中開啟
+settings.actions.split_pane_vertically:
+  en: Split pane vertically
+  zh-CN: 垂直分栏
+  zh-HK: 垂直分欄
+settings.actions.split_pane_horizontally:
+  en: Split pane horizontally
+  zh-CN: 水平分栏
+  zh-HK: 水平分欄
 settings.actions.view_details:
   en: Details view
   zh-CN: 详细信息视图

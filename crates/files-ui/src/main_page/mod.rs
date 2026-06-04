@@ -5,8 +5,11 @@ use files_fs::OmnibarPathSuggestion;
 
 const MAX_CLOSED_TABS: usize = 12;
 use files_commands::{
-    CopyItems, CutItems, FocusOmnibar, FocusSearch, NavigateBack, NavigateForward, NavigateUp, PasteItems,
-    ReopenClosedTab, RefreshDirectory, RedoOperation, SelectAll, UndoOperation, FILE_BROWSER,
+    CloseActivePane, CopyItems, CutItems, FocusOmnibar, FocusOtherPane, FocusSearch, NavigateBack,
+    NavigateForward, NavigateUp, PasteItems, ReopenClosedTab, RefreshDirectory, RedoOperation,
+    ArrangePanesHorizontally, ArrangePanesVertically, SelectAll, SplitPaneHorizontally,
+    SplitPaneVertically, ToggleDualPane, UndoOperation,
+    FILE_BROWSER,
 };
 use gpui::{prelude::*, *};
 use gpui_component::{input::InputState, v_flex};
@@ -28,6 +31,7 @@ mod render_shell;
 mod session;
 mod settings_overlay;
 mod sidebar;
+mod tab_bar_menu;
 mod tabs;
 
 /// Matches Files `NavigationToolbar` height.
@@ -83,6 +87,7 @@ pub struct MainPage {
     sidebar_cache_loading: bool,
     show_status_center: bool,
     pending_settings_toggle: bool,
+    tab_bar_popup_menu: Option<tab_bar_menu::TabBarPopupMenuState>,
 }
 
 impl MainPage {
@@ -96,10 +101,14 @@ impl MainPage {
         } else {
             let mut restored = Vec::with_capacity(session_tabs.len());
             for (id, encoded) in session_tabs.iter().enumerate() {
-                let target = Self::decode_session_target(encoded);
                 let layout = config.session_pane_layouts.get(id).cloned();
+                let primary_target = layout
+                    .as_ref()
+                    .filter(|l| !l.primary_tab.is_empty())
+                    .map(|l| Self::decode_session_target(l.primary_tab.as_str()))
+                    .unwrap_or_else(|| Self::decode_session_target(encoded));
                 let shell = cx.new(|cx| {
-                    let mut shell = ShellPanes::new(cx, target);
+                    let mut shell = ShellPanes::new(cx, primary_target);
                     if let Some(ref layout) = layout {
                         shell.restore_layout(layout, Self::decode_session_target, cx);
                     }
@@ -150,6 +159,7 @@ impl MainPage {
             sidebar_cache_loading: false,
             show_status_center: false,
             pending_settings_toggle: false,
+            tab_bar_popup_menu: None,
         };
         // Propagate initial show_info_pane to all file browsers.
         for tab in &this.tabs {
@@ -193,6 +203,7 @@ impl Render for MainPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.ensure_sidebar_cache(cx);
         self.flush_pending_settings_toggle(cx);
+        self.adapt_active_shell_viewport(window.viewport_size().width, cx);
         let active_shell = self.active_shell();
         let show_info_pane = self.show_info_pane;
         let file_navigation_active = self.file_navigation_active(cx);
@@ -203,6 +214,7 @@ impl Render for MainPage {
 
         v_flex()
             .id("main-page")
+            .relative()
             .size_full()
             .min_h_0()
             .min_w_0()
@@ -364,6 +376,28 @@ impl Render for MainPage {
             .on_action(cx.listener(|this, action: &ReopenClosedTabAt, _, cx| {
                 this.reopen_closed_tab_at(action.index, cx);
             }))
+            .on_action(cx.listener(|this, _: &ToggleDualPane, _, cx| {
+                this.toggle_dual_pane(cx);
+            }))
+            .on_action(cx.listener(|this, _: &FocusOtherPane, window, cx| {
+                this.focus_other_pane(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &CloseActivePane, _, cx| {
+                this.close_active_pane(cx);
+            }))
+            .on_action(cx.listener(|this, _: &SplitPaneVertically, _, cx| {
+                this.split_pane_vertically(cx);
+            }))
+            .on_action(cx.listener(|this, _: &SplitPaneHorizontally, _, cx| {
+                this.split_pane_horizontally(cx);
+            }))
+            .on_action(cx.listener(|this, _: &ArrangePanesVertically, _, cx| {
+                this.arrange_panes_vertically(cx);
+            }))
+            .on_action(cx.listener(|this, _: &ArrangePanesHorizontally, _, cx| {
+                this.arrange_panes_horizontally(cx);
+            }))
+            .when_some(self.tab_bar_popup_overlay(), |page, overlay| page.child(overlay))
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 if this.omnibar_search_mode_active() {
                     this.on_omnibar_search_key_down(event, window, cx);

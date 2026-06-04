@@ -17,6 +17,7 @@ use rust_i18n::t;
 
 use crate::app_state::AppNavigation;
 use crate::home::widgets::{load_network_entries, NetworkEntry};
+use crate::shell::{append_dual_pane_popup_menu, dual_pane_menu_state, DualPanePopupProfile};
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
 
 /// Loaded Home dashboard data (Files `RefreshWidgetProperties` snapshot).
@@ -189,8 +190,8 @@ impl HomePage {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let menu = PopupMenu::build(window, cx, |menu, _window, _cx| {
-            build_page_context_menu(menu, &home_widget_prefs())
+        let menu = PopupMenu::build(window, cx, |menu, window, cx| {
+            build_page_context_menu(menu, &home_widget_prefs(), window, cx)
         });
         self.open_popup_menu(position, menu, window, cx);
     }
@@ -258,7 +259,12 @@ impl HomePage {
     }
 }
 
-fn build_page_context_menu(menu: PopupMenu, prefs: &HomeWidgetPrefs) -> PopupMenu {
+fn build_page_context_menu(
+    menu: PopupMenu,
+    prefs: &HomeWidgetPrefs,
+    window: &mut Window,
+    cx: &mut Context<PopupMenu>,
+) -> PopupMenu {
     let mut menu = menu;
     let items = [
         (
@@ -289,6 +295,17 @@ fn build_page_context_menu(menu: PopupMenu, prefs: &HomeWidgetPrefs) -> PopupMen
             AppNavigation::refresh_home_widgets(cx);
             cx.stop_propagation();
         }));
+    }
+    let state = dual_pane_menu_state(cx);
+    if state.multi_pane_available || state.dual {
+        menu = menu.separator();
+        menu = append_dual_pane_popup_menu(
+            menu,
+            window,
+            cx,
+            state,
+            DualPanePopupProfile::PageSurface,
+        );
     }
     menu
 }
