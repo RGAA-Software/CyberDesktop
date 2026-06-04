@@ -1,4 +1,4 @@
-use files_core::{load_config, GITHUB_REPO_URL};
+use files_core::GITHUB_REPO_URL;
 use files_fs::home_navigation_path;
 use gpui::{prelude::*, *};
 use gpui_component::{
@@ -199,7 +199,6 @@ impl MainPage {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let show_info_pane = self.show_info_pane;
-        let sidebar_collapsed = load_config().map(|c| c.sidebar_collapsed).unwrap_or(false);
         let pane = self.active_pane(cx);
         let target = pane.read(cx).current_navigation_target(cx);
         let browser = pane.read(cx).file_browser();
@@ -246,18 +245,6 @@ impl MainPage {
                     .flex_none()
                     .gap_1()
                     .items_center()
-                    .child(
-                        toolbar_icon_button("nav-sidebar-toggle")
-                            .icon(toolbar_icon(if sidebar_collapsed {
-                                IconName::PanelLeftOpen
-                            } else {
-                                IconName::PanelLeftClose
-                            }))
-                            .tooltip(t!("sidebar.toggle"))
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.toggle_sidebar_collapsed(cx);
-                            })),
-                    )
                     .child(
                         toolbar_icon_button("nav-back")
                             .icon(toolbar_icon(IconName::ArrowLeft))

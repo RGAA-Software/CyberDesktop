@@ -4,8 +4,7 @@ use files_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
 use app_platform_windows::{open_item_properties, SHELL_RECYCLE_BIN_PATH};
 use gpui::{prelude::*, ClickEvent, *};
 use gpui_component::{
-    h_flex,
-    sidebar::{Sidebar, SidebarCollapsible, SidebarGroup, SidebarItem, SidebarToggleButton},
+    sidebar::{Sidebar, SidebarCollapsible, SidebarGroup, SidebarItem},
     IconName,
 };
 use rust_i18n::t;
@@ -27,7 +26,7 @@ pub fn render_sidebar(
     active: NavigationTarget,
     sections: &[SidebarSection],
     _window: &mut Window,
-    cx: &mut Context<MainPage>,
+    _cx: &mut Context<MainPage>,
 ) -> impl IntoElement {
     let config = load_config().unwrap_or_default();
     let collapsed = config.sidebar_collapsed;
@@ -39,29 +38,12 @@ pub fn render_sidebar(
         SidebarCollapsible::None
     };
 
-    let mut footer = h_flex().w_full().gap_2().items_center();
-    if collapsible != SidebarCollapsible::None {
-        footer = footer.child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .child(SidebarToggleButton::new().collapsed(collapsed).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.toggle_sidebar_collapsed(cx);
-                    }),
-                )),
-        );
-    }
-
     let mut sidebar = Sidebar::new("files-sidebar")
         .collapsible(collapsible)
         .collapsed(collapsed)
         .w_full()
         .min_w_0()
         .border_0();
-    if collapsible != SidebarCollapsible::None {
-        sidebar = sidebar.footer(footer);
-    }
 
     for section in sections {
         let mut menu = SidebarMenuWithDrop::new();
