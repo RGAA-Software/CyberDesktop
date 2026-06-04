@@ -18,12 +18,15 @@ use windows::Win32::UI::Shell::{
     AssocQueryStringW, IContextMenu, IContextMenu2, IContextMenu3, ASSOCF_INIT_BYEXENAME,
     ASSOCSTR_EXECUTABLE, ASSOCSTR_PROGID,
 };
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_CLASSES_ROOT, KEY_READ, REG_VALUE_TYPE,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetMenuItemInfoW, HBMMENU_CALLBACK, HMENU, MENUITEMINFOW, MIIM_BITMAP, WM_DRAWITEM,
     WM_INITMENUPOPUP, WM_MEASUREITEM,
 };
 
-use crate::shell_icon::shell_icon_png;
+use crate::shell_icon::{shell_icon_png, shell_icon_png_from_location};
 
 thread_local! {
     static MENU_ICON_EXTRACT_PX: Cell<u32> = const { Cell::new(16) };
@@ -438,10 +441,109 @@ fn assoc_query_string(
     }
 }
 
+fn hkcr_string_value(subkey: &str, value_name: Option<&str>) -> Option<String> {
+    unsafe {
+        let subkey_wide: Vec<u16> = std::ffi::OsStr::new(subkey)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let value_wide = value_name.map(|value| {
+            std::ffi::OsStr::new(value)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect::<Vec<u16>>()
+        });
+        let mut hkey = Default::default();
+        if RegOpenKeyExW(
+            HKEY_CLASSES_ROOT,
+            PCWSTR(subkey_wide.as_ptr()),
+            0,
+            KEY_READ,
+            &mut hkey,
+        )
+        .is_err()
+        {
+            return None;
+        }
+        let query_name = value_wide
+            .as_ref()
+            .map(|wide| PCWSTR(wide.as_ptr()))
+            .unwrap_or(PCWSTR::null());
+        let mut kind = REG_VALUE_TYPE::default();
+        let mut len = 0u32;
+        let _ = RegQueryValueExW(hkey, query_name, None, Some(&mut kind), None, Some(&mut len));
+        if len < 2 {
+            let _ = RegCloseKey(hkey);
+            return None;
+        }
+        let mut buf = vec![0u16; len as usize / 2 + 1];
+        if RegQueryValueExW(
+            hkey,
+            query_name,
+            None,
+            Some(&mut kind),
+            Some(buf.as_mut_ptr().cast()),
+            Some(&mut len),
+        )
+        .is_err()
+        {
+            let _ = RegCloseKey(hkey);
+            return None;
+        }
+        let _ = RegCloseKey(hkey);
+        let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+        let value = String::from_utf16_lossy(&buf[..end]).trim().to_string();
+        if value.is_empty() {
+            None
+        } else {
+            Some(value)
+        }
+    }
+}
+
+fn icon_for_registry_location(location: &str) -> Option<Vec<u8>> {
+    shell_icon_png_from_location(location, menu_icon_extract_px()).ok()
+}
+
+fn icon_for_registry_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!(".{ext}"));
+    let progid = ext
+        .as_deref()
+        .and_then(|ext| assoc_query_string(Default::default(), ASSOCSTR_PROGID, ext, None));
+    let mut keys = Vec::new();
+    if let Some(progid) = progid.as_deref() {
+        keys.push(format!("{progid}\\shell\\{verb}"));
+    }
+    if let Some(ext) = ext.as_deref() {
+        keys.push(format!("SystemFileAssociations\\{ext}\\shell\\{verb}"));
+        keys.push(format!("{ext}\\shell\\{verb}"));
+    }
+    keys.push(format!("*\\shell\\{verb}"));
+    keys.push(format!("AllFilesystemObjects\\shell\\{verb}"));
+    keys.push(format!("Explorer\\CommandStore\\shell\\{verb}"));
+
+    for key in keys {
+        if let Some(location) = hkcr_string_value(&key, Some("Icon"))
+            .or_else(|| hkcr_string_value(&format!("{key}\\Icon"), None))
+        {
+            if let Some(png) = icon_for_registry_location(&location) {
+                return Some(png);
+            }
+        }
+    }
+    None
+}
+
 fn icon_for_file_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
     let verb = verb.trim();
     if verb.is_empty() {
         return None;
+    }
+    if let Some(png) = icon_for_registry_verb(path, verb) {
+        return Some(png);
     }
     let exe = path
         .extension()

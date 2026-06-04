@@ -1,6 +1,7 @@
 //! Windows Shell icons (colorful folder / drive / file icons like Files.app).
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -14,7 +15,7 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
 use windows::Win32::UI::Controls::{IImageList, ILD_TRANSPARENT};
 use windows::Win32::UI::Shell::{
-    IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SHGetFileInfoW,
+    ExtractIconExW, IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SHGetFileInfoW,
     SHGetImageList, SHFILEINFOW, SHGFI_SYSICONINDEX, SHGFI_USEFILEATTRIBUTES, SHIL_EXTRALARGE,
     SHIL_JUMBO, SHIL_LARGE, SHIL_SMALL, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY, SIIGBF_SCALEUP,
     SIIGBF_THUMBNAILONLY,
@@ -112,6 +113,20 @@ pub fn shell_icon_png_scaled(
     scale_factor: f32,
 ) -> anyhow::Result<Vec<u8>> {
     shell_icon_png(path, shell_icon_pixel_size(logical_px, scale_factor))
+}
+
+/// Extract an icon from a registry-style location string such as
+/// `"C:\Windows\System32\shell32.dll,-16769"` or `"%SystemRoot%\system32\mspaint.exe,0"`.
+pub(crate) fn shell_icon_png_from_location(location: &str, size: u32) -> anyhow::Result<Vec<u8>> {
+    let size = size.max(16);
+    let location = location.trim();
+    let (path, index) = parse_icon_location(location);
+    let path = expand_percent_vars(path.trim_matches('"'));
+    if path.is_empty() {
+        anyhow::bail!("empty icon location");
+    }
+    let path = PathBuf::from(path);
+    run_sta_task(move || unsafe { extract_icon_png_inner(&path, index, size) })
 }
 
 /// Shell **thumbnail** for Home cards (`SIIGBF_THUMBNAILONLY`). Returns `None` when unavailable.
@@ -250,6 +265,70 @@ unsafe fn hicon_to_png(hicon: HICON) -> anyhow::Result<Vec<u8>> {
         let _ = DeleteObject(info.hbmMask);
     }
     png
+}
+
+fn parse_icon_location(location: &str) -> (&str, i32) {
+    let Some((path, suffix)) = location.rsplit_once(',') else {
+        return (location, 0);
+    };
+    let suffix = suffix.trim();
+    match suffix.parse::<i32>() {
+        Ok(index) => (path.trim(), index),
+        Err(_) => (location, 0),
+    }
+}
+
+fn expand_percent_vars(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            out.push(ch);
+            continue;
+        }
+        let mut name = String::new();
+        while let Some(&next) = chars.peek() {
+            chars.next();
+            if next == '%' {
+                break;
+            }
+            name.push(next);
+        }
+        if name.is_empty() {
+            out.push('%');
+            continue;
+        }
+        match std::env::var(&name) {
+            Ok(value) => out.push_str(&value),
+            Err(_) => {
+                out.push('%');
+                out.push_str(&name);
+                out.push('%');
+            }
+        }
+    }
+    out
+}
+
+unsafe fn extract_icon_png_inner(path: &Path, index: i32, _size: u32) -> anyhow::Result<Vec<u8>> {
+    let wide: Vec<u16> = OsStr::new(path)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let mut small = [HICON::default(); 1];
+    let extracted = ExtractIconExW(
+        PCWSTR(wide.as_ptr()),
+        index,
+        None,
+        Some(small.as_mut_ptr()),
+        1,
+    );
+    if extracted == 0 || small[0].is_invalid() {
+        anyhow::bail!("ExtractIconExW failed for {}", path.display());
+    }
+    let png = hicon_to_png(small[0])?;
+    let _ = DestroyIcon(small[0]);
+    Ok(png)
 }
 
 /// Converts a GDI bitmap to PNG (used for Shell context menu row icons).
