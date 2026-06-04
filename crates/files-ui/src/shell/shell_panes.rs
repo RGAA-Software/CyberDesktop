@@ -1,9 +1,5 @@
 use gpui::{prelude::*, *};
-use gpui_component::{
-    h_flex, label::Label, v_flex,
-    resizable::{h_resizable, resizable_panel},
-    ActiveTheme as _,
-};
+use gpui_component::{h_flex, label::Label, v_flex, ActiveTheme as _};
 
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::PaneShell;
@@ -105,6 +101,15 @@ impl ShellPanes {
         }
     }
 
+    fn activate_pane(&mut self, side: PaneSide, window: &mut Window, cx: &mut Context<Self>) {
+        let browser = match side {
+            PaneSide::Primary => self.primary.read(cx).file_browser(),
+            PaneSide::Secondary => self.secondary.read(cx).file_browser(),
+        };
+        window.focus(&browser.read(cx).focus_handle(cx), cx);
+        self.set_active(side, cx);
+    }
+
     pub fn active_pane(&self) -> Entity<PaneShell> {
         match (self.dual_pane, self.active) {
             (true, PaneSide::Secondary) => self.secondary.clone(),
@@ -192,29 +197,39 @@ impl Render for ShellPanes {
                             .on_mouse_down(
                                 MouseButton::Left,
                                 cx.listener(move |this, _, window, cx| {
-                                    let browser = match side {
-                                        PaneSide::Primary => this.primary.read(cx).file_browser(),
-                                        PaneSide::Secondary => this.secondary.read(cx).file_browser(),
-                                    };
-                                    let handle = browser.read(cx).focus_handle(cx);
-                                    window.focus(&handle, cx);
-                                    this.set_active(side, cx);
+                                    this.activate_pane(side, window, cx);
                                 }),
                             )
                             .child(pane),
                     )
             };
 
-        h_resizable("shell-panes")
+        // Equal flex split — avoid nested gpui_component::h_resizable here; a third
+        // resizable group inside main-layout + main-with-info-pane caused stack overflow
+        // when toggling dual pane (synchronous notify/prepaint loops).
+        h_flex()
+            .id("shell-panes")
+            .size_full()
+            .min_h_0()
             .child(
-                resizable_panel()
-                    .flex_1()
-                    .child(pane_wrapper(primary, primary_title, PaneSide::Primary, active == PaneSide::Primary)),
+                pane_wrapper(
+                    primary,
+                    primary_title,
+                    PaneSide::Primary,
+                    active == PaneSide::Primary,
+                )
+                .flex_1()
+                .min_w_0(),
             )
             .child(
-                resizable_panel()
-                    .flex_1()
-                    .child(pane_wrapper(secondary, secondary_title, PaneSide::Secondary, active == PaneSide::Secondary)),
+                pane_wrapper(
+                    secondary,
+                    secondary_title,
+                    PaneSide::Secondary,
+                    active == PaneSide::Secondary,
+                )
+                .flex_1()
+                .min_w_0(),
             )
             .into_any_element()
     }
