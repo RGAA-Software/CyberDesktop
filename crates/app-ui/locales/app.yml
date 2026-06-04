@@ -1478,11 +1478,11 @@ files.menu.extract_to_folder:
 files.menu.send_to:
   en: Send to
   zh-CN: 发送到
+  zh-HK: 傳送到
 files.menu.send_to_desktop_shortcut:
   en: Desktop (create shortcut)
   zh-CN: 发送到桌面快捷方式
   zh-HK: 傳送到桌面捷徑
-  zh-HK: 傳送到
 files.menu.add_to_tag:
   en: Add to tag
   zh-CN: 添加到标签
