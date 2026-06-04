@@ -1891,6 +1891,14 @@ settings.dual_pane.show_open_in_new_pane.description:
   en: Hides the command when off; Ctrl+Shift+Enter still opens folders in the secondary pane when dual pane is active.
   zh-CN: 关闭后隐藏该命令；双栏开启时仍可用 Ctrl+Shift+Enter 在副栏打开文件夹。
   zh-HK: 關閉後隱藏該命令；雙欄開啟時仍可用 Ctrl+Shift+Enter 在副欄開啟資料夾。
+settings.dual_pane.shortcuts:
+  en: Keyboard shortcuts
+  zh-CN: 快捷键
+  zh-HK: 快捷鍵
+settings.dual_pane.shortcuts.description:
+  en: Customize shortcuts for dual pane commands. All shortcuts are also listed under Actions.
+  zh-CN: 自定义双栏相关快捷键；完整列表亦可在「操作」页中查看与修改。
+  zh-HK: 自訂雙欄相關快捷鍵；完整清單亦可在「操作」頁中檢視與修改。
 settings.tabs.auto_restore:
   en: Restore previously opened tabs on launch
   zh-CN: 启动时恢复上次打开的标签页

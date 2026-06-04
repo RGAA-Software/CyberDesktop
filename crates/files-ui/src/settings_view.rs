@@ -50,7 +50,7 @@ use crate::shell::preferences::{
     sidebar_section_library, sidebar_section_network, sidebar_section_pinned, sidebar_section_wsl,
 };
 use app_ui::theme;
-use files_commands::shortcut_reference;
+use files_commands::{dual_pane_shortcut_reference, shortcut_reference, ShortcutHelp};
 use gpui::KeyDownEvent;
 
 use crate::keybindings::{
@@ -115,120 +115,155 @@ fn context_menu_settings_group(cx: &App) -> SettingGroup {
         ])
 }
 
+fn shortcut_binding_editor(
+    entries: Vec<ShortcutHelp>,
+    id_prefix: &'static str,
+    show_reset_all: bool,
+    cx: &App,
+) -> impl IntoElement {
+    let recording = recording_action_id(cx);
+    let conflict = conflict_action_id(cx);
+    v_flex()
+        .gap_2()
+        .w_full()
+        .on_key_down({
+            move |event: &KeyDownEvent, window, cx| {
+                if keybindings::handle_recording_key(event, cx) {
+                    window.refresh();
+                }
+            }
+        })
+        .when(show_reset_all, |col| {
+            col.child(
+                h_flex().w_full().justify_end().child(
+                    Button::new("reset-all-keybindings")
+                        .label(ts(t!("settings.actions.reset_all")))
+                        .with_size(Size::Small)
+                        .on_click(|_, window, cx| {
+                            let _ = reset_all_keybindings(cx);
+                            clear_conflict(cx);
+                            window.refresh();
+                        }),
+                ),
+            )
+        })
+        .when(conflict.is_some(), |col| {
+            let conflict_id = conflict.clone().unwrap();
+            let conflict_label = files_commands::action_spec_by_id(&conflict_id)
+                .map(|spec| t!(spec.i18n_key).to_string())
+                .unwrap_or(conflict_id);
+            col.child(
+                Label::new(t!("settings.actions.conflict", action = conflict_label))
+                    .text_sm()
+                    .text_color(cx.theme().danger),
+            )
+        })
+        .children(entries.into_iter().enumerate().map(|(index, entry)| {
+            let action_id = entry.action_id.to_string();
+            let label = t!(entry.message_key);
+            let is_recording = recording.as_deref() == Some(action_id.as_str());
+            let keystroke = display_keystroke_for(&action_id);
+            let record_btn_id = SharedString::from(format!("{id_prefix}-record-{index}"));
+            let reset_btn_id = SharedString::from(format!("{id_prefix}-reset-{index}"));
+            h_flex()
+                .id((id_prefix, index))
+                .w_full()
+                .items_center()
+                .justify_between()
+                .gap_3()
+                .py_1()
+                .when(is_recording, |row| row.bg(cx.theme().accent.opacity(0.15)))
+                .child(Label::new(label).text_sm())
+                .child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .child(
+                            Label::new(if is_recording {
+                                t!("settings.actions.press_key").to_string()
+                            } else {
+                                keystroke
+                            })
+                            .text_xs()
+                            .text_color(if is_recording {
+                                cx.theme().primary
+                            } else {
+                                cx.theme().muted_foreground
+                            }),
+                        )
+                        .child(
+                            Button::new(record_btn_id)
+                                .label(ts(t!("settings.actions.record")))
+                                .with_size(Size::Small)
+                                .on_click({
+                                    let action_id = action_id.clone();
+                                    move |_, window, cx| {
+                                        clear_conflict(cx);
+                                        start_recording(action_id.clone(), cx);
+                                        window.refresh();
+                                    }
+                                }),
+                        )
+                        .child(
+                            Button::new(reset_btn_id)
+                                .label(ts(t!("settings.actions.reset")))
+                                .with_size(Size::Small)
+                                .on_click({
+                                    let action_id = action_id.clone();
+                                    move |_, window, cx| {
+                                        let _ = reset_keybinding(&action_id, cx);
+                                        clear_conflict(cx);
+                                        window.refresh();
+                                    }
+                                }),
+                        ),
+                )
+        }))
+}
+
 fn actions_settings_group() -> SettingGroup {
     SettingGroup::new()
         .title(ts(t!("settings.group.actions")))
         .item(SettingItem::render(|_, _window, cx| {
-            let recording = recording_action_id(cx);
-            let conflict = conflict_action_id(cx);
             v_flex()
                 .gap_2()
                 .w_full()
-                .on_key_down({
-                    move |event: &KeyDownEvent, window, cx| {
-                        if keybindings::handle_recording_key(event, cx) {
-                            window.refresh();
-                        }
-                    }
-                })
                 .child(
                     Label::new(ts(t!("settings.actions.description")))
                         .text_sm()
                         .text_color(cx.theme().muted_foreground),
                 )
-                .child(
-                    h_flex()
-                        .w_full()
-                        .justify_end()
-                        .child(
-                            Button::new("reset-all-keybindings")
-                                .label(ts(t!("settings.actions.reset_all")))
-                                .with_size(Size::Small)
-                                .on_click(|_, window, cx| {
-                                    let _ = reset_all_keybindings(cx);
-                                    clear_conflict(cx);
-                                    window.refresh();
-                                }),
-                        ),
-                )
-                .when(conflict.is_some(), |col| {
-                    let conflict_id = conflict.clone().unwrap();
-                    let conflict_label = files_commands::action_spec_by_id(&conflict_id)
-                        .map(|spec| t!(spec.i18n_key).to_string())
-                        .unwrap_or(conflict_id);
-                    col.child(
-                        Label::new(t!(
-                            "settings.actions.conflict",
-                            action = conflict_label
-                        ))
-                        .text_sm()
-                        .text_color(cx.theme().danger),
-                    )
-                })
-                .children(shortcut_reference().into_iter().enumerate().map(
-                    |(index, entry)| {
-                        let action_id = entry.action_id.to_string();
-                        let label = t!(entry.message_key);
-                        let is_recording = recording.as_deref() == Some(action_id.as_str());
-                        let keystroke = display_keystroke_for(&action_id);
-                        h_flex()
-                            .id(("shortcut-row", index))
-                            .w_full()
-                            .items_center()
-                            .justify_between()
-                            .gap_3()
-                            .py_1()
-                            .when(is_recording, |row| {
-                                row.bg(cx.theme().accent.opacity(0.15))
-                            })
-                            .child(Label::new(label).text_sm())
-                            .child(
-                                h_flex()
-                                    .gap_2()
-                                    .items_center()
-                                    .child(
-                                        Label::new(if is_recording {
-                                            t!("settings.actions.press_key").to_string()
-                                        } else {
-                                            keystroke
-                                        })
-                                        .text_xs()
-                                        .text_color(if is_recording {
-                                            cx.theme().primary
-                                        } else {
-                                            cx.theme().muted_foreground
-                                        }),
-                                    )
-                                    .child(
-                                        Button::new(("record-shortcut", index))
-                                            .label(ts(t!("settings.actions.record")))
-                                            .with_size(Size::Small)
-                                            .on_click({
-                                                let action_id = action_id.clone();
-                                                move |_, window, cx| {
-                                                    clear_conflict(cx);
-                                                    start_recording(action_id.clone(), cx);
-                                                    window.refresh();
-                                                }
-                                            }),
-                                    )
-                                    .child(
-                                        Button::new(("reset-shortcut", index))
-                                            .label(ts(t!("settings.actions.reset")))
-                                            .with_size(Size::Small)
-                                            .on_click({
-                                                let action_id = action_id.clone();
-                                                move |_, window, cx| {
-                                                    let _ = reset_keybinding(&action_id, cx);
-                                                    clear_conflict(cx);
-                                                    window.refresh();
-                                                }
-                                            }),
-                                    ),
-                            )
-                    },
+                .child(shortcut_binding_editor(
+                    shortcut_reference(),
+                    "actions-shortcut",
+                    true,
+                    cx,
                 ))
         }))
+}
+
+fn dual_pane_shortcuts_settings_item() -> SettingItem {
+    SettingItem::render(|_, _window, cx| {
+        v_flex()
+            .gap_2()
+            .w_full()
+            .child(
+                Label::new(ts(t!("settings.dual_pane.shortcuts")))
+                    .text_sm()
+                    .font_semibold(),
+            )
+            .child(
+                Label::new(ts(t!("settings.dual_pane.shortcuts.description")))
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground),
+            )
+            .child(shortcut_binding_editor(
+                dual_pane_shortcut_reference(),
+                "dual-pane-shortcut",
+                false,
+                cx,
+            ))
+    })
 }
 
 fn search_reference_line(label: SharedString) -> impl IntoElement {
@@ -916,6 +951,7 @@ pub fn build_settings(cx: &App) -> Settings {
                             .description(ts(
                                 t!("settings.dual_pane.show_open_in_new_pane.description"),
                             )),
+                            dual_pane_shortcuts_settings_item(),
                         ]),
                 ]),
             SettingPage::new(ts(t!("settings.page.home")))

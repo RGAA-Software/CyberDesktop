@@ -9,7 +9,9 @@ pub use keystroke_util::{
     binding_conflict, is_customized, is_valid_binding_keystroke, keystroke_from_event,
     keystroke_to_display, resolved_keystroke_for, resolved_keystroke_raw,
 };
-pub use shortcuts::{shortcut_reference, ShortcutHelp};
+pub use shortcuts::{
+    dual_pane_shortcut_reference, shortcut_reference, ShortcutHelp, DUAL_PANE_SHORTCUT_ACTION_IDS,
+};
 
 actions!(
     files_commands,

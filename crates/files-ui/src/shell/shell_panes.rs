@@ -471,6 +471,10 @@ impl Render for ShellPanes {
                     .size_full()
                     .min_h_0()
                     .overflow_hidden()
+                    // Capture phase: activate before FileBrowser/list stop_propagation.
+                    .capture_any_mouse_down(cx.listener(move |this, _, window, cx| {
+                        this.activate_pane(side, window, cx);
+                    }))
                     .child(pane_title(title, is_active))
                     .child(
                         div()
@@ -483,12 +487,6 @@ impl Render for ShellPanes {
                             } else {
                                 cx.theme().border
                             })
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(move |this, _, window, cx| {
-                                    this.activate_pane(side, window, cx);
-                                }),
-                            )
                             .child(pane),
                     )
             };
