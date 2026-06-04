@@ -3,13 +3,25 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaPlayerConfig {
     pub recent_paths: Vec<PathBuf>,
     pub volume: f64,
     pub muted: bool,
     pub remember_position: bool,
     pub last_positions: Vec<(PathBuf, f64)>,
+}
+
+impl Default for MediaPlayerConfig {
+    fn default() -> Self {
+        Self {
+            recent_paths: Vec::new(),
+            volume: 50.0,
+            muted: false,
+            remember_position: true,
+            last_positions: Vec::new(),
+        }
+    }
 }
 
 impl MediaPlayerConfig {

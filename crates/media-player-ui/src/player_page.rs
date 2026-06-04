@@ -110,6 +110,7 @@ pub struct PlayerPage {
     visualizer: Option<AudioVisualizer>,
     visualizer_spectrum: Vec<f32>,
     visualizer_generation: u64,
+    spectrum_max_height: f32,
     _seek_subscription: Subscription,
     _volume_subscription: Subscription,
 }
@@ -130,8 +131,10 @@ impl PlayerPage {
             }
         });
 
+        let config = MediaPlayerConfig::load();
+        let default_volume = (config.volume.clamp(0.0, 100.0) / 100.0) as f32;
         let volume_slider =
-            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.01).default_value(1.0));
+            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.01).default_value(default_volume));
         let volume_subscription =
             cx.subscribe(&volume_slider, |this, _, event: &SliderEvent, cx| {
                 match event {
@@ -141,8 +144,6 @@ impl PlayerPage {
                     }
                 }
             });
-
-        let config = MediaPlayerConfig::load();
         Self {
             focus_handle: cx.focus_handle(),
             playlist: Playlist::from_paths(initial_paths),
@@ -176,6 +177,7 @@ impl PlayerPage {
             visualizer: None,
             visualizer_spectrum: vec![0.0; SPECTRUM_BANDS],
             visualizer_generation: 0,
+            spectrum_max_height: 180.0,
             config,
             _seek_subscription: seek_subscription,
             _volume_subscription: volume_subscription,
@@ -196,6 +198,7 @@ impl PlayerPage {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> anyhow::Result<()> {
+        self.stop();
         let info = app_mpv_ffi::probe_media(path).ok();
         let is_video = info.as_ref().and_then(|i| i.video_codec.as_ref()).is_some();
         self.total_duration = info.as_ref().and_then(|i| i.duration);
@@ -311,7 +314,7 @@ impl PlayerPage {
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor()
-                    .timer(Duration::from_millis(200))
+                    .timer(Duration::from_secs(1))
                     .await;
 
                 let mut keep_polling = false;
@@ -352,6 +355,7 @@ impl PlayerPage {
                                     }
                                 }
                             }
+                            _cx.notify();
                         }
                         Some(MediaType::Audio) => {
                             if let Some(player) = this.audio_player.as_ref() {
@@ -374,6 +378,7 @@ impl PlayerPage {
                                     }
                                 }
                             }
+                            _cx.notify();
                         }
                         None => {}
                     }
@@ -501,6 +506,11 @@ impl PlayerPage {
             }
             None => {}
         }
+        #[cfg(windows)]
+        if let Some(surface) = self.video_surface.as_ref() {
+            surface.set_visible(false);
+        }
+        self.video_host_bounds = None;
         self.is_playing = false;
         self.is_paused = false;
         self.current_position = None;
@@ -727,12 +737,13 @@ impl PlayerPage {
 
             if let Some(paths) = paths {
                 let _ = this.update(cx, |this, _cx| {
-                    let was_empty = this.playlist.is_empty();
+                    let start_index = this.playlist.len();
                     for path in paths {
                         this.playlist.add(path.clone());
                         this.config.add_recent(path);
                     }
-                    if was_empty && !this.playlist.is_empty() {
+                    if !this.playlist.is_empty() {
+                        this.playlist.select(start_index);
                         this.pending_load = true;
                     }
                     this.save_config();
@@ -761,12 +772,13 @@ impl PlayerPage {
                 media_files.sort();
 
                 let _ = this.update(cx, |this, _cx| {
-                    let was_empty = this.playlist.is_empty();
+                    let start_index = this.playlist.len();
                     for path in media_files {
                         this.playlist.add(path.clone());
                         this.config.add_recent(path);
                     }
-                    if was_empty && !this.playlist.is_empty() {
+                    if !this.playlist.is_empty() {
+                        this.playlist.select(start_index);
                         this.pending_load = true;
                     }
                     this.save_config();
@@ -907,8 +919,7 @@ impl Render for PlayerPage {
         let video_area = match self.media_type {
             Some(MediaType::Video) => div()
                 .id("video-host")
-                .flex_1()
-                .min_h(px(200.))
+                .size_full()
                 .bg(gpui::rgba(0x0d121aff))
                 .on_prepaint({
                     let entity = _entity.clone();
@@ -937,7 +948,7 @@ impl Render for PlayerPage {
                     .and_then(|p| p.file_name())
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| "No file".to_string());
-                let max_bar_height = 180.0;
+                let max_bar_height = self.spectrum_max_height;
                 let bar_width = 3.0;
                 let gap = 1.0;
                 let spectrum_bars: Vec<_> = self
@@ -957,30 +968,41 @@ impl Render for PlayerPage {
                     .collect();
                 div()
                     .id("audio-host")
-                    .flex_1()
-                    .min_h(px(200.))
+                    .size_full()
                     .bg(gpui::rgba(0x0d121aff))
                     .flex()
                     .flex_col()
                     .items_center()
-                    .justify_center()
-                    .gap(px(8.))
+                    .justify_end()
+                    .px(px(16.))
+                    .pb(px(16.))
+                    .on_prepaint({
+                        let entity = _entity.clone();
+                        move |bounds, _window, cx| {
+                            let _ = entity.update(cx, |this, _cx| {
+                                let height: f32 = bounds.size.height.into();
+                                this.spectrum_max_height = (height * 0.85).max(100.0);
+                            });
+                        }
+                    })
                     .child(
                         div()
-                            .px(px(16.))
-                            .py(px(8.))
-                            .rounded(px(8.))
-                            .bg(gpui::rgba(0x1a1f2eff))
+                            .flex_1()
+                            .w_full()
+                            .flex()
+                            .items_end()
+                            .justify_center()
+                            .overflow_hidden()
                             .child(
                                 h_flex()
                                     .items_end()
                                     .gap(px(gap))
-                                    .h(px(max_bar_height))
                                     .children(spectrum_bars),
                             ),
                     )
                     .child(
                         div()
+                            .pt(px(8.))
                             .text_color(cx.theme().foreground)
                             .child(audio_name),
                     )
@@ -1057,6 +1079,7 @@ impl Render for PlayerPage {
             .id("player-page")
             .size_full()
             .on_drop(cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
+                let start_index = this.playlist.len();
                 let mut added = false;
                 for path in paths.paths() {
                     if is_media_file(path) {
@@ -1067,10 +1090,9 @@ impl Render for PlayerPage {
                 }
                 if added {
                     this.save_config();
-                    if !this.is_playing && !this.playlist.is_empty() {
-                        if let Some(path) = this.playlist.current().cloned() {
-                            let _ = this.load_media(&path, window, cx);
-                        }
+                    if let Some(path) = this.playlist.items().get(start_index).cloned() {
+                        let _ = this.playlist.select(start_index);
+                        let _ = this.load_media(&path, window, cx);
                     }
                 }
             }))
@@ -1139,7 +1161,7 @@ impl Render for PlayerPage {
                     .flex_1()
                     .min_h(px(200.))
                     .child(playlist_sidebar)
-                    .child(div().flex_1().child(video_area)),
+                    .child(div().flex_1().h_full().child(video_area)),
             )
             .child(
                 v_flex()
