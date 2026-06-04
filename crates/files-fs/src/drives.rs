@@ -119,3 +119,17 @@ pub fn home_navigation_path() -> PathBuf {
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_else(|| PathBuf::from("."))
 }
+
+/// User Desktop folder (Send to desktop shortcut).
+pub fn user_desktop_directory() -> Option<PathBuf> {
+    let profile = default_user_profile()?;
+    let desktop = profile.join("Desktop");
+    if desktop.is_dir() {
+        return Some(desktop);
+    }
+    let onedrive_desktop = profile.join("OneDrive").join("Desktop");
+    if onedrive_desktop.is_dir() {
+        return Some(onedrive_desktop);
+    }
+    None
+}

@@ -86,18 +86,6 @@ fn menu_click_item_with_icon(
         .on_click(on_click)
 }
 
-fn menu_notice_item(
-    label: impl Into<SharedString>,
-    icon: IconName,
-    message: SharedString,
-) -> PopupMenuItem {
-    PopupMenuItem::new(label.into())
-        .icon(menu_icon(icon))
-        .on_click(move |_, window, cx| {
-            window.push_notification(Notification::info(message.clone()), cx);
-        })
-}
-
 fn shell_menu_item_is_properties(command_string: Option<&str>, label: &str) -> bool {
     if command_string.is_some_and(|v| v.eq_ignore_ascii_case("properties")) {
         return true;
@@ -257,8 +245,8 @@ fn append_send_to_submenu(
         cx,
         move |sub, window, cx| {
             let loaded = resolve_submenu_entries(None, &children_stash);
-            if loaded.is_empty() {
-                sub.item(PopupMenuItem::new(t!("files.menu.shell_empty")).disabled(true))
+            let sub = if loaded.is_empty() {
+                sub
             } else {
                 append_shell_entries(
                     sub,
@@ -269,7 +257,34 @@ fn append_send_to_submenu(
                     window,
                     cx,
                 )
-            }
+            };
+            sub.separator().item(
+                PopupMenuItem::new(t!("files.menu.send_to_desktop_shortcut"))
+                    .icon(menu_icon(IconName::ExternalLink))
+                    .on_click({
+                        let paths = paths_for_sub.clone();
+                        let browser_sub = browser_sub.clone();
+                        move |_, window, cx| {
+                            let _ = browser_sub.update(cx, |browser, cx| {
+                                browser.dismiss_context_menu();
+                                cx.notify();
+                            });
+                            match super::helpers::create_desktop_shortcuts(&paths) {
+                                Ok(()) => window.push_notification(
+                                    Notification::success(t!("files.create_shortcut.success")),
+                                    cx,
+                                ),
+                                Err(error) => window.push_notification(
+                                    Notification::error(format!(
+                                        "{}: {error}",
+                                        t!("files.create_shortcut.error")
+                                    )),
+                                    cx,
+                                ),
+                            }
+                        }
+                    }),
+            )
         },
     )
 }
@@ -908,8 +923,6 @@ fn build_directory_item_menu(
         );
     }
 
-    let not_implemented: SharedString = t!("files.menu.not_implemented").into();
-
     if item_prefs.send_to && has_selection {
         let send_to_children = shell_feature_entries(
             &shell_menu_cache,
@@ -918,23 +931,15 @@ fn build_directory_item_menu(
             is_send_to_submenu_label,
             menu_icon_px,
         );
-        if send_to_children.is_empty() {
-            menu = menu.item(menu_notice_item(
-                t!("files.menu.send_to"),
-                IconName::ExternalLink,
-                not_implemented.clone(),
-            ));
-        } else {
-            menu = append_send_to_submenu(
-                menu,
-                &send_to_children,
-                &paths,
-                extended,
-                browser.clone(),
-                window,
-                cx,
-            );
-        }
+        menu = append_send_to_submenu(
+            menu,
+            &send_to_children,
+            &paths,
+            extended,
+            browser.clone(),
+            window,
+            cx,
+        );
     }
 
     if item_prefs.pin && single_dir {

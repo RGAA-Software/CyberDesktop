@@ -37,7 +37,9 @@ pub use clipboard::{
     TransferOutcome,
 };
 pub use columns::column_trail_for;
-pub use drives::{default_user_profile, home_navigation_path, list_drives, DriveInfo};
+pub use drives::{
+    default_user_profile, home_navigation_path, list_drives, user_desktop_directory, DriveInfo,
+};
 pub use file_tag::{
     apply_tags_to_items, build_path_tag_index, build_path_tag_index_from_config,
     build_path_tag_index_from_configs, file_items_for_tag_paths, parse_tag_color_hex,

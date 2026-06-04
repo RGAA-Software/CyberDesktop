@@ -872,6 +872,12 @@ pub(super) fn create_shortcuts_for_paths(paths: &[PathBuf]) -> anyhow::Result<()
     Ok(())
 }
 
+pub(super) fn create_desktop_shortcuts(paths: &[PathBuf]) -> anyhow::Result<()> {
+    let desktop = files_fs::user_desktop_directory()
+        .ok_or_else(|| anyhow::anyhow!("desktop folder not found"))?;
+    create_shortcuts_in_folder(paths, &desktop)
+}
+
 pub(super) fn sort_direction_config_value(direction: SortDirection) -> &'static str {
     match direction {
         SortDirection::Ascending => "asc",
