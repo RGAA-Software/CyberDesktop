@@ -33,6 +33,8 @@ mod shell_folder;
 #[cfg(windows)]
 mod shell_icon;
 #[cfg(windows)]
+mod shell_menu_icon;
+#[cfg(windows)]
 mod shell_menu_session;
 #[cfg(windows)]
 mod storage;

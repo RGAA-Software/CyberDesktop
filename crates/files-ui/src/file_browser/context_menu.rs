@@ -398,6 +398,7 @@ fn append_shell_flat_items(
 fn append_shell_submenu(
     menu: PopupMenu,
     label: String,
+    icon_png: Option<Vec<u8>>,
     children: &[ShellContextMenuEntry],
     lazy_parent_index: Option<u32>,
     paths: &[PathBuf],
@@ -412,23 +413,29 @@ fn append_shell_submenu(
     let browser_sub = browser.clone();
     let lazy_index = lazy_parent_index;
     let children_stash = children.to_vec();
-    menu.submenu(display_label, window, cx, move |sub, window, cx| {
-        let loaded = resolve_submenu_entries(lazy_index, &children_stash);
-        let _ = &log_label;
-        if loaded.is_empty() {
-            sub.item(PopupMenuItem::new(t!("files.menu.shell_empty")).disabled(true))
-        } else {
-            append_shell_entries(
-                sub,
-                &loaded,
-                &paths_for_sub,
-                extended_verbs,
-                browser_sub.clone(),
-                window,
-                cx,
-            )
-        }
-    })
+    menu.submenu_with_icon_png(
+        display_label,
+        icon_png.map(std::sync::Arc::new),
+        window,
+        cx,
+        move |sub, window, cx| {
+            let loaded = resolve_submenu_entries(lazy_index, &children_stash);
+            let _ = &log_label;
+            if loaded.is_empty() {
+                sub.item(PopupMenuItem::new(t!("files.menu.shell_empty")).disabled(true))
+            } else {
+                append_shell_entries(
+                    sub,
+                    &loaded,
+                    &paths_for_sub,
+                    extended_verbs,
+                    browser_sub.clone(),
+                    window,
+                    cx,
+                )
+            }
+        },
+    )
 }
 
 pub(crate) fn append_shell_entries(
@@ -449,6 +456,7 @@ pub(crate) fn append_shell_entries(
                     label,
                     children,
                     lazy_parent_index,
+                    icon_png,
                     ..
                 } => {
                     if !flat_batch.is_empty() {
@@ -458,6 +466,7 @@ pub(crate) fn append_shell_entries(
                     menu = append_shell_submenu(
                         menu,
                         label.clone(),
+                        icon_png.clone(),
                         children,
                         *lazy_parent_index,
                         paths,
@@ -1005,8 +1014,15 @@ fn build_directory_item_menu(
                 cx,
             );
         } else {
-            menu =
-                append_inline_shell_extensions(menu, paths, shell_menu_cache, browser, window, cx);
+            menu = append_inline_shell_extensions(
+                menu,
+                paths,
+                extended,
+                shell_menu_cache,
+                browser,
+                window,
+                cx,
+            );
         }
     }
 
@@ -1016,18 +1032,19 @@ fn build_directory_item_menu(
 fn append_inline_shell_extensions(
     menu: PopupMenu,
     paths: Vec<PathBuf>,
+    extended_verbs: bool,
     shell_menu_cache: Arc<RwLock<Option<super::ShellMenuCache>>>,
     browser: Entity<FileBrowser>,
     window: &mut Window,
     cx: &mut Context<PopupMenu>,
 ) -> PopupMenu {
-    match shell_submenu_snapshot(&shell_menu_cache, &paths, false) {
+    match shell_submenu_snapshot(&shell_menu_cache, &paths, extended_verbs) {
         ShellSubmenuSnapshot::Loading => {
             menu.item(PopupMenuItem::new(t!("files.menu.shell_loading")).disabled(true))
         }
         ShellSubmenuSnapshot::Empty => menu,
         ShellSubmenuSnapshot::Ready(entries) => {
-            append_shell_entries(menu, &entries, &paths, false, browser, window, cx)
+            append_shell_entries(menu, &entries, &paths, extended_verbs, browser, window, cx)
         }
     }
 }

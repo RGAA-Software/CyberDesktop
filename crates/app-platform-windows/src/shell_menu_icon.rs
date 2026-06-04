@@ -1,0 +1,500 @@
+//! Extract icons from Shell `IContextMenu` HMENU items (bitmap, callback draw, verb fallback).
+
+use std::cell::Cell;
+use std::os::windows::ffi::OsStrExt;
+use std::path::Path;
+
+use windows::core::{Interface, PCWSTR, PWSTR};
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Graphics::Gdi::{
+    CreateCompatibleBitmap, CreateCompatibleDC, CreateSolidBrush, DeleteDC, DeleteObject, FillRect,
+    GetDC, GetDIBits, GetObjectW, ReleaseDC, SelectObject, BITMAP, BITMAPINFO, BITMAPINFOHEADER,
+    BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ,
+};
+use windows::Win32::UI::Controls::{
+    DRAWITEMSTRUCT, MEASUREITEMSTRUCT, ODA_DRAWENTIRE, ODS_DEFAULT, ODT_MENU,
+};
+use windows::Win32::UI::Shell::{
+    AssocQueryStringW, IContextMenu, IContextMenu2, IContextMenu3, ASSOCF_INIT_BYEXENAME,
+    ASSOCSTR_EXECUTABLE, ASSOCSTR_PROGID,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetMenuItemInfoW, HBMMENU_CALLBACK, HMENU, MENUITEMINFOW, MIIM_BITMAP, WM_DRAWITEM,
+    WM_INITMENUPOPUP, WM_MEASUREITEM,
+};
+
+use crate::shell_icon::shell_icon_png;
+
+thread_local! {
+    static MENU_ICON_EXTRACT_PX: Cell<u32> = const { Cell::new(16) };
+}
+
+/// BGR in memory; matches GDI `RGB(255, 0, 255)` chroma for owner-draw (Files `MakeTransparent`).
+const CHROMA_B: u8 = 255;
+const CHROMA_G: u8 = 0;
+const CHROMA_R: u8 = 255;
+
+pub(crate) fn set_menu_icon_extract_px(px: u32) {
+    MENU_ICON_EXTRACT_PX.with(|c| {
+        c.set(px.clamp(16, crate::shell_icon::MAX_ICON_SIZE));
+    });
+}
+
+fn menu_icon_extract_px() -> u32 {
+    MENU_ICON_EXTRACT_PX.with(|c| c.get())
+}
+
+/// Notify shell extensions that the popup is about to display (populates `hbmpItem` / callbacks).
+pub(crate) unsafe fn init_popup_menu(popup: HMENU, menu: &IContextMenu) {
+    let Ok(cmenu2) = menu.cast::<IContextMenu2>() else {
+        return;
+    };
+    let _ = cmenu2.HandleMenuMsg(
+        WM_INITMENUPOPUP,
+        WPARAM(popup.0 as usize),
+        LPARAM(0),
+    );
+}
+
+/// Shell `hbmpItem` sentinel values (Files `HBITMAP_HMENU`); not real bitmap handles.
+fn is_special_menu_bitmap(hbmp: HBITMAP) -> bool {
+    if hbmp.is_invalid() {
+        return true;
+    }
+    let v = hbmp.0 as i64;
+    matches!(v, -1 | 1 | 2 | 3 | 5 | 6 | 7 | 8 | 9 | 10 | 11)
+}
+
+fn is_callback_bitmap(hbmp: HBITMAP) -> bool {
+    hbmp == HBMMENU_CALLBACK
+}
+
+fn is_chroma_bgr(b: u8, g: u8, r: u8) -> bool {
+    b.abs_diff(CHROMA_B) <= 12 && g.abs_diff(CHROMA_G) <= 12 && r.abs_diff(CHROMA_R) <= 12
+}
+
+fn unpremultiply_rgba(r: u8, g: u8, b: u8, a: u8) -> image::Rgba<u8> {
+    if a == 0 {
+        return image::Rgba([0, 0, 0, 0]);
+    }
+    if a == 255 {
+        return image::Rgba([r, g, b, 255]);
+    }
+    let a_u = a as u32;
+    let scale = |c: u8| -> u8 {
+        ((c as u32 * 255 + a_u / 2) / a_u).min(255) as u8
+    };
+    image::Rgba([scale(r), scale(g), scale(b), a])
+}
+
+fn pixel_to_rgba(b: u8, g: u8, r: u8, a: u8, chroma_key: bool, unpremultiply: bool) -> image::Rgba<u8> {
+    if chroma_key && is_chroma_bgr(b, g, r) {
+        return image::Rgba([0, 0, 0, 0]);
+    }
+    if unpremultiply {
+        unpremultiply_rgba(r, g, b, a)
+    } else {
+        image::Rgba([r, g, b, a])
+    }
+}
+
+unsafe fn fill_dc_chroma(dc: HDC, width: i32, height: i32) {
+    let brush = CreateSolidBrush(COLORREF(0x00FF_00FF));
+    if brush.is_invalid() {
+        return;
+    }
+    let rect = RECT {
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height,
+    };
+    let _ = FillRect(dc, &rect, brush);
+    let _ = DeleteObject(HGDIOBJ::from(brush));
+}
+
+unsafe fn rgba_pixels_to_png(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    stride: usize,
+    chroma_key: bool,
+    unpremultiply: bool,
+) -> Option<Vec<u8>> {
+    if width == 0 || height == 0 {
+        return None;
+    }
+    let mut img = image::RgbaImage::new(width, height);
+    let mut visible_pixels = 0u32;
+    for y in 0..height {
+        for x in 0..width {
+            let i = y as usize * stride + x as usize * 4;
+            if i + 3 >= pixels.len() {
+                return None;
+            }
+            let rgba = pixel_to_rgba(
+                pixels[i],
+                pixels[i + 1],
+                pixels[i + 2],
+                pixels[i + 3],
+                chroma_key,
+                unpremultiply,
+            );
+            if rgba[3] != 0 {
+                visible_pixels += 1;
+            }
+            img.put_pixel(x, y, rgba);
+        }
+    }
+    if visible_pixels == 0 {
+        return None;
+    }
+    let mut png = Vec::new();
+    let mut cursor = std::io::Cursor::new(&mut png);
+    img.write_to(&mut cursor, image::ImageFormat::Png).ok()?;
+    Some(png)
+}
+
+/// Files `GetBitmapFromHBitmap`: read DIB-section pixels (PARGB) before `CopyImage`.
+unsafe fn hbitmap_dibsection_png(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<u8>> {
+    let mut bm = BITMAP::default();
+    if GetObjectW(
+        hbmp,
+        std::mem::size_of::<BITMAP>() as i32,
+        Some(&mut bm as *mut _ as *mut _),
+    ) == 0
+    {
+        return None;
+    }
+    let width = bm.bmWidth.unsigned_abs();
+    let height = bm.bmHeight.unsigned_abs();
+    if width == 0 || height == 0 {
+        return None;
+    }
+    if bm.bmBits.is_null() || bm.bmBitsPixel < 32 {
+        return None;
+    }
+
+    let stride = bm.bmWidthBytes.max(width as i32 * 4) as usize;
+    let size = stride.saturating_mul(height as usize);
+    let bits = std::slice::from_raw_parts(bm.bmBits.cast::<u8>(), size);
+    let mut has_alpha = false;
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let a = bits[y * stride + x * 4 + 3];
+            if a != 0 && a != 255 {
+                has_alpha = true;
+                break;
+            }
+        }
+        if has_alpha {
+            break;
+        }
+    }
+    rgba_pixels_to_png(bits, width, height, stride, chroma_key, has_alpha)
+}
+
+unsafe fn hbitmap_via_copy_image(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<u8>> {
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::UI::WindowsAndMessaging::{CopyImage, IMAGE_BITMAP, LR_COPYRETURNORG};
+
+    let extract_px = menu_icon_extract_px() as i32;
+    let copy = CopyImage(
+        HANDLE(hbmp.0),
+        IMAGE_BITMAP,
+        extract_px,
+        extract_px,
+        LR_COPYRETURNORG,
+    )
+    .ok()?;
+    let copy = HBITMAP(copy.0);
+    let png = hbitmap_compatible_dc_png(copy, chroma_key);
+    let _ = DeleteObject(HGDIOBJ::from(copy));
+    png
+}
+
+unsafe fn hbitmap_compatible_dc_png(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<u8>> {
+    let mut bm = BITMAP::default();
+    if GetObjectW(
+        hbmp,
+        std::mem::size_of::<BITMAP>() as i32,
+        Some(&mut bm as *mut _ as *mut _),
+    ) == 0
+    {
+        return None;
+    }
+    let width = bm.bmWidth.unsigned_abs();
+    let height = bm.bmHeight.unsigned_abs();
+    if width == 0 || height == 0 {
+        return None;
+    }
+
+    let hdc_screen = GetDC(None);
+    if hdc_screen.is_invalid() {
+        return None;
+    }
+    let hdc_mem = CreateCompatibleDC(hdc_screen);
+    if hdc_mem.is_invalid() {
+        let _ = ReleaseDC(None, hdc_screen);
+        return None;
+    }
+    let _selected = SelectObject(hdc_mem, HBITMAP(hbmp.0));
+
+    let mut bmi = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: width as i32,
+            biHeight: -(height as i32),
+            biPlanes: 1,
+            biBitCount: 32,
+            biCompression: BI_RGB.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let stride = (width * 4) as usize;
+    let mut pixels = vec![0u8; stride * height as usize];
+    let lines = GetDIBits(
+        hdc_mem,
+        hbmp,
+        0,
+        height,
+        Some(pixels.as_mut_ptr() as *mut _),
+        &mut bmi,
+        DIB_RGB_COLORS,
+    );
+    let _ = SelectObject(hdc_mem, _selected);
+    let _ = DeleteDC(hdc_mem);
+    let _ = ReleaseDC(None, hdc_screen);
+
+    if lines == 0 {
+        return None;
+    }
+    rgba_pixels_to_png(&pixels, width, height, stride, chroma_key, true)
+}
+
+pub(crate) unsafe fn menu_item_bitmap_png(hbmp: HBITMAP) -> Option<Vec<u8>> {
+    menu_item_bitmap_png_inner(hbmp, false)
+}
+
+unsafe fn menu_item_bitmap_png_inner(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<u8>> {
+    if is_special_menu_bitmap(hbmp) {
+        return None;
+    }
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        hbitmap_dibsection_png(hbmp, chroma_key)
+            .or_else(|| hbitmap_via_copy_image(hbmp, chroma_key))
+            .or_else(|| hbitmap_compatible_dc_png(hbmp, chroma_key))
+    }))
+    .ok()
+    .flatten()
+}
+
+unsafe fn dispatch_menu_msg(menu: &IContextMenu, msg: u32, wparam: WPARAM, lparam: LPARAM) {
+    if let Ok(cmenu3) = menu.cast::<IContextMenu3>() {
+        let mut result = LRESULT::default();
+        if cmenu3
+            .HandleMenuMsg2(msg, wparam, lparam, Some(&mut result as *mut _))
+            .is_ok()
+        {
+            return;
+        }
+    }
+    if let Ok(cmenu2) = menu.cast::<IContextMenu2>() {
+        let _ = cmenu2.HandleMenuMsg(msg, wparam, lparam);
+    }
+}
+
+/// Simulate owner-draw for `HBMMENU_CALLBACK` (MSDN: `DRAWITEMSTRUCT.hwndItem` is the `HMENU`).
+unsafe fn menu_item_icon_via_draw(
+    menu: &IContextMenu,
+    popup: HMENU,
+    item_id: u32,
+) -> Option<Vec<u8>> {
+    let px = menu_icon_extract_px().max(16) as i32;
+    let screen_dc = GetDC(None);
+    if screen_dc.is_invalid() {
+        return None;
+    }
+    let mem_dc = CreateCompatibleDC(screen_dc);
+    if mem_dc.is_invalid() {
+        let _ = ReleaseDC(None, screen_dc);
+        return None;
+    }
+    let bmp = CreateCompatibleBitmap(screen_dc, px, px);
+    if bmp.is_invalid() {
+        let _ = DeleteDC(mem_dc);
+        let _ = ReleaseDC(None, screen_dc);
+        return None;
+    }
+    let old = SelectObject(mem_dc, HGDIOBJ::from(bmp));
+    fill_dc_chroma(mem_dc, px, px);
+
+    let mut measure = MEASUREITEMSTRUCT {
+        CtlType: ODT_MENU,
+        CtlID: 0,
+        itemID: item_id,
+        itemWidth: 0,
+        itemHeight: 0,
+        itemData: 0,
+    };
+    dispatch_menu_msg(
+        menu,
+        WM_MEASUREITEM,
+        WPARAM(0),
+        LPARAM(&mut measure as *mut _ as isize),
+    );
+    let item_height = if measure.itemHeight == 0 {
+        px as u32
+    } else {
+        measure.itemHeight
+    };
+
+    let mut draw = DRAWITEMSTRUCT {
+        CtlType: ODT_MENU,
+        CtlID: 0,
+        itemID: item_id,
+        itemAction: ODA_DRAWENTIRE,
+        itemState: ODS_DEFAULT,
+        hwndItem: HWND(popup.0),
+        hDC: mem_dc,
+        rcItem: RECT {
+            left: 0,
+            top: 0,
+            right: px,
+            bottom: item_height as i32,
+        },
+        itemData: 0,
+    };
+    dispatch_menu_msg(
+        menu,
+        WM_DRAWITEM,
+        WPARAM(0),
+        LPARAM(&mut draw as *mut _ as isize),
+    );
+
+    let png = menu_item_bitmap_png_inner(bmp, true);
+    let _ = SelectObject(mem_dc, old);
+    let _ = DeleteObject(HGDIOBJ::from(bmp));
+    let _ = DeleteDC(mem_dc);
+    let _ = ReleaseDC(None, screen_dc);
+    png
+}
+
+pub(crate) unsafe fn refresh_item_bitmap(popup: HMENU, index: u32) -> HBITMAP {
+    let mut info = MENUITEMINFOW {
+        cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
+        fMask: MIIM_BITMAP,
+        ..Default::default()
+    };
+    if GetMenuItemInfoW(popup, index, true, &mut info).is_ok() {
+        info.hbmpItem
+    } else {
+        HBITMAP::default()
+    }
+}
+
+fn assoc_query_string(
+    flags: windows::Win32::UI::Shell::ASSOCF,
+    str_type: windows::Win32::UI::Shell::ASSOCSTR,
+    assoc: &str,
+    extra: Option<&str>,
+) -> Option<String> {
+    let assoc_wide: Vec<u16> = std::ffi::OsStr::new(assoc)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let extra_wide = extra.map(|value| {
+        std::ffi::OsStr::new(value)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect::<Vec<u16>>()
+    });
+    let mut buf = vec![0u16; 1024];
+    let mut len = buf.len() as u32;
+    if unsafe {
+        AssocQueryStringW(
+            flags,
+            str_type,
+            PCWSTR(assoc_wide.as_ptr()),
+            extra_wide
+                .as_ref()
+                .map(|wide: &Vec<u16>| PCWSTR(wide.as_ptr()))
+                .unwrap_or(PCWSTR::null()),
+            PWSTR(buf.as_mut_ptr()),
+            &mut len,
+        )
+    }
+    .is_err()
+    {
+        return None;
+    }
+    let end = buf.iter().position(|&c| c == 0).unwrap_or(0);
+    if end == 0 {
+        None
+    } else {
+        Some(String::from_utf16_lossy(&buf[..end]))
+    }
+}
+
+fn icon_for_file_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
+    let verb = verb.trim();
+    if verb.is_empty() {
+        return None;
+    }
+    let exe = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!(".{ext}"))
+        .and_then(|ext| assoc_query_string(Default::default(), ASSOCSTR_EXECUTABLE, &ext, Some(verb)))
+        .or_else(|| {
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| format!(".{ext}"))
+                .and_then(|ext| assoc_query_string(Default::default(), ASSOCSTR_PROGID, &ext, None))
+                .and_then(|progid| {
+                    assoc_query_string(Default::default(), ASSOCSTR_EXECUTABLE, &progid, Some(verb))
+                })
+        })
+        .or_else(|| {
+            let assoc = path.to_string_lossy();
+            assoc_query_string(
+                ASSOCF_INIT_BYEXENAME,
+                ASSOCSTR_EXECUTABLE,
+                &assoc,
+                Some(verb),
+            )
+        })?;
+    let exe_path = Path::new(exe.trim_matches('"'));
+    shell_icon_png(exe_path, menu_icon_extract_px()).ok()
+}
+
+pub(crate) unsafe fn resolve_menu_item_icon(
+    popup: HMENU,
+    menu: &IContextMenu,
+    index: u32,
+    item_id: u32,
+    hbmp: HBITMAP,
+    primary_path: &Path,
+    verb: Option<&str>,
+) -> Option<Vec<u8>> {
+    if let Some(png) = menu_item_bitmap_png(hbmp) {
+        return Some(png);
+    }
+    if let Some(png) = menu_item_icon_via_draw(menu, popup, item_id) {
+        return Some(png);
+    }
+    if is_callback_bitmap(hbmp) {
+        let refreshed = refresh_item_bitmap(popup, index);
+        if let Some(png) = menu_item_bitmap_png(refreshed) {
+            return Some(png);
+        }
+    }
+    if let Some(verb) = verb {
+        if let Some(png) = icon_for_file_verb(primary_path, verb) {
+            return Some(png);
+        }
+    }
+    None
+}

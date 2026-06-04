@@ -77,6 +77,7 @@ pub enum PopupMenuItem {
     Submenu {
         icon: Option<Icon>,
         icon_element: Option<Rc<dyn Fn(&mut Window, &mut App) -> AnyElement + 'static>>,
+        icon_png: Option<Arc<Vec<u8>>>,
         label: SharedString,
         disabled: bool,
         menu: Entity<PopupMenu>,
@@ -125,6 +126,7 @@ impl PopupMenuItem {
         PopupMenuItem::Submenu {
             icon: None,
             icon_element: None,
+            icon_png: None,
             label: label.into(),
             disabled: false,
             menu,
@@ -150,6 +152,12 @@ impl PopupMenuItem {
     pub fn icon_png(mut self, png: Arc<Vec<u8>>) -> Self {
         match &mut self {
             PopupMenuItem::Item {
+                icon_png: p,
+                icon: i,
+                icon_element: e,
+                ..
+            }
+            | PopupMenuItem::Submenu {
                 icon_png: p,
                 icon: i,
                 icon_element: e,
@@ -187,10 +195,12 @@ impl PopupMenuItem {
             PopupMenuItem::Submenu {
                 icon: i,
                 icon_element: e,
+                icon_png: p,
                 ..
             } => {
                 *i = Some(icon.into());
                 *e = None;
+                *p = None;
             }
             _ => {}
         }
@@ -220,9 +230,13 @@ impl PopupMenuItem {
                 *icon_element = Some(builder);
             }
             PopupMenuItem::Submenu {
-                icon, icon_element, ..
+                icon,
+                icon_element,
+                icon_png,
+                ..
             } => {
                 *icon = None;
+                *icon_png = None;
                 *icon_element = Some(builder);
             }
             _ => {}
@@ -361,8 +375,13 @@ impl PopupMenuItem {
                 ..
             } => icon.is_some() || icon_element.is_some() || (check_side.is_left() && *checked),
             PopupMenuItem::Submenu {
-                icon, icon_element, ..
-            } => icon.is_some() || icon_element.is_some(),
+                icon,
+                icon_element,
+                icon_png,
+                ..
+            } => {
+                icon.is_some() || icon_element.is_some() || icon_png.is_some()
+            }
             _ => false,
         }
     }
@@ -752,6 +771,30 @@ impl PopupMenu {
         f: impl Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu + 'static,
     ) -> Self {
         self.submenu_with_icon(None, label, window, cx, f)
+    }
+
+    /// Add a submenu row with an optional Shell PNG icon (left slot).
+    pub fn submenu_with_icon_png(
+        mut self,
+        label: impl Into<SharedString>,
+        icon_png: Option<Arc<Vec<u8>>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        f: impl Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu + 'static,
+    ) -> Self {
+        let submenu = PopupMenu::build(window, cx, f);
+        let parent_menu = cx.entity().downgrade();
+        let item_row_height = self.item_row_height;
+        submenu.update(cx, |view, _| {
+            view.parent_menu = Some(parent_menu);
+            view.item_row_height = item_row_height;
+        });
+        let mut item = PopupMenuItem::submenu(label, submenu);
+        if let Some(png) = icon_png {
+            item = item.icon_png(png);
+        }
+        self.menu_items.push(item);
+        self
     }
 
     /// Add a Submenu item with icon
@@ -1403,6 +1446,7 @@ impl PopupMenu {
             PopupMenuItem::Submenu {
                 icon,
                 icon_element,
+                icon_png,
                 label,
                 menu,
                 disabled,
@@ -1422,7 +1466,7 @@ impl PopupMenu {
                             false,
                             icon.clone(),
                             icon_element.clone(),
-                            None,
+                            icon_png.clone(),
                             window,
                             cx,
                         ))
