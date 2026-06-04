@@ -74,7 +74,8 @@ pub use sevenzip::{bundled_dll_path, extract_in_process, SevenZipExtractError};
 pub use shell::{
     clear_shell_menu_session, format_shell_menu_label, invoke_shell_context_menu_item,
     invoke_shell_properties, load_lazy_submenu, open_in_new_explorer_window, open_item_properties,
-    query_shell_context_menu_items, show_open_with_dialog, show_shell_context_menu,
+    query_shell_context_menu_items, show_open_with_dialog, show_open_with_dialog_blocking,
+    show_shell_context_menu,
     warm_up_query_context_menu, ShellContextMenuEntry,
 };
 #[cfg(windows)]

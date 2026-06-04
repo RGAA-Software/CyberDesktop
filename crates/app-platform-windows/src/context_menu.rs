@@ -474,18 +474,38 @@ unsafe fn menu_item_icon_png(hbmp: HBITMAP) -> Option<Vec<u8>> {
 
 /// Opens the system «Open with» dialog for a file (same as Explorer).
 pub fn show_open_with_dialog(path: &Path) -> anyhow::Result<()> {
-    use std::process::Command;
+    let path = path.to_path_buf();
+    std::thread::spawn(move || {
+        if let Err(error) = show_open_with_dialog_blocking(&path) {
+            tracing::error!(target: "shell_menu", ?error, "OpenAs dialog failed");
+        }
+    });
+    Ok(())
+}
 
-    let path = path.to_string_lossy();
-    let status = Command::new("rundll32.exe")
-        .arg("shell32.dll,OpenAs_RunDLL")
-        .arg(path.as_ref())
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!("OpenAs dialog exited with {status}")
-    }
+/// Blocks until the Open With dialog closes; safe to call from a background thread.
+pub fn show_open_with_dialog_blocking(path: &Path) -> anyhow::Result<()> {
+    let path = path.to_path_buf();
+    crate::com::run_sta_task(move || show_open_with_dialog_sta(&path))
+}
+
+fn show_open_with_dialog_sta(path: &Path) -> anyhow::Result<()> {
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::Shell::{
+        SHOpenWithDialog, OAIF_ALLOW_REGISTRATION, OAIF_EXEC, OPENASINFO,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+
+    let path_wide = path_to_wide(path);
+    let class_wide: Vec<u16> = std::iter::once(0).collect();
+    let info = OPENASINFO {
+        pcszFile: PCWSTR(path_wide.as_ptr()),
+        pcszClass: PCWSTR(class_wide.as_ptr()),
+        oaifInFlags: OAIF_ALLOW_REGISTRATION | OAIF_EXEC,
+    };
+    let hwnd = unsafe { GetForegroundWindow() };
+    unsafe { SHOpenWithDialog(hwnd, &info as *const _)? };
+    Ok(())
 }
 
 /// Opens the parent folder in a new Explorer window (Files «Open in new window» subset).

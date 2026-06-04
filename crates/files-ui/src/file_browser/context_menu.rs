@@ -312,7 +312,12 @@ fn append_open_with_submenu(
                     .icon(Icon::new(IconName::Settings2).path("icons/widgets.svg"))
                     .on_click({
                         let choose_path = choose_path.clone();
-                        move |_, _, _| {
+                        let browser_sub = browser_sub.clone();
+                        move |_, _, cx| {
+                            let _ = browser_sub.update(cx, |browser, cx| {
+                                browser.dismiss_context_menu();
+                                cx.notify();
+                            });
                             let _ = platform::show_open_with_dialog(&choose_path);
                         }
                     }),

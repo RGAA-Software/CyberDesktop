@@ -394,7 +394,7 @@ impl FileBrowser {
     pub(super) fn on_open_with_dialog(
         &mut self,
         _: &OpenWithDialog,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let Some(path) = self.primary_path() else {
@@ -403,12 +403,30 @@ impl FileBrowser {
         if path.is_dir() {
             return;
         }
-        if let Err(error) = platform::show_open_with_dialog(&path) {
-            window.push_notification(
-                Notification::error(format!("{}: {error}", t!("files.open_with.error"))),
-                cx,
-            );
-        }
+        self.dismiss_context_menu();
+        let path = path.to_path_buf();
+        cx.spawn(async move |this, cx| {
+            let result = cx
+                .background_spawn(async move { platform::show_open_with_dialog_blocking(&path) })
+                .await;
+            if let Err(error) = result {
+                let _ = this.update(cx, |_, cx| {
+                    if let Some(window) = cx.active_window() {
+                        let _ = window.update(cx, |_, window, cx| {
+                            window.push_notification(
+                                Notification::error(format!(
+                                    "{}: {error}",
+                                    t!("files.open_with.error")
+                                )),
+                                cx,
+                            );
+                        });
+                    }
+                });
+            }
+        })
+        .detach();
+        cx.notify();
     }
 
     pub(super) fn on_create_shortcut(
