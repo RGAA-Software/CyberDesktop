@@ -86,6 +86,8 @@ impl MainPage {
                 if this.active_tab != *ix {
                     this.active_tab = *ix;
                     this.pending_tab_scroll_to_ix = Some(*ix);
+                    this.dismiss_omnibar_path_edit(cx);
+                    this.dismiss_omnibar_search_mode(cx);
                     this.refresh_active_view(cx);
                     this.persist_session(cx);
                     cx.notify();
