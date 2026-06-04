@@ -89,6 +89,8 @@ pub(crate) mod sweep;
 mod context_menu_state;
 #[path = "file_browser/group_labels.rs"]
 mod group_labels;
+#[path = "file_browser/compress_label.rs"]
+mod compress_label;
 #[path = "file_browser/helpers.rs"]
 mod helpers;
 pub(crate) use helpers::create_shortcuts_in_folder;

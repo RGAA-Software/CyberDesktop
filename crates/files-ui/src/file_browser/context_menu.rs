@@ -10,8 +10,8 @@ use files_commands::{
     ViewCards, ViewColumns, ViewDetails, ViewGrid,
 };
 use files_core::{context_menu_item_prefs, load_config};
-use super::helpers::build_sort_prefs_menu;
-use super::helpers::view_supports_grouping;
+use super::compress_label::compress_context_menu_label;
+use super::helpers::{build_sort_prefs_menu, view_supports_grouping};
 use files_fs::is_archive_path;
 use app_platform_windows::{self as platform, ShellContextMenuEntry};
 use gpui::{px, Context, Entity, Pixels, SharedString, Window};
@@ -751,22 +751,48 @@ fn build_directory_item_menu(
     cx: &mut Context<PopupMenu>,
 ) -> PopupMenu {
     let can_paste = AppFileClipboard::has_items(cx);
-    let state = browser.read(cx);
-    let paths = state.selected_paths_vec();
-    let has_selection = !paths.is_empty();
-    let single = paths.len() == 1;
-    let single_dir = single && paths[0].is_dir();
-    let multi = paths.len() > 1;
-    let all_dirs = has_selection && paths.iter().all(|path| path.is_dir());
-    let has_shortcut = paths.iter().any(|path| {
-        path.extension()
-            .and_then(|ext| ext.to_str())
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("lnk"))
-    });
-    let has_archive = has_selection && paths.iter().any(|path| is_archive_path(path));
-    let focus = state.focus_handle.clone();
-    let extended = state.context_menu_extended_verbs;
-    let shell_menu_cache = state.shell_menu_cache.clone();
+    let (
+        paths,
+        has_selection,
+        single,
+        single_dir,
+        multi,
+        all_dirs,
+        has_shortcut,
+        has_archive,
+        focus,
+        operation_directory,
+        extended,
+        shell_menu_cache,
+    ) = {
+        let state = browser.read(cx);
+        let paths = state.selected_paths_vec();
+        let has_selection = !paths.is_empty();
+        let single = paths.len() == 1;
+        let single_dir = single && paths[0].is_dir();
+        let multi = paths.len() > 1;
+        let all_dirs = has_selection && paths.iter().all(|path| path.is_dir());
+        let has_shortcut = paths.iter().any(|path| {
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("lnk"))
+        });
+        let has_archive = has_selection && paths.iter().any(|path| is_archive_path(path));
+        (
+            paths,
+            has_selection,
+            single,
+            single_dir,
+            multi,
+            all_dirs,
+            has_shortcut,
+            has_archive,
+            state.focus_handle.clone(),
+            state.operation_directory(),
+            state.context_menu_extended_verbs,
+            state.shell_menu_cache.clone(),
+        )
+    };
     let menu_icon_px = platform::menu_icon_pixel_size(window.scale_factor());
     let item_prefs = context_menu_item_prefs();
 
@@ -857,8 +883,13 @@ fn build_directory_item_menu(
     }
 
     if item_prefs.compress {
+        let compress_label = if has_selection {
+            compress_context_menu_label(&paths, &operation_directory)
+        } else {
+            t!("files.menu.compress").into()
+        };
         menu = menu.menu_with_icon(
-            t!("files.menu.compress"),
+            compress_label,
             Icon::new(IconName::File).path("icons/folder_zip.svg"),
             Box::new(CompressItems),
         );

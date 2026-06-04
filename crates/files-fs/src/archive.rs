@@ -609,13 +609,25 @@ pub fn zip_output_path(sources: &[PathBuf], destination_dir: &Path) -> anyhow::R
     if !destination_dir.is_dir() {
         anyhow::bail!("destination is not a directory");
     }
-    Ok(destination_dir.join(zip_file_name(sources)))
+    Ok(destination_dir.join(zip_file_name(sources, destination_dir)))
 }
 
 /// Resolves a non-conflicting final zip path for `sources`.
 pub fn unique_zip_output_path(sources: &[PathBuf], destination_dir: &Path) -> anyhow::Result<PathBuf> {
     let base_path = zip_output_path(sources, destination_dir)?;
     Ok(unique_zip_path(base_path))
+}
+
+/// File name for the compress menu label (e.g. `report.zip`, `Archive (2).zip`).
+pub fn compress_zip_file_display_name(sources: &[PathBuf], destination_dir: &Path) -> String {
+    match unique_zip_output_path(sources, destination_dir) {
+        Ok(path) => path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| zip_file_name(sources, destination_dir)),
+        Err(_) => zip_file_name(sources, destination_dir),
+    }
 }
 
 /// Resolves the temporary partial path used while compressing before the final rename.
@@ -746,7 +758,7 @@ fn write_zip_tree<W: Write + Seek>(
     anyhow::bail!("unsupported path type: {}", path.display())
 }
 
-fn zip_file_name(sources: &[PathBuf]) -> String {
+fn zip_file_name(sources: &[PathBuf], destination_dir: &Path) -> String {
     if sources.len() == 1 {
         let stem = sources[0]
             .file_stem()
@@ -755,7 +767,12 @@ fn zip_file_name(sources: &[PathBuf]) -> String {
             .unwrap_or_else(|| "Archive".into());
         return format!("{stem}.zip");
     }
-    "Archive.zip".into()
+    let stem = destination_dir
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| "Archive".into());
+    format!("{stem}.zip")
 }
 
 fn temp_zip_path(zip_path: &Path) -> PathBuf {
@@ -800,6 +817,30 @@ fn unique_zip_path(base_path: PathBuf) -> PathBuf {
 mod extract_tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn compress_zip_file_display_name_uses_single_stem() {
+        let dir = std::env::temp_dir();
+        let sources = vec![PathBuf::from(r"C:\fake\report.docx")];
+        assert_eq!(
+            compress_zip_file_display_name(&sources, &dir),
+            "report.docx.zip"
+        );
+    }
+
+    #[test]
+    fn compress_zip_file_display_name_multi_selection() {
+        let dir = std::env::temp_dir().join("ProjectFiles");
+        let _ = std::fs::create_dir_all(&dir);
+        let sources = vec![
+            PathBuf::from(r"C:\fake\a.txt"),
+            PathBuf::from(r"C:\fake\b.txt"),
+        ];
+        assert_eq!(
+            compress_zip_file_display_name(&sources, &dir),
+            "ProjectFiles.zip"
+        );
+    }
 
     #[test]
     fn is_archive_path_detects_rar_by_name_without_disk_check() {

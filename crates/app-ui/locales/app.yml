@@ -1463,6 +1463,10 @@ files.menu.compress:
   en: Compress
   zh-CN: 压缩
   zh-HK: 壓縮
+files.menu.compress_with_name:
+  en: Compress (%{name})
+  zh-CN: 压缩(%{name})
+  zh-HK: 壓縮(%{name})
 files.menu.extract_here:
   en: Extract here
   zh-CN: 解压到此处

@@ -27,8 +27,9 @@ pub use audio_metadata::{audio_file_duration, read_audio_metadata};
 pub use archive::{
     compress_paths_to_zip, compress_paths_to_zip_at_path_cancellable,
     compress_paths_to_zip_cancellable, detect_archive_format, extract_archive_cancellable,
-    extract_to_child_dir, is_archive_path, archive_progress_total, log_extract_environment, temp_zip_output_path, unique_zip_output_path,
-    zip_output_path, ArchiveFormat, CompressCancelled, ExtractCancelled,
+    compress_zip_file_display_name, extract_to_child_dir, is_archive_path, archive_progress_total,
+    log_extract_environment, temp_zip_output_path, unique_zip_output_path, zip_output_path,
+    ArchiveFormat, CompressCancelled, ExtractCancelled,
 };
 pub use clipboard::{
     copy_items, move_items, paths_conflict, transfer_items, transfer_one, transfer_one_cancellable,
