@@ -222,8 +222,12 @@ impl FileBrowser {
                 let use_cybereditor = files_core::open_text_with_cybereditor_enabled()
                     && editor_text_engine::is_cybereditor_openable(&path)
                     && !is_executable_or_script_path(&path);
+                let use_cybermediaplayer = files_core::open_media_with_cybermediaplayer_enabled()
+                    && is_media_file(&path);
                 let result = if use_cybereditor {
                     open_with_cybereditor(&path)
+                } else if use_cybermediaplayer {
+                    open_with_cybermediaplayer(&path)
                 } else {
                     open_with_system(&path)
                 };

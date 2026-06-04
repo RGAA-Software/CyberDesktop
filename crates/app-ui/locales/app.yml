@@ -2227,6 +2227,14 @@ settings.open_with_cybereditor.description:
   en: When enabled, double-clicking supported code and text files in CyberFiles opens them in CyberEditor.
   zh-CN: 开启后，在 CyberFiles 中双击支持的代码或文本文件时，将使用 CyberEditor 打开。
   zh-HK: 開啟後，在 CyberFiles 中雙擊支援的程式碼或文字檔時，將使用 CyberEditor 開啟。
+settings.open_with_cybermediaplayer:
+  en: Open audio and video files with CyberMediaPlayer
+  zh-CN: 使用 CyberMediaPlayer 打开音，视频文件
+  zh-HK: 使用 CyberMediaPlayer 開啟音訊及影片檔
+settings.open_with_cybermediaplayer.description:
+  en: When enabled, double-clicking supported audio and video files in CyberFiles opens them in CyberMediaPlayer. If CyberMediaPlayer is not found, the system default application is used.
+  zh-CN: 开启后，在 CyberFiles 中双击支持的音频或视频文件时，将使用 CyberMediaPlayer 打开。如果找不到 CyberMediaPlayer，则使用系统默认应用打开。
+  zh-HK: 開啟後，在 CyberFiles 中雙擊支援的音訊或影片檔時，將使用 CyberMediaPlayer 開啟。如果找不到 CyberMediaPlayer，則使用系統預設應用程式開啟。
 settings.disable_direct_composition:
   en: Disable DirectComposition
   zh-CN: 禁用 DirectComposition

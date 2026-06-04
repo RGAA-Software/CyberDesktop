@@ -473,6 +473,14 @@ pub fn apply_open_text_with_cybereditor(enabled: bool, cx: &mut App) {
     mutate_config(cx, |c| c.open_text_with_cybereditor = enabled);
 }
 
+pub fn open_media_with_cybermediaplayer(_cx: &App) -> bool {
+    files_core::open_media_with_cybermediaplayer_enabled()
+}
+
+pub fn apply_open_media_with_cybermediaplayer(enabled: bool, cx: &mut App) {
+    mutate_config(cx, |c| c.open_media_with_cybermediaplayer = enabled);
+}
+
 pub fn disable_direct_composition(_cx: &App) -> bool {
     files_core::disable_direct_composition_enabled()
 }
@@ -571,6 +579,7 @@ pub fn capture_config(cx: &App, window_width: f32, window_height: f32) -> AppCon
         context_menu_show_file_tags: prior.context_menu_show_file_tags,
         context_menu_show_create_shortcut: prior.context_menu_show_create_shortcut,
         open_text_with_cybereditor: prior.open_text_with_cybereditor,
+        open_media_with_cybermediaplayer: prior.open_media_with_cybermediaplayer,
         disable_direct_composition: prior.disable_direct_composition,
         auto_restore_tabs: prior.auto_restore_tabs,
         session_pane_layouts: prior.session_pane_layouts,

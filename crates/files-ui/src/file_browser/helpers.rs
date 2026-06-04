@@ -968,6 +968,46 @@ fn resolve_cybereditor_exe() -> Option<PathBuf> {
     sibling.is_file().then_some(sibling)
 }
 
+pub(super) fn open_with_cybermediaplayer(path: &Path) -> anyhow::Result<()> {
+    let Some(player) = resolve_cybermediaplayer_exe() else {
+        return open_with_system(path);
+    };
+    std::process::Command::new(&player)
+        .arg(path)
+        .spawn()?;
+    Ok(())
+}
+
+fn resolve_cybermediaplayer_exe() -> Option<PathBuf> {
+    let current = std::env::current_exe().ok()?;
+    let dir = current.parent()?;
+    #[cfg(windows)]
+    let name = "cyber_media_player.exe";
+    #[cfg(not(windows))]
+    let name = "cyber_media_player";
+    let sibling = dir.join(name);
+    sibling.is_file().then_some(sibling)
+}
+
+pub(super) fn is_media_file(path: &Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase());
+    let Some(ext) = ext else { return false };
+    matches!(
+        ext.as_str(),
+        // Video
+        "mp4" | "mkv" | "avi" | "mov" | "wmv" | "flv" | "webm" | "mpeg" | "mpg"
+        | "m4v" | "3gp" | "ts" | "m2ts" | "mts" | "vob" | "ogv" | "divx" | "xvid"
+        | "rm" | "rmvb" | "asf" | "dv" | "f4v" | "swf"
+        // Audio
+        | "mp3" | "wav" | "flac" | "aac" | "ogg" | "wma" | "m4a" | "opus"
+        | "ape" | "wv" | "dsf" | "dff" | "aiff" | "au" | "ra" | "mid" | "midi"
+        | "amr" | "ac3" | "dts" | "eac3" | "mka" | "cda"
+    )
+}
+
 pub(super) fn is_executable_or_script_path(path: &Path) -> bool {
     #[cfg(target_os = "windows")]
     {
