@@ -39,11 +39,19 @@ pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> 
 }
 
 /// Reload native and in-window menus (e.g. after locale change).
+///
+/// Deferred so menu builders can read [`crate::main_page::MainPage`] without
+/// double-leasing when this is called from inside a `MainPage::update` closure.
 pub fn reload(cx: &mut App) {
     if !cx.has_global::<AppMenuState>() {
         return;
     }
-    update_app_menu(cx);
+    cx.defer(|cx| {
+        if !cx.has_global::<AppMenuState>() {
+            return;
+        }
+        update_app_menu(cx);
+    });
 }
 
 fn update_app_menu(cx: &mut App) {

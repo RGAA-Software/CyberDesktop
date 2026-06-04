@@ -387,21 +387,37 @@ impl ShellPanes {
             ))
     }
 
-    fn pane_flex_child(
-        &self,
+    /// Flex child for one pane: fixed share on the main axis, full cross-axis size.
+    /// Uses `flex_shrink_0` so panes do not collapse (which emptied the file list).
+    fn pane_split_leading(
         pane: impl IntoElement,
         share: f32,
         arrangement: PaneArrangement,
     ) -> impl IntoElement {
+        let share = share.clamp(SPLIT_RATIO_MIN, SPLIT_RATIO_MAX);
         div()
-            .flex_shrink()
-            .flex_basis(relative(share.max(0.01)))
-            .min_h_0()
+            .flex_grow_0()
+            .flex_shrink_0()
+            .flex_basis(relative(share))
+            .overflow_hidden()
             .when(arrangement == PaneArrangement::Vertical, |p| {
-                p.min_w(PANE_MIN_SIZE).min_h_0()
+                p.h_full().min_h_0().min_w(PANE_MIN_SIZE).min_w_0()
             })
             .when(arrangement == PaneArrangement::Horizontal, |p| {
-                p.min_h(PANE_MIN_SIZE).min_w_0()
+                p.w_full().min_w_0().min_h(PANE_MIN_SIZE).min_h_0()
+            })
+            .child(pane)
+    }
+
+    fn pane_split_trailing(pane: impl IntoElement, arrangement: PaneArrangement) -> impl IntoElement {
+        div()
+            .flex_1()
+            .overflow_hidden()
+            .when(arrangement == PaneArrangement::Vertical, |p| {
+                p.h_full().min_h_0().min_w(PANE_MIN_SIZE).min_w_0()
+            })
+            .when(arrangement == PaneArrangement::Horizontal, |p| {
+                p.w_full().min_w_0().min_h(PANE_MIN_SIZE).min_h_0()
             })
             .child(pane)
     }
@@ -424,12 +440,11 @@ impl Render for ShellPanes {
         let secondary = self.secondary.clone();
         let primary_title = self.primary.read(cx).current_navigation_target(cx).tab_title();
         let secondary_title = self.secondary.read(cx).current_navigation_target(cx).tab_title();
-        let split_ratio = self.split_ratio;
-        let primary_share = split_ratio;
-        let secondary_share = 1.0 - split_ratio;
+        let primary_share = self.split_ratio;
 
         let pane_title = |title: SharedString, is_active: bool| {
             h_flex()
+                .flex_none()
                 .h_8()
                 .px_3()
                 .items_center()
@@ -455,11 +470,13 @@ impl Render for ShellPanes {
                 v_flex()
                     .size_full()
                     .min_h_0()
+                    .overflow_hidden()
                     .child(pane_title(title, is_active))
                     .child(
                         div()
                             .flex_1()
                             .min_h_0()
+                            .overflow_hidden()
                             .border_2()
                             .border_color(if is_active {
                                 cx.theme().primary
@@ -476,27 +493,20 @@ impl Render for ShellPanes {
                     )
             };
 
-        let primary_pane = self.pane_flex_child(
-            pane_wrapper(
-                primary,
-                primary_title,
-                PaneSide::Primary,
-                active == PaneSide::Primary,
-            ),
-            primary_share,
-            arrangement,
+        let primary_body = pane_wrapper(
+            primary,
+            primary_title,
+            PaneSide::Primary,
+            active == PaneSide::Primary,
         );
-
-        let secondary_pane = self.pane_flex_child(
-            pane_wrapper(
-                secondary,
-                secondary_title,
-                PaneSide::Secondary,
-                active == PaneSide::Secondary,
-            ),
-            secondary_share,
-            arrangement,
+        let secondary_body = pane_wrapper(
+            secondary,
+            secondary_title,
+            PaneSide::Secondary,
+            active == PaneSide::Secondary,
         );
+        let primary_pane = Self::pane_split_leading(primary_body, primary_share, arrangement);
+        let secondary_pane = Self::pane_split_trailing(secondary_body, arrangement);
 
         let splitter = self.render_split_handle(cx);
         let weak = cx.weak_entity();
