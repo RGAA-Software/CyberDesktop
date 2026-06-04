@@ -275,6 +275,7 @@ impl FileBrowser {
         let item_click = item.clone();
         let drop_target_for_drop = item.clone();
         let browser = cx.entity().clone();
+        let cut_pending = path_is_cut_pending(&item.path, cx);
         h_flex()
             .id(format!("file-column-row-{col_index}-{name}"))
             .w_full()
@@ -290,6 +291,7 @@ impl FileBrowser {
                 this.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
             })
+            .when(cut_pending, |this| this.opacity(CUT_PENDING_ITEM_OPACITY))
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {

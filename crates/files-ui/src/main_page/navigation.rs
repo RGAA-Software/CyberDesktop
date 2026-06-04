@@ -241,4 +241,17 @@ impl MainPage {
         pane.update(cx, |pane, cx| pane.reload_active(cx));
         cx.notify();
     }
+
+    /// Refresh every file list (e.g. after in-app clipboard cut/copy/clear changes cut styling).
+    pub(crate) fn notify_all_file_browsers(&self, cx: &mut Context<Self>) {
+        for tab in &self.tabs {
+            let mut panes = Vec::new();
+            tab.shell.read(cx).for_each_pane(|pane| panes.push(pane.clone()));
+            for pane in panes {
+                pane.read(cx)
+                    .file_browser()
+                    .update(cx, |_, cx| cx.notify());
+            }
+        }
+    }
 }

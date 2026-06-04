@@ -483,7 +483,13 @@ impl AppFileClipboard {
         else {
             return;
         };
-        let _ = page.update(cx, |_, cx| cx.notify());
+        // Defer so cut/copy handlers can finish their FileBrowser::update before we refresh lists.
+        cx.borrow_mut().defer(move |cx| {
+            let _ = page.update(cx, |page, cx| {
+                page.notify_all_file_browsers(cx);
+                cx.notify();
+            });
+        });
     }
 }
 

@@ -1,4 +1,16 @@
 use super::*;
+use crate::app_state::AppFileClipboard;
+
+/// Opacity for items cut to the in-app clipboard but not pasted yet (Files `DimItemOpacity`).
+pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
+
+pub(super) fn path_is_cut_pending(path: &Path, cx: &App) -> bool {
+    let Some(clipboard) = AppFileClipboard::peek(cx) else {
+        return false;
+    };
+    clipboard.operation == ClipboardOperation::Cut
+        && clipboard.paths.iter().any(|p| p == path)
+}
 
 impl FileBrowser {
     pub(super) fn file_item_kind_icon(kind: FileItemKind) -> AnyElement {
