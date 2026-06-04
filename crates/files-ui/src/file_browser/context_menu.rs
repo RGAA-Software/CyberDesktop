@@ -564,33 +564,6 @@ fn append_clipboard_commands(menu: PopupMenu, has_selection: bool, can_paste: bo
     )
 }
 
-fn append_drag_out_experimental_item(
-    menu: PopupMenu,
-    has_selection: bool,
-    paths: Vec<PathBuf>,
-) -> PopupMenu {
-    menu.item(
-        PopupMenuItem::new(t!("files.menu.drag_out_experimental"))
-            .icon(menu_icon(IconName::ExternalLink))
-            .disabled(!has_selection)
-            .on_click(move |_, window, cx| {
-                match platform::begin_drag_out(&paths, true, None) {
-                    Ok(_) => window.push_notification(
-                        Notification::success(t!("files.menu.drag_out_experimental.ready")),
-                        cx,
-                    ),
-                    Err(error) => window.push_notification(
-                        Notification::error(format!(
-                            "{}: {error}",
-                            t!("files.menu.drag_out_experimental.error")
-                        )),
-                        cx,
-                    ),
-                }
-            }),
-    )
-}
-
 /// Build the file list context menu (background or item flyout).
 pub fn build_context_menu(
     menu: PopupMenu,
@@ -830,7 +803,7 @@ fn build_directory_item_menu(
         }
     }
 
-    if single {
+    if single_dir {
         let path = paths[0].clone();
         let tab_path = path.clone();
         menu = menu.item(menu_click_item_with_icon(
@@ -843,7 +816,7 @@ fn build_directory_item_menu(
             Icon::new(IconName::ExternalLink).path("icons/external-link.svg"),
             Box::new(OpenInNewWindow),
         );
-        if item_prefs.open_in_new_pane && single_dir {
+        if item_prefs.open_in_new_pane {
             menu = menu.menu_with_icon(
                 t!("files.menu.open_in_new_pane"),
                 Icon::new(IconName::PanelLeftOpen).path("icons/splitscreen.svg"),
@@ -859,7 +832,6 @@ fn build_directory_item_menu(
         IconName::Copy,
         Box::new(CopyPath),
     );
-    menu = append_drag_out_experimental_item(menu, has_selection, paths.clone());
 
     if multi {
         menu = menu_action(
