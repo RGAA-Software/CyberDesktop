@@ -33,9 +33,17 @@ use crate::shell::preferences::{
 
 /// Fraction of the current window height used as the max height of the
 /// «Show more options» shell menu (and its nested submenus).
+///
+/// The shell flyout can list a large number of verbs, so we cap it at 4/5 of
+/// the window and let [`PopupMenu`] scroll the overflow.
 const SHELL_MENU_MAX_HEIGHT_FRACTION: f32 = 0.8;
 
-/// Max height for the shell flyout: 4/5 of the current window height.
+/// Max height for the shell flyout: 4/5 of the *current* window height.
+///
+/// Computed from the live window bounds (rather than a fixed pixel constant) so
+/// the cap tracks the window size at the moment the menu is built. Note that
+/// [`PopupMenu`] only engages scrolling when its content actually exceeds this
+/// height, so a short menu is never capped or given a scrollbar.
 fn shell_menu_max_height(window: &Window) -> Pixels {
     let window_height = window.window_bounds().get_bounds().size.height;
     window_height * SHELL_MENU_MAX_HEIGHT_FRACTION
@@ -446,6 +454,14 @@ fn append_shell_submenu(
     )
 }
 
+/// Populate `menu` with shell context-menu `entries` (the «Show more options»
+/// flyout and every nested shell submenu funnel through here recursively).
+///
+/// Both branches finish with the same height policy: cap at 4/5 of the window
+/// and mark the menu scrollable with a persistent scrollbar. [`PopupMenu`]
+/// applies that lazily — a menu that fits stays plain, while a long one scrolls
+/// — and sub-menus keep working inside a scrolling parent because their flyouts
+/// are deferred.
 pub(crate) fn append_shell_entries(
     mut menu: PopupMenu,
     entries: &[ShellContextMenuEntry],
@@ -456,6 +472,8 @@ pub(crate) fn append_shell_entries(
     cx: &mut Context<PopupMenu>,
 ) -> PopupMenu {
     let browser = browser.clone();
+    // Branch 1: this level contains at least one submenu row. Build the rows
+    // (interleaving flat items and submenu headers in order) ...
     if entries_contain_submenu(entries) {
         let mut flat_batch = Vec::new();
         for entry in entries {
@@ -490,10 +508,12 @@ pub(crate) fn append_shell_entries(
         if !flat_batch.is_empty() {
             menu = append_shell_flat_items(menu, &flat_batch, paths, extended_verbs);
         }
+        // ... then apply the shared 4/5-window scroll cap.
         menu.scrollable(true)
             .scrollbar_always(true)
             .max_h(shell_menu_max_height(window))
     } else {
+        // Branch 2: a flat list of items/separators (no nested submenu).
         for entry in entries {
             match entry {
                 ShellContextMenuEntry::Separator => {
@@ -518,6 +538,7 @@ pub(crate) fn append_shell_entries(
                 ShellContextMenuEntry::Submenu { .. } => {}
             }
         }
+        // Same 4/5-window scroll cap as the submenu branch above.
         menu.scrollable(true)
             .scrollbar_always(true)
             .max_h(shell_menu_max_height(window))

@@ -412,7 +412,10 @@ pub struct PopupMenu {
     /// The parent menu of this menu, if this is a submenu
     parent_menu: Option<WeakEntity<Self>>,
     scrollable: bool,
-    /// Keep the vertical scrollbar permanently visible while `scrollable` (no fade-out).
+    /// When `scrollable` and the menu actually overflows, keep the vertical
+    /// scrollbar permanently visible instead of fading it out after idle.
+    ///
+    /// Has no effect when the content fits (no scrollbar is rendered at all).
     scrollbar_always: bool,
     external_link_icon: bool,
     scroll_handle: ScrollHandle,
@@ -450,6 +453,55 @@ impl PopupMenu {
 
     fn item_row_height(&self) -> Pixels {
         self.item_row_height.unwrap_or(DEFAULT_ITEM_ROW_HEIGHT)
+    }
+
+    /// Approximate the natural (unscrolled) pixel height of the items area.
+    ///
+    /// This deliberately mirrors the layout produced by [`Self::render`] (row
+    /// heights from [`Self::item_row_height`], `gap_y_0p5` between rows and the
+    /// `p_1` container padding) so we can decide *before* layout whether a
+    /// `scrollable` menu will actually overflow its `max_h`.
+    ///
+    /// Why estimate instead of trusting the layout/scrollbar at runtime: a
+    /// submenu flyout is an absolutely-positioned, `deferred` element, and its
+    /// scroll viewport can be measured slightly shorter than its content even
+    /// when everything visually fits. Combined with `flex_shrink_0` rows (which
+    /// can no longer shrink to hide that mismatch) this produced a spurious
+    /// scrollbar on small nested submenus. Gating the scroll machinery on this
+    /// estimate keeps small menus completely plain (no viewport, no scrollbar,
+    /// no clipping) and only engages scrolling for genuinely tall menus.
+    ///
+    /// The numbers are intentionally coarse — menus are either clearly small or
+    /// clearly tall relative to 4/5 of the window, so a few px of error never
+    /// flips the decision in practice.
+    fn estimated_content_height(&self) -> Pixels {
+        // Separator row: 2px bottom border + ~4px vertical margin (`my_0p5`).
+        const SEPARATOR_HEIGHT: Pixels = px(9.);
+        // Vertical gap inserted between every row (`gap_y_0p5`).
+        const ROW_GAP: Pixels = px(2.);
+        // Items container top + bottom padding (`p_1`).
+        const VERTICAL_PADDING: Pixels = px(8.);
+
+        // Must match the per-row height chosen in `render_item`.
+        let item_height = match self.size {
+            Size::Small => px(24.),
+            _ => self.item_row_height(),
+        };
+
+        let count = self.menu_items.len();
+        let mut total = VERTICAL_PADDING;
+        for item in &self.menu_items {
+            total += if item.is_separator() {
+                SEPARATOR_HEIGHT
+            } else {
+                item_height
+            };
+        }
+        // `gap_y_0p5` only sits *between* rows, so there are `count - 1` gaps.
+        if count > 1 {
+            total += ROW_GAP * (count as f32 - 1.0);
+        }
+        total
     }
 
     /// Set uniform row height for normal items and submenu rows (default 32px).
@@ -494,18 +546,28 @@ impl PopupMenu {
         self
     }
 
-    /// Set the menu to be scrollable to show vertical scrollbar.
+    /// Allow the menu to scroll vertically once its content exceeds `max_h`.
     ///
-    /// Sub-menus are still supported while scrollable: each submenu flyout is
-    /// rendered via [`deferred`] so it escapes the scroll container's clip mask.
+    /// This is only an *opt-in*: the scroll viewport and scrollbar are engaged
+    /// lazily at render time (see `needs_scroll` in [`Self::render`]) and only
+    /// when [`Self::estimated_content_height`] is taller than the resolved
+    /// `max_h`. A scrollable menu whose items fit renders exactly like a normal
+    /// menu, with no scrollbar and no clipping.
+    ///
+    /// Unlike the upstream gpui-component menu, sub-menus keep working while
+    /// scrollable: each submenu flyout is wrapped in [`deferred`] (see
+    /// `render_item`) so it paints at the top level, escaping this menu's
+    /// `overflow_y_scroll` clip mask.
     pub fn scrollable(mut self, scrollable: bool) -> Self {
         self.scrollable = scrollable;
         self
     }
 
-    /// Keep the vertical scrollbar permanently visible (no fade-out) while scrollable.
+    /// Keep the vertical scrollbar permanently visible (no idle fade-out) while
+    /// the menu is actually scrolling.
     ///
-    /// Only has an effect when [`Self::scrollable`] is also `true`.
+    /// Only meaningful together with [`Self::scrollable`], and only takes effect
+    /// when the content overflows — a menu that fits never shows a scrollbar.
     pub fn scrollbar_always(mut self, always: bool) -> Self {
         self.scrollbar_always = always;
         self
@@ -1331,6 +1393,12 @@ impl PopupMenu {
             .px(INNER_PADDING)
             .rounded(radius)
             .items_center()
+            // Pin the row to its natural height. The items container is a flex
+            // column with a `max_h`; with the default `flex-shrink: 1` the rows
+            // would be squashed to fit that cap (losing the 32px row height)
+            // instead of overflowing and scrolling. `flex_shrink_0` forces the
+            // column to overflow so `overflow_y_scroll` can take over.
+            .flex_shrink_0()
             .selected(selected)
             .on_hover(cx.listener(move |this, hovered, _, cx| {
                 if *hovered {
@@ -1501,8 +1569,14 @@ impl PopupMenu {
                         let (anchor, left) = self.submenu_anchor;
                         let is_bottom_pos =
                             matches!(anchor, Anchor::BottomLeft | Anchor::BottomRight);
-                        // Defer the submenu flyout so it paints at the top level with no
-                        // content mask, escaping a scrollable parent's clip rect.
+                        // Wrap the submenu flyout in `deferred` so it is painted
+                        // after (and on top of) the rest of the tree, with the
+                        // content mask reset. Without this, a `scrollable` parent
+                        // menu (`overflow_y_scroll`) would clip the flyout to its
+                        // own scroll rect and the submenu would be invisible —
+                        // this is the fix that lets sub-menus work while the
+                        // parent scrolls. `with_priority(1)` keeps nested
+                        // submenus stacked above their ancestors.
                         deferred(
                             anchored()
                                 .anchor(anchor)
@@ -1515,6 +1589,8 @@ impl PopupMenu {
                                         .left(left)
                                         .child(menu.clone()),
                                 )
+                                // Keep the flyout inside the window (with a small
+                                // margin) instead of switching the anchor corner.
                                 .snap_to_window_with_margin(Edges::all(EDGE_PADDING)),
                         )
                         .with_priority(1)
@@ -1551,6 +1627,14 @@ impl Render for PopupMenu {
             window_half_height.min(px(450.))
         });
 
+        // Decide here, up front, whether to turn on the scroll viewport and
+        // scrollbar. We only do so when the menu opted into `scrollable` *and*
+        // its estimated content is taller than `max_height`. This is the key to
+        // avoiding a spurious scrollbar on small (e.g. deeply nested) submenus:
+        // when the content fits we render a plain menu — no `overflow_y_scroll`
+        // viewport (so nothing can be clipped) and no scrollbar layer.
+        let needs_scroll = self.scrollable && self.estimated_content_height() > max_height;
+
         let has_left_icon = self
             .menu_items
             .iter()
@@ -1586,7 +1670,10 @@ impl Render for PopupMenu {
                     .min_w(rems(8.))
                     .when_some(self.min_width, |this, min_width| this.min_w(min_width))
                     .max_w(max_width)
-                    .when(self.scrollable, |this| {
+                    // Cap the height and turn on vertical scrolling only when the
+                    // content actually overflows; otherwise the items area sizes
+                    // to its content and stays fully visible.
+                    .when(needs_scroll, |this| {
                         this.max_h(max_height)
                             .overflow_y_scroll()
                             .track_scroll(&self.scroll_handle)
@@ -1601,10 +1688,15 @@ impl Render for PopupMenu {
                     )
                     .on_prepaint(move |bounds, _, cx| view.update(cx, |r, _| r.bounds = bounds)),
             )
-            .when(self.scrollable, |this| {
-                // Sub-menus still display while scrollable because each flyout is
-                // `deferred` (see `render_item`), so it paints outside this clip rect.
+            // Scrollbar overlay, rendered as a sibling of the items area that
+            // covers the whole popover. Only present when the menu overflows.
+            // Sub-menus still display while this is active because each flyout
+            // is `deferred` (see `render_item`) and therefore painted outside
+            // this clip rect.
+            .when(needs_scroll, |this| {
                 let mut scrollbar = Scrollbar::vertical(&self.scroll_handle);
+                // `ScrollbarShow::Always` suppresses the idle fade-out so the
+                // bar stays put while the user reads a long menu.
                 if self.scrollbar_always {
                     scrollbar = scrollbar.scrollbar_show(ScrollbarShow::Always);
                 }
