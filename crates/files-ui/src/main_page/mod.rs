@@ -39,8 +39,8 @@ const NAV_TOOLBAR_HEIGHT: Pixels = px(52.);
 /// Title-bar tab chip height inside the 46px chrome row.
 const TITLE_TAB_BAR_HEIGHT: Pixels = px(34.);
 /// Tab width bounds in the title bar (label truncates inside).
-const TITLE_TAB_MIN_WIDTH: Pixels = px(120.);
-const TITLE_TAB_WIDTH: Pixels = px(200.);
+const TITLE_TAB_MIN_WIDTH: Pixels = px(140.);
+const TITLE_TAB_WIDTH: Pixels = px(220.);
 /// Omnibar / breadcrumb bar height in the navigation row.
 const OMNIBAR_BAR_HEIGHT: Pixels = px(34.);
 

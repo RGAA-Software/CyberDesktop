@@ -91,44 +91,68 @@ impl MainPage {
                     .read(cx)
                     .target();
                 let is_home = matches!(pane_target, NavigationTarget::Home);
-                let close_color = if is_selected {
-                    cx.theme().tab_active_foreground
+                let icon_color = if is_selected {
+                    cx.theme().primary
                 } else {
                     cx.theme().muted_foreground
                 };
+                let label_color = if is_selected {
+                    cx.theme().foreground
+                } else {
+                    cx.theme().muted_foreground
+                };
+                let close_color = cx.theme().muted_foreground;
                 let tab_label = h_flex()
                     .w_full()
                     .min_w_0()
                     .gap(px(7.))
                     .items_center()
-                    .child(tab_icon_for_target(&pane_target))
+                    .child(
+                        div()
+                            .flex_none()
+                            .text_color(icon_color)
+                            .child(tab_icon_for_target(&pane_target)),
+                    )
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
                             .overflow_hidden()
-                            .child(Label::new(title).text_left().truncate()),
+                            .text_color(label_color)
+                            .child(
+                                Label::new(title)
+                                    .text_left()
+                                    .truncate()
+                                    .text_xs(),
+                            ),
                     );
                 let mut tab_item = Tab::new()
                     .w(TITLE_TAB_WIDTH)
                     .min_w(TITLE_TAB_MIN_WIDTH)
                     .max_w(TITLE_TAB_WIDTH)
                     .flex_shrink_0()
+                    .pr(px(10.))
                     .child(tab_label);
                 if !is_home {
                     tab_item = tab_item.suffix(
-                        Button::new(format!("main-tab-close-{}", tab.id))
-                            .ghost()
-                            .h(px(18.))
-                            .w(px(18.))
-                            .rounded_full()
-                            .text_color(close_color)
-                            .icon(compact_icon(IconName::Close).small())
-                            .tooltip(t!("nav.close_tab"))
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                cx.stop_propagation();
-                                this.close_tab(index, cx);
-                            })),
+                        div()
+                            .flex_none()
+                            .pl(px(4.))
+                            .pr(px(2.))
+                            .child(
+                                Button::new(format!("main-tab-close-{}", tab.id))
+                                    .ghost()
+                                    .h(px(18.))
+                                    .w(px(18.))
+                                    .rounded_full()
+                                    .text_color(close_color)
+                                    .icon(compact_icon(IconName::Close).small())
+                                    .tooltip(t!("nav.close_tab"))
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        cx.stop_propagation();
+                                        this.close_tab(index, cx);
+                                    })),
+                            ),
                     );
                 }
                 tab_item

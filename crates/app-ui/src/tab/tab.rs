@@ -656,7 +656,7 @@ impl RenderOnce for Tab {
                     cx.theme().transparent
                 };
                 tab_style.fg = if self.selected {
-                    cx.theme().tab_active_foreground
+                    cx.theme().primary
                 } else {
                     cx.theme().muted_foreground
                 };
@@ -714,10 +714,16 @@ impl RenderOnce for Tab {
             .h(height)
             .overflow_hidden()
             .text_color(tab_style.fg)
-            .map(|this| match self.size {
-                Size::XSmall => this.text_xs(),
-                Size::Large => this.text_base(),
-                _ => this.text_sm(),
+            .map(|this| {
+                if titlebar_medium {
+                    this.text_xs()
+                } else {
+                    match self.size {
+                        Size::XSmall => this.text_xs(),
+                        Size::Large => this.text_base(),
+                        _ => this.text_sm(),
+                    }
+                }
             })
             .when(self.selected, |this| this.font_semibold())
             .bg(tab_style.bg)
