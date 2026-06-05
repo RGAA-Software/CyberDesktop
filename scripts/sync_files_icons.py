@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Legacy: extract Files ThemedIcon paths to SVG.
 
-CyberFiles UI icons now use `scripts/sync_material_icons.py` (Google Material Symbols).
+CyberFiles UI icons now use `scripts/sync_tabler_icons.py` (Tabler Icons outline).
 This script remains only for reference or one-off Files asset extraction.
 """
 

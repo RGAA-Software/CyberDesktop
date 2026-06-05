@@ -1,10 +1,11 @@
 //! Embedded icon assets for CyberFiles.
 //!
-//! Toolbar and navigation icons use [Google Material Symbols](https://fonts.google.com/icons?icon.style=Rounded)
-//! (Rounded, default 24px) synced into `assets/icons/`. Window chrome, theme toggle, GitHub, and tab
-//! close icons stay on gpui-component (Lucide) artwork.
+//! CyberFiles toolbar, navigation, and list icons use [Tabler Icons](https://tabler.io/icons) (outline,
+//! 24px) under `assets/icons/tabler/`. Run `python scripts/sync_tabler_icons.py` to refresh them.
 //!
-//! Run `python scripts/sync_material_icons.py` to refresh Material SVGs.
+//! Editor gutter chevrons, CyberEditor toolbar icons, and a few shared paths (`plus.svg`, `settings-2.svg`)
+//! remain as bundled SVGs in `assets/icons/`. Window chrome, theme toggle, GitHub, and tab close icons
+//! load from gpui-component (Lucide) artwork.
 //!
 //! UI color themes live in `themes/*.json` (see [`themes`] module).
 
@@ -30,7 +31,7 @@ const ZED_ICON_PATH_ALIASES: &[(&str, &str)] = &[
     ("icons/chevron_down.svg", "icons/chevron-down.svg"),
 ];
 
-/// GPUI icon paths that must use bundled Lucide SVGs, not Material replacements.
+/// GPUI icon paths that must use bundled Lucide SVGs, not Tabler replacements.
 const LUCIDE_ICON_PATHS: &[&str] = &[
     "icons/window-close.svg",
     "icons/window-minimize.svg",

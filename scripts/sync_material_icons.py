@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Download Google Material Symbols (Rounded, default 24px) into gpui IconName SVG paths.
+"""LEGACY: Download Google Material Symbols into gpui IconName SVG paths.
+
+CyberFiles UI now uses Tabler Icons via `scripts/sync_tabler_icons.py`.
+This script is kept for reference only; do not run it against the current tree.
 
 Source: https://fonts.google.com/icons?icon.style=Rounded
 """
