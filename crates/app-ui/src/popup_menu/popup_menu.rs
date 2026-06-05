@@ -25,7 +25,10 @@ use std::sync::Arc;
 const CONTEXT: &str = "CyberDesktopPopupMenu";
 
 /// Default row height for menu and submenu rows.
-pub const DEFAULT_ITEM_ROW_HEIGHT: Pixels = px(32.);
+pub const DEFAULT_ITEM_ROW_HEIGHT: Pixels = px(34.);
+const MENU_CONTAINER_RADIUS: Pixels = px(14.);
+const MENU_ITEM_RADIUS: Pixels = px(9.);
+const MENU_EDGE_PADDING: Pixels = px(6.);
 
 /// Fixed width/height for the left icon gutter (Material + Shell PNG).
 pub const ICON_SLOT_SIZE: Pixels = px(16.);
@@ -1644,7 +1647,7 @@ impl Render for PopupMenu {
         let options = RenderOptions {
             has_left_icon,
             check_side: self.check_side,
-            radius: cx.theme().radius.min(px(8.)),
+            radius: MENU_ITEM_RADIUS,
         };
 
         v_flex()
@@ -1659,14 +1662,15 @@ impl Render for PopupMenu {
             .on_action(cx.listener(Self::dismiss))
             .on_mouse_down_out(cx.listener(Self::on_mouse_down_out))
             .popover_style(cx)
+            .rounded(MENU_CONTAINER_RADIUS)
             .text_color(cx.theme().popover_foreground)
             .relative()
             .occlude()
             .child(
                 v_flex()
                     .id("items")
-                    .p_1()
-                    .gap_y_0p5()
+                    .p(MENU_EDGE_PADDING)
+                    .gap(px(2.))
                     .min_w(rems(8.))
                     .when_some(self.min_width, |this, min_width| this.min_w(min_width))
                     .max_w(max_width)

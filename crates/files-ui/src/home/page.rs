@@ -12,10 +12,11 @@ use gpui::{
     anchored, deferred, div, prelude::*, px, Anchor, DismissEvent, Entity, MouseButton,
     MouseDownEvent, Pixels, Point, Subscription, Task, Window,
 };
-use gpui_component::v_flex;
+use gpui_component::{v_flex, ActiveTheme as _, ElementExt as _};
 use rust_i18n::t;
 
 use crate::app_state::AppNavigation;
+use crate::home::widget_shell::{HOME_PAGE_PADDING_X, HOME_PAGE_PADDING_Y, HOME_SECTION_GAP};
 use crate::home::widgets::{load_network_entries, NetworkEntry};
 use crate::shell::{append_dual_pane_popup_menu, dual_pane_menu_state, DualPanePopupProfile};
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
@@ -62,6 +63,8 @@ pub struct HomePage {
     /// Shell thumbnail PNG bytes for Home cards (path key → image).
     pub(super) thumbnail_bytes: HashMap<String, Arc<Vec<u8>>>,
     pub(super) thumbnail_pending: HashSet<String>,
+    /// Measured inner width of the home scroll column (drives card/tag grids).
+    content_width: Option<Pixels>,
 }
 
 impl HomePage {
@@ -78,6 +81,7 @@ impl HomePage {
             _qa_watch_task: None,
             thumbnail_bytes: HashMap::new(),
             thumbnail_pending: HashSet::new(),
+            content_width: None,
         };
         page.schedule_load(cx);
         #[cfg(windows)]
@@ -257,6 +261,11 @@ impl HomePage {
         }
         self.open_widget_prefs_menu(event.position, window, cx);
     }
+
+    pub(super) fn layout_width(&self, window: &Window) -> Pixels {
+        self.content_width
+            .unwrap_or_else(|| crate::home::widget_shell::estimated_content_width(window))
+    }
 }
 
 fn build_page_context_menu(
@@ -327,6 +336,8 @@ impl Render for HomePage {
 
         let widget_order = self.prefs.widget_order_normalized();
 
+        let page_entity = cx.entity().clone();
+
         let menu_overlay = self.popup_menu.as_ref().map(|state| {
             let position = state.position;
             let menu = state.menu.clone();
@@ -354,8 +365,22 @@ impl Render for HomePage {
                     .size_full()
                     .min_h_0()
                     .overflow_y_scroll()
-                    .p_4()
-                    .gap_3()
+                    .px(HOME_PAGE_PADDING_X)
+                    .py(HOME_PAGE_PADDING_Y)
+                    .gap(HOME_SECTION_GAP)
+                    .bg(cx.theme().background)
+                    .on_prepaint({
+                        let page_entity = page_entity.clone();
+                        move |bounds, _, cx| {
+                            let width = bounds.size.width;
+                            let _ = page_entity.update(cx, |page, cx| {
+                                if page.content_width != Some(width) {
+                                    page.content_width = Some(width);
+                                    cx.notify();
+                                }
+                            });
+                        }
+                    })
                     .on_mouse_down(
                         MouseButton::Right,
                         cx.listener(|page, event: &MouseDownEvent, window, cx| {

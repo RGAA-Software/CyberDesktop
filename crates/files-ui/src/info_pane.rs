@@ -18,7 +18,7 @@ use gpui_component::{
     label::Label,
     scroll::ScrollableElement as _,
     slider::{Slider, SliderEvent, SliderState},
-    v_flex, ActiveTheme as _, ElementExt, IconName,
+    v_flex, ActiveTheme as _, ElementExt, IconName, Sizable as _,
 };
 #[cfg(windows)]
 use raw_window_handle::RawWindowHandle;
@@ -1439,6 +1439,10 @@ impl Render for InfoPane {
             .child(
                 TabBar::new("info-pane-tabs")
                     .w_full()
+                    .small()
+                    .underline()
+                    .bottom_border(true)
+                    .px(px(12.))
                     .selected_index(selected_tab)
                     .on_click(cx.listener(|this, ix: &usize, _, cx| {
                         this.selected_tab = *ix;
@@ -1452,8 +1456,9 @@ impl Render for InfoPane {
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scrollbar()
-                    .p_3()
-                    .gap_3()
+                    .px(px(14.))
+                    .py(px(12.))
+                    .gap(px(12.))
                     .child(tab_content(selected_tab, &selection, show_calc_size, self, window, cx)),
             )
     }

@@ -1,9 +1,5 @@
-use gpui::{App, Entity, Global, Menu, MenuItem, SharedString};
+use gpui::{App, Entity, Global, Menu, SharedString};
 use gpui_component::{menu::AppMenuBar, GlobalState};
-
-use rust_i18n::t;
-
-use super::actions::{About, Quit};
 
 struct AppMenuState {
     menu_bar: Entity<AppMenuBar>,
@@ -67,11 +63,7 @@ fn update_app_menu(cx: &mut App) {
 fn build_menus(title: impl Into<SharedString>, _cx: &mut App) -> Vec<Menu> {
     vec![Menu {
         name: title.into(),
-        items: vec![
-            MenuItem::action(t!("menu.about"), About),
-            MenuItem::Separator,
-            MenuItem::action(t!("menu.quit"), Quit),
-        ],
+        items: vec![],
         disabled: false,
     }]
 }

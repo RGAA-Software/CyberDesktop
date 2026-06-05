@@ -24,7 +24,6 @@ use super::{
 };
 use crate::icons::{app_logo_element, compact_icon, pin_icon, toolbar_icon, toolbar_tabler};
 use crate::tabler_icons;
-use crate::shell::app_menus;
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::preferences::apply_theme_mode;
 use app_ui::tab::{Tab, TabBar};
@@ -162,7 +161,6 @@ impl MainPage {
         } else {
             IconName::Sun
         };
-        let app_menu_bar = app_menus::menu_bar(cx);
         if let Some(ix) = self.pending_tab_scroll_to_ix.take() {
             self.tab_bar_scroll_handle.scroll_to_item(ix);
         }
@@ -192,7 +190,6 @@ impl MainPage {
                                 .child(APP_NAME),
                         ),
                 )
-                .child(div().flex_none().child(app_menu_bar))
                 .child(
                     div()
                         .id("title-bar-tabs")
@@ -228,15 +225,7 @@ impl MainPage {
                         .px(px(10.))
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .child(
-                            Button::new("theme-toggle")
-                                .ghost()
-                                .h(px(28.))
-                                .px(px(10.))
-                                .rounded_full()
-                                .border_1()
-                                .border_color(cx.theme().border)
-                                .bg(cx.theme().background)
-                                .text_color(cx.theme().muted_foreground)
+                            toolbar_icon_button("theme-toggle")
                                 .icon(toolbar_icon(theme_icon))
                                 .tooltip(t!("nav.theme_toggle"))
                                 .on_click(move |_, _, cx| {
