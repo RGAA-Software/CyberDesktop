@@ -7,6 +7,8 @@ use crate::list_icon_cache;
 use crate::tabler_icons;
 
 const APP_ICON_IMAGE_PX: Pixels = px(18.);
+/// Sidebar row icons (design V11 ~15–16px).
+pub const SIDEBAR_ICON_PX: Pixels = px(16.);
 
 fn named_icon(name: &str) -> Icon {
     let path = list_icon_cache::named_icon_path(name).unwrap_or(tabler_icons::FILE);
@@ -46,6 +48,21 @@ pub fn toolbar_icon(icon: IconName) -> Icon {
 /// Explicit Tabler asset path at toolbar size.
 pub fn toolbar_tabler(path: &'static str) -> Icon {
     tabler_icons::icon(path)
+}
+
+/// Tabler icon at sidebar row size with an explicit tint.
+pub fn sidebar_tabler_icon(path: &'static str, color: Hsla) -> AnyElement {
+    div()
+        .size(SIDEBAR_ICON_PX)
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .text_color(color)
+        .child(
+            tabler_icons::icon(path).with_size(Size::Size(SIDEBAR_ICON_PX)),
+        )
+        .into_any_element()
 }
 
 /// Icon tinted with the active theme primary text color (`currentColor` in SVG).

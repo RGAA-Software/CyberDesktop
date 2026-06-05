@@ -151,6 +151,10 @@ sidebar.section.home:
   en: Home
   zh-CN: 主页
   zh-HK: 主頁
+sidebar.section.quick_access:
+  en: Quick access
+  zh-CN: 快速访问
+  zh-HK: 快速訪問
 sidebar.section.pinned:
   en: Pinned
   zh-CN: 固定

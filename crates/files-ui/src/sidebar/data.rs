@@ -18,7 +18,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
 
     sections.push(SidebarSection {
         kind: SidebarSectionKind::Home,
-        title: String::new(),
+        title: rust_i18n::t!("sidebar.section.quick_access").to_string(),
         entries: vec![
             SidebarEntry {
                 label: rust_i18n::t!("nav.home").to_string(),

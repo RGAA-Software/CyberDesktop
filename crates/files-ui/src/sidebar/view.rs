@@ -1,24 +1,20 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use files_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
-use app_platform_windows::{open_item_properties, SHELL_RECYCLE_BIN_PATH};
+use app_platform_windows::open_item_properties;
 use gpui::{prelude::*, ClickEvent, *};
 use gpui_component::{
     h_flex,
     sidebar::{Sidebar, SidebarCollapsible, SidebarItem},
     v_flex,
     ActiveTheme as _,
-    IconName,
     StyledExt as _,
 };
 use rust_i18n::t;
 
 use crate::app_state::AppNavigation;
 use crate::drag::DraggedFilePaths;
-use crate::icons::{
-    delete_icon_element, folder_icon_element, home_icon_element, inbox_icon_element, sidebar_icon,
-    toolbar_tabler,
-};
+use crate::icons::sidebar_tabler_icon;
 use files_fs::parse_tag_color_hex;
 use crate::main_page::MainPage;
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
@@ -53,16 +49,12 @@ pub fn render_sidebar(
         .min_w_0()
         .border_0();
 
-    for section in sections {
+    for (index, section) in sections.iter().enumerate() {
         let mut menu = SidebarMenuWithDrop::new();
         for entry in &section.entries {
-            append_sidebar_entry(&mut menu, &page, entry, &active);
+            append_sidebar_entry(&mut menu, &page, entry, section.kind, &active);
         }
-        let block = if section.kind == SidebarSectionKind::Home {
-            SidebarSectionBlock::flat(menu)
-        } else {
-            SidebarSectionBlock::section(section.title.clone(), menu)
-        };
+        let block = SidebarSectionBlock::section(section.title.clone(), menu, index == 0);
         sidebar = sidebar.child(block);
     }
 
@@ -74,39 +66,40 @@ pub fn render_sidebar(
         .border_r_1()
         .border_color(cx.theme().border)
         .px(px(8.))
-        .py(px(9.))
+        .pt(px(4.))
+        .pb(px(9.))
         .overflow_y_scroll()
         .child(sidebar)
 }
 
-/// Top sidebar entries (home, recycle bin) without a section heading.
+/// Sidebar section heading + entries.
 #[derive(Clone)]
 enum SidebarSectionBlock {
-    Flat(SidebarMenuWithDrop),
     Section {
         title: String,
         menu: SidebarMenuWithDrop,
+        first: bool,
     },
 }
 
 impl SidebarSectionBlock {
-    fn flat(menu: SidebarMenuWithDrop) -> Self {
-        Self::Flat(menu)
-    }
-
-    fn section(title: String, menu: SidebarMenuWithDrop) -> Self {
-        Self::Section { title, menu }
+    fn section(title: String, menu: SidebarMenuWithDrop, first: bool) -> Self {
+        Self::Section { title, menu, first }
     }
 }
 
-fn section_heading(title: impl Into<SharedString>, cx: &App) -> impl IntoElement {
+fn section_heading(
+    title: impl Into<SharedString>,
+    first: bool,
+    cx: &App,
+) -> impl IntoElement {
     let title: SharedString = title.into();
     div()
         .w_full()
         .px(px(9.))
-        .pt(px(10.))
+        .pt(px(if first { 5. } else { 10. }))
         .pb(px(4.))
-        .text_xs()
+        .text_size(px(10.))
         .font_semibold()
         .text_color(cx.theme().muted_foreground)
         .child(title)
@@ -115,17 +108,16 @@ fn section_heading(title: impl Into<SharedString>, cx: &App) -> impl IntoElement
 impl gpui_component::Collapsible for SidebarSectionBlock {
     fn is_collapsed(&self) -> bool {
         match self {
-            Self::Flat(menu) => menu.is_collapsed(),
             Self::Section { menu, .. } => menu.is_collapsed(),
         }
     }
 
     fn collapsed(self, collapsed: bool) -> Self {
         match self {
-            Self::Flat(menu) => Self::Flat(menu.collapsed(collapsed)),
-            Self::Section { title, menu } => Self::Section {
+            Self::Section { title, menu, first } => Self::Section {
                 title,
                 menu: menu.collapsed(collapsed),
+                first,
             },
         }
     }
@@ -139,11 +131,10 @@ impl SidebarItem for SidebarSectionBlock {
         cx: &mut App,
     ) -> impl IntoElement {
         match self {
-            Self::Flat(menu) => menu.render(id, window, cx).into_any_element(),
-            Self::Section { title, menu } => v_flex()
+            Self::Section { title, menu, first } => v_flex()
                 .w_full()
                 .gap(px(2.))
-                .child(section_heading(title, cx))
+                .child(section_heading(title, first, cx))
                 .child(menu.render(id, window, cx))
                 .into_any_element(),
         }
@@ -158,32 +149,8 @@ fn append_sidebar_entry(
     menu: &mut SidebarMenuWithDrop,
     page: &Entity<MainPage>,
     entry: &SidebarEntry,
+    section: SidebarSectionKind,
     active: &NavigationTarget,
-) {
-    if let Some(shell_path) = shell_path_for_target(&entry.target) {
-        push_shell_sidebar_entry(menu, page, entry, active, shell_path);
-        return;
-    }
-
-    push_nav_entry(menu, page, entry, active);
-}
-
-fn shell_path_for_target(target: &NavigationTarget) -> Option<std::path::PathBuf> {
-    match target {
-        NavigationTarget::Path(path) => Some(path.clone()),
-        NavigationTarget::Home => std::env::var_os("USERPROFILE").map(std::path::PathBuf::from),
-        // Files uses `Shell:RecycleBinFolder` for the colorful recycle bin icon, not the FS path.
-        NavigationTarget::RecycleBin => Some(PathBuf::from(SHELL_RECYCLE_BIN_PATH)),
-        _ => None,
-    }
-}
-
-fn push_shell_sidebar_entry(
-    menu: &mut SidebarMenuWithDrop,
-    page: &Entity<MainPage>,
-    entry: &SidebarEntry,
-    active: &NavigationTarget,
-    shell_path: std::path::PathBuf,
 ) {
     let is_active = navigation_matches(active, &entry.target);
     let page_click = page.clone();
@@ -220,19 +187,17 @@ fn push_shell_sidebar_entry(
             build_entry_context_menu(menu, &page_menu, &entry_menu, window, cx)
         }));
 
-    let suffix = entry
-        .usage_fraction
-        .map(usage_ring_suffix);
+    let icon = sidebar_entry_icon(&entry, section, is_active);
+    let suffix = entry.usage_fraction.map(usage_ring_suffix);
 
-    let drop_dest = drop_destination(&entry.target);
-    if let Some(dest) = drop_dest {
+    if let Some(dest) = drop_destination(&entry.target) {
         let page_drop = page.clone();
         let page_drop_external = page.clone();
         let dest_drop = dest.clone();
         let dest_drop_external = dest.clone();
-        menu.push_shell_path_with_folder_drop(
+        menu.push_item_with_folder_drop(
             label,
-            shell_path,
+            icon,
             is_active,
             handler,
             middle_click,
@@ -258,9 +223,9 @@ fn push_shell_sidebar_entry(
             suffix.clone(),
         );
     } else if let Some(suffix) = suffix {
-        menu.push_shell_path_with_suffix(
+        menu.push_item_with_suffix(
             label,
-            shell_path,
+            icon,
             is_active,
             handler,
             middle_click,
@@ -268,81 +233,69 @@ fn push_shell_sidebar_entry(
             Some(suffix),
         );
     } else {
-        menu.push_shell_path(
-            label,
-            shell_path,
-            is_active,
-            handler,
-            middle_click,
-            context_menu,
-        );
+        menu.push_item(label, icon, is_active, handler, middle_click, context_menu);
     }
 }
 
-fn push_nav_entry(
-    menu: &mut SidebarMenuWithDrop,
-    page: &Entity<MainPage>,
+fn sidebar_icon_color(section: SidebarSectionKind, active: bool, cx: &App) -> Hsla {
+    if active {
+        cx.theme().primary
+    } else if section == SidebarSectionKind::Pinned {
+        gpui::rgb(0xD4_88_06).into()
+    } else {
+        cx.theme().muted_foreground
+    }
+}
+
+fn tabler_path_for_sidebar_entry(
     entry: &SidebarEntry,
-    active: &NavigationTarget,
-) {
-    let target = entry.target.clone();
-    let is_active = navigation_matches(active, &target);
-    let page_click = page.clone();
-    let page_middle = page.clone();
-    let page_menu = page.clone();
-    let entry = entry.clone();
-    let label = SharedString::from(entry.label.clone());
+    section: SidebarSectionKind,
+) -> &'static str {
+    match (&entry.target, section) {
+        (NavigationTarget::Home, _) => tabler_icons::HOME,
+        (NavigationTarget::RecycleBin, _) => tabler_icons::TRASH,
+        (NavigationTarget::FileTag(_), _) => tabler_icons::TAG,
+        (NavigationTarget::Settings, _) => tabler_icons::SETTINGS,
+        (NavigationTarget::SearchResults { .. }, _) => tabler_icons::SEARCH,
+        (NavigationTarget::Path(_), SidebarSectionKind::Pinned) => tabler_icons::FOLDER_PIN,
+        (_, SidebarSectionKind::Drives) => tabler_icons::DEVICE_DESKTOP,
+        (_, SidebarSectionKind::Cloud) => tabler_icons::CLOUD,
+        (_, SidebarSectionKind::Network) => tabler_icons::NETWORK,
+        (_, SidebarSectionKind::Wsl) => tabler_icons::BRAND_WINDOWS,
+        (_, SidebarSectionKind::Library) => tabler_icons::BOOK,
+        (NavigationTarget::Path(_), _) => tabler_icons::FOLDER,
+    }
+}
 
+fn sidebar_entry_icon(
+    entry: &SidebarEntry,
+    section: SidebarSectionKind,
+    active: bool,
+) -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
+    let path = tabler_path_for_sidebar_entry(entry, section);
     let tag_color = entry.color.clone();
-    let target_for_icon = target.clone();
-    let entry_for_menu = entry.clone();
-
-    let handler = move |_: &ClickEvent, _: &mut Window, cx: &mut App| {
-        let target = target.clone();
-        let _ = page_click.update(cx, |page, cx| {
-            page.navigate_to(target, cx);
-        });
-    };
-
-    let middle_click: Option<std::rc::Rc<dyn Fn(&mut Window, &mut App)>> =
-        if matches!(&entry.target, NavigationTarget::Path(_)) {
-            let target = entry.target.clone();
-            Some(std::rc::Rc::new(move |_: &mut Window, cx: &mut App| {
-                if let NavigationTarget::Path(path) = &target {
-                    let _ = page_middle.update(cx, |page, cx| {
-                        page.open_path_in_new_tab(path.clone(), cx);
-                    });
-                }
-            }))
+    let is_file_tag = matches!(entry.target, NavigationTarget::FileTag(_));
+    move |_window, cx| {
+        if is_file_tag {
+            let fill = gpui::rgb(
+                tag_color
+                    .as_deref()
+                    .and_then(parse_tag_color_hex)
+                    .unwrap_or(0x54_6E_7A),
+            );
+            let icon_color = if active {
+                cx.theme().primary
+            } else {
+                cx.theme().muted_foreground
+            };
+            h_flex()
+                .gap(px(6.))
+                .items_center()
+                .child(div().size(px(8.)).rounded_full().bg(fill))
+                .child(sidebar_tabler_icon(tabler_icons::TAG, icon_color))
+                .into_any_element()
         } else {
-            None
-        };
-
-    let context_menu: Option<std::rc::Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>> =
-        Some(std::rc::Rc::new(move |menu, window, cx| {
-            build_entry_context_menu(menu, &page_menu, &entry_for_menu, window, cx)
-        }));
-
-    match &entry.target {
-        NavigationTarget::FileTag(_) => {
-            menu.push_item(
-                label,
-                tag_color_sidebar_icon(tag_color),
-                is_active,
-                handler,
-                middle_click,
-                context_menu,
-            );
-        }
-        _ => {
-            menu.push_item(
-                label,
-                icon_for_target(&target_for_icon),
-                is_active,
-                handler,
-                middle_click,
-                context_menu,
-            );
+            sidebar_tabler_icon(path, sidebar_icon_color(section, active, cx))
         }
     }
 }
@@ -438,43 +391,6 @@ fn build_entry_context_menu(
     }
 
     menu
-}
-
-fn tag_color_sidebar_icon(
-    color: Option<String>,
-) -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
-    move |_window, cx| {
-        let fill = gpui::rgb(
-            color
-                .as_deref()
-                .and_then(parse_tag_color_hex)
-                .unwrap_or(0x54_6E_7A),
-        );
-        h_flex()
-            .gap(px(6.))
-            .items_center()
-            .child(div().size(px(8.)).rounded_full().bg(fill))
-            .child(
-                div()
-                    .text_color(crate::icons::chrome_icon_color(cx))
-                    .child(toolbar_tabler(tabler_icons::TAG)),
-            )
-            .into_any_element()
-    }
-}
-
-fn icon_for_target(
-    target: &NavigationTarget,
-) -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
-    let target = target.clone();
-    move |_window: &mut Window, cx: &mut App| match &target {
-        NavigationTarget::Home => home_icon_element(cx),
-        NavigationTarget::RecycleBin => delete_icon_element(cx),
-        NavigationTarget::Settings => sidebar_icon(IconName::Settings2).into_any_element(),
-        NavigationTarget::FileTag(_) => inbox_icon_element(cx),
-        NavigationTarget::SearchResults { .. } => sidebar_icon(IconName::Search).into_any_element(),
-        NavigationTarget::Path(_) => folder_icon_element(cx),
-    }
 }
 
 pub fn navigation_matches(active: &NavigationTarget, entry: &NavigationTarget) -> bool {

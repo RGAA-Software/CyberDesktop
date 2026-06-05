@@ -101,7 +101,11 @@ impl MainPage {
                 } else {
                     cx.theme().muted_foreground
                 };
-                let close_color = cx.theme().muted_foreground;
+                let close_color = if is_selected {
+                    cx.theme().muted_foreground
+                } else {
+                    cx.theme().muted_foreground.opacity(0.42)
+                };
                 let tab_label = h_flex()
                     .w_full()
                     .min_w_0()

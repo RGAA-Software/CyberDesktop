@@ -17,6 +17,7 @@ pub const FOLDER: &str = tabler_path!("folder");
 pub const FOLDER_FILLED: &str = tabler_path!("folder-filled");
 pub const FOLDER_OFF: &str = tabler_path!("folder-off");
 pub const FOLDER_PLUS: &str = tabler_path!("folder-plus");
+pub const FOLDER_PIN: &str = tabler_path!("folder-pin");
 pub const FOLDER_OPEN: &str = tabler_path!("folder-open");
 pub const FILE: &str = tabler_path!("file");
 pub const FILE_PLUS: &str = tabler_path!("file-plus");

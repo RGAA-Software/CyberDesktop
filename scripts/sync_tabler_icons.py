@@ -55,6 +55,7 @@ TABLER_ICON_MAP: dict[str, str] = {
     "pencil": "pencil",
     "trash": "trash",
     "folder-plus": "folder-plus",
+    "folder-pin": "folder-pin",
     "file-plus": "file-plus",
     "folder-open": "folder-open",
     "file-zip": "file-zip",
