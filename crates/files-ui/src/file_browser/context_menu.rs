@@ -977,14 +977,22 @@ fn build_directory_item_menu(
     }
 
     if single {
-        if let Some(parent) = paths[0].parent() {
-            let loc_parent = parent.to_path_buf();
-            menu = menu.item(menu_click_item(
-                t!("files.menu.open_file_location"),
-                IconName::FolderOpen,
-                move |_, _, cx| AppNavigation::navigate_to_path(loc_parent.clone(), cx),
-            ));
-        }
+        let loc_path = paths[0].clone();
+        menu = menu.item(menu_click_item(
+            t!("files.menu.open_file_location"),
+            IconName::FolderOpen,
+            move |_, window, cx| {
+                if let Err(error) = platform::open_in_new_explorer_window(&loc_path) {
+                    window.push_notification(
+                        Notification::error(format!(
+                            "{}: {error}",
+                            t!("files.open_new_window.error")
+                        )),
+                        cx,
+                    );
+                }
+            },
+        ));
     }
 
     if item_prefs.open_in_terminal && all_dirs {

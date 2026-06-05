@@ -1424,9 +1424,9 @@ files.menu.drag_out_experimental.error:
   zh-CN: 无法准备资源管理器拖拽数据
   zh-HK: 無法準備檔案總管拖曳資料
 files.menu.open_file_location:
-  en: Open file location
-  zh-CN: 打开文件所在位置
-  zh-HK: 開啟檔案位置
+  en: Open with Explorer
+  zh-CN: 使用Explorer打开
+  zh-HK: 使用Explorer開啟
 files.menu.delete_permanent:
   en: Delete permanently
   zh-CN: 永久删除
