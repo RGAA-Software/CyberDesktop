@@ -34,15 +34,15 @@ mod sidebar;
 mod tab_bar_menu;
 mod tabs;
 
-/// Matches Files `NavigationToolbar` height.
-const NAV_TOOLBAR_HEIGHT: Pixels = px(48.);
-/// Default medium `TabBar` height in the integrated title bar.
-const TITLE_TAB_BAR_HEIGHT: Pixels = px(32.);
-/// Fixed width per document tab in the title bar (label truncates inside).
+/// Navigation bar height (design V11).
+const NAV_TOOLBAR_HEIGHT: Pixels = px(52.);
+/// Title-bar tab chip height inside the 46px chrome row.
+const TITLE_TAB_BAR_HEIGHT: Pixels = px(34.);
+/// Tab width bounds in the title bar (label truncates inside).
+const TITLE_TAB_MIN_WIDTH: Pixels = px(120.);
 const TITLE_TAB_WIDTH: Pixels = px(200.);
-const TITLE_TAB_CLOSE_RIGHT_INSET: Pixels = px(5.);
-/// Omnibar height (Files `AddressToolbarButtonStyle` uses 32px).
-const OMNIBAR_BAR_HEIGHT: Pixels = px(32.);
+/// Omnibar / breadcrumb bar height in the navigation row.
+const OMNIBAR_BAR_HEIGHT: Pixels = px(34.);
 
 struct TabEntry {
     id: u64,
@@ -206,6 +206,11 @@ impl Render for MainPage {
         self.adapt_active_shell_viewport(window.viewport_size().width, cx);
         let active_shell = self.active_shell();
         let show_info_pane = self.show_info_pane;
+        let show_nav = !matches!(
+            self.active_navigation_target(cx),
+            NavigationTarget::Home | NavigationTarget::Settings
+        );
+        let navigation_toolbar = show_nav.then(|| self.render_navigation_toolbar(window, cx));
         let file_navigation_active = self.file_navigation_active(cx);
         let (info_selection, info_read_options) = self.info_pane_update(cx);
         self.info_pane.update(cx, |pane, cx| {
@@ -430,7 +435,7 @@ impl Render for MainPage {
                 }
             }))
             .child(self.render_title_bar(window, cx))
-            .child(self.render_navigation_toolbar(window, cx))
+            .when_some(navigation_toolbar, |page, nav| page.child(nav))
             .child(
                 div()
                     .id("main-body")

@@ -617,26 +617,73 @@ impl RenderOnce for Tab {
                 hover_style.borders.left = px(0.);
             }
         }
-        let radius = self.variant.radius(self.size, cx);
-        let inner_radius = self.variant.inner_radius(self.size, cx);
-        let inner_paddings = self.variant.inner_paddings(self.size);
         let titlebar_medium =
             self.medium_titlebar && self.size == Size::Medium && self.variant == TabVariant::Tab;
         let flat_chip = self.variant == TabVariant::Tab
             && (self.fixed_height.is_some() || titlebar_medium);
+        let radius = if titlebar_medium {
+            cx.theme().radius
+        } else {
+            self.variant.radius(self.size, cx)
+        };
+        let inner_radius = self.variant.inner_radius(self.size, cx);
+        let inner_paddings = if titlebar_medium {
+            Edges {
+                left: px(12.),
+                right: px(8.),
+                ..Default::default()
+            }
+        } else {
+            self.variant.inner_paddings(self.size)
+        };
         if flat_chip {
-            tab_style.borders = Edges::all(px(0.));
-            tab_style.border_color = cx.theme().transparent;
-            tab_style.bg = if self.selected {
-                cx.theme().tab_active
+            if titlebar_medium {
+                let border = Edges {
+                    left: px(1.),
+                    right: px(1.),
+                    top: px(1.),
+                    bottom: px(0.),
+                };
+                tab_style.borders = border;
+                tab_style.border_color = if self.selected {
+                    cx.theme().border
+                } else {
+                    cx.theme().transparent
+                };
+                tab_style.bg = if self.selected {
+                    cx.theme().tab_active
+                } else {
+                    cx.theme().transparent
+                };
+                tab_style.fg = if self.selected {
+                    cx.theme().tab_active_foreground
+                } else {
+                    cx.theme().muted_foreground
+                };
+                tab_style.inner_bg = cx.theme().transparent;
+                hover_style.borders = border;
+                hover_style.border_color = if self.selected {
+                    cx.theme().border
+                } else {
+                    cx.theme().transparent
+                };
+                hover_style.bg = cx.theme().list_hover;
+                hover_style.fg = cx.theme().foreground;
+                hover_style.inner_bg = cx.theme().transparent;
             } else {
-                cx.theme().transparent
-            };
-            tab_style.inner_bg = cx.theme().transparent;
-            hover_style.borders = Edges::all(px(0.));
-            hover_style.border_color = cx.theme().transparent;
-            hover_style.bg = cx.theme().tab_active;
-            hover_style.inner_bg = cx.theme().transparent;
+                tab_style.borders = Edges::all(px(0.));
+                tab_style.border_color = cx.theme().transparent;
+                tab_style.bg = if self.selected {
+                    cx.theme().tab_active
+                } else {
+                    cx.theme().transparent
+                };
+                tab_style.inner_bg = cx.theme().transparent;
+                hover_style.borders = Edges::all(px(0.));
+                hover_style.border_color = cx.theme().transparent;
+                hover_style.bg = cx.theme().tab_active;
+                hover_style.inner_bg = cx.theme().transparent;
+            }
         }
         let chip_height = self.fixed_height.unwrap_or_else(|| {
             if titlebar_medium {

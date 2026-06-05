@@ -53,6 +53,7 @@ pub struct TabBar {
     menu: bool,
     medium_titlebar: bool,
     fixed_tab_height: Option<Pixels>,
+    tab_gap: Option<Pixels>,
     /// Full-width bottom rule under the tab strip (`Tab` / `Underline` variants only).
     bottom_border: bool,
     /// 12px vertical rules between adjacent unselected tabs (`Tab` variant only).
@@ -80,6 +81,7 @@ impl TabBar {
             menu: false,
             medium_titlebar: false,
             fixed_tab_height: None,
+            tab_gap: None,
             bottom_border: false,
             inactive_separators: false,
         }
@@ -127,6 +129,12 @@ impl TabBar {
     pub fn tab_height(mut self, height: Pixels) -> Self {
         self.fixed_tab_height = Some(height);
         self.size = Size::Medium;
+        self
+    }
+
+    /// Gap between tab chips (title-bar layout).
+    pub fn tab_gap(mut self, gap: Pixels) -> Self {
+        self.tab_gap = Some(gap);
         self
     }
 
@@ -374,7 +382,8 @@ impl RenderOnce for TabBar {
         let (bg, paddings, gap) = match self.variant {
             TabVariant::Tab => {
                 let padding = Edges::all(px(0.));
-                (cx.theme().tab_bar, padding, px(0.))
+                let gap = self.tab_gap.unwrap_or(px(0.));
+                (cx.theme().tab_bar, padding, gap)
             }
             TabVariant::Outline => {
                 let padding = Edges::all(px(0.));

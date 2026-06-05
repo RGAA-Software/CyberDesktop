@@ -1,5 +1,28 @@
 use super::*;
 use super::helpers::view_supports_grouping;
+use files_commands::{NewFile, NewFolder};
+use gpui_component::{
+    button::Button,
+    Icon,
+};
+
+const ACTION_BAR_HEIGHT: Pixels = px(48.);
+
+fn cmd_separator(cx: &App) -> impl IntoElement {
+    div()
+        .flex_none()
+        .w(px(1.))
+        .h(px(22.))
+        .bg(cx.theme().border)
+        .mx(px(6.))
+}
+
+fn act_button(id: impl Into<ElementId>) -> Button {
+    toolbar_labeled_button(id)
+        .h(px(32.))
+        .px(px(10.))
+        .rounded(px(10.))
+}
 
 impl FileBrowser {
     fn file_tag_is_empty(&self) -> bool {
@@ -26,9 +49,83 @@ impl FileBrowser {
             )
     }
 
-    /// Files-style toolbar above the file list (view, sort, new, delete).
+    fn view_mode_button(
+        &self,
+        id: &'static str,
+        mode: ViewMode,
+        icon: Icon,
+        tooltip: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) -> Button {
+        let active = self.view_mode == mode;
+        toolbar_icon_button(id)
+            .h(px(32.))
+            .w(px(32.))
+            .rounded(px(8.))
+            .icon(icon)
+            .tooltip(tooltip)
+            .when(active, |btn| {
+                btn.bg(cx.theme().background)
+                    .border_1()
+                    .border_color(cx.theme().primary)
+                    .text_color(cx.theme().accent_foreground)
+            })
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.set_view_mode(mode, cx);
+            }))
+    }
+
+    fn render_view_mode_group(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        h_flex()
+            .id("view-mode-group")
+            .flex_none()
+            .gap(px(4.))
+            .p(px(3.))
+            .rounded(px(11.))
+            .border_1()
+            .border_color(cx.theme().border)
+            .bg(cx.theme().secondary)
+            .child(self.view_mode_button(
+                "view-details",
+                ViewMode::Details,
+                toolbar_tabler(tabler_icons::LIST_DETAILS),
+                t!("files.view.details"),
+                cx,
+            ))
+            .child(self.view_mode_button(
+                "view-list",
+                ViewMode::List,
+                toolbar_icon(IconName::PanelLeftOpen),
+                t!("files.view.list"),
+                cx,
+            ))
+            .child(self.view_mode_button(
+                "view-grid",
+                ViewMode::Grid,
+                toolbar_tabler(tabler_icons::LAYOUT_GRID),
+                t!("files.view.grid"),
+                cx,
+            ))
+            .child(self.view_mode_button(
+                "view-cards",
+                ViewMode::Cards,
+                toolbar_tabler(tabler_icons::LAYOUT_BOARD),
+                t!("files.view.cards"),
+                cx,
+            ))
+            .child(self.view_mode_button(
+                "view-columns",
+                ViewMode::Columns,
+                toolbar_tabler(tabler_icons::COLUMNS_3),
+                t!("files.view.columns"),
+                cx,
+            ))
+    }
+
+    /// Design-aligned action bar above the file list (new, views, clipboard, delete, sort).
     fn render_content_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let selected_count = self.selected_count();
+        let in_recycle_bin = self.browse_location == BrowseLocation::RecycleBin;
         let show_hidden = self.read_options.show_hidden_items;
         let show_file_extensions = self.read_options.show_file_extensions;
         let sort_label = self.sort_label();
@@ -36,33 +133,46 @@ impl FileBrowser {
         let group = self.group_option;
         let group_date_unit = self.group_date_unit;
         let grouping_available = view_supports_grouping(self.view_mode);
-
         let can_paste = AppFileClipboard::has_items(cx);
 
         h_flex()
-            .id("content-toolbar")
+            .id("action-bar")
             .w_full()
             .flex_none()
-            .gap_2()
-            .px_3()
-            .py_1()
-            .mb_1()
+            .h(ACTION_BAR_HEIGHT)
+            .min_h(ACTION_BAR_HEIGHT)
+            .gap(px(5.))
+            .px(px(16.))
             .items_center()
             .border_b_1()
             .border_color(cx.theme().border)
+            .bg(cx.theme().background)
+            .when(!in_recycle_bin, |bar| {
+                bar.child(
+                    toolbar_dropdown_button("action-new")
+                        .button(
+                            Button::new("action-new-btn")
+                                .h(px(32.))
+                                .px(px(10.))
+                                .rounded(px(10.))
+                                .bg(cx.theme().primary)
+                                .text_color(cx.theme().primary_foreground)
+                                .icon(toolbar_tabler(tabler_icons::PLUS))
+                                .label(t!("files.menu.new"))
+                                .tooltip(t!("files.menu.new")),
+                        )
+                        .dropdown_menu(|menu, _, _| {
+                            menu.menu(t!("files.new_folder"), Box::new(NewFolder))
+                                .menu(t!("files.new_file"), Box::new(NewFile))
+                        }),
+                )
+            })
+            .child(self.render_view_mode_group(cx))
+            .child(cmd_separator(cx))
             .child(
-                toolbar_icon_button("content-cut")
-                    .icon(crate::icons::toolbar_tabler(crate::tabler_icons::CUT))
-                    .tooltip(t!("files.menu.cut"))
-                    .disabled(selected_count == 0)
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.cut_items(cx);
-                        cx.notify();
-                    })),
-            )
-            .child(
-                toolbar_icon_button("content-copy")
+                act_button("action-copy")
                     .icon(toolbar_tabler(tabler_icons::COPY))
+                    .label(t!("files.menu.copy"))
                     .tooltip(t!("files.menu.copy"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -71,8 +181,20 @@ impl FileBrowser {
                     })),
             )
             .child(
-                toolbar_icon_button("content-paste")
+                act_button("action-cut")
+                    .icon(toolbar_tabler(tabler_icons::CUT))
+                    .label(t!("files.menu.cut"))
+                    .tooltip(t!("files.menu.cut"))
+                    .disabled(selected_count == 0)
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.cut_items(cx);
+                        cx.notify();
+                    })),
+            )
+            .child(
+                act_button("action-paste")
                     .icon(toolbar_tabler(tabler_icons::CLIPBOARD))
+                    .label(t!("files.menu.paste"))
                     .tooltip(t!("files.menu.paste"))
                     .disabled(!can_paste)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -80,8 +202,9 @@ impl FileBrowser {
                     })),
             )
             .child(
-                toolbar_icon_button("content-rename")
+                act_button("action-rename")
                     .icon(toolbar_tabler(tabler_icons::PENCIL))
+                    .label(t!("files.menu.rename"))
                     .tooltip(t!("files.menu.rename"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -90,95 +213,20 @@ impl FileBrowser {
                     })),
             )
             .child(
-                toolbar_icon_button("content-properties")
+                act_button("action-properties")
                     .icon(toolbar_icon(IconName::Info))
+                    .label(t!("files.menu.properties"))
                     .tooltip(t!("files.menu.properties"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.show_properties(cx);
                     })),
             )
-            .child(div().w(px(1.)).h(px(20.)).bg(cx.theme().border))
+            .child(cmd_separator(cx))
             .child(
-                toolbar_icon_button("content-new-folder")
-                    .size(TOOLBAR_BUTTON_PX)
-                    .icon(toolbar_tabler(tabler_icons::FOLDER_PLUS))
-                    .tooltip(t!("files.new_folder"))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.create_new_folder(window, cx);
-                        cx.notify();
-                    })),
-            )
-            .child(
-                toolbar_icon_button("content-new-file")
-                    .size(TOOLBAR_BUTTON_PX)
-                    .icon(toolbar_tabler(tabler_icons::FILE_PLUS))
-                    .tooltip(t!("files.new_file"))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.create_new_file(window, cx);
-                        cx.notify();
-                    })),
-            )
-            .child(div().w(px(1.)).h(px(20.)).bg(cx.theme().border))
-            .child(
-                toolbar_icon_button("content-view-details")
-                    .icon(toolbar_tabler(tabler_icons::LIST_DETAILS))
-                    .tooltip(t!("files.view.details"))
-                    .when(self.view_mode == ViewMode::Details, |this| {
-                        this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.set_view_mode(ViewMode::Details, cx);
-                    })),
-            )
-            .child(
-                toolbar_icon_button("content-view-list")
-                    .icon(toolbar_icon(IconName::PanelLeftOpen))
-                    .tooltip(t!("files.view.list"))
-                    .when(self.view_mode == ViewMode::List, |this| {
-                        this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.set_view_mode(ViewMode::List, cx);
-                    })),
-            )
-            .child(
-                toolbar_icon_button("content-view-grid")
-                    .icon(toolbar_icon(IconName::LayoutDashboard))
-                    .tooltip(t!("files.view.grid"))
-                    .when(self.view_mode == ViewMode::Grid, |this| {
-                        this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.set_view_mode(ViewMode::Grid, cx);
-                    })),
-            )
-            .child(
-                toolbar_icon_button("content-view-cards")
-                    .icon(toolbar_tabler(tabler_icons::LAYOUT_BOARD))
-                    .tooltip(t!("files.view.cards"))
-                    .when(self.view_mode == ViewMode::Cards, |this| {
-                        this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.set_view_mode(ViewMode::Cards, cx);
-                    })),
-            )
-            .child(
-                toolbar_icon_button("content-view-columns")
-                    .icon(toolbar_icon(IconName::PanelLeft))
-                    .tooltip(t!("files.view.columns"))
-                    .when(self.view_mode == ViewMode::Columns, |this| {
-                        this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.set_view_mode(ViewMode::Columns, cx);
-                    })),
-            )
-            .child(div().w(px(1.)).h(px(20.)).bg(cx.theme().border))
-            .child(
-                toolbar_icon_button("content-delete")
+                act_button("action-delete")
                     .icon(toolbar_icon(IconName::Delete))
+                    .label(t!("files.menu.delete"))
                     .tooltip(t!("files.menu.delete"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -186,27 +234,43 @@ impl FileBrowser {
                         cx.notify();
                     })),
             )
+            .child(div().flex_1().min_w_0())
             .child(
-                toolbar_dropdown_button("content-sort")
-                    .button(
-                        toolbar_labeled_button("content-sort-btn")
-                            .label(sort_label)
-                            .tooltip(t!("files.menu.sort")),
-                    )
-                    .dropdown_menu(move |menu, window, cx| {
-                        build_sort_prefs_toolbar_menu(
-                            menu,
-                            sort,
-                            group,
-                            group_date_unit,
-                            show_hidden,
-                            show_file_extensions,
-                            false,
-                            grouping_available,
-                            window,
-                            cx,
-                        )
-                    }),
+                h_flex()
+                    .id("sort-area")
+                    .flex_none()
+                    .gap(px(8.))
+                    .items_center()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(Label::new(t!("files.menu.sort")))
+                    .child(
+                        toolbar_dropdown_button("action-sort")
+                            .button(
+                                act_button("action-sort-btn")
+                                    .label(sort_label)
+                                    .tooltip(t!("files.menu.sort"))
+                                    .h(px(32.))
+                                    .rounded(px(10.))
+                                    .border_1()
+                                    .border_color(cx.theme().border)
+                                    .bg(cx.theme().secondary),
+                            )
+                            .dropdown_menu(move |menu, window, cx| {
+                                build_sort_prefs_toolbar_menu(
+                                    menu,
+                                    sort,
+                                    group,
+                                    group_date_unit,
+                                    show_hidden,
+                                    show_file_extensions,
+                                    false,
+                                    grouping_available,
+                                    window,
+                                    cx,
+                                )
+                            }),
+                    ),
             )
     }
 }
@@ -389,7 +453,7 @@ impl Render for FileBrowser {
                                     })),
                             )
                         })
-                        .when(!in_recycle_bin, |this| {
+                        .when(!self.show_content_toolbar && !in_recycle_bin, |this| {
                             this.child(
                                 toolbar_icon_button("files-new-folder-btn")
                                     .size(TOOLBAR_BUTTON_PX)
@@ -411,93 +475,100 @@ impl Render for FileBrowser {
                                     })),
                             )
                         })
-                        .child(
-                            toolbar_icon_button("files-view-details")
-                                .icon(toolbar_tabler(tabler_icons::LIST_DETAILS))
-                                .tooltip(t!("files.view.details"))
-                                .when(self.view_mode == ViewMode::Details, |this| {
-                                    this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                                })
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.set_view_mode(ViewMode::Details, cx);
-                                })),
-                        )
-                        .child(
-                            toolbar_icon_button("files-view-list")
-                                .icon(toolbar_icon(IconName::PanelLeftOpen))
-                                .tooltip(t!("files.view.list"))
-                                .when(self.view_mode == ViewMode::List, |this| {
-                                    this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                                })
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.set_view_mode(ViewMode::List, cx);
-                                })),
-                        )
-                        .child(
-                            toolbar_icon_button("files-view-grid")
-                                .icon(toolbar_icon(IconName::LayoutDashboard))
-                                .tooltip(t!("files.view.grid"))
-                                .when(self.view_mode == ViewMode::Grid, |this| {
-                                    this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                                })
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.set_view_mode(ViewMode::Grid, cx);
-                                })),
-                        )
-                        .child(
-                            toolbar_icon_button("files-view-cards")
-                                .icon(toolbar_tabler(tabler_icons::LAYOUT_BOARD))
-                                .tooltip(t!("files.view.cards"))
-                                .when(self.view_mode == ViewMode::Cards, |this| {
-                                    this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                                })
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.set_view_mode(ViewMode::Cards, cx);
-                                })),
-                        )
-                        .child(
-                            toolbar_icon_button("files-view-columns")
-                                .icon(toolbar_icon(IconName::PanelLeft))
-                                .tooltip(t!("files.view.columns"))
-                                .when(self.view_mode == ViewMode::Columns, |this| {
-                                    this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
-                                })
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.set_view_mode(ViewMode::Columns, cx);
-                                })),
-                        )
-                        .child(
-                            toolbar_icon_button("files-delete-btn")
-                                .icon(toolbar_icon(IconName::Delete))
-                                .tooltip(t!("files.menu.delete"))
-                                .disabled(selected_count == 0)
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.perform_delete(window, cx);
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            toolbar_dropdown_button("files-sort")
-                                .button(
-                                    toolbar_labeled_button("files-sort-btn")
-                                        .label(sort_label)
-                                        .tooltip(t!("files.menu.sort")),
-                                )
-                                .dropdown_menu(move |menu, window, cx| {
-                                    build_sort_prefs_toolbar_menu(
-                                        menu,
-                                        sort,
-                                        group,
-                                        group_date_unit,
-                                        show_hidden,
-                                        show_file_extensions,
-                                        false,
-                                        grouping_available,
-                                        window,
-                                        cx,
+                        .when(!self.show_content_toolbar, |this| {
+                            this.child(
+                                toolbar_icon_button("files-view-details")
+                                    .icon(toolbar_tabler(tabler_icons::LIST_DETAILS))
+                                    .tooltip(t!("files.view.details"))
+                                    .when(self.view_mode == ViewMode::Details, |btn| {
+                                        btn.bg(cx.theme().accent)
+                                            .text_color(cx.theme().accent_foreground)
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.set_view_mode(ViewMode::Details, cx);
+                                    })),
+                            )
+                            .child(
+                                toolbar_icon_button("files-view-list")
+                                    .icon(toolbar_icon(IconName::PanelLeftOpen))
+                                    .tooltip(t!("files.view.list"))
+                                    .when(self.view_mode == ViewMode::List, |btn| {
+                                        btn.bg(cx.theme().accent)
+                                            .text_color(cx.theme().accent_foreground)
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.set_view_mode(ViewMode::List, cx);
+                                    })),
+                            )
+                            .child(
+                                toolbar_icon_button("files-view-grid")
+                                    .icon(toolbar_tabler(tabler_icons::LAYOUT_GRID))
+                                    .tooltip(t!("files.view.grid"))
+                                    .when(self.view_mode == ViewMode::Grid, |btn| {
+                                        btn.bg(cx.theme().accent)
+                                            .text_color(cx.theme().accent_foreground)
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.set_view_mode(ViewMode::Grid, cx);
+                                    })),
+                            )
+                            .child(
+                                toolbar_icon_button("files-view-cards")
+                                    .icon(toolbar_tabler(tabler_icons::LAYOUT_BOARD))
+                                    .tooltip(t!("files.view.cards"))
+                                    .when(self.view_mode == ViewMode::Cards, |btn| {
+                                        btn.bg(cx.theme().accent)
+                                            .text_color(cx.theme().accent_foreground)
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.set_view_mode(ViewMode::Cards, cx);
+                                    })),
+                            )
+                            .child(
+                                toolbar_icon_button("files-view-columns")
+                                    .icon(toolbar_tabler(tabler_icons::COLUMNS_3))
+                                    .tooltip(t!("files.view.columns"))
+                                    .when(self.view_mode == ViewMode::Columns, |btn| {
+                                        btn.bg(cx.theme().accent)
+                                            .text_color(cx.theme().accent_foreground)
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.set_view_mode(ViewMode::Columns, cx);
+                                    })),
+                            )
+                            .child(
+                                toolbar_icon_button("files-delete-btn")
+                                    .icon(toolbar_icon(IconName::Delete))
+                                    .tooltip(t!("files.menu.delete"))
+                                    .disabled(selected_count == 0)
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.perform_delete(window, cx);
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                toolbar_dropdown_button("files-sort")
+                                    .button(
+                                        toolbar_labeled_button("files-sort-btn")
+                                            .label(sort_label)
+                                            .tooltip(t!("files.menu.sort")),
                                     )
-                                }),
-                        )
+                                    .dropdown_menu(move |menu, window, cx| {
+                                        build_sort_prefs_toolbar_menu(
+                                            menu,
+                                            sort,
+                                            group,
+                                            group_date_unit,
+                                            show_hidden,
+                                            show_file_extensions,
+                                            false,
+                                            grouping_available,
+                                            window,
+                                            cx,
+                                        )
+                                    }),
+                            )
+                        })
                         .child(
                             div()
                                 .flex_1()
