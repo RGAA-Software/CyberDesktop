@@ -36,7 +36,7 @@ use crate::shell::preferences::{
 ///
 /// The shell flyout can list a large number of verbs, so we cap it at 4/5 of
 /// the window and let [`PopupMenu`] scroll the overflow.
-const SHELL_MENU_MAX_HEIGHT_FRACTION: f32 = 0.8;
+const SHELL_MENU_MAX_HEIGHT_FRACTION: f32 = 0.92;
 
 /// Max height for the shell flyout: 4/5 of the *current* window height.
 ///
