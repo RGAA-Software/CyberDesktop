@@ -7,9 +7,9 @@ impl FileBrowser {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let (cell_w, cell_h, icon_size) = match self.view_size_level {
-            1 => (px(96.), px(72.), px(18.)),
-            3 => (px(144.), px(104.), px(26.)),
-            _ => (px(112.), px(80.), px(22.)),
+            1 => (GRID_CELL_SIZE_SMALL.width, GRID_CELL_SIZE_SMALL.height, px(16.)),
+            3 => (GRID_CELL_SIZE_LARGE.width, GRID_CELL_SIZE_LARGE.height, px(24.)),
+            _ => (GRID_CELL_SIZE.width, GRID_CELL_SIZE.height, px(20.)),
         };
 
         let estimated_available_width = {
@@ -123,8 +123,8 @@ impl FileBrowser {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let cell_w = px(160.);
-        let cell_h = px(120.);
+        let cell_w = CARD_CELL_SIZE.width;
+        let cell_h = CARD_CELL_SIZE.height;
 
         let estimated_available_width = {
             let sidebar_w = px(214.);
@@ -261,9 +261,10 @@ impl FileBrowser {
             .rounded(cx.theme().radius)
             .border_1()
             .border_color(cx.theme().border)
-            .hover(|this| this.bg(cx.theme().accent))
+            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
+                    .border_color(cx.theme().primary)
                     .text_color(cx.theme().accent_foreground)
             })
             .when(cut_pending, |this| this.opacity(CUT_PENDING_ITEM_OPACITY))
@@ -353,7 +354,7 @@ impl FileBrowser {
                         .child(tag_badges::render_tag_badges(&tags, cx)),
                 )
             })
-            .child(Self::row_list_icon(&item, icon_size, window))
+            .child(Self::row_list_icon(&item, icon_size, window, cx))
             .child(
                 div()
                     .w_full()
@@ -390,9 +391,9 @@ impl FileBrowser {
         let cut_pending = path_is_cut_pending(&item.path, cx);
         v_flex()
             .id(("file-card-cell", index))
-            .w(px(160.))
-            .h(px(120.))
-            .flex_none()
+            .flex_1()
+            .min_w(CARD_CELL_SIZE.width)
+            .h(CARD_CELL_SIZE.height)
             .p_2()
             .gap_1()
             .items_center()
@@ -400,9 +401,10 @@ impl FileBrowser {
             .rounded(cx.theme().radius)
             .border_1()
             .border_color(cx.theme().border)
-            .hover(|this| this.bg(cx.theme().accent))
+            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
+                    .border_color(cx.theme().primary)
                     .text_color(cx.theme().accent_foreground)
             })
             .when(cut_pending, |this| this.opacity(CUT_PENDING_ITEM_OPACITY))
@@ -492,7 +494,7 @@ impl FileBrowser {
                         .child(tag_badges::render_tag_badges(&tags, cx)),
                 )
             })
-            .child(Self::row_list_icon(&item, px(40.), window))
+            .child(Self::row_list_icon(&item, px(40.), window, cx))
             .child(
                 div()
                     .w_full()

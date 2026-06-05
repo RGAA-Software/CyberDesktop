@@ -4,6 +4,29 @@ use crate::app_state::AppFileClipboard;
 /// Opacity for items cut to the in-app clipboard but not pasted yet (Files `DimItemOpacity`).
 pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
 
+fn file_type_tile_colors(item: &FileItem, cx: &App) -> (Hsla, Hsla) {
+    if item.kind == FileItemKind::Folder {
+        return (cx.theme().accent, cx.theme().primary);
+    }
+    if item.kind == FileItemKind::Symlink {
+        return (cx.theme().muted, cx.theme().muted_foreground);
+    }
+    let ext = item
+        .extension
+        .as_deref()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "mp4" | "mkv" | "mov" | "avi" | "webm" | "wmv" | "m4v" => {
+            (cx.theme().info.opacity(0.12), cx.theme().info)
+        }
+        "pdf" => (cx.theme().danger.opacity(0.12), cx.theme().danger),
+        "epub" | "mobi" => (cx.theme().warning.opacity(0.12), cx.theme().warning),
+        "srt" | "vtt" | "ass" | "txt" => (cx.theme().secondary, cx.theme().muted_foreground),
+        _ => (cx.theme().muted, cx.theme().muted_foreground),
+    }
+}
+
 pub(super) fn path_is_cut_pending(path: &Path, cx: &App) -> bool {
     let Some(clipboard) = AppFileClipboard::peek(cx) else {
         return false;
@@ -23,12 +46,7 @@ impl FileBrowser {
         }
     }
 
-    /// List row icon: custom colored SVG -> Shell PNG -> GPUI fallback.
-    pub(super) fn row_list_icon(
-        item: &FileItem,
-        logical_size: Pixels,
-        window: &Window,
-    ) -> impl IntoElement {
+    fn row_list_icon_inner(item: &FileItem, logical_size: Pixels, window: &Window) -> AnyElement {
         if item.kind == FileItemKind::Folder {
             return div()
                 .size(logical_size)
@@ -63,6 +81,73 @@ impl FileBrowser {
             .justify_center()
             .child(Self::file_item_kind_icon(item.kind))
             .into_any_element()
+    }
+
+    pub(super) fn row_list_icon_tile(
+        item: &FileItem,
+        icon: AnyElement,
+        tile_size: Pixels,
+        cx: &App,
+    ) -> AnyElement {
+        let (bg, fg) = file_type_tile_colors(item, cx);
+        let radius = if tile_size >= px(32.) {
+            px(10.)
+        } else {
+            px(7.)
+        };
+        div()
+            .size(tile_size)
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(radius)
+            .bg(bg)
+            .text_color(fg)
+            .child(icon)
+            .into_any_element()
+    }
+
+    /// List row icon: custom colored SVG -> Shell PNG -> GPUI fallback, on a type-colored tile.
+    pub(super) fn row_list_icon(
+        item: &FileItem,
+        logical_size: Pixels,
+        window: &Window,
+        cx: &App,
+    ) -> impl IntoElement {
+        let inner = Self::row_list_icon_inner(item, logical_size, window);
+        let tile_size = if logical_size >= px(28.) {
+            logical_size
+        } else {
+            FILE_LIST_ICON_TILE
+        };
+        Self::row_list_icon_tile(item, inner, tile_size, cx)
+    }
+
+    pub(super) fn file_list_row_shell(
+        shell_id: impl Into<ElementId>,
+        selected: bool,
+        row: impl IntoElement,
+        cx: &App,
+    ) -> impl IntoElement {
+        div()
+            .id(shell_id)
+            .relative()
+            .w_full()
+            .flex_none()
+            .when(selected, |shell| {
+                shell.child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .top(px(5.))
+                        .bottom(px(5.))
+                        .w(px(3.))
+                        .rounded_r_full()
+                        .bg(cx.theme().primary),
+                )
+            })
+            .child(row)
     }
 
     /// After directory refresh: load at most one Shell icon per category (folder, zip, exe, ...).

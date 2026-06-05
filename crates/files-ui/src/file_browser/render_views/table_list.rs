@@ -69,14 +69,17 @@ impl FileBrowser {
                     .overflow_hidden()
                     .child(
                         h_flex()
-                            .h_8()
-                            .px_3()
-                            .gap_3()
+                            .h(px(30.))
+                            .px(px(16.))
+                            .gap(px(8.))
                             .items_center()
-                            .bg(cx.theme().muted)
-                            .text_sm()
+                            .bg(cx.theme().background)
+                            .border_b_1()
+                            .border_color(cx.theme().border)
+                            .text_xs()
+                            .font_semibold()
                             .text_color(cx.theme().muted_foreground)
-                            .child(div().w(px(28.)).flex_none())
+                            .child(div().w(FILE_LIST_ICON_TILE).flex_none())
                             .child(div().flex_1().min_w_0().child(t!("files.column.name")))
                             .when(show_path_column, |row| {
                                 row.child(
@@ -86,10 +89,10 @@ impl FileBrowser {
                                         .child(t!("files.column.path")),
                                 )
                             })
-                            .child(div().w(px(110.)).child(t!("files.column.type")))
+                            .child(div().w(px(120.)).child(t!("files.column.type")))
                             .child(div().w(px(100.)).child(t!("files.column.size")))
-                            .child(div().w(px(150.)).child(t!("files.column.modified")))
-                            .child(div().w(px(40.)).flex_none()),
+                            .child(div().w(px(168.)).child(t!("files.column.modified")))
+                            .child(div().w(px(36.)).flex_none()),
                     )
                     .child(self.table_list_body(cx, true)),
             )
@@ -129,14 +132,17 @@ impl FileBrowser {
                     .overflow_hidden()
                     .child(
                         h_flex()
-                            .h_8()
-                            .px_3()
-                            .gap_3()
+                            .h(px(30.))
+                            .px(px(16.))
+                            .gap(px(8.))
                             .items_center()
-                            .bg(cx.theme().muted)
-                            .text_sm()
+                            .bg(cx.theme().background)
+                            .border_b_1()
+                            .border_color(cx.theme().border)
+                            .text_xs()
+                            .font_semibold()
                             .text_color(cx.theme().muted_foreground)
-                            .child(div().w(px(28.)).flex_none())
+                            .child(div().w(FILE_LIST_ICON_TILE).flex_none())
                             .child(div().flex_1().min_w_0().child(t!("files.column.name")))
                             .when(show_path_column, |row| {
                                 row.child(
@@ -146,7 +152,7 @@ impl FileBrowser {
                                         .child(t!("files.column.path")),
                                 )
                             })
-                            .child(div().w(px(40.)).flex_none()),
+                            .child(div().w(px(36.)).flex_none()),
                     )
                     .child(self.table_list_body(cx, false)),
             )
@@ -268,17 +274,18 @@ impl FileBrowser {
         let drop_target_for_drop = drop_target.clone();
         let browser = cx.entity().clone();
         let cut_pending = path_is_cut_pending(&item.path, cx);
-        h_flex()
+        let row_body = h_flex()
             .id(("file-list-row", index))
             .w_full()
-            .h_9()
+            .h(FILE_LIST_ROW_HEIGHT)
             .flex_none()
-            .px_3()
-            .gap_3()
+            .group(FILE_LIST_ROW_GROUP)
+            .px(px(16.))
+            .gap(px(8.))
             .items_center()
             .border_b_1()
-            .border_color(cx.theme().border)
-            .hover(|this| this.bg(cx.theme().accent))
+            .border_color(cx.theme().border.opacity(0.45))
+            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
@@ -362,13 +369,7 @@ impl FileBrowser {
                     this.handle_external_drop_on_item(paths, &drop_target, window, cx);
                 }
             }))
-            .child(
-                div()
-                    .w(px(28.))
-                    .flex_none()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(Self::row_list_icon(&item, px(16.), window)),
-            )
+            .child(Self::row_list_icon(&item, px(14.), window, cx))
             .child(
                 div()
                     .flex_1()
@@ -376,6 +377,7 @@ impl FileBrowser {
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_sm()
+                    .font_medium()
                     .text_color(cx.theme().foreground)
                     .child(if let Some(input) = rename_input {
                         Self::inline_name_editor(input, false, cx)
@@ -395,6 +397,8 @@ impl FileBrowser {
                         .child(parent_path),
                 )
             })
+            .child(div().w(px(36.)).flex_none());
+        Self::file_list_row_shell(("file-list-row-shell", index), selected, row_body, cx)
             .into_any_element()
     }
 
@@ -409,7 +413,6 @@ impl FileBrowser {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let parent_path = item_parent_path(&item);
-        let open_path = item.path.clone();
         let double_click_path = item.path.clone();
         let kind = item.kind;
         let tags = item.tags.clone();
@@ -417,17 +420,18 @@ impl FileBrowser {
         let drop_target_for_drop = drop_target.clone();
         let browser = cx.entity().clone();
         let cut_pending = path_is_cut_pending(&item.path, cx);
-        h_flex()
+        let row_body = h_flex()
             .id(("file-row", index))
             .w_full()
-            .h_9()
+            .h(FILE_LIST_ROW_HEIGHT)
             .flex_none()
-            .px_3()
-            .gap_3()
+            .group(FILE_LIST_ROW_GROUP)
+            .px(px(16.))
+            .gap(px(8.))
             .items_center()
             .border_b_1()
-            .border_color(cx.theme().border)
-            .hover(|this| this.bg(cx.theme().accent))
+            .border_color(cx.theme().border.opacity(0.45))
+            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
@@ -511,13 +515,7 @@ impl FileBrowser {
                     this.handle_external_drop_on_item(paths, &drop_target, window, cx);
                 }
             }))
-            .child(
-                div()
-                    .w(px(28.))
-                    .flex_none()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(Self::row_list_icon(&item, px(16.), window)),
-            )
+            .child(Self::row_list_icon(&item, px(14.), window, cx))
             .child(
                 div()
                     .flex_1()
@@ -525,6 +523,7 @@ impl FileBrowser {
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_sm()
+                    .font_medium()
                     .text_color(cx.theme().foreground)
                     .child(if let Some(input) = rename_input {
                         Self::inline_name_editor(input, false, cx)
@@ -546,7 +545,7 @@ impl FileBrowser {
             })
             .child(
                 div()
-                    .w(px(110.))
+                    .w(px(120.))
                     .text_sm()
                     .text_color(cx.theme().muted_foreground)
                     .child(item_type_label(&item)),
@@ -560,31 +559,31 @@ impl FileBrowser {
             )
             .child(
                 div()
-                    .w(px(150.))
+                    .w(px(168.))
                     .text_sm()
                     .text_color(cx.theme().muted_foreground)
                     .child(format_system_time(item.modified)),
             )
             .child(
-                div().w(px(40.)).flex_none().child(
-                    toolbar_icon_button(format!("open-item-{index}"))
-                        .icon(match kind {
-                            FileItemKind::Folder => compact_icon(IconName::ChevronRight),
-                            FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
-                                compact_icon(IconName::ExternalLink)
-                            }
-                        })
-                        .tooltip(match kind {
-                            FileItemKind::Folder => t!("files.open.folder"),
-                            FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
-                                t!("files.open.file")
-                            }
-                        })
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.open_item(open_path.clone(), kind, cx);
+                div().w(px(36.)).flex_none().child(
+                    toolbar_icon_button(format!("file-row-more-{index}"))
+                        .h(px(24.))
+                        .w(px(24.))
+                        .rounded(px(7.))
+                        .icon(compact_icon(IconName::Ellipsis))
+                        .opacity(if selected { 1. } else { 0. })
+                        .group_hover(FILE_LIST_ROW_GROUP, |btn| btn.opacity(1.))
+                        .hover(|btn| btn.bg(cx.theme().list_hover))
+                        .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                            cx.stop_propagation();
+                            this.cancel_rename_if_active(cx);
+                            this.set_context_menu_extended_verbs(event.modifiers().shift);
+                            this.prepare_context_menu_target(index);
+                            this.open_context_menu(window.mouse_position(), window, cx);
                         })),
                 ),
-            )
+            );
+        Self::file_list_row_shell(("file-row-shell", index), selected, row_body, cx)
             .into_any_element()
     }
 }

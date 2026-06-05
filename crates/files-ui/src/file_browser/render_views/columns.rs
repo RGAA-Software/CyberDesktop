@@ -279,14 +279,14 @@ impl FileBrowser {
         h_flex()
             .id(format!("file-column-row-{col_index}-{name}"))
             .w_full()
-            .h_8()
+            .h(FILE_LIST_ROW_HEIGHT)
             .flex_none()
-            .px_2()
-            .gap_2()
+            .px(px(12.))
+            .gap(px(8.))
             .items_center()
             .text_sm()
             .text_color(cx.theme().foreground)
-            .hover(|this| this.bg(cx.theme().accent))
+            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
@@ -403,7 +403,7 @@ impl FileBrowser {
                 div()
                     .w(px(20.))
                     .flex_none()
-                    .child(Self::row_list_icon(&item, px(16.), window)),
+                    .child(Self::row_list_icon(&item, px(14.), window, cx)),
             )
             .child(
                 div()

@@ -137,16 +137,20 @@ actions!(
     ]
 );
 
+pub(super) const FILE_LIST_ROW_HEIGHT: Pixels = px(32.);
+pub(super) const FILE_LIST_ROW_GROUP: &str = "file-list-row";
+pub(super) const FILE_LIST_ICON_TILE: Pixels = px(24.);
+
 const FILE_ROW_SIZE_COMPACT: Size<Pixels> = size(px(1.), px(28.));
-const FILE_ROW_SIZE: Size<Pixels> = size(px(1.), px(36.));
-const FILE_ROW_SIZE_LARGE: Size<Pixels> = size(px(1.), px(44.));
+const FILE_ROW_SIZE: Size<Pixels> = size(px(1.), FILE_LIST_ROW_HEIGHT);
+const FILE_ROW_SIZE_LARGE: Size<Pixels> = size(px(1.), px(40.));
 const GROUP_HEADER_ROW_SIZE: Size<Pixels> = size(px(1.), px(32.));
-const GRID_CELL_SIZE_SMALL: Size<Pixels> = size(px(96.), px(72.));
-const GRID_CELL_SIZE: Size<Pixels> = size(px(112.), px(80.));
-const GRID_CELL_SIZE_LARGE: Size<Pixels> = size(px(144.), px(104.));
-const CARD_CELL_SIZE: Size<Pixels> = size(px(160.), px(120.));
-const COLUMN_ROW_SIZE: Size<Pixels> = size(px(1.), px(32.));
-const COLUMN_WIDTH: Pixels = px(200.);
+pub(super) const GRID_CELL_SIZE_SMALL: Size<Pixels> = size(px(100.), px(88.));
+pub(super) const GRID_CELL_SIZE: Size<Pixels> = size(px(118.), px(104.));
+pub(super) const GRID_CELL_SIZE_LARGE: Size<Pixels> = size(px(136.), px(120.));
+pub(super) const CARD_CELL_SIZE: Size<Pixels> = size(px(280.), px(120.));
+const COLUMN_ROW_SIZE: Size<Pixels> = size(px(1.), FILE_LIST_ROW_HEIGHT);
+const COLUMN_WIDTH: Pixels = px(240.);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewMode {
