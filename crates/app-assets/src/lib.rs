@@ -159,9 +159,6 @@ mod tests {
         for path in [
             "icons/ic_folder.svg",
             "icons/ic_home.svg",
-            "icons/ic_copy.svg",
-            "icons/ic_cut.svg",
-            "icons/ic_paste.svg",
             "icons/ic_new_folder.svg",
             "icons/ic_new_file.svg",
         ] {

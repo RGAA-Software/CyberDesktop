@@ -645,7 +645,7 @@ fn build_background_menu(
         menu = menu
             .menu_with_icon_and_disabled(
                 t!("files.recycle.restore_all"),
-                Icon::new(IconName::Replace).path("icons/files/restoredeleted.svg"),
+                Icon::new(IconName::Replace).path("icons/restore_deleted.svg"),
                 Box::new(RestoreAllRecycleItems),
                 recycle_item_count == 0,
             )
@@ -1091,7 +1091,7 @@ fn build_recycle_item_menu(
     );
     menu = menu.menu_with_icon_and_disabled(
         t!("files.recycle.restore"),
-        Icon::new(IconName::Replace).path("icons/files/restoredeleted.svg"),
+        Icon::new(IconName::Replace).path("icons/restore_deleted.svg"),
         Box::new(RestoreRecycleItems),
         !has_selection,
     );

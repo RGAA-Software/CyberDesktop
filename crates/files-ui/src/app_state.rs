@@ -294,12 +294,6 @@ impl AppNavigation {
         });
     }
 
-    pub fn run_toggle_dual_pane(cx: &mut App) {
-        Self::activate_main_window(cx);
-        let page = cx.global::<Self>().main_page();
-        let _ = page.update(cx, |page, cx| page.toggle_dual_pane(cx));
-    }
-
     pub fn run_split_pane_vertically(cx: &mut App) {
         Self::activate_main_window(cx);
         let page = cx.global::<Self>().main_page();

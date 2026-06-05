@@ -97,11 +97,7 @@ mod tests {
     #[test]
     fn colored_svgs_render_non_blank_in_release() {
         let renderer = SvgRenderer::new(Arc::new(DummyAssetSource));
-        for path in [
-            "icons/ic_folder.svg",
-            "icons/ic_home.svg",
-            "icons/ic_copy.svg",
-        ] {
+        for path in ["icons/ic_folder.svg", "icons/ic_home.svg"] {
             let data = Assets::get(path).unwrap().data;
             let image = renderer
                 .render_single_frame(&data, 1.0)

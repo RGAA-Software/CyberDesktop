@@ -118,7 +118,7 @@ impl Focusable for FilesSettingsWindow {
 }
 
 impl Render for FilesSettingsWindow {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let menu_overlay = self.popup_menu.as_ref().map(|state| {
             let position = state.position;
             let menu = state.menu.clone();

@@ -17,9 +17,6 @@ fn named_icon_paths() -> &'static HashMap<&'static str, &'static str> {
             ("new_folder", "icons/ic_new_folder.svg"),
             ("new_file", "icons/ic_new_file.svg"),
             ("home", "icons/ic_home.svg"),
-            ("copy", "icons/ic_copy.svg"),
-            ("cut", "icons/ic_cut.svg"),
-            ("paste", "icons/ic_paste.svg"),
         ])
     })
 }
