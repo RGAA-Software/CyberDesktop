@@ -4,8 +4,12 @@ use files_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
 use app_platform_windows::{open_item_properties, SHELL_RECYCLE_BIN_PATH};
 use gpui::{prelude::*, ClickEvent, *};
 use gpui_component::{
-    sidebar::{Sidebar, SidebarCollapsible, SidebarGroup, SidebarItem},
+    h_flex,
+    sidebar::{Sidebar, SidebarCollapsible, SidebarItem},
+    v_flex,
+    ActiveTheme as _,
     IconName,
+    StyledExt as _,
 };
 use rust_i18n::t;
 
@@ -19,15 +23,18 @@ use crate::main_page::MainPage;
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
 use crate::shell::navigation::NavigationTarget;
 
+use super::disk_ring::disk_usage_ring;
 use super::menu_with_drop::SidebarMenuWithDrop;
 use super::model::{SidebarEntry, SidebarSection, SidebarSectionKind};
+use crate::color_icon;
+use crate::tabler_icons;
 
 pub fn render_sidebar(
     page: Entity<MainPage>,
     active: NavigationTarget,
     sections: &[SidebarSection],
     _window: &mut Window,
-    _cx: &mut Context<MainPage>,
+    cx: &mut Context<MainPage>,
 ) -> impl IntoElement {
     let config = load_config().unwrap_or_default();
     let collapsed = config.sidebar_collapsed;
@@ -54,19 +61,32 @@ pub fn render_sidebar(
         let block = if section.kind == SidebarSectionKind::Home {
             SidebarSectionBlock::flat(menu)
         } else {
-            SidebarSectionBlock::group(SidebarGroup::new(section.title.clone()).child(menu))
+            SidebarSectionBlock::section(section.title.clone(), menu)
         };
         sidebar = sidebar.child(block);
     }
 
-    sidebar
+    div()
+        .id("files-sidebar-wrap")
+        .size_full()
+        .min_h_0()
+        .bg(cx.theme().secondary)
+        .border_r_1()
+        .border_color(cx.theme().border)
+        .px(px(8.))
+        .py(px(9.))
+        .overflow_y_scroll()
+        .child(sidebar)
 }
 
 /// Top sidebar entries (home, recycle bin) without a section heading.
 #[derive(Clone)]
 enum SidebarSectionBlock {
     Flat(SidebarMenuWithDrop),
-    Group(SidebarGroup<SidebarMenuWithDrop>),
+    Section {
+        title: String,
+        menu: SidebarMenuWithDrop,
+    },
 }
 
 impl SidebarSectionBlock {
@@ -74,23 +94,39 @@ impl SidebarSectionBlock {
         Self::Flat(menu)
     }
 
-    fn group(group: SidebarGroup<SidebarMenuWithDrop>) -> Self {
-        Self::Group(group)
+    fn section(title: String, menu: SidebarMenuWithDrop) -> Self {
+        Self::Section { title, menu }
     }
+}
+
+fn section_heading(title: impl Into<SharedString>, cx: &App) -> impl IntoElement {
+    let title: SharedString = title.into();
+    div()
+        .w_full()
+        .px(px(9.))
+        .pt(px(10.))
+        .pb(px(4.))
+        .text_xs()
+        .font_semibold()
+        .text_color(cx.theme().muted_foreground)
+        .child(title)
 }
 
 impl gpui_component::Collapsible for SidebarSectionBlock {
     fn is_collapsed(&self) -> bool {
         match self {
             Self::Flat(menu) => menu.is_collapsed(),
-            Self::Group(group) => group.is_collapsed(),
+            Self::Section { menu, .. } => menu.is_collapsed(),
         }
     }
 
     fn collapsed(self, collapsed: bool) -> Self {
         match self {
             Self::Flat(menu) => Self::Flat(menu.collapsed(collapsed)),
-            Self::Group(group) => Self::Group(group.collapsed(collapsed)),
+            Self::Section { title, menu } => Self::Section {
+                title,
+                menu: menu.collapsed(collapsed),
+            },
         }
     }
 }
@@ -104,9 +140,18 @@ impl SidebarItem for SidebarSectionBlock {
     ) -> impl IntoElement {
         match self {
             Self::Flat(menu) => menu.render(id, window, cx).into_any_element(),
-            Self::Group(group) => group.render(id, window, cx).into_any_element(),
+            Self::Section { title, menu } => v_flex()
+                .w_full()
+                .gap(px(2.))
+                .child(section_heading(title, cx))
+                .child(menu.render(id, window, cx))
+                .into_any_element(),
         }
     }
+}
+
+fn usage_ring_suffix(fraction: f32) -> std::rc::Rc<dyn Fn(&mut Window, &mut App) -> gpui::AnyElement> {
+    std::rc::Rc::new(move |_window, cx| disk_usage_ring(fraction, cx))
 }
 
 fn append_sidebar_entry(
@@ -175,6 +220,10 @@ fn push_shell_sidebar_entry(
             build_entry_context_menu(menu, &page_menu, &entry_menu, window, cx)
         }));
 
+    let suffix = entry
+        .usage_fraction
+        .map(usage_ring_suffix);
+
     let drop_dest = drop_destination(&entry.target);
     if let Some(dest) = drop_dest {
         let page_drop = page.clone();
@@ -206,6 +255,17 @@ fn push_shell_sidebar_entry(
                     );
                 });
             },
+            suffix.clone(),
+        );
+    } else if let Some(suffix) = suffix {
+        menu.push_shell_path_with_suffix(
+            label,
+            shell_path,
+            is_active,
+            handler,
+            middle_click,
+            context_menu,
+            Some(suffix),
         );
     } else {
         menu.push_shell_path(
@@ -390,12 +450,11 @@ fn tag_color_sidebar_icon(
                 .and_then(parse_tag_color_hex)
                 .unwrap_or(0x54_6E_7A),
         );
-        div()
-            .size(px(16.))
-            .flex()
+        h_flex()
+            .gap(px(6.))
             .items_center()
-            .justify_center()
-            .child(div().size(px(10.)).rounded_full().bg(fill))
+            .child(div().size(px(8.)).rounded_full().bg(fill))
+            .child(color_icon::color_icon_box(tabler_icons::TAG, px(15.)))
             .into_any_element()
     }
 }

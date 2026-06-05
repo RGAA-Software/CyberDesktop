@@ -1,6 +1,7 @@
 mod cache;
 mod constants;
 mod data;
+mod disk_ring;
 mod menu_with_drop;
 mod model;
 mod view;

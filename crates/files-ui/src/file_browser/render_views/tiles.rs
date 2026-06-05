@@ -13,7 +13,7 @@ impl FileBrowser {
         };
 
         let estimated_available_width = {
-            let sidebar_w = px(240.);
+            let sidebar_w = px(214.);
             let info_pane_w = if self.show_info_pane { px(300.) } else { px(0.) };
             let padding_border = px(18.);
             (window.viewport_size().width - sidebar_w - info_pane_w - padding_border).max(px(200.))
@@ -127,7 +127,7 @@ impl FileBrowser {
         let cell_h = px(120.);
 
         let estimated_available_width = {
-            let sidebar_w = px(240.);
+            let sidebar_w = px(214.);
             let info_pane_w = if self.show_info_pane { px(300.) } else { px(0.) };
             let padding_border = px(18.);
             (window.viewport_size().width - sidebar_w - info_pane_w - padding_border).max(px(200.))

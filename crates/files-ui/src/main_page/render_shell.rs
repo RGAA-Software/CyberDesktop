@@ -160,8 +160,8 @@ impl MainPage {
             .with_state(&window.use_keyed_state("main-layout", cx, |_, _| ResizableState::default()))
             .child(
                 resizable_panel()
-                    .size(px(240.))
-                    .size_range(px(200.)..px(360.))
+                    .size(px(214.))
+                    .size_range(px(190.)..px(340.))
                     .fixed_size(true)
                     .flex_none()
                     .child(

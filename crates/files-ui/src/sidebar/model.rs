@@ -27,4 +27,6 @@ pub struct SidebarEntry {
     pub pinned_in_settings: bool,
     /// File-tag section: color saved in settings.
     pub color: Option<String>,
+    /// Drive section: used/total fraction for the usage ring (0..1).
+    pub usage_fraction: Option<f32>,
 }

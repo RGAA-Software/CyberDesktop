@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use files_core::{AppConfig, FileTagConfig};
-use files_fs::{list_drives, DriveInfo};
+use files_fs::list_drives;
 #[cfg(windows)]
 use app_platform_windows::{
     list_cloud_drive_roots, list_known_folder_folders, list_shell_quick_access_folders,
@@ -25,12 +25,14 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
                 target: NavigationTarget::Home,
                 pinned_in_settings: false,
                 color: None,
+                usage_fraction: None,
             },
             SidebarEntry {
                 label: rust_i18n::t!("nav.recycle_bin").to_string(),
                 target: NavigationTarget::RecycleBin,
                 pinned_in_settings: false,
                 color: None,
+                usage_fraction: None,
             },
         ],
     });
@@ -128,6 +130,7 @@ fn load_pinned_entries(config: &AppConfig) -> Vec<SidebarEntry> {
                     target: NavigationTarget::Path(item.path),
                     pinned_in_settings: false,
                     color: None,
+                    usage_fraction: None,
                 });
             }
         }
@@ -148,6 +151,7 @@ fn load_pinned_entries(config: &AppConfig) -> Vec<SidebarEntry> {
             target: NavigationTarget::Path(path),
             pinned_in_settings: true,
             color: None,
+            usage_fraction: None,
         });
     }
 
@@ -166,6 +170,7 @@ fn load_library_entries() -> Vec<SidebarEntry> {
                 target: NavigationTarget::Path(e.path),
                 pinned_in_settings: false,
                 color: None,
+                usage_fraction: None,
             })
             .collect()
     }
@@ -176,11 +181,15 @@ fn load_library_entries() -> Vec<SidebarEntry> {
 fn load_drive_entries() -> Vec<SidebarEntry> {
     list_drives()
         .into_iter()
-        .map(|DriveInfo { path, label, .. }| SidebarEntry {
-            label,
-            target: NavigationTarget::Path(path),
-            pinned_in_settings: false,
-            color: None,
+        .map(|drive| {
+            let usage_fraction = drive.used_fraction();
+            SidebarEntry {
+                label: drive.label,
+                target: NavigationTarget::Path(drive.path),
+                pinned_in_settings: false,
+                color: None,
+                usage_fraction,
+            }
         })
         .collect()
 }
@@ -196,6 +205,7 @@ fn load_cloud_entries() -> Vec<SidebarEntry> {
                 target: NavigationTarget::Path(e.path),
                 pinned_in_settings: false,
                 color: None,
+                usage_fraction: None,
             })
             .collect()
     }
@@ -215,6 +225,7 @@ fn load_network_entries() -> Vec<SidebarEntry> {
                 target: NavigationTarget::Path(e.path),
                 pinned_in_settings: false,
                 color: None,
+                usage_fraction: None,
             })
             .collect()
     }
@@ -233,6 +244,7 @@ fn load_wsl_entries() -> Vec<SidebarEntry> {
                 target: NavigationTarget::Path(e.path),
                 pinned_in_settings: false,
                 color: None,
+                usage_fraction: None,
             })
             .collect()
     }
@@ -248,6 +260,7 @@ fn load_file_tag_entries(tags: &[FileTagConfig]) -> Vec<SidebarEntry> {
             target: NavigationTarget::FileTag(tag.name.clone()),
             pinned_in_settings: false,
             color: tag.color.clone(),
+            usage_fraction: None,
         })
         .collect()
 }

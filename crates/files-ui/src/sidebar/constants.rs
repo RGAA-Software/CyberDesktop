@@ -2,5 +2,6 @@
 
 use gpui::px;
 
-/// Same height as the title-bar tab chip (34px inside 46px chrome).
-pub const SIDEBAR_ITEM_HEIGHT: gpui::Pixels = px(32.);
+/// Sidebar row height (design V11).
+pub const SIDEBAR_ITEM_HEIGHT: gpui::Pixels = px(35.);
+pub const SIDEBAR_ITEM_RADIUS: gpui::Pixels = px(10.);

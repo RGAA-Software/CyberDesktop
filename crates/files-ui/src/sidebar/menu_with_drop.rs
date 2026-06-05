@@ -16,7 +16,7 @@ use gpui_component::{
     h_flex, sidebar::SidebarItem, v_flex, ActiveTheme as _, Collapsible, StyledExt,
 };
 
-use super::constants::SIDEBAR_ITEM_HEIGHT;
+use super::constants::{SIDEBAR_ITEM_HEIGHT, SIDEBAR_ITEM_RADIUS};
 use crate::drag::DraggedFilePaths;
 use app_ui::popup_menu::{ContextMenuExt as _, PopupMenu};
 use crate::shell_icon::shell_icon_for_path;
@@ -44,6 +44,7 @@ enum SidebarRow {
         on_middle_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
         context_menu: Option<Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>>,
         drop_handlers: Option<FolderDropHandlers>,
+        suffix: Option<Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>>,
     },
 }
 
@@ -65,10 +66,10 @@ fn render_item_row(
     on_middle_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
     context_menu: Option<Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>>,
     drop_handlers: Option<FolderDropHandlers>,
+    suffix: Option<Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>>,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    let is_hoverable = !active;
     let icon_element = match icon {
         SidebarRowIcon::App(icon) => icon(window, cx),
         SidebarRowIcon::Shell(path) => {
@@ -79,26 +80,37 @@ fn render_item_row(
     let item_inner = h_flex()
         .id("item")
         .w_full()
+        .min_w_0()
         .h(SIDEBAR_ITEM_HEIGHT)
-        .px_2()
-        .gap_x_2()
+        .px(px(10.))
+        .gap(px(8.))
         .items_center()
-        .rounded(cx.theme().radius)
+        .rounded(SIDEBAR_ITEM_RADIUS)
         .text_sm()
-        .when(is_hoverable, |this| {
-            this.hover(|this| {
-                this.bg(cx.theme().sidebar_accent.opacity(0.8))
-                    .text_color(cx.theme().sidebar_accent_foreground)
+        .when(!active, |this| {
+            this.text_color(cx.theme().muted_foreground).hover(|row| {
+                row.bg(cx.theme().list_hover).text_color(cx.theme().foreground)
             })
         })
         .when(active, |this| {
-            this.font_medium()
-                .bg(cx.theme().sidebar_accent)
-                .text_color(cx.theme().sidebar_accent_foreground)
+            this.font_semibold()
+                .bg(cx.theme().background)
+                .text_color(cx.theme().accent_foreground)
+                .border_1()
+                .border_color(cx.theme().border)
+                .shadow_xs()
         })
         .when(collapsed, |this| this.justify_center())
         .child(icon_element)
-        .when(!collapsed, |this| this.child(label))
+        .when(!collapsed, |this| {
+            this.child(div().flex_1().min_w_0().overflow_hidden().text_ellipsis().child(label))
+        })
+        .when_some(
+            (!collapsed)
+                .then(|| suffix.as_ref().map(|suffix| suffix(window, cx)))
+                .flatten(),
+            |row, ring| row.child(ring),
+        )
         .on_click(move |event, window, cx| handler(event, window, cx));
 
     let item_any: AnyElement = if let Some(menu) = context_menu {
@@ -109,7 +121,23 @@ fn render_item_row(
         item_inner.into_any_element()
     };
 
-    let mut row_el = div().id(row_id).w_full().child(item_any);
+    let mut row_el = div()
+        .id(row_id)
+        .relative()
+        .w_full()
+        .when(active, |wrap| {
+            wrap.child(
+                div()
+                    .absolute()
+                    .left(px(4.))
+                    .top(px(8.))
+                    .bottom(px(8.))
+                    .w(px(3.))
+                    .rounded_full()
+                    .bg(cx.theme().primary),
+            )
+        })
+        .child(item_any);
     if let Some(middle) = on_middle_click {
         row_el = row_el.on_mouse_down(MouseButton::Middle, move |_, window, cx| {
             middle(window, cx);
@@ -152,6 +180,19 @@ impl SidebarMenuWithDrop {
         on_middle_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
         context_menu: Option<Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>>,
     ) {
+        self.push_item_with_suffix(label, icon, active, handler, on_middle_click, context_menu, None);
+    }
+
+    pub fn push_item_with_suffix(
+        &mut self,
+        label: impl Into<SharedString>,
+        icon: impl Fn(&mut Window, &mut App) -> AnyElement + 'static,
+        active: bool,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+        on_middle_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
+        context_menu: Option<Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>>,
+        suffix: Option<Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>>,
+    ) {
         self.rows.push(SidebarRow::Item {
             label: label.into(),
             icon: SidebarRowIcon::App(Rc::new(icon)),
@@ -160,6 +201,7 @@ impl SidebarMenuWithDrop {
             on_middle_click,
             context_menu,
             drop_handlers: None,
+            suffix,
         });
     }
 
@@ -180,6 +222,29 @@ impl SidebarMenuWithDrop {
             on_middle_click,
             context_menu,
             drop_handlers: None,
+            suffix: None,
+        });
+    }
+
+    pub fn push_shell_path_with_suffix(
+        &mut self,
+        label: impl Into<SharedString>,
+        path: PathBuf,
+        active: bool,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+        on_middle_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
+        context_menu: Option<Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>>,
+        suffix: Option<Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>>,
+    ) {
+        self.rows.push(SidebarRow::Item {
+            label: label.into(),
+            icon: SidebarRowIcon::Shell(path),
+            active,
+            handler: Rc::new(handler),
+            on_middle_click,
+            context_menu,
+            drop_handlers: None,
+            suffix,
         });
     }
 
@@ -194,6 +259,7 @@ impl SidebarMenuWithDrop {
         on_drag_move: impl Fn(&mut Window, &mut App) + 'static,
         on_drop: impl Fn(&DraggedFilePaths, &mut Window, &mut App) + 'static,
         on_drop_external: impl Fn(&ExternalPaths, &mut Window, &mut App) + 'static,
+        suffix: Option<Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>>,
     ) {
         self.rows.push(SidebarRow::Item {
             label: label.into(),
@@ -207,6 +273,7 @@ impl SidebarMenuWithDrop {
                 on_drop: Rc::new(on_drop),
                 on_drop_external: Rc::new(on_drop_external),
             }),
+            suffix,
         });
     }
 }
@@ -253,6 +320,7 @@ impl SidebarItem for SidebarMenuWithDrop {
                         on_middle_click,
                         context_menu,
                         drop_handlers,
+                        suffix,
                     } => render_item_row(
                         row_id,
                         label,
@@ -263,6 +331,7 @@ impl SidebarItem for SidebarMenuWithDrop {
                         on_middle_click,
                         context_menu,
                         drop_handlers,
+                        suffix,
                         window,
                         cx,
                     ),
