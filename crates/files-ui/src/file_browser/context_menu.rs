@@ -14,7 +14,7 @@ use super::compress_label::compress_context_menu_label;
 use super::helpers::{build_sort_prefs_menu, view_supports_grouping};
 use files_fs::is_archive_path;
 use app_platform_windows::{self as platform, ShellContextMenuEntry};
-use gpui::{px, Context, Entity, Pixels, SharedString, Window};
+use gpui::{Context, Entity, Pixels, SharedString, Window};
 use gpui_component::{notification::Notification, Icon, IconName, WindowExt as _};
 
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
@@ -31,7 +31,15 @@ use crate::shell::preferences::{
     context_menu_shell_submenu, file_tags_containing_paths, toggle_paths_in_file_tag,
 };
 
-const SHELL_MENU_MAX_HEIGHT: Pixels = px(620.);
+/// Fraction of the current window height used as the max height of the
+/// «Show more options» shell menu (and its nested submenus).
+const SHELL_MENU_MAX_HEIGHT_FRACTION: f32 = 0.8;
+
+/// Max height for the shell flyout: 4/5 of the current window height.
+fn shell_menu_max_height(window: &Window) -> Pixels {
+    let window_height = window.window_bounds().get_bounds().size.height;
+    window_height * SHELL_MENU_MAX_HEIGHT_FRACTION
+}
 
 fn menu_icon(name: IconName) -> Icon {
     Icon::new(name)
@@ -482,7 +490,9 @@ pub(crate) fn append_shell_entries(
         if !flat_batch.is_empty() {
             menu = append_shell_flat_items(menu, &flat_batch, paths, extended_verbs);
         }
-        menu.max_h(SHELL_MENU_MAX_HEIGHT)
+        menu.scrollable(true)
+            .scrollbar_always(true)
+            .max_h(shell_menu_max_height(window))
     } else {
         for entry in entries {
             match entry {
@@ -508,7 +518,9 @@ pub(crate) fn append_shell_entries(
                 ShellContextMenuEntry::Submenu { .. } => {}
             }
         }
-        menu.scrollable(true).max_h(SHELL_MENU_MAX_HEIGHT)
+        menu.scrollable(true)
+            .scrollbar_always(true)
+            .max_h(shell_menu_max_height(window))
     }
 }
 

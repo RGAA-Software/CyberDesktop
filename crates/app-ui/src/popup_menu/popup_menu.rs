@@ -5,14 +5,14 @@
 use super::actions::{Cancel, Confirm, SelectDown, SelectLeft, SelectRight, SelectUp};
 use super::menu_item::MenuItemElement;
 use gpui::{
-    anchored, div, img, prelude::FluentBuilder, px, rems, Action, Anchor, AnyElement, App,
+    anchored, deferred, div, img, prelude::FluentBuilder, px, rems, Action, Anchor, AnyElement, App,
     AppContext, Bounds, Context, DismissEvent, Edges, Entity, EventEmitter, FocusHandle, Focusable,
     Image, ImageFormat, InteractiveElement, IntoElement, KeyBinding, ObjectFit, ParentElement,
     Pixels, Render, ScrollHandle, SharedString, StatefulInteractiveElement, Styled, StyledImage,
     WeakEntity, Window,
 };
 use gpui::{ClickEvent, Half, MouseDownEvent, Point, Subscription};
-use gpui_component::scroll::ScrollableElement;
+use gpui_component::scroll::{Scrollbar, ScrollbarShow};
 use gpui_component::{
     h_flex, kbd::Kbd, v_flex, ActiveTheme, ElementExt, Icon, IconName, Side, Sizable as _, Size,
     StyledExt,
@@ -412,6 +412,8 @@ pub struct PopupMenu {
     /// The parent menu of this menu, if this is a submenu
     parent_menu: Option<WeakEntity<Self>>,
     scrollable: bool,
+    /// Keep the vertical scrollbar permanently visible while `scrollable` (no fade-out).
+    scrollbar_always: bool,
     external_link_icon: bool,
     scroll_handle: ScrollHandle,
     // This will update on render
@@ -436,6 +438,7 @@ impl PopupMenu {
             check_side: Side::Left,
             bounds: Bounds::default(),
             scrollable: false,
+            scrollbar_always: false,
             scroll_handle: ScrollHandle::default(),
             external_link_icon: true,
             size: Size::default(),
@@ -493,9 +496,18 @@ impl PopupMenu {
 
     /// Set the menu to be scrollable to show vertical scrollbar.
     ///
-    /// NOTE: If this is true, the sub-menus will cannot be support.
+    /// Sub-menus are still supported while scrollable: each submenu flyout is
+    /// rendered via [`deferred`] so it escapes the scroll container's clip mask.
     pub fn scrollable(mut self, scrollable: bool) -> Self {
         self.scrollable = scrollable;
+        self
+    }
+
+    /// Keep the vertical scrollbar permanently visible (no fade-out) while scrollable.
+    ///
+    /// Only has an effect when [`Self::scrollable`] is also `true`.
+    pub fn scrollbar_always(mut self, always: bool) -> Self {
+        self.scrollbar_always = always;
         self
     }
 
@@ -1489,18 +1501,23 @@ impl PopupMenu {
                         let (anchor, left) = self.submenu_anchor;
                         let is_bottom_pos =
                             matches!(anchor, Anchor::BottomLeft | Anchor::BottomRight);
-                        anchored()
-                            .anchor(anchor)
-                            .child(
-                                div()
-                                    .id("submenu")
-                                    .occlude()
-                                    .when(is_bottom_pos, |this| this.bottom_0())
-                                    .when(!is_bottom_pos, |this| this.top_neg_1())
-                                    .left(left)
-                                    .child(menu.clone()),
-                            )
-                            .snap_to_window_with_margin(Edges::all(EDGE_PADDING))
+                        // Defer the submenu flyout so it paints at the top level with no
+                        // content mask, escaping a scrollable parent's clip rect.
+                        deferred(
+                            anchored()
+                                .anchor(anchor)
+                                .child(
+                                    div()
+                                        .id("submenu")
+                                        .occlude()
+                                        .when(is_bottom_pos, |this| this.bottom_0())
+                                        .when(!is_bottom_pos, |this| this.top_neg_1())
+                                        .left(left)
+                                        .child(menu.clone()),
+                                )
+                                .snap_to_window_with_margin(Edges::all(EDGE_PADDING)),
+                        )
+                        .with_priority(1)
                     })
                 }),
         }
@@ -1585,8 +1602,21 @@ impl Render for PopupMenu {
                     .on_prepaint(move |bounds, _, cx| view.update(cx, |r, _| r.bounds = bounds)),
             )
             .when(self.scrollable, |this| {
-                // TODO: When the menu is limited by `overflow_y_scroll`, the sub-menu will cannot be displayed.
-                this.vertical_scrollbar(&self.scroll_handle)
+                // Sub-menus still display while scrollable because each flyout is
+                // `deferred` (see `render_item`), so it paints outside this clip rect.
+                let mut scrollbar = Scrollbar::vertical(&self.scroll_handle);
+                if self.scrollbar_always {
+                    scrollbar = scrollbar.scrollbar_show(ScrollbarShow::Always);
+                }
+                this.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .right_0()
+                        .bottom_0()
+                        .child(scrollbar),
+                )
             })
     }
 }
