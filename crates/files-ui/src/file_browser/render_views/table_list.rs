@@ -92,7 +92,7 @@ impl FileBrowser {
                             .child(div().w(px(120.)).child(t!("files.column.type")))
                             .child(div().w(px(100.)).child(t!("files.column.size")))
                             .child(div().w(px(168.)).child(t!("files.column.modified")))
-                            .child(div().w(px(36.)).flex_none()),
+                            .child(div().w(px(64.)).flex_none()),
                     )
                     .child(self.table_list_body(cx, true)),
             )
@@ -152,7 +152,7 @@ impl FileBrowser {
                                         .child(t!("files.column.path")),
                                 )
                             })
-                            .child(div().w(px(36.)).flex_none()),
+                            .child(div().w(px(64.)).flex_none()),
                     )
                     .child(self.table_list_body(cx, false)),
             )
@@ -413,6 +413,7 @@ impl FileBrowser {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let parent_path = item_parent_path(&item);
+        let open_path = item.path.clone();
         let double_click_path = item.path.clone();
         let kind = item.kind;
         let tags = item.tags.clone();
@@ -565,23 +566,50 @@ impl FileBrowser {
                     .child(format_system_time(item.modified)),
             )
             .child(
-                div().w(px(36.)).flex_none().child(
-                    toolbar_icon_button(format!("file-row-more-{index}"))
-                        .h(px(24.))
-                        .w(px(24.))
-                        .rounded(px(7.))
-                        .icon(compact_icon(IconName::Ellipsis))
-                        .opacity(if selected { 1. } else { 0. })
-                        .group_hover(FILE_LIST_ROW_GROUP, |btn| btn.opacity(1.))
-                        .hover(|btn| btn.bg(cx.theme().list_hover))
-                        .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                            cx.stop_propagation();
-                            this.cancel_rename_if_active(cx);
-                            this.set_context_menu_extended_verbs(event.modifiers().shift);
-                            this.prepare_context_menu_target(index);
-                            this.open_context_menu(window.mouse_position(), window, cx);
-                        })),
-                ),
+                h_flex()
+                    .w(px(64.))
+                    .flex_none()
+                    .gap(px(2.))
+                    .items_center()
+                    .justify_end()
+                    .child(
+                        toolbar_icon_button(format!("open-item-{index}"))
+                            .h(px(24.))
+                            .w(px(24.))
+                            .rounded(px(7.))
+                            .icon(match kind {
+                                FileItemKind::Folder => compact_icon(IconName::ChevronRight),
+                                FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
+                                    compact_icon(IconName::ExternalLink)
+                                }
+                            })
+                            .tooltip(match kind {
+                                FileItemKind::Folder => t!("files.open.folder"),
+                                FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
+                                    t!("files.open.file")
+                                }
+                            })
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.open_item(open_path.clone(), kind, cx);
+                            })),
+                    )
+                    .child(
+                        toolbar_icon_button(format!("file-row-more-{index}"))
+                            .h(px(24.))
+                            .w(px(24.))
+                            .rounded(px(7.))
+                            .icon(compact_icon(IconName::Ellipsis))
+                            .opacity(if selected { 1. } else { 0. })
+                            .group_hover(FILE_LIST_ROW_GROUP, |btn| btn.opacity(1.))
+                            .hover(|btn| btn.bg(cx.theme().list_hover))
+                            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                                cx.stop_propagation();
+                                this.cancel_rename_if_active(cx);
+                                this.set_context_menu_extended_verbs(event.modifiers().shift);
+                                this.prepare_context_menu_target(index);
+                                this.open_context_menu(window.mouse_position(), window, cx);
+                            })),
+                    ),
             );
         Self::file_list_row_shell(("file-row-shell", index), selected, row_body, cx)
             .into_any_element()

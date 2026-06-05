@@ -122,7 +122,7 @@ impl FileBrowser {
             ))
     }
 
-    /// Design-aligned action bar above the file list (new, views, clipboard, delete, sort).
+    /// Action bar above the file list (new, views, clipboard, delete, sort).
     fn render_content_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let selected_count = self.selected_count();
         let in_recycle_bin = self.browse_location == BrowseLocation::RecycleBin;

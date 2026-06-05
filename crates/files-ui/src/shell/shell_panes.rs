@@ -1,6 +1,7 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     h_flex, label::Label, v_flex, ActiveTheme as _, ElementExt as _, InteractiveElementExt as _,
+    StyledExt as _,
 };
 
 use crate::app_state::AppNavigation;
@@ -12,6 +13,12 @@ use crate::shell::pane_split::{
 use crate::shell::PaneShell;
 use files_core::{load_config, SessionPaneLayout};
 use files_fs::home_navigation_path;
+
+const PANE_SHELL_RADIUS: Pixels = px(14.);
+const PANE_TITLE_HEIGHT: Pixels = px(34.);
+const PANE_ACTIVE_TOP_BAR: Pixels = px(3.);
+const SPLIT_BROWSER_PADDING: Pixels = px(10.);
+const SPLIT_BROWSER_GAP: Pixels = px(10.);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaneSide {
@@ -445,20 +452,29 @@ impl Render for ShellPanes {
         let pane_title = |title: SharedString, is_active: bool| {
             h_flex()
                 .flex_none()
-                .h_8()
-                .px_3()
+                .h(PANE_TITLE_HEIGHT)
+                .px(px(12.))
                 .items_center()
-                .bg(if is_active {
+                .border_b_1()
+                .border_color(if is_active {
                     cx.theme().primary
+                } else {
+                    cx.theme().border
+                })
+                .bg(if is_active {
+                    cx.theme().accent
                 } else {
                     cx.theme().background
                 })
                 .child(
-                    Label::new(title).text_color(if is_active {
-                        cx.theme().primary_foreground
-                    } else {
-                        cx.theme().foreground
-                    }),
+                    Label::new(title)
+                        .text_sm()
+                        .when(is_active, |label| label.font_semibold())
+                        .text_color(if is_active {
+                            cx.theme().accent_foreground
+                        } else {
+                            cx.theme().foreground
+                        }),
                 )
         };
 
@@ -471,6 +487,23 @@ impl Render for ShellPanes {
                     .size_full()
                     .min_h_0()
                     .overflow_hidden()
+                    .rounded(PANE_SHELL_RADIUS)
+                    .border_1()
+                    .border_color(if is_active {
+                        cx.theme().primary
+                    } else {
+                        cx.theme().border
+                    })
+                    .bg(cx.theme().background)
+                    .when(is_active, |shell| {
+                        shell.child(
+                            div()
+                                .w_full()
+                                .h(PANE_ACTIVE_TOP_BAR)
+                                .flex_none()
+                                .bg(cx.theme().primary),
+                        )
+                    })
                     // Capture phase: activate before FileBrowser/list stop_propagation.
                     .capture_any_mouse_down(cx.listener(move |this, _, window, cx| {
                         this.activate_pane(side, window, cx);
@@ -481,12 +514,6 @@ impl Render for ShellPanes {
                             .flex_1()
                             .min_h_0()
                             .overflow_hidden()
-                            .border_2()
-                            .border_color(if is_active {
-                                cx.theme().primary
-                            } else {
-                                cx.theme().border
-                            })
                             .child(pane),
                     )
             };
@@ -513,8 +540,16 @@ impl Render for ShellPanes {
             this.finish_split_drag(cx);
         });
 
+        let split_shell = |container: Div| {
+            container
+                .p(SPLIT_BROWSER_PADDING)
+                .pb_0()
+                .gap(SPLIT_BROWSER_GAP)
+                .bg(cx.theme().background)
+        };
+
         match arrangement {
-            PaneArrangement::Vertical => h_flex()
+            PaneArrangement::Vertical => split_shell(h_flex())
                 .id("shell-panes")
                 .size_full()
                 .min_h_0()
@@ -528,7 +563,7 @@ impl Render for ShellPanes {
                 .child(splitter)
                 .child(secondary_pane)
                 .into_any_element(),
-            PaneArrangement::Horizontal => v_flex()
+            PaneArrangement::Horizontal => split_shell(v_flex())
                 .id("shell-panes")
                 .size_full()
                 .min_h_0()
