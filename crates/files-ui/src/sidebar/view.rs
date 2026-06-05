@@ -17,6 +17,7 @@ use crate::app_state::AppNavigation;
 use crate::drag::DraggedFilePaths;
 use crate::icons::{
     delete_icon_element, folder_icon_element, home_icon_element, inbox_icon_element, sidebar_icon,
+    toolbar_tabler,
 };
 use files_fs::parse_tag_color_hex;
 use crate::main_page::MainPage;
@@ -26,7 +27,6 @@ use crate::shell::navigation::NavigationTarget;
 use super::disk_ring::disk_usage_ring;
 use super::menu_with_drop::SidebarMenuWithDrop;
 use super::model::{SidebarEntry, SidebarSection, SidebarSectionKind};
-use crate::color_icon;
 use crate::tabler_icons;
 
 pub fn render_sidebar(
@@ -443,7 +443,7 @@ fn build_entry_context_menu(
 fn tag_color_sidebar_icon(
     color: Option<String>,
 ) -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
-    move |_window, _cx| {
+    move |_window, cx| {
         let fill = gpui::rgb(
             color
                 .as_deref()
@@ -454,7 +454,11 @@ fn tag_color_sidebar_icon(
             .gap(px(6.))
             .items_center()
             .child(div().size(px(8.)).rounded_full().bg(fill))
-            .child(color_icon::color_icon_box(tabler_icons::TAG, px(15.)))
+            .child(
+                div()
+                    .text_color(crate::icons::chrome_icon_color(cx))
+                    .child(toolbar_tabler(tabler_icons::TAG)),
+            )
             .into_any_element()
     }
 }
@@ -463,13 +467,13 @@ fn icon_for_target(
     target: &NavigationTarget,
 ) -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
     let target = target.clone();
-    move |_window: &mut Window, _cx: &mut App| match &target {
-        NavigationTarget::Home => home_icon_element(),
-        NavigationTarget::RecycleBin => delete_icon_element(),
+    move |_window: &mut Window, cx: &mut App| match &target {
+        NavigationTarget::Home => home_icon_element(cx),
+        NavigationTarget::RecycleBin => delete_icon_element(cx),
         NavigationTarget::Settings => sidebar_icon(IconName::Settings2).into_any_element(),
-        NavigationTarget::FileTag(_) => inbox_icon_element(),
+        NavigationTarget::FileTag(_) => inbox_icon_element(cx),
         NavigationTarget::SearchResults { .. } => sidebar_icon(IconName::Search).into_any_element(),
-        NavigationTarget::Path(_) => folder_icon_element(),
+        NavigationTarget::Path(_) => folder_icon_element(cx),
     }
 }
 

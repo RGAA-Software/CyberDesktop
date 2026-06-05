@@ -18,7 +18,8 @@ use rust_i18n::t;
 use super::breadcrumb_flyout::BreadcrumbFlyout;
 use crate::app_state::AppNavigation;
 use crate::file_browser::DraggedFilePaths;
-use crate::icons::home_icon_element;
+use crate::icons::toolbar_tabler;
+use crate::tabler_icons;
 use app_ui::popup_menu::{DropdownMenu as _, PopupMenu, PopupMenuItem};
 use app_ui::toolbar_button::{toolbar_icon_button, TOOLBAR_BUTTON_PX};
 
@@ -244,7 +245,7 @@ fn render_root_item(
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .child(
             toolbar_icon_button("breadcrumb-root-home")
-                .child(home_icon_element())
+                .icon(toolbar_tabler(tabler_icons::HOME))
                 .tooltip(home_tip)
                 .on_click(move |_, window, cx| on_home(window, cx)),
         )

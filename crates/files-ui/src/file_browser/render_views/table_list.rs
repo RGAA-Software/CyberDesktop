@@ -377,7 +377,6 @@ impl FileBrowser {
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_sm()
-                    .font_medium()
                     .text_color(cx.theme().foreground)
                     .child(if let Some(input) = rename_input {
                         Self::inline_name_editor(input, false, cx)
@@ -524,7 +523,6 @@ impl FileBrowser {
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_sm()
-                    .font_medium()
                     .text_color(cx.theme().foreground)
                     .child(if let Some(input) = rename_input {
                         Self::inline_name_editor(input, false, cx)

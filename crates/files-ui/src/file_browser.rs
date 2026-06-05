@@ -15,8 +15,7 @@ use crate::file_ops::{
 };
 use crate::color_icon;
 use crate::icons::{
-    compact_icon, file_tag_empty_icon_element, folder_icon_element, toolbar_icon,
-    toolbar_tabler,
+    compact_icon, file_tag_empty_icon_element, toolbar_icon, toolbar_tabler,
 };
 use crate::tabler_icons;
 use crate::list_icon_cache;

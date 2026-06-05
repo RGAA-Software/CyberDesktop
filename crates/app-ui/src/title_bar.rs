@@ -177,6 +177,7 @@ impl RenderOnce for ControlIcon {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let is_linux = cfg!(target_os = "linux");
         let is_windows = cfg!(target_os = "windows");
+        let normal_fg = cx.theme().muted_foreground;
         let hover_fg = self.hover_fg(cx);
         let hover_bg = self.hover_bg(cx);
         let active_bg = self.active_bg(cx);
@@ -195,7 +196,7 @@ impl RenderOnce for ControlIcon {
             .justify_center()
             .content_center()
             .items_center()
-            .text_color(cx.theme().foreground)
+            .text_color(normal_fg)
             .hover(|style| style.bg(hover_bg).text_color(hover_fg))
             .active(|style| style.bg(active_bg).text_color(hover_fg))
             .when(is_windows, |this| {

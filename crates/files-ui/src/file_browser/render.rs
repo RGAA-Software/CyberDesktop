@@ -1,6 +1,5 @@
 use super::*;
 use super::helpers::view_supports_grouping;
-use files_commands::{NewFile, NewFolder};
 use gpui_component::{
     button::Button,
     Icon,
@@ -17,10 +16,10 @@ fn cmd_separator(cx: &App) -> impl IntoElement {
         .mx(px(6.))
 }
 
-fn act_button(id: impl Into<ElementId>) -> Button {
-    toolbar_labeled_button(id)
+fn icon_action_button(id: impl Into<ElementId>) -> Button {
+    toolbar_icon_button(id)
         .h(px(32.))
-        .px(px(10.))
+        .w(px(32.))
         .rounded(px(10.))
 }
 
@@ -40,7 +39,7 @@ impl FileBrowser {
                 div()
                     .text_color(cx.theme().muted_foreground)
                     .opacity(0.55)
-                    .child(file_tag_empty_icon_element()),
+                    .child(file_tag_empty_icon_element(cx)),
             )
             .child(
                 Label::new(t!("file_tag.empty"))
@@ -149,30 +148,27 @@ impl FileBrowser {
             .bg(cx.theme().background)
             .when(!in_recycle_bin, |bar| {
                 bar.child(
-                    toolbar_dropdown_button("action-new")
-                        .button(
-                            Button::new("action-new-btn")
-                                .h(px(32.))
-                                .px(px(10.))
-                                .rounded(px(10.))
-                                .bg(cx.theme().primary)
-                                .text_color(cx.theme().primary_foreground)
-                                .icon(toolbar_tabler(tabler_icons::PLUS))
-                                .label(t!("files.menu.new"))
-                                .tooltip(t!("files.menu.new")),
-                        )
-                        .dropdown_menu(|menu, _, _| {
-                            menu.menu(t!("files.new_folder"), Box::new(NewFolder))
-                                .menu(t!("files.new_file"), Box::new(NewFile))
-                        }),
+                    icon_action_button("action-new-folder")
+                        .icon(toolbar_tabler(tabler_icons::FOLDER_PLUS))
+                        .tooltip(t!("files.new_folder"))
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.create_new_folder(window, cx);
+                        })),
+                )
+                .child(
+                    icon_action_button("action-new-file")
+                        .icon(toolbar_tabler(tabler_icons::FILE_PLUS))
+                        .tooltip(t!("files.new_file"))
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.create_new_file(window, cx);
+                        })),
                 )
             })
             .child(self.render_view_mode_group(cx))
             .child(cmd_separator(cx))
             .child(
-                act_button("action-copy")
+                icon_action_button("action-copy")
                     .icon(toolbar_tabler(tabler_icons::COPY))
-                    .label(t!("files.menu.copy"))
                     .tooltip(t!("files.menu.copy"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -181,9 +177,8 @@ impl FileBrowser {
                     })),
             )
             .child(
-                act_button("action-cut")
+                icon_action_button("action-cut")
                     .icon(toolbar_tabler(tabler_icons::CUT))
-                    .label(t!("files.menu.cut"))
                     .tooltip(t!("files.menu.cut"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -192,9 +187,8 @@ impl FileBrowser {
                     })),
             )
             .child(
-                act_button("action-paste")
+                icon_action_button("action-paste")
                     .icon(toolbar_tabler(tabler_icons::CLIPBOARD))
-                    .label(t!("files.menu.paste"))
                     .tooltip(t!("files.menu.paste"))
                     .disabled(!can_paste)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -202,9 +196,8 @@ impl FileBrowser {
                     })),
             )
             .child(
-                act_button("action-rename")
+                icon_action_button("action-rename")
                     .icon(toolbar_tabler(tabler_icons::PENCIL))
-                    .label(t!("files.menu.rename"))
                     .tooltip(t!("files.menu.rename"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -213,9 +206,8 @@ impl FileBrowser {
                     })),
             )
             .child(
-                act_button("action-properties")
+                icon_action_button("action-properties")
                     .icon(toolbar_icon(IconName::Info))
-                    .label(t!("files.menu.properties"))
                     .tooltip(t!("files.menu.properties"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -224,9 +216,8 @@ impl FileBrowser {
             )
             .child(cmd_separator(cx))
             .child(
-                act_button("action-delete")
+                icon_action_button("action-delete")
                     .icon(toolbar_icon(IconName::Delete))
-                    .label(t!("files.menu.delete"))
                     .tooltip(t!("files.menu.delete"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -241,20 +232,27 @@ impl FileBrowser {
                     .flex_none()
                     .gap(px(8.))
                     .items_center()
-                    .text_xs()
+                    .text_sm()
                     .text_color(cx.theme().muted_foreground)
                     .child(Label::new(t!("files.menu.sort")))
                     .child(
                         toolbar_dropdown_button("action-sort")
                             .button(
-                                act_button("action-sort-btn")
-                                    .label(sort_label)
+                                toolbar_labeled_button("action-sort-btn")
+                                    .px(px(10.))
                                     .tooltip(t!("files.menu.sort"))
                                     .h(px(32.))
                                     .rounded(px(10.))
                                     .border_1()
                                     .border_color(cx.theme().border)
-                                    .bg(cx.theme().secondary),
+                                    .bg(cx.theme().secondary)
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .font_semibold()
+                                            .text_color(cx.theme().foreground)
+                                            .child(sort_label),
+                                    ),
                             )
                             .dropdown_menu(move |menu, window, cx| {
                                 build_sort_prefs_toolbar_menu(

@@ -1,9 +1,8 @@
 //! App-wide Tabler icon helpers (24×24 outline, 18px on screen).
 
-use gpui::{div, prelude::*, px, AnyElement, App, Pixels};
-use gpui_component::{ActiveTheme as _, Icon, IconName};
+use gpui::{div, prelude::*, px, AnyElement, App, Hsla, Pixels};
+use gpui_component::{ActiveTheme as _, Icon, IconName, Sizable as _, Size};
 
-use crate::color_icon;
 use crate::list_icon_cache;
 use crate::tabler_icons;
 
@@ -14,14 +13,29 @@ fn named_icon(name: &str) -> Icon {
     tabler_icons::icon(path)
 }
 
-fn named_svg_icon_element(name: &str) -> Option<AnyElement> {
-    let path = list_icon_cache::named_icon_path(name)?;
-    Some(color_icon::color_icon_box(path, APP_ICON_IMAGE_PX))
+/// Default tint for chrome icons (nav, title bar, action bar, breadcrumbs).
+pub fn chrome_icon_color(cx: &App) -> Hsla {
+    cx.theme().muted_foreground
+}
+
+fn chrome_icon_box(path: &'static str, color: Hsla, size: Pixels) -> AnyElement {
+    div()
+        .size(size)
+        .flex_none()
+        .text_color(color)
+        .child(toolbar_tabler(path))
+        .into_any_element()
 }
 
 /// CyberFiles app icon for the title bar (left of the menu bar).
-pub fn app_logo_element() -> AnyElement {
-    color_icon::color_icon_box(tabler_icons::FILES, tabler_icons::logo_px())
+pub fn app_logo_element(cx: &App) -> AnyElement {
+    div()
+        .flex_none()
+        .text_color(cx.theme().primary)
+        .child(
+            tabler_icons::icon(tabler_icons::FILES).with_size(Size::Size(tabler_icons::logo_px())),
+        )
+        .into_any_element()
 }
 
 /// Toolbar, title bar, breadcrumbs, sidebar, settings, tab bar — all 18px.
@@ -38,7 +52,7 @@ pub fn toolbar_tabler(path: &'static str) -> Icon {
 pub fn icon_foreground(icon: IconName, cx: &App) -> impl IntoElement {
     div()
         .flex_none()
-        .text_color(cx.theme().foreground)
+        .text_color(chrome_icon_color(cx))
         .child(toolbar_icon(icon))
 }
 
@@ -62,25 +76,25 @@ pub fn home_icon() -> Icon {
     named_icon("home")
 }
 
-pub fn folder_icon_element() -> AnyElement {
-    named_svg_icon_element("folder").unwrap_or_else(|| folder_icon().into_any_element())
+pub fn folder_icon_element(cx: &App) -> AnyElement {
+    chrome_icon_box(tabler_icons::FOLDER, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }
 
-pub fn home_icon_element() -> AnyElement {
-    named_svg_icon_element("home").unwrap_or_else(|| home_icon().into_any_element())
+pub fn home_icon_element(cx: &App) -> AnyElement {
+    chrome_icon_box(tabler_icons::HOME, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }
 
-pub fn inbox_icon_element() -> AnyElement {
-    color_icon::color_icon_box(tabler_icons::INBOX, APP_ICON_IMAGE_PX)
+pub fn inbox_icon_element(cx: &App) -> AnyElement {
+    chrome_icon_box(tabler_icons::INBOX, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }
 
-pub fn delete_icon_element() -> AnyElement {
-    color_icon::color_icon_box(tabler_icons::TRASH, APP_ICON_IMAGE_PX)
+pub fn delete_icon_element(cx: &App) -> AnyElement {
+    chrome_icon_box(tabler_icons::TRASH, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }
 
 /// Empty file-tag list placeholder.
-pub fn file_tag_empty_icon_element() -> AnyElement {
-    color_icon::color_icon_box(tabler_icons::FOLDER_OFF, px(48.))
+pub fn file_tag_empty_icon_element(cx: &App) -> AnyElement {
+    chrome_icon_box(tabler_icons::FOLDER_OFF, chrome_icon_color(cx), px(48.))
 }
 
 pub fn pin_icon() -> Icon {

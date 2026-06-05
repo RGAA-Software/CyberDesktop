@@ -179,7 +179,7 @@ impl MainPage {
                         .gap(px(8.))
                         .pl(px(16.))
                         .pr(px(12.))
-                        .child(app_logo_element())
+                        .child(app_logo_element(cx))
                         .child(
                             div()
                                 .text_sm()

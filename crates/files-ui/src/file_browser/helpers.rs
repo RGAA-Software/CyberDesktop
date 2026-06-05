@@ -38,7 +38,7 @@ pub(super) fn path_is_cut_pending(path: &Path, cx: &App) -> bool {
 impl FileBrowser {
     pub(super) fn file_item_kind_icon(kind: FileItemKind) -> AnyElement {
         match kind {
-            FileItemKind::Folder => folder_icon_element(),
+            FileItemKind::Folder => toolbar_tabler(tabler_icons::FOLDER).into_any_element(),
             FileItemKind::Symlink => compact_icon(IconName::ExternalLink).into_any_element(),
             FileItemKind::File | FileItemKind::Other => {
                 compact_icon(IconName::File).into_any_element()
@@ -53,7 +53,7 @@ impl FileBrowser {
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(folder_icon_element())
+                .child(toolbar_tabler(tabler_icons::FOLDER))
                 .into_any_element();
         }
         if let Some(ext) = item.extension.as_deref().filter(|e| !e.is_empty()) {
