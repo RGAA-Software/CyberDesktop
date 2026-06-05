@@ -210,7 +210,6 @@ impl Render for MainPage {
             self.active_navigation_target(cx),
             NavigationTarget::Home | NavigationTarget::Settings
         );
-        let navigation_toolbar = show_nav.then(|| self.render_navigation_toolbar(window, cx));
         let file_navigation_active = self.file_navigation_active(cx);
         let (info_selection, info_read_options) = self.info_pane_update(cx);
         self.info_pane.update(cx, |pane, cx| {
@@ -435,7 +434,6 @@ impl Render for MainPage {
                 }
             }))
             .child(self.render_title_bar(window, cx))
-            .when_some(navigation_toolbar, |page, nav| page.child(nav))
             .child(
                 div()
                     .id("main-body")
@@ -443,7 +441,13 @@ impl Render for MainPage {
                     .min_h_0()
                     .min_w_0()
                     .overflow_hidden()
-                    .child(self.render_shell_layout_row(window, active_shell, show_info_pane, cx)),
+                    .child(self.render_shell_layout_row(
+                        window,
+                        active_shell,
+                        show_info_pane,
+                        show_nav,
+                        cx,
+                    )),
             )
     }
 }

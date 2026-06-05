@@ -152,6 +152,7 @@ impl MainPage {
         window: &mut Window,
         active_shell: Entity<ShellPanes>,
         show_info_pane: bool,
+        show_nav: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let sidebar_sections = self.sidebar_sections.clone();
@@ -182,25 +183,40 @@ impl MainPage {
             )
             .child(
                 resizable_panel().flex_1().min_w_0().child(
-                    div()
+                    v_flex()
                         .id("content-region")
                         .size_full()
                         .min_h_0()
                         .min_w_0()
+                        .when(show_nav, |col| {
+                            col.child(self.render_navigation_toolbar(window, cx))
+                        })
                         .child(
-                            h_resizable("main-with-info-pane")
-                                .with_state(&window.use_keyed_state("main-with-info-pane", cx, |_, _| ResizableState::default()))
-                                .child(resizable_panel().flex_1().min_w_0().child(
-                                    self.render_content_column(window, active_shell, cx),
-                                ))
+                            div()
+                                .id("content-region-body")
+                                .flex_1()
+                                .min_h_0()
+                                .min_w_0()
+                                .overflow_hidden()
                                 .child(
-                                    resizable_panel()
-                                        .size(px(300.))
-                                        .size_range(px(220.)..px(480.))
-                                        .fixed_size(true)
-                                        .flex_none()
-                                        .visible(show_info_pane)
-                                        .child(self.info_pane.clone()),
+                                    h_resizable("main-with-info-pane")
+                                        .with_state(&window.use_keyed_state(
+                                            "main-with-info-pane",
+                                            cx,
+                                            |_, _| ResizableState::default(),
+                                        ))
+                                        .child(resizable_panel().flex_1().min_w_0().child(
+                                            self.render_content_column(window, active_shell, cx),
+                                        ))
+                                        .child(
+                                            resizable_panel()
+                                                .size(px(300.))
+                                                .size_range(px(220.)..px(480.))
+                                                .fixed_size(true)
+                                                .flex_none()
+                                                .visible(show_info_pane)
+                                                .child(self.info_pane.clone()),
+                                        ),
                                 ),
                         ),
                 ),

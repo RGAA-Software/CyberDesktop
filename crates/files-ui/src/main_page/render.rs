@@ -5,13 +5,11 @@ use gpui_component::{
     badge::Badge,
     button::{Button, ButtonVariants as _},
     h_flex,
-    input::Input,
     label::Label,
     ActiveTheme as _,
     Disableable as _,
     Icon, IconName,
     Sizable as _,
-    Size,
     ThemeMode,
     StyledExt as _,
     WindowExt as _,
@@ -409,27 +407,14 @@ impl MainPage {
                             })),
                     );
                 if show_file_search {
-                    let search_input = self.ensure_search_input(window, cx);
-                    trailing = trailing
-                        .child(
-                            path_tool_button("nav-pin-folder", cx)
-                                .icon(pin_icon())
-                                .tooltip(t!("nav.pin_folder"))
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.pin_current_folder(cx);
-                                })),
-                        )
-                        .child(
-                            div()
-                                .id("nav-search-wrap")
-                                .w(px(200.))
-                                .min_w(px(140.))
-                                .flex_none()
-                                .h(OMNIBAR_BAR_HEIGHT)
-                                .flex()
-                                .items_center()
-                                .child(Input::new(&search_input).w_full().with_size(Size::Medium)),
-                        );
+                    trailing = trailing.child(
+                        path_tool_button("nav-pin-folder", cx)
+                            .icon(pin_icon())
+                            .tooltip(t!("nav.pin_folder"))
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.pin_current_folder(cx);
+                            })),
+                    );
                 }
                 trailing
             })
