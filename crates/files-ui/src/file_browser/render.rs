@@ -52,7 +52,7 @@ impl FileBrowser {
             .border_color(cx.theme().border)
             .child(
                 toolbar_icon_button("content-cut")
-                    .icon(toolbar_icon(IconName::Replace).path("icons/content_cut.svg"))
+                    .icon(crate::icons::toolbar_tabler(crate::tabler_icons::CUT))
                     .tooltip(t!("files.menu.cut"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -62,7 +62,7 @@ impl FileBrowser {
             )
             .child(
                 toolbar_icon_button("content-copy")
-                    .icon(toolbar_icon(IconName::Copy).path("icons/content_copy.svg"))
+                    .icon(toolbar_tabler(tabler_icons::COPY))
                     .tooltip(t!("files.menu.copy"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -72,7 +72,7 @@ impl FileBrowser {
             )
             .child(
                 toolbar_icon_button("content-paste")
-                    .icon(toolbar_icon(IconName::Replace).path("icons/content_paste.svg"))
+                    .icon(toolbar_tabler(tabler_icons::CLIPBOARD))
                     .tooltip(t!("files.menu.paste"))
                     .disabled(!can_paste)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -81,7 +81,7 @@ impl FileBrowser {
             )
             .child(
                 toolbar_icon_button("content-rename")
-                    .icon(toolbar_icon(IconName::File).path("icons/drive_file_rename_outline.svg"))
+                    .icon(toolbar_tabler(tabler_icons::PENCIL))
                     .tooltip(t!("files.menu.rename"))
                     .disabled(selected_count == 0)
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -102,7 +102,7 @@ impl FileBrowser {
             .child(
                 toolbar_icon_button("content-new-folder")
                     .size(TOOLBAR_BUTTON_PX)
-                    .icon(toolbar_icon(IconName::Folder).path("icons/create_new_folder.svg"))
+                    .icon(toolbar_tabler(tabler_icons::FOLDER_PLUS))
                     .tooltip(t!("files.new_folder"))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.create_new_folder(window, cx);
@@ -112,7 +112,7 @@ impl FileBrowser {
             .child(
                 toolbar_icon_button("content-new-file")
                     .size(TOOLBAR_BUTTON_PX)
-                    .icon(toolbar_icon(IconName::File).path("icons/note_add.svg"))
+                    .icon(toolbar_tabler(tabler_icons::FILE_PLUS))
                     .tooltip(t!("files.new_file"))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.create_new_file(window, cx);
@@ -122,7 +122,7 @@ impl FileBrowser {
             .child(div().w(px(1.)).h(px(20.)).bg(cx.theme().border))
             .child(
                 toolbar_icon_button("content-view-details")
-                    .icon(toolbar_icon(IconName::GalleryVerticalEnd).path("icons/view_headline.svg"))
+                    .icon(toolbar_tabler(tabler_icons::LIST_DETAILS))
                     .tooltip(t!("files.view.details"))
                     .when(self.view_mode == ViewMode::Details, |this| {
                         this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
@@ -155,7 +155,7 @@ impl FileBrowser {
             )
             .child(
                 toolbar_icon_button("content-view-cards")
-                    .icon(toolbar_icon(IconName::LayoutDashboard).path("icons/view_cozy.svg"))
+                    .icon(toolbar_tabler(tabler_icons::LAYOUT_BOARD))
                     .tooltip(t!("files.view.cards"))
                     .when(self.view_mode == ViewMode::Cards, |this| {
                         this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
@@ -393,7 +393,7 @@ impl Render for FileBrowser {
                             this.child(
                                 toolbar_icon_button("files-new-folder-btn")
                                     .size(TOOLBAR_BUTTON_PX)
-                                    .icon(toolbar_icon(IconName::Folder).path("icons/create_new_folder.svg"))
+                                    .icon(toolbar_tabler(tabler_icons::FOLDER_PLUS))
                                     .tooltip(t!("files.new_folder"))
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.create_new_folder(window, cx);
@@ -403,7 +403,7 @@ impl Render for FileBrowser {
                             .child(
                                 toolbar_icon_button("files-new-file-btn")
                                     .size(TOOLBAR_BUTTON_PX)
-                                    .icon(toolbar_icon(IconName::File).path("icons/note_add.svg"))
+                                    .icon(toolbar_tabler(tabler_icons::FILE_PLUS))
                                     .tooltip(t!("files.new_file"))
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.create_new_file(window, cx);
@@ -413,7 +413,7 @@ impl Render for FileBrowser {
                         })
                         .child(
                             toolbar_icon_button("files-view-details")
-                                .icon(toolbar_icon(IconName::GalleryVerticalEnd).path("icons/view_headline.svg"))
+                                .icon(toolbar_tabler(tabler_icons::LIST_DETAILS))
                                 .tooltip(t!("files.view.details"))
                                 .when(self.view_mode == ViewMode::Details, |this| {
                                     this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)
@@ -446,7 +446,7 @@ impl Render for FileBrowser {
                         )
                         .child(
                             toolbar_icon_button("files-view-cards")
-                                .icon(toolbar_icon(IconName::LayoutDashboard).path("icons/view_cozy.svg"))
+                                .icon(toolbar_tabler(tabler_icons::LAYOUT_BOARD))
                                 .tooltip(t!("files.view.cards"))
                                 .when(self.view_mode == ViewMode::Cards, |this| {
                                     this.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)

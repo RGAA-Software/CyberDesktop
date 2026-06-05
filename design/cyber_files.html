@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberFiles</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --font:'DM Sans',system-ui,sans-serif;
+  --radius-sm:6px;--radius-md:8px;--radius-lg:12px;
+  --bg-base:#F4F4F0;--bg-primary:#FFFFFF;--bg-secondary:#EFEFEB;--bg-hover:#E6E6E1;
+  --text-primary:#1A1A18;--text-secondary:#68685F;--text-tertiary:#A8A89F;
+  --border:rgba(0,0,0,0.07);--border-strong:rgba(0,0,0,0.13);
+  --accent:#5D9117;--accent-hover:#4A7512;--accent-light:#EBF4DC;--accent-mid:#8FC044;--accent-text:#2A4A08;
+  --info-bg:#E6F1FB;--info-text:#1660A8;
+  --danger-bg:#FCEAEA;--danger-text:#A82D2D;
+  --amber-bg:#FAF0DC;--amber-text:#895210;
+  --purple-bg:#EFEDFE;--purple-text:#5248B8;
+  --tag-green:#5D9117;--tag-blue:#2277CC;--tag-pink:#C0407A;
+}
+.dark{
+  --bg-base:#0F0F0E;--bg-primary:#1B1B19;--bg-secondary:#141413;--bg-hover:#242420;
+  --text-primary:#E5E5DF;--text-secondary:#96968E;--text-tertiary:#56564F;
+  --border:rgba(255,255,255,0.07);--border-strong:rgba(255,255,255,0.13);
+  --accent:#78B828;--accent-hover:#8FCC38;--accent-light:#182810;--accent-mid:#5D9117;--accent-text:#B8DD80;
+  --info-bg:rgba(34,119,204,0.13);--info-text:#80B8EC;
+  --danger-bg:rgba(168,45,45,0.13);--danger-text:#EF9898;
+  --amber-bg:rgba(137,82,16,0.13);--amber-text:#F5C070;
+  --purple-bg:rgba(82,72,184,0.13);--purple-text:#B0AAEE;
+}
+html,body{height:100%;font-family:var(--font);background:var(--bg-base);color:var(--text-primary);overflow:hidden}
+
+/* ── TITLEBAR ── */
+.titlebar{
+  display:flex;align-items:center;height:42px;
+  background:var(--bg-secondary);border-bottom:1px solid var(--border);
+  flex-shrink:0;user-select:none;
+}
+.tb-left{display:flex;align-items:center;padding:0 14px;flex-shrink:0}
+.app-logo{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--text-primary);letter-spacing:-.01em}
+.app-logo i{font-size:18px;color:var(--accent)}
+.tb-tabs{display:flex;align-items:flex-end;flex:1;height:100%;padding:0 4px;gap:1px;overflow:hidden}
+.tb-tab{
+  display:flex;align-items:center;gap:7px;
+  padding:0 14px;height:34px;min-width:120px;max-width:200px;
+  border-radius:var(--radius-md) var(--radius-md) 0 0;
+  font-size:12.5px;color:var(--text-secondary);cursor:pointer;
+  border:1px solid transparent;border-bottom:none;
+  transition:background .12s,color .12s;position:relative;flex-shrink:0;
+}
+.tb-tab:hover{background:var(--bg-hover);color:var(--text-primary)}
+.tb-tab.active{background:var(--bg-primary);color:var(--text-primary);font-weight:500;border-color:var(--border)}
+.tb-tab.active::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;background:var(--bg-primary)}
+.tb-tab i{font-size:14px;flex-shrink:0}
+.tb-tab .tab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-tab .tab-close{
+  width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--text-tertiary);margin-left:auto;flex-shrink:0;
+  opacity:0;transition:opacity .1s,background .1s;
+}
+.tb-tab:hover .tab-close,.tb-tab.active .tab-close{opacity:1}
+.tb-tab .tab-close:hover{background:var(--bg-hover);color:var(--text-primary)}
+.tb-tab-add{
+  width:28px;height:28px;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-tertiary);cursor:pointer;flex-shrink:0;align-self:center;
+}
+.tb-tab-add:hover{background:var(--bg-hover);color:var(--text-secondary)}
+.tb-right{display:flex;align-items:center;gap:2px;padding:0 10px;flex-shrink:0}
+.wc-btn{
+  width:32px;height:28px;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-tertiary);cursor:pointer;font-size:14px;
+  transition:background .12s,color .12s;
+}
+.wc-btn:hover{background:var(--bg-hover);color:var(--text-primary)}
+.wc-btn.close:hover{background:#E24B4A;color:#fff}
+.wc-sep{width:1px;height:16px;background:var(--border);margin:0 6px}
+.theme-btn{
+  display:flex;align-items:center;gap:5px;padding:4px 10px;
+  font-size:12px;font-family:var(--font);border-radius:20px;
+  border:1px solid var(--border-strong);background:var(--bg-primary);
+  color:var(--text-secondary);cursor:pointer;
+}
+.theme-btn:hover{background:var(--bg-hover)}
+.theme-btn i{font-size:13px}
+
+/* ── NAV BAR ── */
+.navbar{
+  display:flex;align-items:center;gap:6px;padding:7px 14px;
+  background:var(--bg-primary);border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.nav-btn{
+  width:28px;height:28px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-secondary);cursor:pointer;
+}
+.nav-btn:hover{background:var(--bg-secondary)}
+.nav-btn i{font-size:14px}
+.breadcrumb{
+  display:flex;align-items:center;gap:4px;flex:1;
+  background:var(--bg-secondary);border:1px solid var(--border);
+  border-radius:var(--radius-md);padding:0 12px;height:30px;font-size:12.5px;
+  color:var(--text-secondary);min-width:0;
+}
+.breadcrumb i{font-size:13px;color:var(--text-tertiary)}
+.breadcrumb .sep{color:var(--text-tertiary);font-size:11px}
+.breadcrumb .cur{color:var(--text-primary);font-weight:500}
+.view-btns{display:flex;gap:2px}
+.view-btn{
+  width:28px;height:28px;border-radius:var(--radius-sm);
+  border:1px solid transparent;background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-tertiary);cursor:pointer;transition:all .12s;
+}
+.view-btn:hover{color:var(--text-secondary);background:var(--bg-secondary)}
+.view-btn.active{background:var(--accent-light);border-color:var(--accent-mid);color:var(--accent-text)}
+.view-btn i{font-size:14px}
+
+.path-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-left:6px;
+}
+.path-tool-btn{
+  width:30px;
+  height:30px;
+  border-radius:9px;
+  border:1px solid var(--border);
+  background:var(--bg-primary);
+  color:var(--text-secondary);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:all .12s;
+  flex-shrink:0;
+}
+.path-tool-btn:hover{
+  background:var(--bg-secondary);
+  color:var(--text-primary);
+  border-color:var(--border-strong);
+}
+.path-tool-btn.active{
+  background:var(--accent-light);
+  color:var(--accent-text);
+  border-color:var(--accent-mid);
+}
+.path-tool-btn i{font-size:15px}
+.path-split-icon{
+  width:14px;
+  height:14px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:2px;
+}
+.path-split-icon span{
+  display:block;
+  border:1.5px solid currentColor;
+  border-radius:3px;
+}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100vh}
+.body{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:200px;flex-shrink:0;background:var(--bg-secondary);
+  border-right:1px solid var(--border);padding:6px 6px;
+  display:flex;flex-direction:column;gap:1px;overflow-y:auto;
+}
+.sb-section{
+  font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-tertiary);padding:8px 8px 3px;margin-top:2px;
+}
+.sb-section:first-child{margin-top:0}
+
+/* FIXED HEIGHT 32px sidebar items */
+.sb-item{
+  display:flex;align-items:center;gap:8px;
+  height:32px;padding:0 8px;
+  border-radius:var(--radius-sm);font-size:13px;color:var(--text-secondary);
+  cursor:pointer;transition:background .1s;flex-shrink:0;
+}
+.sb-item:hover{background:var(--bg-hover)}
+.sb-item.active{background:var(--accent-light);color:var(--accent-text);font-weight:500}
+.sb-item.active > i:first-child{color:var(--accent)}
+.sb-item > i:first-child{font-size:15px;color:var(--text-tertiary);flex-shrink:0}
+.sb-item-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Disk usage circle on sidebar drive items */
+.sb-disk-ring{flex-shrink:0;margin-left:auto}
+.sb-disk-ring svg{display:block}
+
+.sb-divider{border:none;border-top:1px solid var(--border);margin:4px 2px}
+.sb-tag{
+  display:flex;align-items:center;gap:8px;
+  height:32px;padding:0 8px;
+  border-radius:var(--radius-sm);font-size:13px;color:var(--text-secondary);cursor:pointer;flex-shrink:0;
+}
+.sb-tag:hover{background:var(--bg-hover)}
+.tag-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg-primary)}
+
+/* ── ACTION BAR ── */
+.action-bar{
+  display:flex;align-items:center;gap:5px;padding:7px 14px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.act-btn{
+  display:flex;align-items:center;gap:5px;padding:4px 10px;
+  border-radius:var(--radius-sm);font-size:12px;font-family:var(--font);
+  border:1px solid var(--border);background:transparent;
+  color:var(--text-secondary);cursor:pointer;transition:all .12s;white-space:nowrap;
+}
+.act-btn:hover{background:var(--bg-secondary)}
+.act-btn i{font-size:14px}
+.act-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:500}
+.act-btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.sort-area{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--text-secondary)}
+.sort-area select{
+  border:1px solid var(--border);background:var(--bg-secondary);
+  font-size:12px;font-family:var(--font);color:var(--text-secondary);
+  border-radius:var(--radius-sm);padding:3px 7px;outline:none;cursor:pointer;
+}
+
+/* ── CONTENT ── */
+.content-wrap{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+
+/* ── FILE LIST ── */
+.col-header{
+  display:grid;grid-template-columns:1fr 110px 88px 148px 32px;gap:8px;
+  padding:5px 14px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--bg-primary);z-index:1;
+}
+.col-header span{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.04em;cursor:pointer;white-space:nowrap}
+.col-header span.sort-active{color:var(--accent)}
+.file-row{
+  display:grid;grid-template-columns:1fr 110px 88px 148px 32px;gap:8px;
+  padding:5px 14px;align-items:center;cursor:pointer;transition:background .1s;
+}
+.file-row:hover{background:var(--bg-secondary)}
+.file-row.selected{background:var(--accent-light)}
+.row-name{display:flex;align-items:center;gap:9px;min-width:0}
+.fi{width:30px;height:30px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fi i{font-size:16px}
+.fi.folder{background:var(--accent-light)}.fi.folder i{color:var(--accent)}
+.fi.video{background:var(--info-bg)}.fi.video i{color:var(--info-text)}
+.fi.srt{background:var(--bg-secondary)}.fi.srt i{color:var(--text-tertiary)}
+.fi.pdf{background:var(--danger-bg)}.fi.pdf i{color:var(--danger-text)}
+.fi.epub{background:var(--amber-bg)}.fi.epub i{color:var(--amber-text)}
+.fi.mkv{background:var(--purple-bg)}.fi.mkv i{color:var(--purple-text)}
+.file-name{font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-type,.file-size,.file-date{font-size:12px;color:var(--text-secondary);white-space:nowrap}
+.file-date{font-variant-numeric:tabular-nums}
+.row-more{
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--radius-sm);color:var(--text-tertiary);
+  cursor:pointer;opacity:0;transition:opacity .1s,background .1s;
+}
+.file-row:hover .row-more,.file-row.selected .row-more{opacity:1}
+.row-more:hover{background:var(--bg-hover);color:var(--text-primary)}
+.row-more i{font-size:14px}
+
+/* ── HOME PAGE ── */
+.home-page{flex:1;overflow-y:auto;padding:20px 24px;display:none}
+.home-page.visible{display:block}
+.home-section{margin-bottom:24px}
+.home-section-hd{
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+  font-size:13px;font-weight:500;color:var(--text-secondary);
+}
+.home-section-hd i{font-size:16px;color:var(--text-tertiary)}
+
+/* Quick access — same width language as drive cards, but lower height */
+.qa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.qa-item{
+  display:flex;align-items:center;gap:12px;
+  min-height:68px;padding:12px 14px;border-radius:var(--radius-lg);
+  border:1px solid var(--border);background:var(--bg-secondary);
+  cursor:pointer;transition:all .12s;
+}
+.qa-item:hover{background:var(--bg-hover);border-color:var(--border-strong)}
+.qa-icon{
+  width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:var(--accent-light);flex-shrink:0;
+}
+.qa-icon i{font-size:20px;color:var(--accent)}
+.qa-meta{min-width:0;display:flex;flex-direction:column;gap:3px}
+.qa-name{font-size:13px;color:var(--text-primary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:left}
+.qa-disk{font-size:11.5px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Drives */
+.drive-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.drive-card{
+  padding:14px 16px;border-radius:var(--radius-lg);
+  border:1px solid var(--border);background:var(--bg-secondary);cursor:pointer;
+  transition:all .12s;
+}
+.drive-card:hover{background:var(--bg-hover);border-color:var(--border-strong)}
+.drive-card.active-drive{border-color:var(--accent-mid);background:var(--accent-light)}
+.drive-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.drive-icon{width:34px;height:34px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;background:var(--bg-hover)}
+.drive-icon i{font-size:18px;color:var(--text-secondary)}
+.drive-card.active-drive .drive-icon{background:var(--accent-mid)}
+.drive-card.active-drive .drive-icon i{color:#fff}
+.drive-name{font-size:13px;font-weight:500;color:var(--text-primary)}
+.drive-total{font-size:11px;color:var(--text-tertiary)}
+.drive-bar-track{height:4px;background:var(--border-strong);border-radius:2px}
+.drive-bar-fill{height:100%;border-radius:2px}
+.drive-stats{display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);margin-top:5px}
+
+/* Tags */
+.tags-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tag-col{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg-secondary)}
+.tag-col-hd{display:flex;align-items:center;gap:7px;padding:10px 14px;font-size:13px;font-weight:500;color:var(--text-primary);border-bottom:1px solid var(--border)}
+.tag-col-file{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:12px;color:var(--text-secondary);cursor:pointer;border-bottom:1px solid var(--border)}
+.tag-col-file:last-child{border-bottom:none}
+.tag-col-file:hover{background:var(--bg-hover)}
+.tag-col-file i{font-size:14px;flex-shrink:0}
+.tag-col-file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Recent */
+.recent-table{width:100%;border-collapse:collapse}
+.recent-table th{font-size:11px;font-weight:600;color:var(--text-tertiary);text-align:left;padding:5px 10px;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.recent-table td{padding:6px 10px;font-size:12.5px;color:var(--text-secondary);border-bottom:1px solid var(--border)}
+.recent-table tr:last-child td{border-bottom:none}
+.recent-table tr:hover td{background:var(--bg-secondary);cursor:pointer}
+.recent-table .fname{color:var(--text-primary);display:flex;align-items:center;gap:8px}
+.recent-table .fname i{font-size:15px;flex-shrink:0}
+.recent-table .fpath{font-size:11px;color:var(--text-tertiary);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent-table .fdate{font-size:11px;color:var(--text-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* Network */
+.net-notice{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--info-bg);border-radius:var(--radius-md);font-size:13px;color:var(--info-text)}
+.net-notice i{font-size:16px;flex-shrink:0}
+
+/* ── STATUS ── */
+.statusbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 14px;border-top:1px solid var(--border);background:var(--bg-secondary);flex-shrink:0;
+}
+.status-text{font-size:11px;color:var(--text-tertiary)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   REDESIGN OVERRIDES — keep home content, refine shell/browser
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --shadow-soft:0 1px 2px rgba(0,0,0,.04),0 10px 26px rgba(0,0,0,.05);
+  --row-selected-line:3px;
+}
+.dark{--shadow-soft:0 1px 2px rgba(0,0,0,.28),0 10px 28px rgba(0,0,0,.18)}
+
+/* Top chrome: softer, less “web tab demo”, more desktop app */
+.titlebar{
+  height:44px;
+  background:var(--bg-secondary);
+  border-bottom:1px solid var(--border);
+}
+.tb-left{padding:0 12px 0 16px}.app-logo{font-size:13.5px;gap:8px}.app-logo i{font-size:19px}
+.tb-tabs{align-items:center;padding:0 8px;gap:6px}.tb-tab{
+  height:30px;min-width:116px;max-width:220px;padding:0 11px;border-radius:999px;border:1px solid transparent;
+  color:var(--text-secondary);background:transparent;align-items:center;font-size:12.5px;
+}
+.tb-tab:hover{background:var(--bg-hover);border-color:var(--border)}
+.tb-tab.active{background:var(--bg-primary);border:1px solid var(--border-strong);box-shadow:var(--shadow-soft);font-weight:600}
+.tb-tab.active::after{display:none}.tb-tab[data-page="home"] .tab-close{display:none}
+.tb-tab-add{width:30px;height:30px;border:1px solid transparent}.tb-tab-add:hover{border-color:var(--border)}
+.tb-right{padding:0 8px 0 4px}.theme-btn{height:28px;border-radius:999px;background:var(--bg-secondary);border-color:var(--border)}
+.wc-btn{width:34px;height:30px;border-radius:8px}
+
+/* Sidebar: clearer groups and unified active state */
+.sidebar{width:212px;padding:8px;background:var(--bg-secondary)}
+.sb-section{padding:10px 8px 4px;font-size:10.5px;letter-spacing:.08em}.sb-item,.sb-tag{height:34px;border-radius:8px;padding:0 9px}
+.sb-item:hover,.sb-tag:hover{background:var(--bg-hover)}
+.sb-item.active,.sb-item.active-drive{background:var(--accent-light)!important;color:var(--accent-text)!important;font-weight:600!important}
+.sb-item.active > i:first-child,.sb-item.active-drive > i:first-child{color:var(--accent)!important}.sb-divider{margin:7px 3px}
+
+/* Path bar: clean navigation without search */
+.navbar{height:48px;padding:8px 14px;gap:8px;background:var(--bg-primary)}
+.nav-btn{width:30px;height:30px;border:none;background:transparent;border-radius:8px}.nav-btn:hover{background:var(--bg-secondary)}
+.breadcrumb{height:32px;border-radius:10px;background:var(--bg-secondary);border-color:var(--border);font-size:12.5px}
+.view-btn{width:30px;height:30px;border-radius:8px}.view-btn.active{box-shadow:inset 0 0 0 1px var(--accent-mid)}
+
+/* Command bar: lighter, like real file manager commands */
+.action-bar{height:46px;padding:7px 14px;gap:4px;background:var(--bg-primary)}
+.act-btn{height:32px;padding:0 10px;border:none;border-radius:9px;background:transparent;font-size:12.5px}.act-btn:hover{background:var(--bg-secondary)}
+.act-btn.primary{background:var(--accent-light);border:1px solid var(--accent-mid);color:var(--accent-text);font-weight:600}.act-btn.primary:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cmd-sep{width:1px;height:20px;background:var(--border);margin:0 5px}.sort-area select{height:30px;border-radius:8px;background:var(--bg-secondary)}
+
+/* File list: more readable rows, stronger selected state, less cramped */
+.col-header{grid-template-columns:minmax(260px,1fr) 120px 96px 160px 36px;padding:7px 16px;background:var(--bg-primary)}
+.file-row{position:relative;grid-template-columns:minmax(260px,1fr) 120px 96px 160px 36px;min-height:44px;padding:6px 16px;border-bottom:1px solid transparent}
+.file-row:hover{background:var(--bg-secondary)}
+.file-row.selected{background:var(--accent-light)}
+.file-row.selected::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:var(--row-selected-line);border-radius:0 999px 999px 0;background:var(--accent)}
+.fi{width:32px;height:32px;border-radius:9px}.file-name{font-size:13.2px}.file-type,.file-size,.file-date{font-size:12.3px}.row-more{opacity:0;width:30px;height:30px;border-radius:8px}
+.statusbar{height:30px;padding:0 14px;background:var(--bg-secondary)}
+
+@media (max-width:920px){.sidebar{width:190px}.col-header,.file-row{grid-template-columns:minmax(220px,1fr) 100px 80px 136px 32px}}
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN V3 — based on the previous liked version, not current app mimic
+   Goals: warm professional shell, no tab gradient, no search, no upload
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg-base:#F6F7F2;
+  --bg-primary:#FFFFFF;
+  --bg-secondary:#F0F2EA;
+  --bg-hover:#E7EBDD;
+  --text-primary:#171A14;
+  --text-secondary:#646B59;
+  --text-tertiary:#9BA391;
+  --border:rgba(31,45,18,.075);
+  --border-strong:rgba(31,45,18,.14);
+  --accent:#5C8F18;
+  --accent-hover:#4A7314;
+  --accent-light:#EAF4D9;
+  --accent-mid:#A8CC70;
+  --accent-text:#284306;
+  --chrome-shadow:0 1px 0 rgba(255,255,255,.55) inset, 0 10px 28px rgba(26,41,12,.045);
+  --panel-shadow:0 1px 2px rgba(25,35,14,.035),0 12px 30px rgba(25,35,14,.035);
+}
+.dark{
+  --bg-base:#10120E;
+  --bg-primary:#1A1D17;
+  --bg-secondary:#14170F;
+  --bg-hover:#24291D;
+  --text-primary:#E8EDE0;
+  --text-secondary:#A0A895;
+  --text-tertiary:#626C59;
+  --border:rgba(255,255,255,.07);
+  --border-strong:rgba(255,255,255,.14);
+  --accent:#78B828;
+  --accent-hover:#8FCC38;
+  --accent-light:#1E2D13;
+  --accent-mid:#5D9117;
+  --accent-text:#C8E998;
+  --chrome-shadow:none;
+  --panel-shadow:none;
+}
+html,body{background:var(--bg-base)}
+
+/* Window chrome */
+.titlebar{
+  height:46px;
+  background:var(--bg-base);
+  border-bottom:1px solid var(--border);
+  box-shadow:var(--chrome-shadow);
+}
+.tb-left{padding:0 15px 0 16px}
+.app-logo{font-size:13px;font-weight:700;letter-spacing:.01em;color:var(--text-primary)}
+.app-logo i{font-size:19px;color:var(--accent)}
+.tb-tabs{align-items:flex-end;gap:5px;padding:0 10px 0 4px;height:100%}
+.tb-tab{
+  height:34px;
+  min-width:126px;
+  max-width:230px;
+  padding:0 12px;
+  border-radius:12px 12px 0 0;
+  border:1px solid transparent;
+  border-bottom:none;
+  background:transparent;
+  color:var(--text-secondary);
+  font-size:12.5px;
+  transition:background .14s,border-color .14s,color .14s,box-shadow .14s;
+}
+.tb-tab:hover{background:rgba(255,255,255,.44);border-color:var(--border);color:var(--text-primary)}
+.dark .tb-tab:hover{background:rgba(255,255,255,.04)}
+.tb-tab.active{
+  background:var(--bg-primary);
+  border-color:var(--border);
+  color:var(--text-primary);
+  font-weight:650;
+  box-shadow:0 -1px 0 rgba(255,255,255,.7) inset,0 1px 2px rgba(20,28,13,.04);
+}
+.tb-tab.active::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--bg-primary);display:block}
+.tb-tab[data-page="home"] .tab-close{display:none}
+.tb-tab .tab-close{border-radius:6px}
+.tb-tab-add{align-self:center;width:30px;height:30px;border-radius:9px;color:var(--text-tertiary)}
+.tb-tab-add:hover{background:var(--bg-hover);color:var(--text-primary)}
+.theme-btn{height:29px;border-radius:999px;background:var(--bg-primary);border-color:var(--border);box-shadow:0 1px 2px rgba(0,0,0,.025)}
+.wc-btn{width:32px;height:29px;border-radius:8px}
+
+/* Layout panels */
+.body{background:var(--bg-primary)}
+.sidebar{
+  width:214px;
+  padding:9px 8px;
+  background:linear-gradient(180deg,var(--bg-secondary),var(--bg-base));
+  border-right:1px solid var(--border);
+}
+.dark .sidebar{background:var(--bg-secondary)}
+.sb-section{font-size:10px;letter-spacing:.085em;color:var(--text-tertiary);padding:10px 9px 4px}
+.sb-item,.sb-tag{height:35px;border-radius:10px;padding:0 10px;font-size:13px}
+.sb-item:hover,.sb-tag:hover{background:rgba(255,255,255,.55)}
+.dark .sb-item:hover,.dark .sb-tag:hover{background:rgba(255,255,255,.05)}
+.sb-item.active,.sb-item.active-drive{
+  position:relative;
+  background:var(--bg-primary)!important;
+  color:var(--accent-text)!important;
+  font-weight:650!important;
+  box-shadow:0 1px 2px rgba(22,36,10,.04), inset 0 0 0 1px var(--border);
+}
+.sb-item.active::before,.sb-item.active-drive::before{
+  content:'';position:absolute;left:4px;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--accent);
+}
+.sb-item.active > i:first-child,.sb-item.active-drive > i:first-child{color:var(--accent)!important}
+.sb-divider{margin:8px 4px;border-color:var(--border)}
+
+/* Navigation: no search, keep spacious command focus */
+.navbar{
+  height:52px;
+  padding:9px 16px;
+  background:var(--bg-primary);
+  border-bottom:1px solid var(--border);
+  gap:8px;
+}
+.nav-btn{width:32px;height:32px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text-secondary)}
+.nav-btn:hover{background:var(--bg-secondary);border-color:var(--border);color:var(--text-primary)}
+.breadcrumb{
+  height:34px;
+  border-radius:12px;
+  background:var(--bg-secondary);
+  border:1px solid var(--border);
+  padding:0 13px;
+  font-size:12.5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45);
+}
+.breadcrumb .cur{font-weight:650}
+.view-btns{gap:4px;margin-left:2px}
+.view-btn{width:32px;height:32px;border-radius:10px;border:1px solid transparent}
+.view-btn:hover{background:var(--bg-secondary);border-color:var(--border)}
+.view-btn.active{background:var(--accent-light);border-color:var(--accent-mid);color:var(--accent-text);box-shadow:none}
+
+/* Command bar: grouped, no upload */
+.action-bar{
+  height:48px;
+  padding:8px 16px;
+  background:var(--bg-primary);
+  border-bottom:1px solid var(--border);
+  gap:5px;
+}
+.act-btn{
+  height:32px;
+  border:none;
+  border-radius:10px;
+  background:transparent;
+  color:var(--text-secondary);
+  padding:0 10px;
+  font-size:12.5px;
+}
+.act-btn:hover{background:var(--bg-secondary);color:var(--text-primary)}
+.act-btn.primary{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+  box-shadow:0 6px 18px rgba(93,145,23,.18);
+}
+.act-btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.cmd-sep{height:22px;background:var(--border);margin:0 6px}
+.sort-area{gap:8px;color:var(--text-tertiary)}
+.sort-area select{height:32px;border-radius:10px;background:var(--bg-secondary);border-color:var(--border);color:var(--text-secondary)}
+
+/* Home content: keep blocks, only polish containers */
+.home-page{padding:22px 26px;background:var(--bg-primary)}
+.home-section{margin-bottom:26px}
+.home-section-hd{font-size:13px;font-weight:650;color:var(--text-primary);margin-bottom:12px}
+.home-section-hd i{color:var(--accent)}
+.qa-item,.drive-card,.tag-col{
+  background:var(--bg-secondary);
+  border-color:var(--border);
+  box-shadow:none;
+}
+.qa-item:hover,.drive-card:hover,.tag-col-file:hover{background:var(--bg-hover)}
+.drive-card.active-drive{background:var(--accent-light);border-color:var(--accent-mid)}
+.net-notice{border:1px solid rgba(34,119,204,.16)}
+.recent-table th{background:var(--bg-primary)}
+.recent-table td{height:34px}
+
+/* File list */
+.content-wrap{background:var(--bg-primary)}
+.col-header{
+  grid-template-columns:minmax(280px,1fr) 120px 100px 168px 36px;
+  padding:8px 16px;
+  background:var(--bg-primary);
+  border-bottom:1px solid var(--border);
+}
+.col-header span{font-size:11px;letter-spacing:.05em}
+.file-row{
+  position:relative;
+  grid-template-columns:minmax(280px,1fr) 120px 100px 168px 36px;
+  min-height:42px;
+  padding:5px 16px;
+  border-bottom:1px solid rgba(0,0,0,.035);
+}
+.dark .file-row{border-bottom-color:rgba(255,255,255,.035)}
+.file-row:hover{background:#F8FAF4}
+.dark .file-row:hover{background:rgba(255,255,255,.035)}
+.file-row.selected{background:var(--accent-light)}
+.file-row.selected::before{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 999px 999px 0;background:var(--accent)}
+.fi{width:31px;height:31px;border-radius:9px}
+.file-name{font-size:13.2px;font-weight:500}
+.file-type,.file-size,.file-date{font-size:12.3px;color:var(--text-secondary)}
+.file-date{font-variant-numeric:tabular-nums}
+.row-more{width:30px;height:30px;border-radius:9px}
+.statusbar{height:32px;background:var(--bg-base);border-top:1px solid var(--border);padding:0 16px}
+.status-text{font-size:11.5px}
+
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-thumb{background:rgba(94,108,75,.28);border-radius:99px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(94,108,75,.45);border:2px solid transparent;background-clip:content-box}
+
+@media (max-width:920px){
+  .sidebar{width:196px}
+  .col-header,.file-row{grid-template-columns:minmax(220px,1fr) 96px 82px 138px 32px}
+}
+
+
+/* === V4: compact list + redesigned grid view === */
+:root{
+  --list-row-h:32px;
+  --grid-card-w:118px;
+  --grid-card-h:104px;
+}
+.col-header{
+  min-height:30px;
+  padding:0 16px;
+  align-items:center;
+}
+.file-row{
+  min-height:var(--list-row-h) !important;
+  height:var(--list-row-h);
+  padding:0 16px !important;
+  border-bottom:1px solid rgba(0,0,0,.045);
+}
+.file-row.selected::before{
+  top:5px !important;
+  bottom:5px !important;
+}
+.fi{
+  width:24px !important;
+  height:24px !important;
+  border-radius:7px !important;
+}
+.fi i{font-size:14px !important}
+.row-name{gap:8px}
+.file-name{font-size:12.8px;line-height:1.2}
+.file-type,.file-size,.file-date{font-size:12px;line-height:1.2}
+.row-more{width:24px;height:24px;border-radius:7px}
+.row-more i{font-size:13px}
+
+/* Grid view is intentionally not a stretched table. It is a compact card wall. */
+.content-wrap.grid-mode{
+  display:grid !important;
+  grid-template-columns:repeat(auto-fill,minmax(var(--grid-card-w),var(--grid-card-w)));
+  grid-auto-rows:var(--grid-card-h);
+  gap:10px;
+  align-content:start;
+  justify-content:start;
+  padding:14px 16px 18px;
+  overflow-y:auto;
+  background:var(--bg-primary);
+}
+.content-wrap.grid-mode .col-header{display:none}
+.content-wrap.grid-mode .file-row{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:7px;
+  width:var(--grid-card-w);
+  height:var(--grid-card-h) !important;
+  min-height:0 !important;
+  padding:10px 8px 8px !important;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.2));
+  box-shadow:none;
+  overflow:hidden;
+}
+.dark .content-wrap.grid-mode .file-row{background:rgba(255,255,255,.02)}
+.content-wrap.grid-mode .file-row:hover{
+  background:var(--bg-secondary);
+  border-color:var(--border-strong);
+}
+.content-wrap.grid-mode .file-row.selected{
+  background:var(--accent-light);
+  border-color:var(--accent-mid);
+  box-shadow:inset 0 0 0 1px var(--accent-mid);
+}
+.content-wrap.grid-mode .file-row.selected::before{display:none}
+.content-wrap.grid-mode .row-name{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:7px;
+  width:100%;
+  min-width:0;
+}
+.content-wrap.grid-mode .fi{
+  width:38px !important;
+  height:38px !important;
+  border-radius:12px !important;
+}
+.content-wrap.grid-mode .fi i{font-size:21px !important}
+.content-wrap.grid-mode .file-name{
+  width:100%;
+  white-space:normal;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  text-align:center;
+  font-size:12px;
+  line-height:1.25;
+  color:var(--text-primary);
+}
+.content-wrap.grid-mode .file-type,
+.content-wrap.grid-mode .file-size,
+.content-wrap.grid-mode .file-date{display:none}
+.content-wrap.grid-mode .row-more{
+  position:absolute;
+  right:6px;
+  top:6px;
+  width:22px;
+  height:22px;
+  opacity:0;
+  background:rgba(255,255,255,.65);
+  border:1px solid var(--border);
+}
+.dark .content-wrap.grid-mode .row-more{background:rgba(0,0,0,.28)}
+.content-wrap.grid-mode .file-row:hover .row-more,
+.content-wrap.grid-mode .file-row.selected .row-more{opacity:1}
+.content-wrap.grid-mode .fi.folder{background:rgba(255,190,49,.16)}
+.content-wrap.grid-mode .fi.folder i{color:#D28A00}
+
+@media (max-width:920px){
+  .content-wrap.grid-mode{grid-template-columns:repeat(auto-fill,minmax(106px,106px));--grid-card-w:106px;--grid-card-h:98px;gap:8px;padding:12px}
+}
+
+
+
+/* === V5: display modes row + detailed card + columns design === */
+.action-bar{
+  gap:8px;
+  background:rgba(255,255,255,.88);
+  backdrop-filter:blur(10px);
+}
+.dark .action-bar{background:rgba(20,20,18,.82)}
+.display-mode-group{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  padding:3px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--bg-secondary);
+}
+.mode-btn{
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  border:1px solid transparent;
+  background:transparent;
+  color:var(--text-secondary);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:all .12s;
+}
+.mode-btn:hover{background:var(--bg-primary);color:var(--text-primary)}
+.mode-btn.active{
+  background:var(--bg-primary);
+  border-color:var(--accent-mid);
+  color:var(--accent-text);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.mode-btn i{font-size:15px}
+
+.content-wrap.card-mode{
+  display:grid !important;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:12px;
+  align-content:start;
+  padding:14px 16px 18px;
+  overflow-y:auto;
+  background:var(--bg-primary);
+}
+.content-wrap.card-mode .col-header{display:none}
+.content-wrap.card-mode .file-row{
+  display:grid !important;
+  grid-template-columns:1fr 24px;
+  grid-template-areas:
+    "name more"
+    "type type"
+    "size size"
+    "date date";
+  gap:8px 10px;
+  min-height:112px !important;
+  height:auto !important;
+  padding:12px 14px !important;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--bg-primary);
+  box-shadow:0 1px 0 rgba(255,255,255,.65) inset;
+  overflow:hidden;
+}
+.dark .content-wrap.card-mode .file-row{box-shadow:none}
+.content-wrap.card-mode .file-row:hover{background:var(--bg-secondary);border-color:var(--border-strong)}
+.content-wrap.card-mode .file-row.selected{background:var(--accent-light);border-color:var(--accent-mid);box-shadow:inset 0 0 0 1px var(--accent-mid)}
+.content-wrap.card-mode .file-row.selected::before{display:none}
+.content-wrap.card-mode .row-name{
+  grid-area:name;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  min-width:0;
+}
+.content-wrap.card-mode .fi{
+  width:36px !important;
+  height:36px !important;
+  border-radius:11px !important;
+  flex-shrink:0;
+}
+.content-wrap.card-mode .fi i{font-size:20px !important}
+.content-wrap.card-mode .file-name{
+  white-space:normal;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  font-size:13.2px;
+  line-height:1.35;
+}
+.content-wrap.card-mode .file-type{
+  grid-area:type;
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  padding:0 8px;
+  height:22px;
+  border-radius:999px;
+  background:var(--bg-secondary);
+  border:1px solid var(--border);
+  font-size:11px;
+  color:var(--text-secondary);
+}
+.content-wrap.card-mode .file-size{grid-area:size;font-size:12px;color:var(--text-secondary)}
+.content-wrap.card-mode .file-date{grid-area:date;font-size:11.5px;color:var(--text-tertiary)}
+.content-wrap.card-mode .row-more{
+  grid-area:more;
+  justify-self:end;
+  opacity:1;
+  width:24px;
+  height:24px;
+}
+
+
+.split-browser{
+  flex:1;
+  display:none;
+  min-height:0;
+  overflow:hidden;
+  background:var(--bg-primary);
+  padding:10px 10px 0;
+  gap:10px;
+}
+.split-browser.active{display:flex}
+.split-pane{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  border:1px solid var(--border);
+  border-radius:14px 14px 0 0;
+  overflow:hidden;
+  background:var(--bg-primary);
+}
+.split-pane.active-pane{
+  border-color:var(--accent-mid);
+  box-shadow:inset 0 0 0 1px var(--accent-mid);
+}
+.split-pane.active-pane::before{
+  content:"";
+  height:3px;
+  background:var(--accent);
+  display:block;
+  flex-shrink:0;
+}
+.split-pane-top{
+  height:34px;
+  display:flex;
+  align-items:center;
+  padding:0 12px;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--text-primary);
+  background:var(--bg-primary);
+  border-bottom:1px solid var(--border);
+}
+.split-pane.active-pane .split-pane-top{
+  background:var(--accent-light);
+  color:var(--accent-text);
+  border-bottom-color:var(--accent-mid);
+}
+.split-pane-toolbar{
+  height:44px;
+  display:flex;
+  align-items:center;
+  gap:4px;
+  padding:0 10px;
+  border-bottom:1px solid var(--border);
+  background:var(--bg-primary);
+}
+.split-pane-actions{
+  display:flex;
+  align-items:center;
+  gap:2px;
+}
+.split-icon-btn{
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  border:1px solid transparent;
+  background:transparent;
+  color:var(--text-tertiary);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+.split-icon-btn:hover{background:var(--bg-secondary);color:var(--text-secondary)}
+.split-icon-btn.active{background:var(--accent-light);color:var(--accent-text)}
+.split-toolbar-sep{
+  width:1px;
+  height:18px;
+  background:var(--border);
+  margin:0 4px;
+}
+.split-sort{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--text-secondary);
+}
+.split-sort select{
+  border:none;
+  background:transparent;
+  color:var(--text-primary);
+  font:inherit;
+  outline:none;
+  cursor:pointer;
+}
+.split-table-wrap{
+  flex:1;
+  overflow:auto;
+  background:var(--bg-primary);
+}
+.split-table{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+}
+.split-table thead th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  height:32px;
+  background:var(--bg-primary);
+  border-bottom:1px solid var(--border);
+  font-size:12px;
+  font-weight:600;
+  color:var(--text-secondary);
+  text-align:left;
+  padding:0 12px;
+}
+.split-table tbody td{
+  height:36px;
+  padding:0 12px;
+  border-bottom:1px solid rgba(0,0,0,.05);
+  font-size:13px;
+  color:var(--text-primary);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.split-table tbody tr:hover td{background:var(--bg-secondary)}
+.split-table tbody tr.selected td{background:var(--accent-light)}
+.split-name{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+.split-name i{font-size:16px;flex-shrink:0}
+.split-name .folder-ic{color:#D28A00}
+.split-name .img-ic{color:#22A56A}
+.split-link{color:var(--text-tertiary);text-align:right}
+.split-pane-status{
+  height:30px;
+  display:flex;
+  align-items:center;
+  padding:0 10px;
+  font-size:11px;
+  color:var(--text-tertiary);
+  border-top:1px solid var(--border);
+  background:var(--bg-secondary);
+}
+.dark .split-pane.active-pane .split-pane-top{
+  background:var(--accent-light);
+  color:var(--accent-text);
+  border-bottom-color:var(--accent-mid);
+}
+.columns-browser{
+  flex:1;
+  display:none;
+  min-height:0;
+  overflow:hidden;
+  background:var(--bg-primary);
+}
+.columns-browser.active{display:flex}
+.columns-wrap{
+  display:grid;
+  grid-template-columns:240px 1fr 1fr 1.1fr;
+  width:100%;
+  height:100%;
+  border-top:1px solid var(--border);
+  background:var(--bg-primary);
+}
+.col-pane{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  border-right:1px solid var(--border);
+  background:var(--bg-primary);
+}
+.col-pane:last-child{border-right:none}
+.col-pane-hd{
+  height:38px;
+  display:flex;
+  align-items:center;
+  padding:0 12px;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--text-secondary);
+  border-bottom:1px solid var(--border);
+  background:var(--bg-secondary);
+}
+.col-pane-list{flex:1;overflow:auto;padding:6px}
+.col-item{
+  height:32px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 8px;
+  border-radius:8px;
+  font-size:13px;
+  color:var(--text-primary);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.col-item:hover{background:var(--bg-hover)}
+.col-item.selected{background:var(--accent-light);color:var(--accent-text);font-weight:500}
+.col-item i{font-size:16px;color:var(--text-tertiary);flex-shrink:0}
+.col-item.selected i{color:var(--accent)}
+.col-item span{overflow:hidden;text-overflow:ellipsis}
+.columns-browser .status-tip{
+  padding:10px 12px;
+  font-size:11px;
+  color:var(--text-tertiary);
+  border-top:1px solid var(--border);
+  background:var(--bg-secondary);
+}
+
+@media (max-width:1360px){
+  .tags-cols{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:920px){
+  .tags-cols{grid-template-columns:1fr;}
+  .qa-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));}
+}
+
+/* ── CONTEXT MENU ── */
+.context-menu{
+  position:fixed;
+  top:0;left:0;
+  z-index:9999;
+  width:274px;
+  padding:6px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.96);
+  backdrop-filter:blur(16px);
+  box-shadow:0 18px 50px rgba(14,19,27,.16),0 3px 10px rgba(14,19,27,.08);
+  display:none;
+}
+.dark .context-menu{
+  background:rgba(28,28,26,.96);
+  box-shadow:0 18px 50px rgba(0,0,0,.42),0 3px 10px rgba(0,0,0,.22);
+}
+.context-menu.open{display:block}
+.ctx-group + .ctx-group{margin-top:4px;padding-top:4px;border-top:1px solid var(--border)}
+.ctx-item{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:34px;
+  padding:0 10px;
+  border-radius:9px;
+  color:var(--text-primary);
+  font-size:13px;
+  cursor:pointer;
+  user-select:none;
+}
+.ctx-item:hover{background:var(--accent-light);color:var(--accent-text)}
+.ctx-item.disabled{opacity:.45;pointer-events:none}
+.ctx-icon{
+  width:16px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-secondary);flex-shrink:0;
+}
+.ctx-item:hover .ctx-icon,.ctx-item:hover .ctx-shortcut,.ctx-item:hover .ctx-chevron{color:var(--accent-text)}
+.ctx-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctx-shortcut{font-size:12px;color:var(--text-secondary);margin-left:12px;white-space:nowrap}
+.ctx-chevron{font-size:14px;color:var(--text-secondary);margin-left:8px}
+.ctx-submenu{
+  position:absolute;
+  left:calc(100% + 8px);
+  top:-6px;
+  min-width:156px;
+  padding:6px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:rgba(255,255,255,.98);
+  backdrop-filter:blur(16px);
+  box-shadow:0 16px 42px rgba(14,19,27,.14),0 2px 8px rgba(14,19,27,.08);
+  display:none;
+}
+.dark .ctx-submenu{background:rgba(28,28,26,.98);box-shadow:0 16px 42px rgba(0,0,0,.42),0 2px 8px rgba(0,0,0,.22)}
+.ctx-item.has-submenu:hover > .ctx-submenu{display:block}
+.ctx-submenu .ctx-item{min-height:32px;padding:0 10px}
+.ctx-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+
+/* === V11: Chrome-like tab close alignment + circular add button === */
+.tb-tabs{
+  align-items:center;
+  gap:4px;
+  padding:0 10px 0 6px;
+}
+.tb-tab{
+  height:34px;
+  display:flex;
+  align-items:center;
+  padding:0 34px 0 12px;
+}
+.tb-tab .tab-close{
+  position:absolute;
+  right:8px;
+  top:50%;
+  transform:translateY(-50%);
+  width:18px;
+  height:18px;
+  border-radius:999px;
+  margin-left:0;
+}
+.tb-tab .tab-close i{
+  font-size:11px;
+}
+.tb-tab-add{
+  align-self:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  transition:background .14s,color .14s,transform .05s;
+}
+.tb-tab-add:hover{
+  background:var(--bg-hover);
+  color:var(--text-primary);
+}
+.tb-tab-add:active{
+  background:var(--border);
+  color:var(--text-primary);
+  transform:scale(.97);
+}
+
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ══ TITLE BAR ══ -->
+  <div class="titlebar">
+    <div class="tb-left">
+      <div class="app-logo">
+        <i class="ti ti-files"></i>
+        CyberFiles
+      </div>
+    </div>
+    <div class="tb-tabs">
+      <div class="tb-tab active" onclick="switchTab(this,'home')" data-page="home">
+        <i class="ti ti-home"></i>
+        <span class="tab-name">首页</span>
+        <span class="tab-close" onclick="event.stopPropagation()"><i class="ti ti-x"></i></span>
+      </div>
+      <div class="tb-tab" onclick="switchTab(this,'files')" data-page="files">
+        <i class="ti ti-folder"></i>
+        <span class="tab-name">BaiduNetdiskDownload</span>
+        <span class="tab-close" onclick="event.stopPropagation()"><i class="ti ti-x"></i></span>
+      </div>
+      <div class="tb-tab" onclick="switchTab(this,'files')" data-page="files">
+        <i class="ti ti-folder"></i>
+        <span class="tab-name">Backup</span>
+        <span class="tab-close" onclick="event.stopPropagation()"><i class="ti ti-x"></i></span>
+      </div>
+      <div class="tb-tab-add" title="新建标签页"><i class="ti ti-plus" style="font-size:14px"></i></div>
+    </div>
+    <div class="tb-right">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">
+        <i class="ti ti-moon"></i>
+        <span id="theme-label">暗色</span>
+      </button>
+      <div class="wc-sep"></div>
+      <div class="wc-btn" title="最小化"><i class="ti ti-minus"></i></div>
+      <div class="wc-btn" title="最大化"><i class="ti ti-square"></i></div>
+      <div class="wc-btn close" title="关闭"><i class="ti ti-x"></i></div>
+    </div>
+  </div>
+
+  <!-- ══ BODY ══ -->
+  <div class="body">
+
+    <!-- ── SIDEBAR ── -->
+    <div class="sidebar">
+      <div class="sb-section">快速访问</div>
+      <div class="sb-item active" onclick="navTo(this,'home')">
+        <i class="ti ti-home"></i><span class="sb-item-label">首页</span>
+      </div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-clock"></i><span class="sb-item-label">最近文件</span>
+      </div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-star"></i><span class="sb-item-label">收藏夹</span>
+      </div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-trash"></i><span class="sb-item-label">回收站</span>
+      </div>
+
+      <div class="sb-section">固定</div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-folder-pin" style="color:#D48806"></i><span class="sb-item-label">English</span>
+      </div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-folder-pin" style="color:#D48806"></i><span class="sb-item-label">Games</span>
+      </div>
+
+      <div class="sb-section">驱动器</div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-device-desktop"></i>
+        <span class="sb-item-label">C:\</span>
+        <span class="sb-disk-ring">
+          <svg width="20" height="20" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="7" fill="none" stroke="var(--border-strong)" stroke-width="2.5"/>
+            <circle cx="10" cy="10" r="7" fill="none" stroke="#E24B4A" stroke-width="2.5"
+              stroke-dasharray="43.98" stroke-dashoffset="2.2"
+              stroke-linecap="round" transform="rotate(-90 10 10)"/>
+          </svg>
+        </span>
+      </div>
+      <div class="sb-item active-drive" onclick="navTo(this,'files')">
+        <i class="ti ti-device-desktop" style="color:var(--accent)"></i>
+        <span class="sb-item-label">D:\ (NewDisk)</span>
+        <span class="sb-disk-ring">
+          <svg width="20" height="20" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="7" fill="none" stroke="var(--border-strong)" stroke-width="2.5"/>
+            <circle cx="10" cy="10" r="7" fill="none" stroke="var(--accent)" stroke-width="2.5"
+              stroke-dasharray="43.98" stroke-dashoffset="7.48"
+              stroke-linecap="round" transform="rotate(-90 10 10)"/>
+          </svg>
+        </span>
+      </div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-device-desktop"></i>
+        <span class="sb-item-label">E:\</span>
+        <span class="sb-disk-ring">
+          <svg width="20" height="20" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="7" fill="none" stroke="var(--border-strong)" stroke-width="2.5"/>
+            <circle cx="10" cy="10" r="7" fill="none" stroke="#EF9F27" stroke-width="2.5"
+              stroke-dasharray="43.98" stroke-dashoffset="3.52"
+              stroke-linecap="round" transform="rotate(-90 10 10)"/>
+          </svg>
+        </span>
+      </div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-device-desktop"></i>
+        <span class="sb-item-label">F:\</span>
+        <span class="sb-disk-ring">
+          <svg width="20" height="20" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="7" fill="none" stroke="var(--border-strong)" stroke-width="2.5"/>
+            <circle cx="10" cy="10" r="7" fill="none" stroke="var(--accent)" stroke-width="2.5"
+              stroke-dasharray="43.98" stroke-dashoffset="43.97"
+              stroke-linecap="round" transform="rotate(-90 10 10)"/>
+          </svg>
+        </span>
+      </div>
+
+      <hr class="sb-divider">
+      <div class="sb-section">云存储</div>
+      <div class="sb-item" onclick="navTo(this,'files')">
+        <i class="ti ti-cloud"></i><span class="sb-item-label">OneDrive</span>
+      </div>
+
+      <hr class="sb-divider">
+      <div class="sb-section">文件标签</div>
+      <div class="sb-tag" onclick="navTo(this,'files')">
+        <div class="tag-dot" style="background:var(--tag-green)"></div>
+        <span>English</span>
+      </div>
+      <div class="sb-tag" onclick="navTo(this,'files')">
+        <div class="tag-dot" style="background:var(--tag-blue)"></div>
+        <span>数学</span>
+      </div>
+      <div class="sb-tag" onclick="navTo(this,'files')">
+        <div class="tag-dot" style="background:var(--tag-pink)"></div>
+        <span>C++代码库</span>
+      </div>
+    </div>
+
+    <!-- ── MAIN ── -->
+    <div class="main">
+
+      <!-- NAV BAR -->
+      <div class="navbar" id="navbar" style="display:none">
+        <button class="nav-btn" title="后退"><i class="ti ti-arrow-left"></i></button>
+        <button class="nav-btn" title="前进"><i class="ti ti-arrow-right"></i></button>
+        <button class="nav-btn" title="上级目录"><i class="ti ti-arrow-up"></i></button>
+        <button class="nav-btn" title="刷新"><i class="ti ti-refresh"></i></button>
+        <div class="breadcrumb">
+          <i class="ti ti-home"></i>
+          <span class="sep">›</span>
+          <span style="color:var(--text-secondary)">D:\</span>
+          <span class="sep">›</span>
+          <span class="cur">BaiduNetdiskDownload</span>
+        </div>
+        <div class="path-actions">
+          <button class="path-tool-btn" id="split-path-btn" title="分栏" onclick="toggleSplitView()">
+            <span class="path-split-icon"><span></span><span></span></span>
+          </button>
+          <button class="path-tool-btn" id="pin-path-btn" title="固定到快速访问" onclick="toggleQuickAccessPin()"><i class="ti ti-pin"></i></button>
+        </div>
+      </div>
+
+      <!-- ACTION BAR -->
+      <div class="action-bar" id="action-bar" style="display:none">
+        <button class="act-btn primary"><i class="ti ti-plus"></i> 新建</button>
+        <div class="display-mode-group" aria-label="文件展示方式">
+          <button class="mode-btn active" id="mode-list-btn" title="按行展示详细信息" onclick="setView('list')"><i class="ti ti-list-details"></i></button>
+          <button class="mode-btn" id="mode-grid-btn" title="网格" onclick="setView('grid')"><i class="ti ti-layout-grid"></i></button>
+          <button class="mode-btn" id="mode-card-btn" title="详细卡片" onclick="setView('card')"><i class="ti ti-layout-board"></i></button>
+          <button class="mode-btn" id="mode-columns-btn" title="多列展示" onclick="setView('columns')"><i class="ti ti-columns-3"></i></button>
+        </div>
+        <span class="cmd-sep"></span>
+        <button class="act-btn"><i class="ti ti-copy"></i> 复制</button>
+        <button class="act-btn"><i class="ti ti-scissors"></i> 剪切</button>
+        <button class="act-btn"><i class="ti ti-clipboard"></i> 粘贴</button>
+        <button class="act-btn"><i class="ti ti-pencil"></i> 重命名</button>
+        <span class="cmd-sep"></span>
+        <button class="act-btn"><i class="ti ti-trash"></i> 删除</button>
+        <button class="act-btn"><i class="ti ti-dots"></i> 更多</button>
+        <div class="sort-area">
+          <span>排序</span>
+          <select><option>名称 ↑</option><option>名称 ↓</option><option>修改时间</option><option>文件大小</option></select>
+        </div>
+      </div>
+
+      <!-- ══ HOME PAGE ══ -->
+      <div class="home-page visible" id="home-page">
+
+        <div class="home-section">
+          <div class="home-section-hd"><i class="ti ti-pin"></i> 快速访问</div>
+          <div class="qa-grid">
+            <div class="qa-item" onclick="navTo(null,'files')">
+              <div class="qa-icon"><i class="ti ti-folder-filled"></i></div>
+              <div class="qa-meta">
+                <div class="qa-name">English</div>
+                <div class="qa-disk">D:\English</div>
+              </div>
+            </div>
+            <div class="qa-item" onclick="navTo(null,'files')">
+              <div class="qa-icon"><i class="ti ti-folder-filled"></i></div>
+              <div class="qa-meta">
+                <div class="qa-name">Games</div>
+                <div class="qa-disk">D:\Games</div>
+              </div>
+            </div>
+            <div class="qa-item" onclick="navTo(null,'files')">
+              <div class="qa-icon"><i class="ti ti-folder-filled"></i></div>
+              <div class="qa-meta">
+                <div class="qa-name">BaiduDownload</div>
+                <div class="qa-disk">D:\BaiduNetdiskDownload</div>
+              </div>
+            </div>
+            <div class="qa-item" onclick="navTo(null,'files')">
+              <div class="qa-icon"><i class="ti ti-folder-filled"></i></div>
+              <div class="qa-meta">
+                <div class="qa-name">Backup</div>
+                <div class="qa-disk">E:\Backup</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-section">
+          <div class="home-section-hd"><i class="ti ti-server"></i> 驱动器</div>
+          <div class="drive-grid">
+            <div class="drive-card" onclick="navTo(null,'files')">
+              <div class="drive-header">
+                <div class="drive-icon"><i class="ti ti-brand-windows"></i></div>
+                <div><div class="drive-name">C:\</div><div class="drive-total">系统盘 · 952.6 GB</div></div>
+              </div>
+              <div class="drive-bar-track"><div class="drive-bar-fill" style="width:94%;background:#E24B4A"></div></div>
+              <div class="drive-stats"><span>900.2 GB 已用</span><span>52.4 GB 可用</span></div>
+            </div>
+            <div class="drive-card active-drive" onclick="navTo(null,'files')">
+              <div class="drive-header">
+                <div class="drive-icon"><i class="ti ti-database"></i></div>
+                <div><div class="drive-name">D:\ (NewDisk)</div><div class="drive-total">数据盘 · 1.8 TB</div></div>
+              </div>
+              <div class="drive-bar-track"><div class="drive-bar-fill" style="width:83%;background:var(--accent)"></div></div>
+              <div class="drive-stats"><span>1.5 TB 已用</span><span>300 GB 可用</span></div>
+            </div>
+            <div class="drive-card" onclick="navTo(null,'files')">
+              <div class="drive-header">
+                <div class="drive-icon"><i class="ti ti-database"></i></div>
+                <div><div class="drive-name">E:\</div><div class="drive-total">扩展盘 · 223.3 GB</div></div>
+              </div>
+              <div class="drive-bar-track"><div class="drive-bar-fill" style="width:92%;background:#EF9F27"></div></div>
+              <div class="drive-stats"><span>204.7 GB 已用</span><span>18.6 GB 可用</span></div>
+            </div>
+            <div class="drive-card" onclick="navTo(null,'files')">
+              <div class="drive-header">
+                <div class="drive-icon"><i class="ti ti-database"></i></div>
+                <div><div class="drive-name">F:\</div><div class="drive-total">扩展盘 · 500.0 GB</div></div>
+              </div>
+              <div class="drive-bar-track"><div class="drive-bar-fill" style="width:0.1%;background:var(--accent)"></div></div>
+              <div class="drive-stats"><span>152 MB 已用</span><span>499.8 GB 可用</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-section">
+          <div class="home-section-hd"><i class="ti ti-network"></i> 网络</div>
+          <div class="net-notice">
+            <i class="ti ti-info-circle"></i>
+            未找到网络位置。你可以在设置中添加网络共享或 FTP 地址。
+          </div>
+        </div>
+
+        <div class="home-section">
+          <div class="home-section-hd"><i class="ti ti-tag"></i> 文件标签</div>
+          <div class="tags-cols">
+            <div class="tag-col">
+              <div class="tag-col-hd"><div class="tag-dot" style="background:var(--tag-green);width:9px;height:9px;border-radius:50%"></div> English</div>
+              <div class="tag-col-file"><i class="ti ti-movie" style="color:var(--info-text)"></i><span>001_Sam and Lucky 1_T...</span></div>
+              <div class="tag-col-file"><i class="ti ti-movie" style="color:var(--info-text)"></i><span>001_The Enchanted Cast...</span></div>
+              <div class="tag-col-file"><i class="ti ti-movie" style="color:var(--info-text)"></i><span>001_The Wind in the Wil...</span></div>
+            </div>
+            <div class="tag-col">
+              <div class="tag-col-hd"><div class="tag-dot" style="background:var(--tag-blue);width:9px;height:9px;border-radius:50%"></div> 数学</div>
+              <div class="tag-col-file"><i class="ti ti-file-text" style="color:var(--text-tertiary)"></i><span>001_What I Like.srt</span></div>
+              <div class="tag-col-file"><i class="ti ti-file-type-pdf" style="color:var(--danger-text)"></i><span>01.pdf</span></div>
+              <div class="tag-col-file"><i class="ti ti-file-type-pdf" style="color:var(--danger-text)"></i><span>1 Harry Potter and t...</span></div>
+              <div class="tag-col-file"><i class="ti ti-book" style="color:var(--amber-text)"></i><span>100个句子记完7000...</span></div>
+            </div>
+            <div class="tag-col">
+              <div class="tag-col-hd"><div class="tag-dot" style="background:var(--tag-pink);width:9px;height:9px;border-radius:50%"></div> C++代码库</div>
+              <div class="tag-col-file"><i class="ti ti-file-code" style="color:var(--purple-text)"></i><span>405. CBeebies_Bedtime...</span></div>
+              <div class="tag-col-file"><i class="ti ti-file-code" style="color:var(--purple-text)"></i><span>A to Z Mysteries_26册全...</span></div>
+              <div class="tag-col-file"><i class="ti ti-file-type-pdf" style="color:var(--danger-text)"></i><span>Alice in Wonderland...</span></div>
+              <div class="tag-col-file"><i class="ti ti-file-code" style="color:var(--purple-text)"></i><span>ChatTTS_colab_offline...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-section">
+          <div class="home-section-hd"><i class="ti ti-history"></i> 最近文件</div>
+          <table class="recent-table">
+            <thead>
+              <tr><th>名称</th><th>路径</th><th>修改时间</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><div class="fname"><i class="ti ti-folder-filled" style="color:var(--accent)"></i> 01-Nouns - common and proper</div></td><td><div class="fpath">D:\code\oak\downloads_v2\Ye...</div></td><td class="fdate">2026-06-05 12:58</td></tr>
+              <tr><td><div class="fname"><i class="ti ti-movie" style="color:var(--info-text)"></i> video.mp4</div></td><td><div class="fpath">D:\code\oak\downloads_v2\Ye...</div></td><td class="fdate">2026-06-05 12:58</td></tr>
+              <tr><td><div class="fname"><i class="ti ti-folder-filled" style="color:var(--accent)"></i> 01-Asking and answering questions</div></td><td><div class="fpath">D:\code\oak\downloads_v2\Ye...</div></td><td class="fdate">2026-06-05 12:57</td></tr>
+              <tr><td><div class="fname"><i class="ti ti-folder-filled" style="color:var(--accent)"></i> BaiduNetdiskDownload</div></td><td><div class="fpath">D:\</div></td><td class="fdate">2026-06-04 18:17</td></tr>
+              <tr><td><div class="fname"><i class="ti ti-folder-filled" style="color:var(--accent)"></i> android-36.1</div></td><td><div class="fpath">D:\AndroidSdk\platforms</div></td><td class="fdate">2026-06-04 18:16</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div><!-- /home-page -->
+
+      <!-- ══ FILE BROWSER ══ -->
+      <div class="content-wrap" id="file-browser" style="display:none">
+        <div class="col-header">
+          <span class="sort-active">名称 <i class="ti ti-chevron-up" style="font-size:10px"></i></span>
+          <span>类型</span><span>大小</span><span>修改时间</span><span></span>
+        </div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi folder"><i class="ti ti-folder-filled"></i></div><span class="file-name">1-6季中英文版台词剧本.pdf</span></div><span class="file-type">文件夹</span><span class="file-size">—</span><span class="file-date">2026-05-28 15:09</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi folder"><i class="ti ti-folder-filled"></i></div><span class="file-name">1-6季英文版台词剧本.pdf</span></div><span class="file-type">文件夹</span><span class="file-size">—</span><span class="file-date">2026-06-03 14:02</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi folder"><i class="ti ti-folder-filled"></i></div><span class="file-name">4500 Key English Words</span></div><span class="file-type">文件夹</span><span class="file-size">—</span><span class="file-date">2026-05-28 13:07</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi folder"><i class="ti ti-folder-filled"></i></div><span class="file-name">SSS歌词本185</span></div><span class="file-type">文件夹</span><span class="file-size">—</span><span class="file-date">2026-06-05 13:31</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi folder"><i class="ti ti-folder-filled"></i></div><span class="file-name">看漫画学单词</span></div><span class="file-type">文件夹</span><span class="file-size">—</span><span class="file-date">2026-05-28 17:28</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi folder"><i class="ti ti-folder-filled"></i></div><span class="file-name">鳄鱼侦查员PDF</span></div><span class="file-type">文件夹</span><span class="file-size">—</span><span class="file-date">2026-06-01 11:16</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi srt"><i class="ti ti-file-text"></i></div><span class="file-name">001_A Little Princess 1_Sara Goes to School.srt</span></div><span class="file-type">SRT 文件</span><span class="file-size">7.1 KB</span><span class="file-date">2025-12-23 09:42</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row selected" onclick="selRow(this)"><div class="row-name"><div class="fi video"><i class="ti ti-movie"></i></div><span class="file-name">001_Danny and the Colorless Giants 1_Clay Day.mp4</span></div><span class="file-type">MP4 文件</span><span class="file-size">16.6 MB</span><span class="file-date">2025-12-23 09:41</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi srt"><i class="ti ti-file-text"></i></div><span class="file-name">001_Danny and the Colorless Giants 1_Clay Day.srt</span></div><span class="file-type">SRT 文件</span><span class="file-size">4.0 KB</span><span class="file-date">2025-12-23 09:41</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi video"><i class="ti ti-movie"></i></div><span class="file-name">001_Sam and Lucky 1_The Perfect Pet.mp4</span></div><span class="file-type">MP4 文件</span><span class="file-size">11.8 MB</span><span class="file-date">2025-12-23 09:24</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi srt"><i class="ti ti-file-text"></i></div><span class="file-name">001_Sam and Lucky 1_The Perfect Pet.srt</span></div><span class="file-type">SRT 文件</span><span class="file-size">17.6 KB</span><span class="file-date">2025-12-23 09:24</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi video"><i class="ti ti-movie"></i></div><span class="file-name">001_The Enchanted Castle 1_The Children Get Lost.mp4</span></div><span class="file-type">MP4 文件</span><span class="file-size">28.4 MB</span><span class="file-date">2025-12-23 09:42</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi video"><i class="ti ti-movie"></i></div><span class="file-name">001_The Wind in the Willows 1_It Is Spring!.mp4</span></div><span class="file-type">MP4 文件</span><span class="file-size">18.9 MB</span><span class="file-date">2025-12-23 09:41</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi video"><i class="ti ti-movie"></i></div><span class="file-name">001_What I Like.mp4</span></div><span class="file-type">MP4 文件</span><span class="file-size">24.9 MB</span><span class="file-date">2025-12-23 09:41</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi mkv"><i class="ti ti-movie"></i></div><span class="file-name">01.mkv</span></div><span class="file-type">MKV 文件</span><span class="file-size">1.3 GB</span><span class="file-date">2025-12-16 09:22</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi pdf"><i class="ti ti-file-type-pdf"></i></div><span class="file-name">01.pdf</span></div><span class="file-type">PDF 文件</span><span class="file-size">63.5 MB</span><span class="file-date">2025-01-13 11:42</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi pdf"><i class="ti ti-file-type-pdf"></i></div><span class="file-name">1 Harry Potter and the Philosopher's Stone.pdf</span></div><span class="file-type">PDF 文件</span><span class="file-size">166.1 MB</span><span class="file-date">2025-01-03 10:01</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+        <div class="file-row" onclick="selRow(this)"><div class="row-name"><div class="fi epub"><i class="ti ti-book"></i></div><span class="file-name">100个句子记完3500个高考单词 (俞敏洪).epub</span></div><span class="file-type">EPUB 文件</span><span class="file-size">11.7 MB</span><span class="file-date">2025-12-29 12:31</span><span class="row-more"><i class="ti ti-dots"></i></span></div>
+      </div>
+
+            <div class="split-browser" id="split-browser">
+        <div class="split-pane active-pane">
+          <div class="split-pane-top">SSS歌词本185</div>
+          <div class="split-pane-toolbar">
+            <div class="split-pane-actions">
+              <button class="split-icon-btn"><i class="ti ti-cut"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-copy"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-clipboard"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-pencil"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-info-circle"></i></button>
+              <div class="split-toolbar-sep"></div>
+              <button class="split-icon-btn"><i class="ti ti-folder-plus"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-file-plus"></i></button>
+              <div class="split-toolbar-sep"></div>
+              <button class="split-icon-btn active"><i class="ti ti-list-details"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-layout-grid"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-layout-board"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-columns-3"></i></button>
+              <div class="split-toolbar-sep"></div>
+              <button class="split-icon-btn"><i class="ti ti-trash"></i></button>
+            </div>
+            <div class="split-sort"><span>名称 ↑</span><i class="ti ti-chevron-down" style="font-size:13px"></i></div>
+          </div>
+          <div class="split-table-wrap">
+            <table class="split-table">
+              <thead>
+                <tr><th style="width:34%">名称</th><th style="width:18%">类型</th><th style="width:17%">大小</th><th style="width:23%">修改时间</th><th style="width:8%"></th></tr>
+              </thead>
+              <tbody>
+                <tr><td><div class="split-name"><i class="ti ti-folder-filled folder-ic"></i><span>185首SSS音频</span></div></td><td>文件夹</td><td>—</td><td>2026-06-05 09:21</td><td class="split-link"><i class="ti ti-chevron-right"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-folder-filled folder-ic"></i><span>Good</span></div></td><td>文件夹</td><td>—</td><td>2026-06-05 13:31</td><td class="split-link"><i class="ti ti-chevron-right"></i></td></tr>
+                <tr class="selected"><td><div class="split-name"><i class="ti ti-folder-filled folder-ic"></i><span>SSS歌词本185首</span></div></td><td>文件夹</td><td>—</td><td>2025-02-07 11:45</td><td class="split-link"><i class="ti ti-chevron-right"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-file-type-pdf" style="color:#C94A4A"></i><span>185首sss歌.pdf</span></div></td><td>PDF file</td><td>5.3 MB</td><td>2025-02-07 11:42</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="split-pane-status">4 项, 0 已选</div>
+        </div>
+
+        <div class="split-pane">
+          <div class="split-pane-top">SSS歌词本185首</div>
+          <div class="split-pane-toolbar">
+            <div class="split-pane-actions">
+              <button class="split-icon-btn"><i class="ti ti-cut"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-copy"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-clipboard"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-pencil"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-info-circle"></i></button>
+              <div class="split-toolbar-sep"></div>
+              <button class="split-icon-btn"><i class="ti ti-folder-plus"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-file-plus"></i></button>
+              <div class="split-toolbar-sep"></div>
+              <button class="split-icon-btn active"><i class="ti ti-list-details"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-layout-grid"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-layout-board"></i></button>
+              <button class="split-icon-btn"><i class="ti ti-columns-3"></i></button>
+              <div class="split-toolbar-sep"></div>
+              <button class="split-icon-btn"><i class="ti ti-trash"></i></button>
+            </div>
+            <div class="split-sort"><span>名称 ↑</span><i class="ti ti-chevron-down" style="font-size:13px"></i></div>
+          </div>
+          <div class="split-table-wrap">
+            <table class="split-table">
+              <thead>
+                <tr><th style="width:34%">名称</th><th style="width:18%">类型</th><th style="width:17%">大小</th><th style="width:23%">修改时间</th><th style="width:8%"></th></tr>
+              </thead>
+              <tbody>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>001 Five Little Monkeys.jpg</span></div></td><td>JPG file</td><td>2.6 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>002 Twinkle Twinkle Little...</span></div></td><td>JPG file</td><td>2.1 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>003 Hickory Dickory Dock.jpg</span></div></td><td>JPG file</td><td>2.2 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>004 Row Row Row Your Boat.jpg</span></div></td><td>JPG file</td><td>2.8 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>005 Bingo.jpg</span></div></td><td>JPG file</td><td>2.2 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>006 S-A-N-T-A.jpg</span></div></td><td>JPG file</td><td>2.2 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>007 The Months Chant.jpg</span></div></td><td>JPG file</td><td>2.2 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>008 Ten In The Bed.jpg</span></div></td><td>JPG file</td><td>3.2 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>009 Little Snowflake.jpg</span></div></td><td>JPG file</td><td>2.5 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>010 Good Morning, Mr....</span></div></td><td>JPG file</td><td>2.8 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>011 Open Shut Them.jpg</span></div></td><td>JPG file</td><td>2.2 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>012 Jingle Bells.jpg</span></div></td><td>JPG file</td><td>2.5 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>014 Head Shoulders Knees...</span></div></td><td>JPG file</td><td>2.6 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>015 Sweet Dreams.jpg</span></div></td><td>JPG file</td><td>2.0 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>016 Old MacDonald.jpg</span></div></td><td>JPG file</td><td>3.2 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>017 Walking In The Jungle.jpg</span></div></td><td>JPG file</td><td>3.4 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>018 The Animals On The Farm...</span></div></td><td>JPG file</td><td>2.9 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>019 Do You Like Broccoli...</span></div></td><td>JPG file</td><td>1.9 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+                <tr><td><div class="split-name"><i class="ti ti-photo img-ic"></i><span>020 Count And Move.jpg</span></div></td><td>JPG file</td><td>2.1 MB</td><td>2025-02-07 11:44</td><td class="split-link"><i class="ti ti-external-link"></i></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="split-pane-status">164 项, 0 已选</div>
+        </div>
+      </div>
+
+      <div class="columns-browser" id="columns-browser">
+        <div class="columns-wrap">
+          <div class="col-pane">
+            <div class="col-pane-hd">D:\</div>
+            <div class="col-pane-list">
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>AI</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>AndroidSdk</span></div>
+              <div class="col-item selected"><i class="ti ti-folder-filled"></i><span>BaiduNetdiskDownload</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>Customers</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>DaBaiCai</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>English</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>Games</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>GammaRay_Release</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>LaoMaoTao</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>Lemonade</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>Program Files</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>SteamLibrary</span></div>
+            </div>
+          </div>
+          <div class="col-pane">
+            <div class="col-pane-hd">BaiduNetdiskDownload</div>
+            <div class="col-pane-list">
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>1-6季中英文版台词剧本</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>1-6季英文版台词剧本</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>4500 Key English Words</span></div>
+              <div class="col-item selected"><i class="ti ti-folder-filled"></i><span>SSS歌词本185</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>看漫画学单词</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>鳄鱼侦查员PDF</span></div>
+              <div class="col-item"><i class="ti ti-file-text"></i><span>001_A Little Princess...</span></div>
+              <div class="col-item"><i class="ti ti-movie"></i><span>001_Danny and the Col...</span></div>
+              <div class="col-item"><i class="ti ti-file-type-pdf"></i><span>01.pdf</span></div>
+              <div class="col-item"><i class="ti ti-book"></i><span>100个句子记完3500个...</span></div>
+            </div>
+          </div>
+          <div class="col-pane">
+            <div class="col-pane-hd">SSS歌词本185</div>
+            <div class="col-pane-list">
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>185首SSS音频</span></div>
+              <div class="col-item"><i class="ti ti-folder-filled"></i><span>Good</span></div>
+              <div class="col-item selected"><i class="ti ti-folder-filled"></i><span>SSS歌词本185首</span></div>
+              <div class="col-item"><i class="ti ti-file-type-pdf"></i><span>185首sss歌.pdf</span></div>
+            </div>
+          </div>
+          <div class="col-pane">
+            <div class="col-pane-hd">SSS歌词本185首</div>
+            <div class="col-pane-list">
+              <div class="col-item"><i class="ti ti-photo"></i><span>001 Five Little Monkeys.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>002 Twinkle Twinkle Little...</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>003 Hickory Dickory Dock.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>004 Row Row Row Your Boat.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>005 Bingo.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>006 S-A-N-T-A.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>007 The Months Chant.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>008 Ten In The Bed.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>009 Little Snowflake.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>010 Good Morning, Mr. Rooster.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>011 Open Shut Them.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>012 Jingle Bells.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>014 Head Shoulders Knees.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>015 Sweet Dreams.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>016 Old MacDonald.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>017 Walking In The Jungle.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>018 The Animals On The Farm.jpg</span></div>
+              <div class="col-item"><i class="ti ti-photo"></i><span>019 Do You Like Broccoli Ice Cream.jpg</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar">
+        <span class="status-text" id="status-left">首页</span>
+        <span class="status-text">本地</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="context-menu" id="context-menu" aria-hidden="true">
+  <div class="ctx-group">
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-cut"></i></span><span class="ctx-label">剪切</span><span class="ctx-shortcut">Ctrl+X</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-copy"></i></span><span class="ctx-label">复制</span><span class="ctx-shortcut">Ctrl+C</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-clipboard"></i></span><span class="ctx-label">粘贴</span><span class="ctx-shortcut">Ctrl+V</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-pencil"></i></span><span class="ctx-label">重命名</span><span class="ctx-shortcut">F2</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-trash"></i></span><span class="ctx-label">删除</span><span class="ctx-shortcut">Ctrl+Backspace</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-info-circle"></i></span><span class="ctx-label">属性</span></div>
+  </div>
+  <div class="ctx-group">
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-folder-open"></i></span><span class="ctx-label">打开</span><span class="ctx-shortcut">Enter</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-folder"></i></span><span class="ctx-label">在新标签页中打开</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-external-link"></i></span><span class="ctx-label">在新窗口中打开</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-columns-3"></i></span><span class="ctx-label">在新窗格中打开</span><span class="ctx-shortcut">Ctrl+Shift+Enter</span></div>
+  </div>
+  <div class="ctx-group">
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-copy-plus"></i></span><span class="ctx-label">复制路径</span><span class="ctx-shortcut">Ctrl+Shift+C</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-link"></i></span><span class="ctx-label">创建快捷方式</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-file-zip"></i></span><span class="ctx-label">压缩 (wxedge_storage.zip)</span></div>
+    <div class="ctx-item has-submenu"><span class="ctx-icon"><i class="ti ti-share"></i></span><span class="ctx-label">发送到</span><span class="ctx-chevron"><i class="ti ti-chevron-right"></i></span>
+      <div class="ctx-submenu">
+        <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-device-desktop"></i></span><span class="ctx-label">桌面快捷方式</span></div>
+        <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-mail"></i></span><span class="ctx-label">邮件收件人</span></div>
+        <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-cloud-upload"></i></span><span class="ctx-label">OneDrive</span></div>
+      </div>
+    </div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-pin"></i></span><span class="ctx-label">固定到侧栏</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-folder-open"></i></span><span class="ctx-label">在 Explorer 中打开</span></div>
+    <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-terminal-2"></i></span><span class="ctx-label">在 Windows 终端中打开</span></div>
+  </div>
+  <div class="ctx-group">
+    <div class="ctx-item has-submenu"><span class="ctx-icon"><i class="ti ti-tag"></i></span><span class="ctx-label">编辑文件标签</span><span class="ctx-chevron"><i class="ti ti-chevron-right"></i></span>
+      <div class="ctx-submenu">
+        <div class="ctx-item"><span class="ctx-dot" style="background:var(--tag-green)"></span><span class="ctx-label">English</span></div>
+        <div class="ctx-item"><span class="ctx-dot" style="background:var(--tag-blue)"></span><span class="ctx-label">数学</span></div>
+        <div class="ctx-item"><span class="ctx-dot" style="background:var(--tag-pink)"></span><span class="ctx-label">C++代码库</span></div>
+      </div>
+    </div>
+    <div class="ctx-item has-submenu"><span class="ctx-icon"><i class="ti ti-dots"></i></span><span class="ctx-label">显示更多选项</span><span class="ctx-chevron"><i class="ti ti-chevron-right"></i></span>
+      <div class="ctx-submenu">
+        <div class="ctx-item"><span class="ctx-icon"><i class="ti ti-settings"></i></span><span class="ctx-label">传统上下文菜单</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// disk ring: circumference = 2*PI*7 = 43.982
+// stroke-dashoffset = circumference * (1 - pct)
+// C:\ 94% → offset = 43.98*(1-.94) = 2.64  → used #E24B4A
+// D:\ 83% → offset = 43.98*(1-.83) = 7.48  → used accent
+// E:\ 92% → offset = 43.98*(1-.92) = 3.52  → used #EF9F27
+// F:\  0% → offset = 43.98          → nearly empty
+
+function switchTab(tabEl, page) {
+  document.querySelectorAll('.tb-tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  showPage(page);
+  // sync sidebar
+  if(page==='home') {
+    setSidebarActive(0);
+  }
+}
+
+function navTo(sbEl, page) {
+  if(sbEl) setSidebarActiveEl(sbEl);
+  showPage(page);
+  const tabs = document.querySelectorAll('.tb-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  tabs[page==='home'?0:1].classList.add('active');
+}
+
+function setSidebarActive(idx) {
+  const items = document.querySelectorAll('.sb-item');
+  items.forEach(i => i.classList.remove('active'));
+  if(items[idx]) items[idx].classList.add('active');
+}
+function setSidebarActiveEl(el) {
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+
+let currentView = 'list';
+
+function showPage(page) {
+  const homePage = document.getElementById('home-page');
+  const fileBrowser = document.getElementById('file-browser');
+  const columnsBrowser = document.getElementById('columns-browser');
+  const splitBrowser = document.getElementById('split-browser');
+  const navbar = document.getElementById('navbar');
+  const actionBar = document.getElementById('action-bar');
+  document.getElementById('status-left').textContent = page==='home' ? '首页' : (splitView ? '分栏模式 · 左侧 4 项，右侧 164 项' : (currentView==='columns' ? '164 项，1 已选' : '102 项，0 已选'));
+  if(page==='home'){
+    homePage.classList.add('visible');
+    fileBrowser.style.display='none';
+    columnsBrowser.style.display='none';
+    splitBrowser.style.display='none';
+    columnsBrowser.classList.remove('active');
+    splitBrowser.classList.remove('active');
+    navbar.style.display='none';
+    actionBar.style.display='none';
+  } else {
+    homePage.classList.remove('visible');
+    navbar.style.display='flex';
+    actionBar.style.display='flex';
+    renderFileArea(true);
+  }
+}
+
+function selRow(el) {
+  document.querySelectorAll('.file-row').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+let splitView = false;
+
+function setPathToolActive(which) {
+  const splitBtn = document.getElementById('split-path-btn');
+  if(splitBtn) splitBtn.classList.toggle('active', which === 'split');
+}
+
+function toggleQuickAccessPin() {
+  const pinBtn = document.getElementById('pin-path-btn');
+  if(!pinBtn) return;
+  pinBtn.classList.toggle('active');
+  pinBtn.innerHTML = pinBtn.classList.contains('active') ? '<i class="ti ti-pinned"></i>' : '<i class="ti ti-pin"></i>';
+  pinBtn.title = pinBtn.classList.contains('active') ? '已固定到快速访问' : '固定到快速访问';
+}
+
+function renderFileArea(updateStatus=true) {
+  const pageVisible = document.getElementById('home-page').classList.contains('visible') === false;
+  const fileBrowser = document.getElementById('file-browser');
+  const columnsBrowser = document.getElementById('columns-browser');
+  const splitBrowser = document.getElementById('split-browser');
+
+  fileBrowser.classList.remove('grid-mode','card-mode');
+  columnsBrowser.classList.remove('active');
+  splitBrowser.classList.remove('active');
+  fileBrowser.style.display = 'none';
+  columnsBrowser.style.display = 'none';
+  splitBrowser.style.display = 'none';
+
+  ['list','grid','card','columns'].forEach(mode => {
+    const btn = document.getElementById(`mode-${mode}-btn`);
+    if(btn) btn.classList.toggle('active', mode === currentView);
+  });
+  setPathToolActive(splitView ? 'split' : '');
+
+  if(pageVisible) {
+    if(splitView) {
+      splitBrowser.style.display = 'flex';
+      splitBrowser.classList.add('active');
+    } else if(currentView === 'columns') {
+      columnsBrowser.style.display = 'flex';
+      columnsBrowser.classList.add('active');
+    } else if(currentView === 'grid') {
+      fileBrowser.classList.add('grid-mode');
+      fileBrowser.style.display = 'grid';
+    } else if(currentView === 'card') {
+      fileBrowser.classList.add('card-mode');
+      fileBrowser.style.display = 'grid';
+    } else {
+      fileBrowser.style.display = 'flex';
+    }
+  }
+
+  if(updateStatus && pageVisible) {
+    document.getElementById('status-left').textContent = splitView ? '分栏模式 · 左侧 4 项，右侧 164 项' : (currentView==='columns' ? '164 项，1 已选' : '102 项，0 已选');
+  }
+}
+
+function toggleSplitView() {
+  splitView = !splitView;
+  renderFileArea(true);
+}
+
+function setView(v, fromShowPage=false) {
+  currentView = v;
+  renderFileArea(true);
+}
+
+let dark = false;
+function toggleTheme() {
+  dark = !dark;
+  document.getElementById('app').classList.toggle('dark', dark);
+  document.getElementById('theme-btn').querySelector('i').className = dark ? 'ti ti-sun' : 'ti ti-moon';
+  document.getElementById('theme-label').textContent = dark ? '亮色' : '暗色';
+}
+
+const contextMenu = document.getElementById('context-menu');
+
+function hideContextMenu() {
+  contextMenu.classList.remove('open');
+  contextMenu.setAttribute('aria-hidden', 'true');
+}
+
+function showContextMenu(x, y) {
+  contextMenu.classList.add('open');
+  contextMenu.setAttribute('aria-hidden', 'false');
+  const menuRect = contextMenu.getBoundingClientRect();
+  let left = x;
+  let top = y;
+  if (left + menuRect.width > window.innerWidth - 12) left = window.innerWidth - menuRect.width - 12;
+  if (top + menuRect.height > window.innerHeight - 12) top = window.innerHeight - menuRect.height - 12;
+  if (left < 8) left = 8;
+  if (top < 8) top = 8;
+  contextMenu.style.left = left + 'px';
+  contextMenu.style.top = top + 'px';
+}
+
+function bindContextMenu(selector) {
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const fileRow = el.closest('.file-row');
+      if (fileRow) selRow(fileRow);
+      const splitRow = el.closest('.split-table tbody tr');
+      if (splitRow) {
+        splitRow.parentElement.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        splitRow.classList.add('selected');
+      }
+      showContextMenu(e.clientX, e.clientY);
+    });
+  });
+}
+
+bindContextMenu('.file-row');
+bindContextMenu('.split-table tbody tr');
+bindContextMenu('.col-item');
+bindContextMenu('.qa-item');
+bindContextMenu('.tag-col-file');
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.context-menu')) hideContextMenu();
+});
+window.addEventListener('resize', hideContextMenu);
+document.addEventListener('scroll', hideContextMenu, true);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideContextMenu();
+});
+</script>
+</body>
+</html>

@@ -154,23 +154,21 @@ mod tests {
     }
 
     #[test]
-    fn custom_colored_icons_load() {
+    fn tabler_icons_load() {
         let assets = Assets;
         for path in [
-            "icons/ic_folder.svg",
-            "icons/ic_home.svg",
-            "icons/ic_new_folder.svg",
-            "icons/ic_new_file.svg",
+            "icons/tabler/files.svg",
+            "icons/tabler/folder.svg",
+            "icons/tabler/home.svg",
+            "icons/tabler/copy.svg",
+            "icons/tabler/cut.svg",
+            "icons/tabler/layout-columns.svg",
         ] {
             let data = assets.load(path).expect("load");
             assert!(data.is_some(), "missing {path}");
             let bytes = data.unwrap();
             let text = String::from_utf8_lossy(&bytes);
             assert!(text.contains("<svg"), "{path} is not a valid SVG");
-            assert!(
-                text.contains("fill=") || text.contains("stroke="),
-                "{path} does not appear to be colored"
-            );
         }
     }
 }

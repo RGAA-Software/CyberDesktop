@@ -59,7 +59,7 @@ pub fn dual_pane_menu_state(cx: &mut (impl AppContext + BorrowMut<gpui::App>)) -
 }
 
 fn split_pane_icon() -> Icon {
-    Icon::new(gpui_component::IconName::PanelLeftOpen).path("icons/splitscreen.svg")
+    crate::tabler_icons::icon(crate::tabler_icons::LAYOUT_COLUMNS)
 }
 
 pub fn append_dual_pane_popup_menu(

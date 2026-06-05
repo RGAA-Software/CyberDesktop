@@ -21,7 +21,8 @@ use super::{
     MainPage, NAV_TOOLBAR_HEIGHT, OMNIBAR_BAR_HEIGHT, TITLE_TAB_BAR_HEIGHT,
     TITLE_TAB_CLOSE_RIGHT_INSET, TITLE_TAB_WIDTH,
 };
-use crate::icons::{app_logo_element, compact_icon, pin_icon, toolbar_icon};
+use crate::icons::{app_logo_element, compact_icon, pin_icon, toolbar_icon, toolbar_tabler};
+use crate::tabler_icons;
 use crate::shell::app_menus;
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::preferences::apply_theme_mode;
@@ -172,7 +173,7 @@ impl MainPage {
                         )
                         .child(
                             toolbar_icon_button("settings")
-                                .icon(toolbar_icon(IconName::Settings2).path("icons/settings-2.svg"))
+                                .icon(toolbar_icon(IconName::Settings2))
                                 .tooltip(t!("nav.settings"))
                                 .on_mouse_down(
                                     MouseButton::Left,
@@ -313,7 +314,7 @@ impl MainPage {
                     .items_center()
                     .child(
                         toolbar_icon_button("nav-split-pane")
-                            .icon(toolbar_icon(IconName::LayoutDashboard).path("icons/splitscreen.svg"))
+                            .icon(toolbar_tabler(tabler_icons::LAYOUT_COLUMNS))
                             .tooltip(t!("nav.split_pane"))
                             .when(dual_pane, |btn| {
                                 btn.bg(cx.theme().accent).text_color(cx.theme().accent_foreground)

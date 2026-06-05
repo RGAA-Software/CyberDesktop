@@ -1,10 +1,12 @@
-//! Per-extension Shell list icons (Files `IconCacheService` — dummy path + extension key).
+//! Per-extension list icons and named UI icon paths (Tabler SVG assets).
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, OnceLock, RwLock};
 
 use files_fs::{FileItem, FileItemKind};
 use app_platform_windows::{self as platform};
+
+use crate::tabler_icons;
 
 /// Cache key (`:folder:`, `.zip`, `:noext:`) — matches Files `IconCacheService`.
 pub type ListIconKey = String;
@@ -13,10 +15,10 @@ fn named_icon_paths() -> &'static HashMap<&'static str, &'static str> {
     static NAMED_ICON_PATHS: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
     NAMED_ICON_PATHS.get_or_init(|| {
         HashMap::from([
-            ("folder", "icons/ic_folder.svg"),
-            ("new_folder", "icons/ic_new_folder.svg"),
-            ("new_file", "icons/ic_new_file.svg"),
-            ("home", "icons/ic_home.svg"),
+            ("folder", tabler_icons::FOLDER),
+            ("new_folder", tabler_icons::FOLDER_PLUS),
+            ("new_file", tabler_icons::FILE_PLUS),
+            ("home", tabler_icons::HOME),
         ])
     })
 }
@@ -60,40 +62,44 @@ pub fn named_icon_path(name: &str) -> Option<&'static str> {
     named_icon_paths().get(name).copied()
 }
 
-/// App-bundled colored SVG path for a file extension (e.g. `"pdf"` → `"icons/ic_pdf.svg"`).
+/// App-bundled Tabler SVG path for a file extension (e.g. `"pdf"`).
 pub fn extension_svg_path(ext: &str) -> Option<&'static str> {
     fn extension_icon_paths() -> &'static HashMap<&'static str, &'static str> {
         static MAP: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
         MAP.get_or_init(|| {
             HashMap::from([
-                ("cpp", "icons/ic_cpp.svg"),
-                ("cc", "icons/ic_cpp.svg"),
-                ("cxx", "icons/ic_cpp.svg"),
-                ("hpp", "icons/ic_cpp.svg"),
-                ("go", "icons/ic_go.svg"),
-                ("h", "icons/ic_h.svg"),
-                ("html", "icons/ic_html.svg"),
-                ("ico", "icons/ic_image.svg"),
-                ("png", "icons/ic_image.svg"),
-                ("jpg", "icons/ic_image.svg"),
-                ("jpeg", "icons/ic_image.svg"),
-                ("gif", "icons/ic_gif.svg"),
-                ("bmp", "icons/ic_image.svg"),
-                ("webp", "icons/ic_image.svg"),
-                ("java", "icons/ic_java.svg"),
-                ("gradle", "icons/ic_java.svg"),
-                ("js", "icons/ic_js.svg"),
-                ("json", "icons/ic_json.svg"),
-                ("kts", "icons/ic_kts.svg"),
-                ("pdf", "icons/ic_pdf.svg"),
-                ("rs", "icons/ic_rust.svg"),
-                ("svg", "icons/ic_svg.svg"),
-                ("toml", "icons/ic_toml.svg"),
-                ("ts", "icons/ic_ts.svg"),
-                ("tsx", "icons/ic_ts.svg"),
-                ("txt", "icons/ic_txt.svg"),
-                ("yml", "icons/ic_yml.svg"),
-                ("yaml", "icons/ic_yml.svg"),
+                ("cpp", tabler_icons::FILE_TYPE_CPP),
+                ("cc", tabler_icons::FILE_TYPE_CPP),
+                ("cxx", tabler_icons::FILE_TYPE_CPP),
+                ("hpp", tabler_icons::FILE_TYPE_CPP),
+                ("go", tabler_icons::FILE_CODE),
+                ("h", tabler_icons::FILE_CODE),
+                ("html", tabler_icons::FILE_TYPE_HTML),
+                ("ico", tabler_icons::PHOTO),
+                ("png", tabler_icons::PHOTO),
+                ("jpg", tabler_icons::PHOTO),
+                ("jpeg", tabler_icons::PHOTO),
+                ("gif", tabler_icons::PHOTO),
+                ("bmp", tabler_icons::PHOTO),
+                ("webp", tabler_icons::PHOTO),
+                ("java", tabler_icons::FILE_CODE),
+                ("gradle", tabler_icons::FILE_CODE),
+                ("js", tabler_icons::FILE_TYPE_JS),
+                ("json", tabler_icons::FILE_CODE),
+                ("kts", tabler_icons::FILE_CODE),
+                ("pdf", tabler_icons::FILE_TYPE_PDF),
+                ("rs", tabler_icons::FILE_CODE),
+                ("svg", tabler_icons::PHOTO),
+                ("toml", tabler_icons::FILE_CODE),
+                ("ts", tabler_icons::FILE_TYPE_TS),
+                ("tsx", tabler_icons::FILE_TYPE_TS),
+                ("txt", tabler_icons::FILE_TEXT),
+                ("yml", tabler_icons::FILE_CODE),
+                ("yaml", tabler_icons::FILE_CODE),
+                ("mp4", tabler_icons::MOVIE),
+                ("mkv", tabler_icons::MOVIE),
+                ("epub", tabler_icons::BOOK),
+                ("zip", tabler_icons::FILE_ZIP),
             ])
         })
     }

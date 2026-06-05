@@ -4,13 +4,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
-use app_assets::themes::{ANT, AYU, GRUVBOX, ONE};
+use app_assets::themes::{ANT, AYU, CYBERFILES, GRUVBOX, ONE};
 use files_core::AppConfig;
 use gpui::{px, App, SharedString};
 use gpui_component::{scroll::ScrollbarShow, Theme, ThemeConfig, ThemeMode, ThemeSet};
 
 /// Persisted `theme_name` in `settings.json` (theme set id).
-pub const DEFAULT_THEME_SET_ID: &str = "Ant";
+pub const DEFAULT_THEME_SET_ID: &str = "CyberFiles";
 pub const ZED_UI_FONT_FAMILY: &str = "IBM Plex Sans";
 pub const ZED_MONO_FONT_FAMILY: &str = "Lilex";
 
@@ -64,9 +64,7 @@ impl ThemeCatalog {
             .unwrap_or(name);
         match base {
             "Default" | "Default Light" | "Default Dark" => DEFAULT_THEME_SET_ID.into(),
-            "CyberFiles" | "CyberFiles Blue" | "CyberFiles Mint" | "CyberFiles Yellow" => {
-                DEFAULT_THEME_SET_ID.into()
-            }
+            "CyberFiles Blue" | "CyberFiles Mint" | "CyberFiles Yellow" => "CyberFiles".into(),
             "One Dark" | "One Light" => "One".into(),
             "Ayu Dark" | "Ayu Light" => "Ayu".into(),
             "Ayu Mirage" => "Ayu Mirage".into(),
@@ -79,7 +77,7 @@ impl ThemeCatalog {
 
     fn load_embedded() -> Self {
         let mut sets = HashMap::new();
-        for json in [ANT, ONE, AYU, GRUVBOX] {
+        for json in [CYBERFILES, ANT, ONE, AYU, GRUVBOX] {
             if let Ok(set) = serde_json::from_str::<ThemeSet>(json) {
                 for entry in ThemeSetEntry::entries_from_family(set) {
                     sets.insert(entry.id.clone(), entry);
@@ -261,8 +259,9 @@ mod tests {
     #[test]
     fn embedded_theme_sets_load() {
         let catalog = ThemeCatalog::load_embedded();
-        assert_eq!(catalog.sets.len(), 7);
+        assert_eq!(catalog.sets.len(), 8);
         for id in [
+            "CyberFiles",
             "Ant",
             "One",
             "Ayu",

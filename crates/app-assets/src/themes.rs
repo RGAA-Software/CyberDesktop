@@ -11,3 +11,6 @@ pub const AYU: &str = include_str!("../themes/ayu.json");
 
 /// Gruvbox family (standard, hard, and soft light/dark variants).
 pub const GRUVBOX: &str = include_str!("../themes/gruvbox.json");
+
+/// CyberFiles design tokens (light + dark).
+pub const CYBERFILES: &str = include_str!("../themes/cyberfiles.json");

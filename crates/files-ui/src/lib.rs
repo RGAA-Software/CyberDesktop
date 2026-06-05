@@ -14,6 +14,8 @@ mod home;
 #[cfg(feature = "full-app")]
 mod icons;
 #[cfg(feature = "full-app")]
+mod tabler_icons;
+#[cfg(feature = "full-app")]
 mod audio_log;
 mod audio_player;
 mod info_pane;

@@ -50,7 +50,7 @@ fn shell_menu_max_height(window: &Window) -> Pixels {
 }
 
 fn menu_icon(name: IconName) -> Icon {
-    Icon::new(name)
+    crate::tabler_icons::from_icon_name(name)
 }
 
 fn menu_action(
@@ -194,7 +194,7 @@ fn append_file_tags_toggle_submenu(
     let tags = load_config().map(|c| c.file_tags).unwrap_or_default();
     let assigned = file_tags_containing_paths(&paths);
     menu.submenu_with_icon(
-        Some(Icon::new(IconName::Inbox).path("icons/label.svg")),
+        Some(crate::tabler_icons::icon(crate::tabler_icons::TAG)),
         t!("files.menu.edit_file_tags"),
         window,
         cx,
@@ -301,7 +301,7 @@ fn append_open_with_submenu(
     let children_stash = children.to_vec();
     let choose_path = paths[0].clone();
     menu.submenu_with_icon(
-        Some(Icon::new(IconName::Settings2).path("icons/widgets.svg")),
+        Some(crate::tabler_icons::icon(crate::tabler_icons::WIDGET)),
         t!("files.menu.open_with"),
         window,
         cx,
@@ -322,7 +322,7 @@ fn append_open_with_submenu(
             };
             sub.item(
                 PopupMenuItem::new(t!("files.menu.open_with_choose"))
-                    .icon(Icon::new(IconName::Settings2).path("icons/widgets.svg"))
+                    .icon(crate::tabler_icons::icon(crate::tabler_icons::WIDGET))
                     .on_click({
                         let choose_path = choose_path.clone();
                         let browser_sub = browser_sub.clone();
@@ -569,7 +569,7 @@ fn append_show_more_options(
 fn append_clipboard_commands(menu: PopupMenu, has_selection: bool, can_paste: bool) -> PopupMenu {
     let menu = menu.menu_with_icon_and_disabled(
         t!("files.menu.cut"),
-        Icon::new(IconName::Replace).path("icons/content_cut.svg"),
+        crate::tabler_icons::icon(crate::tabler_icons::CUT),
         Box::new(CutItems),
         !has_selection,
     );
@@ -582,13 +582,13 @@ fn append_clipboard_commands(menu: PopupMenu, has_selection: bool, can_paste: bo
     );
     let menu = menu.menu_with_icon_and_disabled(
         t!("files.menu.paste"),
-        Icon::new(IconName::Replace).path("icons/content_paste.svg"),
+        crate::tabler_icons::icon(crate::tabler_icons::CLIPBOARD),
         Box::new(PasteItems),
         !can_paste,
     );
     let menu = menu.menu_with_icon_and_disabled(
         t!("files.menu.rename"),
-        Icon::new(IconName::File).path("icons/drive_file_rename_outline.svg"),
+        crate::tabler_icons::icon(crate::tabler_icons::PENCIL),
         Box::new(RenameItem),
         !has_selection,
     );
@@ -645,7 +645,7 @@ fn build_background_menu(
         menu = menu
             .menu_with_icon_and_disabled(
                 t!("files.recycle.restore_all"),
-                Icon::new(IconName::Replace).path("icons/restore_deleted.svg"),
+                crate::tabler_icons::icon(crate::tabler_icons::ARROW_BACK_UP),
                 Box::new(RestoreAllRecycleItems),
                 recycle_item_count == 0,
             )
@@ -660,7 +660,7 @@ fn build_background_menu(
     if !in_recycle && !in_file_tag {
         menu = menu.menu_with_icon_and_disabled(
             t!("files.menu.paste"),
-            Icon::new(IconName::Replace).path("icons/content_paste.svg"),
+            crate::tabler_icons::icon(crate::tabler_icons::CLIPBOARD),
             Box::new(PasteItems),
             !can_paste,
         )
@@ -679,7 +679,7 @@ fn build_background_menu(
             menu = menu_checked_action(
                 menu,
                 t!("files.view.details"),
-                Icon::new(IconName::GalleryVerticalEnd).path("icons/view_headline.svg"),
+                crate::tabler_icons::icon(crate::tabler_icons::LIST_DETAILS),
                 view_mode == ViewMode::Details,
                 Box::new(ViewDetails),
             );
@@ -855,7 +855,7 @@ fn build_directory_item_menu(
         if open_with_lazy.is_none() && open_with_children.is_empty() {
             menu = menu.menu_with_icon(
                 t!("files.menu.open_with"),
-                Icon::new(IconName::Settings2).path("icons/widgets.svg"),
+                crate::tabler_icons::icon(crate::tabler_icons::WIDGET),
                 Box::new(OpenWithDialog),
             );
         } else {
@@ -877,18 +877,18 @@ fn build_directory_item_menu(
         let tab_path = path.clone();
         menu = menu.item(menu_click_item_with_icon(
             t!("sidebar.menu.open_new_tab"),
-            Icon::new(IconName::File).path("icons/tab.svg"),
+            crate::tabler_icons::icon(crate::tabler_icons::PLUS),
             move |_, _, cx| AppNavigation::open_path_in_new_tab(tab_path.clone(), cx),
         ));
         menu = menu.menu_with_icon(
             t!("files.menu.open_in_new_window"),
-            Icon::new(IconName::ExternalLink).path("icons/external-link.svg"),
+            crate::tabler_icons::icon(crate::tabler_icons::EXTERNAL_LINK),
             Box::new(OpenInNewWindow),
         );
         if item_prefs.open_in_new_pane {
             menu = menu.menu_with_icon(
                 t!("files.menu.open_in_new_pane"),
-                Icon::new(IconName::PanelLeftOpen).path("icons/splitscreen.svg"),
+                crate::tabler_icons::icon(crate::tabler_icons::LAYOUT_COLUMNS),
                 Box::new(OpenInNewPane),
             );
         }
@@ -928,7 +928,7 @@ fn build_directory_item_menu(
         };
         menu = menu.menu_with_icon(
             compress_label,
-            Icon::new(IconName::File).path("icons/folder_zip.svg"),
+            crate::tabler_icons::icon(crate::tabler_icons::FILE_ZIP),
             Box::new(CompressItems),
         );
     }
@@ -936,12 +936,12 @@ fn build_directory_item_menu(
     if item_prefs.extract && has_archive {
         menu = menu.menu_with_icon(
             t!("files.menu.extract_here"),
-            Icon::new(IconName::File).path("icons/folder_zip.svg"),
+            crate::tabler_icons::icon(crate::tabler_icons::FILE_ZIP),
             Box::new(ExtractHere),
         );
         menu = menu.menu_with_icon(
             t!("files.menu.extract_to_folder"),
-            Icon::new(IconName::File).path("icons/folder_zip.svg"),
+            crate::tabler_icons::icon(crate::tabler_icons::FILE_ZIP),
             Box::new(ExtractToFolder),
         );
     }
@@ -1091,7 +1091,7 @@ fn build_recycle_item_menu(
     );
     menu = menu.menu_with_icon_and_disabled(
         t!("files.recycle.restore"),
-        Icon::new(IconName::Replace).path("icons/restore_deleted.svg"),
+        crate::tabler_icons::icon(crate::tabler_icons::ARROW_BACK_UP),
         Box::new(RestoreRecycleItems),
         !has_selection,
     );
@@ -1119,7 +1119,7 @@ fn build_recycle_item_menu(
     );
     menu.menu_with_icon_and_disabled(
         t!("files.menu.paste"),
-        Icon::new(IconName::Replace).path("icons/content_paste.svg"),
+        crate::tabler_icons::icon(crate::tabler_icons::CLIPBOARD),
         Box::new(PasteItems),
         !can_paste,
     )
@@ -1148,7 +1148,7 @@ fn build_file_tag_item_menu(
         let path = paths[0].clone();
         menu = menu.item(menu_click_item_with_icon(
             t!("sidebar.menu.open_new_tab"),
-            Icon::new(IconName::Plus).path("icons/tab.svg"),
+            crate::tabler_icons::icon(crate::tabler_icons::PLUS),
             move |_, _, cx| AppNavigation::open_path_in_new_tab(path.clone(), cx),
         ));
     }
