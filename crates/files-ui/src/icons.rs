@@ -8,6 +8,7 @@ use crate::list_icon_cache;
 
 const APP_ICON_PX: Size = Size::Size(px(18.));
 const APP_ICON_IMAGE_PX: Pixels = px(18.);
+const APP_LOGO_PX: Pixels = px(20.);
 
 fn sized_icon(icon: IconName) -> Icon {
     Icon::new(icon).with_size(APP_ICON_PX)
@@ -25,6 +26,11 @@ fn named_icon(name: &str, fallback: IconName) -> Icon {
 fn named_svg_icon_element(name: &str) -> Option<AnyElement> {
     let path = list_icon_cache::named_icon_path(name)?;
     Some(color_icon::color_icon_box(path, APP_ICON_IMAGE_PX))
+}
+
+/// CyberFiles app icon for the title bar (left of the menu bar).
+pub fn app_logo_element() -> AnyElement {
+    color_icon::color_icon_box("icons/content_copy.svg", APP_LOGO_PX)
 }
 
 /// Toolbar, title bar, breadcrumbs, sidebar, settings, tab bar — all 18px.

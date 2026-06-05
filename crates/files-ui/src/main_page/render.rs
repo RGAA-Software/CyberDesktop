@@ -21,7 +21,7 @@ use super::{
     MainPage, NAV_TOOLBAR_HEIGHT, OMNIBAR_BAR_HEIGHT, TITLE_TAB_BAR_HEIGHT,
     TITLE_TAB_CLOSE_RIGHT_INSET, TITLE_TAB_WIDTH,
 };
-use crate::icons::{compact_icon, pin_icon, toolbar_icon};
+use crate::icons::{app_logo_element, compact_icon, pin_icon, toolbar_icon};
 use crate::shell::app_menus;
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::preferences::apply_theme_mode;
@@ -122,6 +122,7 @@ impl MainPage {
                 .min_w_0()
                 .items_center()
                 .gap_1()
+                .child(app_logo_element())
                 .child(div().flex_none().child(app_menu_bar))
                 .child(
                     div()
