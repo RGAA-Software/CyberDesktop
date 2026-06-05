@@ -566,6 +566,7 @@ impl HomePage {
                     .child(
                         v_flex()
                             .w_full()
+                            .overflow_hidden()
                             .p_1()
                             .gap_px()
                             .when(preview.preview_items.is_empty(), |col| {
@@ -585,10 +586,30 @@ impl HomePage {
                                     .w_full()
                                     .child(
                                         h_flex()
+                                            .w_full()
+                                            .min_w_0()
                                             .gap_2()
                                             .items_center()
-                                            .child(shell_icon_for_path(file_path, px(16.), window))
-                                            .child(Label::new(name.clone()).text_sm().truncate()),
+                                            .justify_start()
+                                            .child(
+                                                div()
+                                                    .flex_none()
+                                                    .child(shell_icon_for_path(
+                                                        file_path,
+                                                        px(16.),
+                                                        window,
+                                                    )),
+                                            )
+                                            .child(
+                                                div()
+                                                    .flex_1()
+                                                    .min_w_0()
+                                                    .overflow_hidden()
+                                                    .text_ellipsis()
+                                                    .text_sm()
+                                                    .text_left()
+                                                    .child(name.clone()),
+                                            ),
                                     )
                                     .on_click(cx.listener({
                                         let open = open.clone();
