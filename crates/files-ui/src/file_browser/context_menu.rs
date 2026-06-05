@@ -152,33 +152,14 @@ fn is_open_with_submenu_label(label: &str) -> bool {
         || lower.contains("開啟檔案")
 }
 
-fn extract_labeled_submenu(
-    entries: &[ShellContextMenuEntry],
-    label_pred: fn(&str) -> bool,
-) -> Vec<ShellContextMenuEntry> {
-    for entry in entries {
-        if let ShellContextMenuEntry::Submenu {
-            label,
-            children,
-            lazy_parent_index,
-            ..
-        } = entry
-        {
-            if label_pred(label) {
-                return resolve_submenu_entries(*lazy_parent_index, children);
-            }
-        }
-    }
-    Vec::new()
-}
-
-fn shell_feature_entries(
+/// Reference to a labeled Shell submenu from the cached top-level flyout (without
+/// eagerly expanding lazy children — that happens when the user opens the submenu).
+fn shell_feature_submenu_ref(
     cache: &std::sync::Arc<RwLock<Option<ShellMenuCache>>>,
     paths: &[PathBuf],
     extended_verbs: bool,
     label_pred: fn(&str) -> bool,
-    icon_px: u32,
-) -> Vec<ShellContextMenuEntry> {
+) -> (Option<u32>, Vec<ShellContextMenuEntry>) {
     let key = normalize_paths_for_shell_cache(paths);
     let top_level = cache
         .read()
@@ -188,21 +169,20 @@ fn shell_feature_entries(
         .map(|cache| cache.entries)
         .unwrap_or_default();
 
-    let from_cache = extract_labeled_submenu(&top_level, label_pred);
-    if !from_cache.is_empty() {
-        return from_cache;
+    for entry in &top_level {
+        if let ShellContextMenuEntry::Submenu {
+            label,
+            children,
+            lazy_parent_index,
+            ..
+        } = entry
+        {
+            if label_pred(label) {
+                return (*lazy_parent_index, children.clone());
+            }
+        }
     }
-
-    let paths = paths.to_vec();
-    match std::thread::spawn(move || {
-        platform::query_shell_context_menu_items(&paths, extended_verbs, icon_px)
-    })
-    .join()
-    {
-        Ok(Ok(entries)) => extract_labeled_submenu(&entries, label_pred),
-        Ok(Err(_error)) => Vec::new(),
-        Err(_) => Vec::new(),
-    }
+    (None, Vec::new())
 }
 
 fn append_file_tags_toggle_submenu(
@@ -245,6 +225,7 @@ fn append_file_tags_toggle_submenu(
 fn append_send_to_submenu(
     menu: PopupMenu,
     children: &[ShellContextMenuEntry],
+    lazy_parent_index: Option<u32>,
     paths: &[PathBuf],
     extended_verbs: bool,
     browser: Entity<FileBrowser>,
@@ -260,7 +241,7 @@ fn append_send_to_submenu(
         window,
         cx,
         move |sub, window, cx| {
-            let loaded = resolve_submenu_entries(None, &children_stash);
+            let loaded = resolve_submenu_entries(lazy_parent_index, &children_stash);
             let sub = if loaded.is_empty() {
                 sub
             } else {
@@ -308,6 +289,7 @@ fn append_send_to_submenu(
 fn append_open_with_submenu(
     menu: PopupMenu,
     children: &[ShellContextMenuEntry],
+    lazy_parent_index: Option<u32>,
     paths: &[PathBuf],
     extended_verbs: bool,
     browser: Entity<FileBrowser>,
@@ -324,7 +306,7 @@ fn append_open_with_submenu(
         window,
         cx,
         move |sub, window, cx| {
-            let loaded = resolve_submenu_entries(None, &children_stash);
+            let loaded = resolve_submenu_entries(lazy_parent_index, &children_stash);
             let sub = if loaded.is_empty() {
                 sub.item(PopupMenuItem::new(t!("files.menu.shell_empty")).disabled(true))
             } else {
@@ -850,7 +832,6 @@ fn build_directory_item_menu(
             state.shell_menu_cache.clone(),
         )
     };
-    let menu_icon_px = platform::menu_icon_pixel_size(window.scale_factor());
     let item_prefs = context_menu_item_prefs();
 
     let mut menu = menu.action_context(focus);
@@ -865,14 +846,13 @@ fn build_directory_item_menu(
     );
 
     if single && !paths[0].is_dir() {
-        let open_with_children = shell_feature_entries(
+        let (open_with_lazy, open_with_children) = shell_feature_submenu_ref(
             &shell_menu_cache,
             &paths,
             extended,
             is_open_with_submenu_label,
-            menu_icon_px,
         );
-        if open_with_children.is_empty() {
+        if open_with_lazy.is_none() && open_with_children.is_empty() {
             menu = menu.menu_with_icon(
                 t!("files.menu.open_with"),
                 Icon::new(IconName::Settings2).path("icons/widgets.svg"),
@@ -882,6 +862,7 @@ fn build_directory_item_menu(
             menu = append_open_with_submenu(
                 menu,
                 &open_with_children,
+                open_with_lazy,
                 &paths,
                 extended,
                 browser.clone(),
@@ -966,16 +947,16 @@ fn build_directory_item_menu(
     }
 
     if item_prefs.send_to && has_selection {
-        let send_to_children = shell_feature_entries(
+        let (send_to_lazy, send_to_children) = shell_feature_submenu_ref(
             &shell_menu_cache,
             &paths,
             extended,
             is_send_to_submenu_label,
-            menu_icon_px,
         );
         menu = append_send_to_submenu(
             menu,
             &send_to_children,
+            send_to_lazy,
             &paths,
             extended,
             browser.clone(),

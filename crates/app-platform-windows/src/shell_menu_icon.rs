@@ -1,8 +1,10 @@
 //! Extract icons from Shell `IContextMenu` HMENU items (bitmap, callback draw, verb fallback).
 
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use windows::core::{Interface, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
@@ -30,6 +32,64 @@ use crate::shell_icon::{shell_icon_png, shell_icon_png_from_location};
 
 thread_local! {
     static MENU_ICON_EXTRACT_PX: Cell<u32> = const { Cell::new(16) };
+}
+
+/// In-memory PNG cache for Shell context-menu row icons (stable across menu opens).
+static MENU_ICON_PNG_CACHE: OnceLock<Mutex<HashMap<MenuIconCacheKey, Arc<Vec<u8>>>>> = OnceLock::new();
+
+#[derive(Clone, Hash, Eq, PartialEq)]
+enum MenuIconCacheKey {
+    /// `%SystemRoot%\\...`, `shell32.dll,-123`, etc.
+    Location { location: String, size: u32 },
+    /// Executable resolved for a file-type verb (`open`, `print`, …).
+    VerbExe {
+        extension: String,
+        verb: String,
+        size: u32,
+    },
+    /// Bitmap / owner-draw row keyed by verb + visible label.
+    MenuRow {
+        verb: String,
+        label: String,
+        size: u32,
+    },
+}
+
+fn menu_icon_cache() -> &'static Mutex<HashMap<MenuIconCacheKey, Arc<Vec<u8>>>> {
+    MENU_ICON_PNG_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn menu_icon_cache_get(key: &MenuIconCacheKey) -> Option<Arc<Vec<u8>>> {
+    menu_icon_cache()
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(key).cloned())
+}
+
+fn menu_icon_cache_put(key: MenuIconCacheKey, png: Vec<u8>) -> Arc<Vec<u8>> {
+    let arc = Arc::new(png);
+    if let Ok(mut cache) = menu_icon_cache().lock() {
+        cache.insert(key, arc.clone());
+    }
+    arc
+}
+
+fn normalize_menu_icon_label(label: &str) -> String {
+    label.trim().to_ascii_lowercase()
+}
+
+fn normalize_menu_icon_verb(verb: Option<&str>) -> String {
+    verb.map(|v| v.trim().to_ascii_lowercase())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_default()
+}
+
+fn menu_row_cache_key(verb: Option<&str>, label: &str) -> MenuIconCacheKey {
+    MenuIconCacheKey::MenuRow {
+        verb: normalize_menu_icon_verb(verb),
+        label: normalize_menu_icon_label(label),
+        size: menu_icon_extract_px(),
+    }
 }
 
 /// BGR in memory; matches GDI `RGB(255, 0, 255)` chroma for owner-draw (Files `MakeTransparent`).
@@ -509,7 +569,18 @@ fn hkcr_string_value(subkey: &str, value_name: Option<&str>) -> Option<String> {
 }
 
 fn icon_for_registry_location(location: &str) -> Option<Vec<u8>> {
-    shell_icon_png_from_location(location, menu_icon_extract_px()).ok()
+    let size = menu_icon_extract_px();
+    let location = location.trim().to_string();
+    let key = MenuIconCacheKey::Location {
+        location: location.clone(),
+        size,
+    };
+    if let Some(cached) = menu_icon_cache_get(&key) {
+        return Some((*cached).clone());
+    }
+    let png = shell_icon_png_from_location(&location, size).ok()?;
+    menu_icon_cache_put(key, png.clone());
+    Some(png)
 }
 
 fn icon_for_registry_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
@@ -552,6 +623,23 @@ fn icon_for_file_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
     if let Some(png) = icon_for_registry_verb(path, verb) {
         return Some(png);
     }
+
+    let size = menu_icon_extract_px();
+    let extension = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!(".{ext}"))
+        .unwrap_or_default();
+    let verb_key = verb.to_ascii_lowercase();
+    let exe_cache_key = MenuIconCacheKey::VerbExe {
+        extension: extension.clone(),
+        verb: verb_key,
+        size,
+    };
+    if let Some(cached) = menu_icon_cache_get(&exe_cache_key) {
+        return Some((*cached).clone());
+    }
+
     let exe = path
         .extension()
         .and_then(|ext| ext.to_str())
@@ -576,10 +664,35 @@ fn icon_for_file_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
             )
         })?;
     let exe_path = Path::new(exe.trim_matches('"'));
-    shell_icon_png(exe_path, menu_icon_extract_px()).ok()
+    let png = shell_icon_png(exe_path, size).ok()?;
+    menu_icon_cache_put(exe_cache_key, png.clone());
+    Some(png)
 }
 
 pub(crate) unsafe fn resolve_menu_item_icon(
+    popup: HMENU,
+    menu: &IContextMenu,
+    index: u32,
+    item_id: u32,
+    hbmp: HBITMAP,
+    primary_path: &Path,
+    label: &str,
+    verb: Option<&str>,
+) -> Option<Vec<u8>> {
+    let row_key = menu_row_cache_key(verb, label);
+    if let Some(cached) = menu_icon_cache_get(&row_key) {
+        return Some((*cached).clone());
+    }
+
+    let png = resolve_menu_item_icon_uncached(popup, menu, index, item_id, hbmp, primary_path, verb);
+    if let Some(png) = png {
+        menu_icon_cache_put(row_key, png.clone());
+        return Some(png);
+    }
+    None
+}
+
+unsafe fn resolve_menu_item_icon_uncached(
     popup: HMENU,
     menu: &IContextMenu,
     index: u32,

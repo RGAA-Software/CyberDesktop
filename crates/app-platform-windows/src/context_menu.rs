@@ -480,6 +480,7 @@ unsafe fn shell_item_icon_png(
     item_id: u32,
     _hbmp: windows::Win32::Graphics::Gdi::HBITMAP,
     primary_path: &Path,
+    label: &str,
     verb: Option<&str>,
 ) -> Option<Vec<u8>> {
     if !SHELL_MENU_ICONS_ENABLED {
@@ -493,6 +494,7 @@ unsafe fn shell_item_icon_png(
         item_id,
         hbmp,
         primary_path,
+        label,
         verb,
     )
 }
@@ -598,6 +600,7 @@ unsafe fn enumerate_popup_menu(
                     info.wID,
                     info.hbmpItem,
                     primary_path,
+                    &label,
                     None,
                 );
                 if let Ok(children) =
@@ -613,18 +616,20 @@ unsafe fn enumerate_popup_menu(
                     }
                 }
             } else {
+                let icon_png = shell_item_icon_png(
+                    popup,
+                    context_menu,
+                    index,
+                    info.wID,
+                    info.hbmpItem,
+                    primary_path,
+                    &label,
+                    None,
+                );
                 entries.push(ShellContextMenuEntry::Submenu {
                     label,
                     children: Vec::new(),
-                    icon_png: shell_item_icon_png(
-                        popup,
-                        context_menu,
-                        index,
-                        info.wID,
-                        info.hbmpItem,
-                        primary_path,
-                        None,
-                    ),
+                    icon_png,
                     lazy_parent_index: Some(index),
                 });
             }
@@ -654,6 +659,7 @@ unsafe fn enumerate_popup_menu(
             info.wID,
             info.hbmpItem,
             primary_path,
+            &label,
             verb.as_deref(),
         );
 
