@@ -4,7 +4,6 @@ use files_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
 use app_platform_windows::open_item_properties;
 use gpui::{prelude::*, ClickEvent, *};
 use gpui_component::{
-    h_flex,
     sidebar::{Sidebar, SidebarCollapsible, SidebarItem},
     v_flex,
     ActiveTheme as _,
@@ -237,11 +236,9 @@ fn append_sidebar_entry(
     }
 }
 
-fn sidebar_icon_color(section: SidebarSectionKind, active: bool, cx: &App) -> Hsla {
+fn sidebar_icon_color(active: bool, cx: &App) -> Hsla {
     if active {
         cx.theme().primary
-    } else if section == SidebarSectionKind::Pinned {
-        gpui::rgb(0xD4_88_06).into()
     } else {
         cx.theme().muted_foreground
     }
@@ -257,7 +254,6 @@ fn tabler_path_for_sidebar_entry(
         (NavigationTarget::FileTag(_), _) => tabler_icons::TAG,
         (NavigationTarget::Settings, _) => tabler_icons::SETTINGS,
         (NavigationTarget::SearchResults { .. }, _) => tabler_icons::SEARCH,
-        (NavigationTarget::Path(_), SidebarSectionKind::Pinned) => tabler_icons::FOLDER_PIN,
         (_, SidebarSectionKind::Drives) => tabler_icons::DEVICE_DESKTOP,
         (_, SidebarSectionKind::Cloud) => tabler_icons::CLOUD,
         (_, SidebarSectionKind::Network) => tabler_icons::NETWORK,
@@ -277,25 +273,16 @@ fn sidebar_entry_icon(
     let is_file_tag = matches!(entry.target, NavigationTarget::FileTag(_));
     move |_window, cx| {
         if is_file_tag {
-            let fill = gpui::rgb(
+            let icon_color: Hsla = gpui::rgb(
                 tag_color
                     .as_deref()
                     .and_then(parse_tag_color_hex)
                     .unwrap_or(0x54_6E_7A),
-            );
-            let icon_color = if active {
-                cx.theme().primary
-            } else {
-                cx.theme().muted_foreground
-            };
-            h_flex()
-                .gap(px(6.))
-                .items_center()
-                .child(div().size(px(8.)).rounded_full().bg(fill))
-                .child(sidebar_tabler_icon(tabler_icons::TAG, icon_color))
-                .into_any_element()
+            )
+            .into();
+            sidebar_tabler_icon(tabler_icons::TAG, icon_color)
         } else {
-            sidebar_tabler_icon(path, sidebar_icon_color(section, active, cx))
+            sidebar_tabler_icon(path, sidebar_icon_color(active, cx))
         }
     }
 }

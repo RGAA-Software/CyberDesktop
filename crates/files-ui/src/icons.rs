@@ -53,11 +53,7 @@ pub fn toolbar_tabler(path: &'static str) -> Icon {
 /// Tabler icon at sidebar row size with an explicit tint.
 pub fn sidebar_tabler_icon(path: &'static str, color: Hsla) -> AnyElement {
     div()
-        .size(SIDEBAR_ICON_PX)
         .flex_none()
-        .flex()
-        .items_center()
-        .justify_center()
         .text_color(color)
         .child(
             tabler_icons::icon(path).with_size(Size::Size(SIDEBAR_ICON_PX)),
