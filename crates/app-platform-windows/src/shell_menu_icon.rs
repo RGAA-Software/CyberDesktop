@@ -123,6 +123,9 @@ unsafe fn rgba_pixels_to_png(
     stride: usize,
     chroma_key: bool,
     unpremultiply: bool,
+    // When true, row 0 of the PNG comes from the last scanline in `pixels`
+    // (GDI bottom-up DIB layout).
+    flip_y: bool,
 ) -> Option<Vec<u8>> {
     if width == 0 || height == 0 {
         return None;
@@ -130,8 +133,9 @@ unsafe fn rgba_pixels_to_png(
     let mut img = image::RgbaImage::new(width, height);
     let mut visible_pixels = 0u32;
     for y in 0..height {
+        let src_y = if flip_y { height - 1 - y } else { y };
         for x in 0..width {
-            let i = y as usize * stride + x as usize * 4;
+            let i = src_y as usize * stride + x as usize * 4;
             if i + 3 >= pixels.len() {
                 return None;
             }
@@ -169,6 +173,8 @@ unsafe fn hbitmap_dibsection_png(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<
     {
         return None;
     }
+    // Positive `bmHeight` → bottom-up DIB (origin lower-left); negative → top-down.
+    let top_down = bm.bmHeight < 0;
     let width = bm.bmWidth.unsigned_abs();
     let height = bm.bmHeight.unsigned_abs();
     if width == 0 || height == 0 {
@@ -194,7 +200,7 @@ unsafe fn hbitmap_dibsection_png(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<
             break;
         }
     }
-    rgba_pixels_to_png(bits, width, height, stride, chroma_key, has_alpha)
+    rgba_pixels_to_png(bits, width, height, stride, chroma_key, has_alpha, !top_down)
 }
 
 unsafe fn hbitmap_via_copy_image(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<u8>> {
@@ -274,7 +280,8 @@ unsafe fn hbitmap_compatible_dc_png(hbmp: HBITMAP, chroma_key: bool) -> Option<V
     if lines == 0 {
         return None;
     }
-    rgba_pixels_to_png(&pixels, width, height, stride, chroma_key, true)
+    // `biHeight` is negative above, so `GetDIBits` returns a top-down buffer.
+    rgba_pixels_to_png(&pixels, width, height, stride, chroma_key, true, false)
 }
 
 pub(crate) unsafe fn menu_item_bitmap_png(hbmp: HBITMAP) -> Option<Vec<u8>> {
