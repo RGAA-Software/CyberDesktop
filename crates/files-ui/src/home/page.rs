@@ -143,19 +143,6 @@ impl HomePage {
         .detach();
     }
 
-    pub fn toggle_expanded(&mut self, section: &str, cx: &mut Context<Self>) {
-        match section {
-            "quick_access" => self.prefs.quick_access_expanded = !self.prefs.quick_access_expanded,
-            "drives" => self.prefs.drives_expanded = !self.prefs.drives_expanded,
-            "network" => self.prefs.network_expanded = !self.prefs.network_expanded,
-            "file_tags" => self.prefs.file_tags_expanded = !self.prefs.file_tags_expanded,
-            "recent" => self.prefs.recent_expanded = !self.prefs.recent_expanded,
-            _ => {}
-        }
-        let _ = save_home_widget_prefs(&self.prefs);
-        cx.notify();
-    }
-
     fn close_popup_menu(&mut self) {
         self.popup_menu = None;
     }
@@ -196,56 +183,6 @@ impl HomePage {
     ) {
         let menu = PopupMenu::build(window, cx, |menu, window, cx| {
             build_page_context_menu(menu, &home_widget_prefs(), window, cx)
-        });
-        self.open_popup_menu(position, menu, window, cx);
-    }
-
-    fn move_widget_in_order(&mut self, section: &str, up: bool, cx: &mut Context<Self>) {
-        self.prefs.move_widget(section, up);
-        let _ = save_home_widget_prefs(&self.prefs);
-        cx.notify();
-    }
-
-    pub(super) fn open_section_menu(
-        &mut self,
-        section_key: &'static str,
-        position: Point<Pixels>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let order = self.prefs.widget_order_normalized();
-        let pos = order.iter().position(|id| id == section_key).unwrap_or(0);
-        let can_move_up = pos > 0;
-        let can_move_down = pos + 1 < order.len();
-
-        let page = cx.entity();
-        let menu = PopupMenu::build(window, cx, move |menu, _window, _cx| {
-            menu.item(
-                PopupMenuItem::new(t!("home.widget.move_up"))
-                    .disabled(!can_move_up)
-                    .on_click({
-                        let page = page.clone();
-                        move |_, _, cx| {
-                            let _ = page.update(cx, |page, cx| {
-                                page.move_widget_in_order(section_key, true, cx);
-                            });
-                            cx.stop_propagation();
-                        }
-                    }),
-            )
-            .item(
-                PopupMenuItem::new(t!("home.widget.move_down"))
-                    .disabled(!can_move_down)
-                    .on_click({
-                        let page = page.clone();
-                        move |_, _, cx| {
-                            let _ = page.update(cx, |page, cx| {
-                                page.move_widget_in_order(section_key, false, cx);
-                            });
-                            cx.stop_propagation();
-                        }
-                    }),
-            )
         });
         self.open_popup_menu(position, menu, window, cx);
     }
