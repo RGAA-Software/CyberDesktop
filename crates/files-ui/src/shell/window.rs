@@ -1,4 +1,4 @@
-use files_core::window_size;
+use files_core::{log_startup_step, window_size};
 #[cfg(feature = "full-app")]
 use files_core::APP_NAME;
 use gpui::{
@@ -44,6 +44,7 @@ fn open_main_window_with_close_handler<F, E, C>(
     let title = title.into();
 
     cx.spawn(async move |cx| {
+        log_startup_step("open_window_async_begin");
         let mut on_should_close = Some(on_should_close);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(window_bounds)),
@@ -62,12 +63,15 @@ fn open_main_window_with_close_handler<F, E, C>(
 
         let window = cx
             .open_window(options, |window, cx| {
+                log_startup_step("open_window_callback_begin");
                 if let Some(on_should_close) = on_should_close.take() {
                     window.on_window_should_close(cx, on_should_close);
                 }
                 let view = crate_view_fn(window, cx);
+                log_startup_step("open_window_view_created");
 
                 let shell = cx.new(|cx| AppShell::new(view, window, cx));
+                log_startup_step("open_window_app_shell_created");
 
                 window.defer(cx, move |window, cx| {
                     if window.focused(cx).is_none() {
@@ -80,16 +84,19 @@ fn open_main_window_with_close_handler<F, E, C>(
                 cx.new(|cx| Root::new(shell, window, cx))
             })
             .expect("failed to open window");
+        log_startup_step("open_window_done");
 
             let main_handle = window.into();
             let _ = cx.update(|cx| {
                 crate::app_state::MainWindowState::set(main_handle, cx);
             });
+        log_startup_step("main_window_state_set");
 
         window.update(cx, |_, window, _| {
             window.activate_window();
             window.set_window_title(&title);
         })?;
+        log_startup_step("open_window_activated");
 
         Ok::<_, anyhow::Error>(())
     })

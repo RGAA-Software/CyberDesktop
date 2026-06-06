@@ -736,8 +736,12 @@ pub fn warm_up_query_context_menu() {
     std::thread::Builder::new()
         .name("cyber_desktop-shell-warmup".into())
         .spawn(|| {
+            use std::time::Instant;
+            let thread_start = Instant::now();
+            tracing::info!(target: "startup", step = "shell_warmup_thread_begin");
             let path = std::env::temp_dir().join("cyber_desktop_shell_warmup.txt");
             shell_log!("warm_up start: {}", path.display());
+            let query_start = Instant::now();
             let result: anyhow::Result<Vec<ShellContextMenuEntry>> = (|| {
                 std::fs::write(&path, b"")?;
                 let icon_px = menu_icon_pixel_size(system_scale_factor());
@@ -746,6 +750,11 @@ pub fn warm_up_query_context_menu() {
                 let _ = std::fs::remove_file(&path);
                 Ok(entries)
             })();
+            tracing::info!(
+                target: "startup",
+                step = "shell_warmup_query_context_menu",
+                block_ms = query_start.elapsed().as_secs_f64() * 1000.0
+            );
             match result {
                 Ok(entries) => {
                     shell_log!("warm_up ok: entries={}", entries.len());
@@ -756,6 +765,11 @@ pub fn warm_up_query_context_menu() {
                 }
             }
             shell_menu_session::clear_session();
+            tracing::info!(
+                target: "startup",
+                step = "shell_warmup_thread_done",
+                block_ms = thread_start.elapsed().as_secs_f64() * 1000.0
+            );
         })
         .ok();
 }

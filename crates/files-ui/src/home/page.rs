@@ -33,13 +33,24 @@ pub struct HomeSnapshot {
 
 impl HomeSnapshot {
     fn load() -> Self {
-        let tags = load_home_file_tags();
+        files_core::log_startup_step("home_snapshot_load_begin");
+        let tags = files_core::time_startup_step("home_snapshot_file_tags", load_home_file_tags);
+        let quick_access = files_core::time_startup_step(
+            "home_snapshot_quick_access",
+            list_quick_access_entries,
+        );
+        let drives = files_core::time_startup_step("home_snapshot_drives", list_drives);
+        let network = files_core::time_startup_step("home_snapshot_network", load_network_entries);
+        let tag_previews =
+            files_core::time_startup_step("home_snapshot_tag_previews", || file_tag_previews(&tags));
+        let recent = files_core::time_startup_step("home_snapshot_recent", list_recent_files);
+        files_core::log_startup_step("home_snapshot_load_done");
         Self {
-            quick_access: list_quick_access_entries(),
-            drives: list_drives(),
-            network: load_network_entries(),
-            tag_previews: file_tag_previews(&tags),
-            recent: list_recent_files(),
+            quick_access,
+            drives,
+            network,
+            tag_previews,
+            recent,
         }
     }
 }
@@ -128,9 +139,11 @@ impl HomePage {
         self.load_generation = self.load_generation.wrapping_add(1);
         let generation = self.load_generation;
         cx.spawn(async move |page, cx| {
+            files_core::log_startup_step("home_snapshot_spawn_begin");
             let snapshot = cx
                 .background_spawn(async move { HomeSnapshot::load() })
                 .await;
+            files_core::log_startup_step("home_snapshot_spawn_done");
             let _ = page.update(cx, |page, cx| {
                 if page.load_generation != generation {
                     return;

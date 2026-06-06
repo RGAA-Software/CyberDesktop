@@ -8,6 +8,12 @@ use crate::config::config_dir;
 const CYBER_FILES_DB_FILE: &str = "cyber_files.db";
 
 pub fn load_session_tabs() -> Vec<String> {
+    let Some(path) = session_db_path() else {
+        return Vec::new();
+    };
+    if !path.exists() {
+        return Vec::new();
+    }
     load_session_tabs_impl().unwrap_or_default()
 }
 

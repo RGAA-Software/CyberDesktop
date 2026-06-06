@@ -232,7 +232,7 @@ impl FileBrowser {
             .enumerate()
             .filter_map(|(index, item)| {
                 let row_rect = Bounds::new(
-                    point(bounds.left(), bounds.top() + row_h * index - scroll_y),
+                    point(bounds.left(), bounds.top() + row_h * index + scroll_y),
                     size(bounds.size.width, row_h),
                 );
                 rects_intersect(selection_rect, row_rect).then_some(item.path.clone())
@@ -299,18 +299,12 @@ impl FileBrowser {
     fn main_list_sweep_hit_indices(
         &self,
         selection_rect: Bounds<Pixels>,
-        bounds: Bounds<Pixels>,
+        host_bounds: Bounds<Pixels>,
     ) -> Vec<usize> {
-        let header_h = px(32.);
+        let list_bounds = self.main_list_content_bounds.unwrap_or(host_bounds);
         let scroll_y = self.scroll_handle.offset().y;
-        let mut y = bounds.top() + header_h - scroll_y;
-
-        let row_width = match self.view_mode {
-            ViewMode::Details | ViewMode::List => {
-                (bounds.size.width - SWEEP_GUTTER_WIDTH).max(px(0.))
-            }
-            _ => bounds.size.width,
-        };
+        let mut y = list_bounds.top() + scroll_y;
+        let row_width = list_bounds.size.width.max(px(0.));
 
         self.display_rows
             .iter()
@@ -318,7 +312,7 @@ impl FileBrowser {
             .enumerate()
             .filter_map(|(row_index, (_row, row_size))| {
                 let row_rect = Bounds::new(
-                    point(bounds.left(), y),
+                    point(list_bounds.left(), y),
                     size(row_width, row_size.height),
                 );
                 y += row_size.height;
@@ -370,7 +364,7 @@ impl FileBrowser {
                 let item_rect = Bounds::new(
                     point(
                         bounds.left() + padding + (cell_w + gap) * col,
-                        bounds.top() + padding + (cell_h + gap) * row - scroll_y,
+                        bounds.top() + padding + (cell_h + gap) * row + scroll_y,
                     ),
                     size(cell_w, cell_h),
                 );
@@ -400,7 +394,7 @@ impl FileBrowser {
                 let item_rect = Bounds::new(
                     point(
                         bounds.left() + padding + (cell_w + gap) * col,
-                        bounds.top() + padding + (cell_h + gap) * row - scroll_y,
+                        bounds.top() + padding + (cell_h + gap) * row + scroll_y,
                     ),
                     size(cell_w, cell_h),
                 );
@@ -458,7 +452,7 @@ impl FileBrowser {
                 .map(|handle| handle.offset().y)
                 .unwrap_or(px(0.));
             let row_h = COLUMN_ROW_SIZE.height;
-            let relative_y = position.y - bounds.top() + scroll_y;
+            let relative_y = position.y - bounds.top() - scroll_y;
             if relative_y < px(0.) {
                 continue;
             }

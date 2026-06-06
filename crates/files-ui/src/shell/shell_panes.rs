@@ -65,12 +65,16 @@ pub struct ShellPanes {
 
 impl ShellPanes {
     pub fn new(cx: &mut Context<Self>, target: NavigationTarget) -> Self {
+        files_core::log_startup_step("shell_panes_new_begin");
         let secondary_path = match &target {
             NavigationTarget::Path(path) => path.clone(),
             _ => home_navigation_path(),
         };
+        files_core::log_startup_step("shell_panes_primary_pane_begin");
         let primary = cx.new(|cx| PaneShell::new(cx, target));
+        files_core::log_startup_step("shell_panes_secondary_pane_begin");
         let secondary = cx.new(|cx| PaneShell::new(cx, NavigationTarget::Path(secondary_path)));
+        files_core::log_startup_step("shell_panes_panes_created");
         cx.observe(&primary, |this, _, cx| {
             this.primary_changed(cx);
         })
@@ -82,6 +86,7 @@ impl ShellPanes {
         let arrangement = load_config()
             .map(|c| PaneArrangement::from_config(&c.shell_pane_arrangement))
             .unwrap_or_default();
+        files_core::log_startup_step("shell_panes_new_done");
         Self {
             primary,
             secondary,

@@ -14,6 +14,7 @@ use crate::shell::navigation::NavigationTarget;
 use super::model::{SidebarEntry, SidebarSection, SidebarSectionKind};
 
 pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
+    files_core::log_startup_step("sidebar_build_sections_begin");
     let mut sections = Vec::new();
 
     sections.push(SidebarSection {
@@ -38,7 +39,9 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     });
 
     if config.show_sidebar_section_pinned {
-        let entries = load_pinned_entries(config);
+        let entries = files_core::time_startup_step("sidebar_section_pinned", || {
+            load_pinned_entries(config)
+        });
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Pinned,
@@ -49,7 +52,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     }
 
     if config.show_sidebar_section_library {
-        let entries = load_library_entries();
+        let entries = files_core::time_startup_step("sidebar_section_library", load_library_entries);
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Library,
@@ -60,7 +63,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     }
 
     if config.show_sidebar_section_drives {
-        let entries = load_drive_entries();
+        let entries = files_core::time_startup_step("sidebar_section_drives", load_drive_entries);
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Drives,
@@ -71,7 +74,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     }
 
     if config.show_sidebar_section_cloud {
-        let entries = load_cloud_entries();
+        let entries = files_core::time_startup_step("sidebar_section_cloud", load_cloud_entries);
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Cloud,
@@ -82,7 +85,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     }
 
     if config.show_sidebar_section_network {
-        let entries = load_network_entries();
+        let entries = files_core::time_startup_step("sidebar_section_network", load_network_entries);
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Network,
@@ -93,7 +96,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     }
 
     if config.show_sidebar_section_wsl {
-        let entries = load_wsl_entries();
+        let entries = files_core::time_startup_step("sidebar_section_wsl", load_wsl_entries);
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Wsl,
@@ -114,6 +117,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
         }
     }
 
+    files_core::log_startup_step("sidebar_build_sections_done");
     sections
 }
 

@@ -94,11 +94,16 @@ pub struct MainPage {
 
 impl MainPage {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        files_core::log_startup_step("main_page_new_begin");
         let config = load_config().unwrap_or_default();
         let show_info_pane = config.show_info_pane;
+        files_core::log_startup_step("main_page_load_session_tabs_begin");
         let session_tabs = load_session_tabs();
+        files_core::log_startup_step("main_page_load_session_tabs_done");
         let (tabs, active_tab, next_tab_id) = if !config.auto_restore_tabs || session_tabs.is_empty() {
+            files_core::log_startup_step("main_page_shell_panes_new_default_tab_begin");
             let shell = cx.new(|cx| ShellPanes::new(cx, NavigationTarget::Home));
+            files_core::log_startup_step("main_page_shell_panes_new_default_tab_done");
             (vec![TabEntry { id: 0, shell }], 0, 1)
         } else {
             let mut restored = Vec::with_capacity(session_tabs.len());
@@ -181,15 +186,21 @@ impl MainPage {
                 });
             }
         }
+        files_core::log_startup_step("main_page_new_done");
         this
     }
 
     pub fn view(_window: &mut Window, cx: &mut App) -> Entity<Self> {
+        files_core::log_startup_step("main_page_view_begin");
         app_menus::init(APP_NAME, cx);
+        files_core::log_startup_step("main_page_app_menus_init_done");
         crate::app_state::TransferStatusGlobal::init(cx);
         crate::app_state::AppOperationHistory::init(cx);
+        files_core::log_startup_step("main_page_entity_new_begin");
         let page = cx.new(|cx| Self::new(cx));
+        files_core::log_startup_step("main_page_entity_new_done");
         crate::app_state::AppNavigation::set(page.clone(), cx);
+        files_core::log_startup_step("main_page_view_done");
         page
     }
 

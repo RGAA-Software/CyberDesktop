@@ -4,6 +4,7 @@ pub mod logging;
 pub mod path_history;
 pub mod search_history;
 pub mod session_store;
+pub mod startup_trace;
 
 pub const APP_NAME: &str = "CyberFiles";
 
@@ -32,6 +33,7 @@ pub use config::{
     GROUP_TAG, GROUP_TYPE, file_group_date_unit_from_config, file_group_from_config,
 };
 pub use logging::init_tracing;
+pub use startup_trace::{log_startup_step, mark_process_start, time_startup_step};
 pub use path_history::{path_history_list, record_path_history};
 pub use search_history::{record_search_history, search_history_list};
 pub use session_store::{load_session_tabs, save_session_tabs};

@@ -230,7 +230,7 @@ fn default_true() -> bool {
 }
 
 fn default_show_info_pane() -> bool {
-    true
+    false
 }
 
 fn default_file_view_mode() -> String {
@@ -254,7 +254,7 @@ impl Default for AppConfig {
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
             pinned_folders: Vec::new(),
-            show_info_pane: true,
+            show_info_pane: false,
             file_view_mode: default_file_view_mode(),
             file_sort_option: None,
             file_sort_direction: None,
@@ -642,7 +642,9 @@ pub fn flush_config() {
 fn config_cache() -> &'static RwLock<AppConfig> {
     CONFIG_CACHE.get_or_init(|| {
         CONFIG_CACHE_INITIALIZED.store(true, Ordering::Release);
-        RwLock::new(read_config_from_disk().unwrap_or_default())
+        crate::startup_trace::time_startup_step("config_cache_init", || {
+            RwLock::new(read_config_from_disk().unwrap_or_default())
+        })
     })
 }
 

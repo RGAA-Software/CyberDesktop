@@ -66,8 +66,13 @@ impl MainPage {
             return;
         }
         if self.sidebar_sections.is_empty() {
-            self.sidebar_sections = crate::sidebar::build_sidebar_sections_cached(&config);
+            files_core::log_startup_step("sidebar_cache_build_sync_begin");
+            self.sidebar_sections = files_core::time_startup_step(
+                "sidebar_cache_build_sync",
+                || crate::sidebar::build_sidebar_sections_cached(&config),
+            );
             self.sidebar_cache_key = key;
+            files_core::log_startup_step("sidebar_cache_build_sync_done");
             return;
         }
         self.sidebar_cache_loading = true;

@@ -10,25 +10,44 @@ use crate::shell::navigation::NavigationTarget;
 pub struct PaneShell {
     target: NavigationTarget,
     file_browser: Entity<FileBrowser>,
-    home: Entity<HomePage>,
+    /// Created lazily — only Home/Settings panes need dashboard data.
+    home: Option<Entity<HomePage>>,
 }
 
 impl PaneShell {
     pub fn new(cx: &mut Context<Self>, target: NavigationTarget) -> Self {
+        files_core::log_startup_step("pane_shell_new_begin");
         let initial_path = match &target {
             NavigationTarget::Path(path) => path.clone(),
             _ => files_fs::home_navigation_path(),
         };
+        files_core::log_startup_step("pane_shell_file_browser_begin");
+        let home = if matches!(target, NavigationTarget::Home | NavigationTarget::Settings) {
+            Some(cx.new(HomePage::new))
+        } else {
+            None
+        };
         let mut this = Self {
             target,
             file_browser: cx.new(|cx| FileBrowser::for_shell(cx, initial_path)),
-            home: cx.new(HomePage::new),
+            home,
         };
+        files_core::log_startup_step("pane_shell_bootstrap_target_begin");
         this.bootstrap_target(cx);
+        files_core::log_startup_step("pane_shell_new_done");
         this
     }
 
-    /// Align `FileBrowser` / `HomePage` state with `target` after construction (session restore).
+    fn ensure_home(&mut self, cx: &mut Context<Self>) -> Entity<HomePage> {
+        if let Some(home) = self.home.clone() {
+            return home;
+        }
+        let home = cx.new(HomePage::new);
+        self.home = Some(home.clone());
+        home
+    }
+
+    /// Align `FileBrowser` state with `target` after construction (session restore).
     fn bootstrap_target(&mut self, cx: &mut Context<Self>) {
         match &self.target {
             NavigationTarget::RecycleBin => {
@@ -48,7 +67,7 @@ impl PaneShell {
                 });
             }
             NavigationTarget::Home | NavigationTarget::Settings => {
-                self.home.update(cx, |home, cx| home.reload(cx));
+                // HomePage::new already scheduled the initial snapshot load.
             }
             NavigationTarget::Path(_) => {}
         }
@@ -90,6 +109,7 @@ impl PaneShell {
             NavigationTarget::Settings => NavigationTarget::Home,
             other => other,
         };
+        let reload_home = matches!(self.target, NavigationTarget::Home);
         self.file_browser.update(cx, |browser, cx| {
             match &self.target {
                 NavigationTarget::Path(path) => {
@@ -104,26 +124,30 @@ impl PaneShell {
                         .unwrap_or_else(|| SearchScope::Home(home_navigation_path()));
                     browser.open_global_search(query.clone(), scope, cx);
                 }
-                NavigationTarget::Home => {
-                    self.home.update(cx, |home, cx| home.reload(cx));
-                }
-                _ => {}
+                NavigationTarget::Home | _ => {}
             }
             cx.notify();
         });
+        if reload_home {
+            self.ensure_home(cx).update(cx, |home, cx| home.reload(cx));
+        }
         cx.notify();
     }
 
     pub fn reload_home(&mut self, cx: &mut Context<Self>) {
         if matches!(self.target, NavigationTarget::Home) {
-            self.home.update(cx, |home, cx| home.reload(cx));
+            if let Some(home) = self.home.clone() {
+                home.update(cx, |home, cx| home.reload(cx));
+            }
         }
     }
 
     pub fn reload_active(&mut self, cx: &mut Context<Self>) {
         match &self.target {
             NavigationTarget::Home => {
-                self.home.update(cx, |home, cx| home.reload(cx));
+                if let Some(home) = self.home.clone() {
+                    home.update(cx, |home, cx| home.reload(cx));
+                }
             }
             NavigationTarget::Path(_)
             | NavigationTarget::RecycleBin
@@ -141,10 +165,10 @@ impl PaneShell {
 }
 
 impl Render for PaneShell {
-    fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         match &self.target {
             NavigationTarget::Home | NavigationTarget::Settings => {
-                self.home.clone().into_any_element()
+                self.ensure_home(cx).into_any_element()
             }
             NavigationTarget::Path(_) => div()
                 .id("pane-file-browser")

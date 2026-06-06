@@ -427,6 +427,8 @@ pub struct FileBrowser {
     native_drag_triggered: bool,
     sweep_selection: Option<SweepSelectionState>,
     main_sweep_bounds: Option<Bounds<Pixels>>,
+    /// Scrollable list viewport (virtual list content area) for sweep hit-testing.
+    main_list_content_bounds: Option<Bounds<Pixels>>,
     column_sweep_bounds: BTreeMap<usize, Bounds<Pixels>>,
     _search_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
     _search_status_job: Option<crate::app_state::TransferJobId>,
@@ -470,7 +472,9 @@ impl FileBrowser {
         }
 
         let view_mode = ViewMode::from_config(&file_view_mode_from_config());
-        let (items, error) = load_files_dir(&current_dir, read_options, sort_preferences);
+        let (items, error) = files_core::time_startup_step("file_browser_load_files_dir", || {
+            load_files_dir(&current_dir, read_options, sort_preferences)
+        });
         let display_items = filter_items_by_query(&items, "");
         let display_rows = build_display_rows(
             &display_items,
@@ -559,6 +563,7 @@ impl FileBrowser {
             native_drag_triggered: false,
             sweep_selection: None,
             main_sweep_bounds: None,
+            main_list_content_bounds: None,
             column_sweep_bounds: BTreeMap::new(),
             _search_cancel: None,
             _search_status_job: None,

@@ -298,8 +298,12 @@ impl FileBrowser {
                     this.open_context_menu(event.position, window, cx);
                 }),
             )
-            .on_mouse_move(cx.listener(move |this, _, _, cx| {
-                this.update_sweep_selection(SweepSelectionSurface::Main, index, cx);
+            .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
+                this.update_sweep_pointer(
+                    SweepSelectionSurface::Main,
+                    window.mouse_position(),
+                    cx,
+                );
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
@@ -438,8 +442,12 @@ impl FileBrowser {
                     this.open_context_menu(event.position, window, cx);
                 }),
             )
-            .on_mouse_move(cx.listener(move |this, _, _, cx| {
-                this.update_sweep_selection(SweepSelectionSurface::Main, index, cx);
+            .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
+                this.update_sweep_pointer(
+                    SweepSelectionSurface::Main,
+                    window.mouse_position(),
+                    cx,
+                );
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),

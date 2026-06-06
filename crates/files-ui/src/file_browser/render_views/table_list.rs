@@ -20,6 +20,14 @@ impl FileBrowser {
             .flex_1()
             .min_h_0()
             .w_full()
+            .on_prepaint({
+                let entity = cx.entity().clone();
+                move |bounds, _window, cx| {
+                    let _ = entity.update(cx, |this, _cx| {
+                        this.main_list_content_bounds = Some(bounds);
+                    });
+                }
+            })
             .child(
                 v_flex()
                     .flex_1()
@@ -321,8 +329,12 @@ impl FileBrowser {
                     this.open_context_menu(event.position, window, cx);
                 }),
             )
-            .on_mouse_move(cx.listener(move |this, _, _, cx| {
-                this.update_sweep_selection(SweepSelectionSurface::Main, index, cx);
+            .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
+                this.update_sweep_pointer(
+                    SweepSelectionSurface::Main,
+                    window.mouse_position(),
+                    cx,
+                );
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
@@ -467,8 +479,12 @@ impl FileBrowser {
                     this.open_context_menu(event.position, window, cx);
                 }),
             )
-            .on_mouse_move(cx.listener(move |this, _, _, cx| {
-                this.update_sweep_selection(SweepSelectionSurface::Main, index, cx);
+            .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
+                this.update_sweep_pointer(
+                    SweepSelectionSurface::Main,
+                    window.mouse_position(),
+                    cx,
+                );
             }))
             .on_drag(
                 DraggedFilePaths(drag_paths),
