@@ -24,6 +24,7 @@ impl MainPage {
         self.tabs.push(super::TabEntry { id, shell });
         self.active_tab = self.tabs.len() - 1;
         self.pending_tab_scroll_to_ix = Some(self.active_tab);
+        self.refresh_active_view(cx);
         self.persist_session(cx);
         cx.notify();
     }

@@ -18,6 +18,9 @@ use gpui_component::{
     h_flex, ActiveTheme, ElementExt, Icon, IconName, Selectable, Sizable, Size, StyledExt,
 };
 
+/// Width reserved for the trailing "+" slot (28px button + 4px leading padding).
+const TAB_BAR_TRAILING_PLUS_WIDTH: Pixels = px(32.);
+
 struct TabIndicatorBounds {
     container: Bounds<Pixels>,
     tabs: Vec<Bounds<Pixels>>,
@@ -426,9 +429,9 @@ impl RenderOnce for TabBar {
         );
         let num_tabs = self.children.len();
 
-        // Bounds tracking for tab indicator animation.
+        // Bounds tracking for tab indicator animation and trailing "+" placement.
         // Uses Rc<RefCell> to avoid triggering re-renders from prepaint writes.
-        let bounds_rc = if has_indicator && num_tabs > 0 {
+        let bounds_rc = if num_tabs > 0 {
             let rc: Rc<RefCell<TabIndicatorBounds>> = window
                 .use_keyed_state(format!("{}-tab-bounds", self.id), cx, |_, _| {
                     Rc::new(RefCell::new(TabIndicatorBounds::new(num_tabs)))
@@ -443,7 +446,6 @@ impl RenderOnce for TabBar {
 
         let indicator_element = self.render_indicator(&bounds_rc, window, cx);
 
-        let has_suffix_or_menu = self.suffix.is_some() || self.menu;
         let mut item_metas: Vec<(Option<SharedString>, Option<Icon>, bool)> = Vec::new();
         let selected_index = self.selected_index;
         let on_click = self.on_click.clone();
@@ -452,6 +454,35 @@ impl RenderOnce for TabBar {
             && (self.variant == TabVariant::Underline || self.variant == TabVariant::Tab);
         let show_inactive_separators =
             self.inactive_separators && self.variant == TabVariant::Tab;
+        // When tabs overflow, pin "+" outside the scroll strip; otherwise it follows the last tab.
+        let tabs_overflow = self.scroll_handle.as_ref().is_some_and(|handle| {
+            handle.max_offset().x > px(0.)
+        }) || bounds_rc.as_ref().is_some_and(|rc| {
+            let bounds = rc.borrow();
+            let container = bounds.container;
+            if container.size.width <= px(0.) {
+                return false;
+            }
+            let Some(last_tab) = bounds.tabs.last() else {
+                return false;
+            };
+            if last_tab.size.width <= px(0.) {
+                return false;
+            }
+            let last_right =
+                last_tab.origin.x - container.origin.x + last_tab.size.width;
+            last_right > container.size.width
+        });
+        let last_empty_space = self.last_empty_space;
+        let plus_trailing = div()
+            .flex_none()
+            .flex_shrink_0()
+            .w(TAB_BAR_TRAILING_PLUS_WIDTH)
+            .flex()
+            .items_center()
+            .bg(bg)
+            .occlude()
+            .child(last_empty_space);
 
         self.base
             .group("tab-bar")
@@ -466,86 +497,106 @@ impl RenderOnce for TabBar {
             .paddings(paddings)
             .refine_style(&self.style)
             .when_some(self.prefix, |this, prefix| this.child(prefix))
-            .child(
-                h_flex()
-                    .id("tabs")
-                    .flex_1()
-                    .min_w_0()
-                    .overflow_x_hidden()
-                    .child(
-                        h_flex()
-                            .id("tabs-inner")
-                            .relative()
-                            .min_w_0()
-                            .gap(gap)
-                            .overflow_x_scroll()
-                            .when_some(self.scroll_handle, |this, scroll_handle| {
-                                this.track_scroll(&scroll_handle)
+            .child({
+                let tab_items = self.children.into_iter().enumerate().flat_map(|(ix, child)| {
+                    let mut elements: smallvec::SmallVec<[AnyElement; 2]> = SmallVec::new();
+                    if show_inactive_separators && ix > 0 {
+                        let visible =
+                            selected_index != Some(ix) && selected_index != Some(ix - 1);
+                        elements.push(
+                            tab_inactive_separator(cx, visible).into_any_element(),
+                        );
+                    }
+                    item_metas.push((
+                        child.label.clone(),
+                        child.icon.clone(),
+                        child.disabled,
+                    ));
+                    let tab_bar_prefix = child.tab_bar_prefix.unwrap_or(true);
+                    let mut tab = child
+                        .ix(ix)
+                        .tab_bar_prefix(tab_bar_prefix)
+                        .medium_titlebar(self.medium_titlebar)
+                        .with_variant(self.variant)
+                        .with_size(self.size);
+                    if let Some(height) = fixed_tab_height {
+                        tab = tab.fixed_height(height);
+                    }
+                    tab.indicator_active = has_indicator;
+                    let tab = tab
+                        .when_some(self.selected_index, |this, selected_ix| {
+                            this.selected(selected_ix == ix)
+                        })
+                        .when_some(self.on_click.clone(), move |this, on_click| {
+                            this.on_click(move |_, window, cx| {
+                                on_click(&ix, window, cx)
                             })
-                            .when_some(bounds_rc.clone(), |this, rc| {
-                                this.on_prepaint(move |bounds, _, _| {
-                                    rc.borrow_mut().container = bounds;
-                                })
-                            })
-                            .when_some(indicator_element, |this, ind| this.child(ind))
-                            .children(self.children.into_iter().enumerate().flat_map(
-                                |(ix, child)| {
-                                    let mut elements: smallvec::SmallVec<[AnyElement; 2]> =
-                                        SmallVec::new();
-                                    if show_inactive_separators && ix > 0 {
-                                        let visible = selected_index != Some(ix)
-                                            && selected_index != Some(ix - 1);
-                                        elements.push(
-                                            tab_inactive_separator(cx, visible).into_any_element(),
-                                        );
-                                    }
-                                    item_metas.push((
-                                        child.label.clone(),
-                                        child.icon.clone(),
-                                        child.disabled,
-                                    ));
-                                    let tab_bar_prefix = child.tab_bar_prefix.unwrap_or(true);
-                                    let mut tab = child
-                                        .ix(ix)
-                                        .tab_bar_prefix(tab_bar_prefix)
-                                        .medium_titlebar(self.medium_titlebar)
-                                        .with_variant(self.variant)
-                                        .with_size(self.size);
-                                    if let Some(height) = fixed_tab_height {
-                                        tab = tab.fixed_height(height);
-                                    }
-                                    tab.indicator_active = has_indicator;
-                                    let tab = tab
-                                        .when_some(self.selected_index, |this, selected_ix| {
-                                            this.selected(selected_ix == ix)
-                                        })
-                                        .when_some(self.on_click.clone(), move |this, on_click| {
-                                            this.on_click(move |_, window, cx| {
-                                                on_click(&ix, window, cx)
-                                            })
-                                        });
+                        });
 
-                                    elements.push(if let Some(ref rc) = bounds_rc {
-                                        let rc = rc.clone();
-                                        div()
-                                            .on_prepaint(move |bounds, _, _| {
-                                                if let Some(slot) =
-                                                    rc.borrow_mut().tabs.get_mut(ix)
-                                                {
-                                                    *slot = bounds;
-                                                }
-                                            })
-                                            .child(tab)
-                                            .into_any_element()
-                                    } else {
-                                        tab.into_any_element()
-                                    });
-                                    elements
-                                },
-                            ))
-                            .when(has_suffix_or_menu, |this| this.child(self.last_empty_space)),
-                    ),
-            )
+                    elements.push(if let Some(ref rc) = bounds_rc {
+                        let rc = rc.clone();
+                        div()
+                            .on_prepaint(move |bounds, _, _| {
+                                if let Some(slot) = rc.borrow_mut().tabs.get_mut(ix) {
+                                    *slot = bounds;
+                                }
+                            })
+                            .child(tab)
+                            .into_any_element()
+                    } else {
+                        tab.into_any_element()
+                    });
+                    elements
+                });
+
+                let tabs_inner = h_flex()
+                    .id("tabs-inner")
+                    .relative()
+                    .min_w_0()
+                    .gap(gap)
+                    .overflow_x_scroll()
+                    .when_some(self.scroll_handle, |this, scroll_handle| {
+                        this.track_scroll(&scroll_handle)
+                    })
+                    .when_some(bounds_rc.clone(), |this, rc| {
+                        this.on_prepaint(move |bounds, _, _| {
+                            rc.borrow_mut().container = bounds;
+                        })
+                    })
+                    .when_some(indicator_element, |this, ind| this.child(ind))
+                    .children(tab_items);
+
+                if tabs_overflow {
+                    h_flex()
+                        .id("tabs")
+                        .flex_1()
+                        .min_w_0()
+                        .items_center()
+                        .overflow_hidden()
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .child(tabs_inner),
+                        )
+                        .child(plus_trailing)
+                } else {
+                    h_flex()
+                        .id("tabs")
+                        .flex_1()
+                        .min_w_0()
+                        .items_center()
+                        .overflow_hidden()
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .child(tabs_inner.child(plus_trailing)),
+                        )
+                }
+            })
             .when(self.menu, |this| {
                 this.child(
                     Button::new("more")

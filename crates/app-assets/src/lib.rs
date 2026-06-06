@@ -56,6 +56,7 @@ fn use_lucide_icon(path: &str) -> bool {
 #[folder = "assets"]
 #[include = "fonts/**"]
 #[include = "icons/**"]
+#[include = "app/**"]
 pub struct Assets;
 
 impl AssetSource for Assets {
@@ -152,6 +153,15 @@ mod tests {
             let data = assets.load(path).expect("load");
             assert!(data.is_some(), "missing {path}");
         }
+    }
+
+    #[test]
+    fn app_logo_loads() {
+        let assets = Assets;
+        let data = assets
+            .load("app/ic_file_manager_logo.svg")
+            .expect("load");
+        assert!(data.is_some(), "missing app/ic_file_manager_logo.svg");
     }
 
     #[test]

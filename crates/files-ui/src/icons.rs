@@ -3,8 +3,12 @@
 use gpui::{div, prelude::*, px, AnyElement, App, Hsla, Pixels};
 use gpui_component::{ActiveTheme as _, Icon, IconName, Sizable as _, Size};
 
+use crate::color_icon::color_icon_box;
 use crate::list_icon_cache;
 use crate::tabler_icons;
+
+/// Full-color title bar logo (`app-assets/assets/app/ic_file_manager_logo.svg`).
+pub const APP_LOGO_PATH: &str = "app/ic_file_manager_logo.svg";
 
 const APP_ICON_IMAGE_PX: Pixels = px(18.);
 /// Sidebar row icons (design V11 ~15–16px).
@@ -30,14 +34,8 @@ fn chrome_icon_box(path: &'static str, color: Hsla, size: Pixels) -> AnyElement 
 }
 
 /// CyberFiles app icon for the title bar (left of the menu bar).
-pub fn app_logo_element(cx: &App) -> AnyElement {
-    div()
-        .flex_none()
-        .text_color(cx.theme().primary)
-        .child(
-            tabler_icons::icon(tabler_icons::FILES).with_size(Size::Size(tabler_icons::logo_px())),
-        )
-        .into_any_element()
+pub fn app_logo_element(_cx: &App) -> AnyElement {
+    color_icon_box(APP_LOGO_PATH, tabler_icons::logo_px())
 }
 
 /// Toolbar, title bar, breadcrumbs, sidebar, settings, tab bar — all 18px.

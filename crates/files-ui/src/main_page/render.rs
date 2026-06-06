@@ -1,5 +1,4 @@
 use files_core::{APP_NAME, GITHUB_REPO_URL};
-use files_fs::home_navigation_path;
 use gpui::{prelude::*, *};
 use gpui_component::{
     badge::Badge,
@@ -67,17 +66,22 @@ impl MainPage {
             .selected_index(active)
             .last_empty_space(
                 h_flex()
+                    .flex_none()
                     .items_center()
                     .pl(px(4.))
+                    .occlude()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(
                         toolbar_icon_button("main-new-tab")
                             .h(px(28.))
                             .w(px(28.))
                             .rounded_full()
+                            .text_color(cx.theme().muted_foreground)
                             .icon(compact_icon(IconName::Plus))
                             .tooltip(t!("nav.new_tab"))
                             .on_click(cx.listener(|this, _, _, cx| {
-                                this.add_tab(NavigationTarget::Path(home_navigation_path()), cx);
+                                cx.stop_propagation();
+                                this.add_tab(NavigationTarget::Home, cx);
                             })),
                     ),
             )
@@ -90,7 +94,6 @@ impl MainPage {
                     .active_pane()
                     .read(cx)
                     .target();
-                let is_home = matches!(pane_target, NavigationTarget::Home);
                 let icon_color = if is_selected {
                     cx.theme().primary
                 } else {
@@ -130,15 +133,14 @@ impl MainPage {
                                     .text_xs(),
                             ),
                     );
-                let mut tab_item = Tab::new()
+                Tab::new()
                     .w(TITLE_TAB_WIDTH)
                     .min_w(TITLE_TAB_MIN_WIDTH)
                     .max_w(TITLE_TAB_WIDTH)
                     .flex_shrink_0()
                     .pr(px(10.))
-                    .child(tab_label);
-                if !is_home {
-                    tab_item = tab_item.suffix(
+                    .child(tab_label)
+                    .suffix(
                         div()
                             .flex_none()
                             .pl(px(4.))
@@ -157,9 +159,7 @@ impl MainPage {
                                         this.close_tab(index, cx);
                                     })),
                             ),
-                    );
-                }
-                tab_item
+                    )
             }))
             .on_click(cx.listener(|this, ix: &usize, _, cx| {
                 if this.active_tab != *ix {
@@ -205,7 +205,6 @@ impl MainPage {
                         .flex_none()
                         .items_center()
                         .gap(px(8.))
-                        .pl(px(16.))
                         .pr(px(12.))
                         .child(app_logo_element(cx))
                         .child(

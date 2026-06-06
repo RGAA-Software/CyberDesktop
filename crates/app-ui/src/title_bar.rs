@@ -16,7 +16,7 @@ pub const TITLE_BAR_HEIGHT: Pixels = px(46.);
 #[cfg(target_os = "macos")]
 const TITLE_BAR_LEFT_PADDING: Pixels = px(80.);
 #[cfg(not(target_os = "macos"))]
-const TITLE_BAR_LEFT_PADDING: Pixels = px(12.);
+const TITLE_BAR_LEFT_PADDING: Pixels = px(13.);
 
 /// 1px bottom rule shared by [`TitleBar`] and [`crate::tab::TabBar::bottom_border`].
 pub fn title_bar_bottom_rule<T: Styled>(this: T, cx: &App) -> T {
