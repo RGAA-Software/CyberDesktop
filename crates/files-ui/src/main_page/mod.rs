@@ -41,6 +41,8 @@ const TITLE_TAB_BAR_HEIGHT: Pixels = px(34.);
 /// Tab width bounds in the title bar (label truncates inside).
 const TITLE_TAB_MIN_WIDTH: Pixels = px(140.);
 const TITLE_TAB_WIDTH: Pixels = px(220.);
+const TITLE_TAB_CLOSE_HIT: Pixels = px(18.);
+const TITLE_TAB_CLOSE_ICON: Pixels = px(12.);
 /// Omnibar / breadcrumb bar height in the navigation row.
 const OMNIBAR_BAR_HEIGHT: Pixels = px(34.);
 

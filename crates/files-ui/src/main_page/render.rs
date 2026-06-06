@@ -5,7 +5,9 @@ use gpui_component::{
     button::{Button, ButtonVariants as _},
     h_flex,
     label::Label,
+    tooltip::Tooltip,
     ActiveTheme as _,
+    Colorize as _,
     Disableable as _,
     Icon, IconName,
     Sizable as _,
@@ -16,8 +18,8 @@ use gpui_component::{
 use rust_i18n::t;
 
 use super::{
-    MainPage, NAV_TOOLBAR_HEIGHT, OMNIBAR_BAR_HEIGHT, TITLE_TAB_BAR_HEIGHT, TITLE_TAB_MIN_WIDTH,
-    TITLE_TAB_WIDTH,
+    MainPage, NAV_TOOLBAR_HEIGHT, OMNIBAR_BAR_HEIGHT, TITLE_TAB_BAR_HEIGHT, TITLE_TAB_CLOSE_HIT,
+    TITLE_TAB_CLOSE_ICON, TITLE_TAB_MIN_WIDTH, TITLE_TAB_WIDTH,
 };
 use crate::icons::{app_logo_element, compact_icon, pin_icon, toolbar_icon, toolbar_tabler};
 use crate::tabler_icons;
@@ -58,6 +60,17 @@ fn path_tool_button(id: impl Into<ElementId>, cx: &App) -> Button {
 impl MainPage {
     pub(super) fn render_tab_bar(&self, cx: &mut Context<Self>) -> TabBar {
         let active = self.active_tab;
+        let tab_close_hover_bg = if cx.theme().mode.is_dark() {
+            cx.theme().secondary.lighten(0.1).opacity(0.8)
+        } else {
+            cx.theme().secondary.darken(0.1).opacity(0.8)
+        };
+        let tab_close_active_bg = if cx.theme().mode.is_dark() {
+            cx.theme().secondary.lighten(0.2).opacity(0.8)
+        } else {
+            cx.theme().secondary.darken(0.2).opacity(0.8)
+        };
+        let tab_close_tooltip: SharedString = t!("nav.close_tab").into();
         TabBar::new("main-tab-bar")
             .track_scroll(&self.tab_bar_scroll_handle)
             .medium_titlebar()
@@ -146,18 +159,36 @@ impl MainPage {
                             .pl(px(4.))
                             .pr(px(2.))
                             .child(
-                                Button::new(format!("main-tab-close-{}", tab.id))
-                                    .ghost()
-                                    .h(px(18.))
-                                    .w(px(18.))
+                                div()
+                                    .id(format!("main-tab-close-{}", tab.id))
+                                    .flex_none()
+                                    .size(TITLE_TAB_CLOSE_HIT)
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
                                     .rounded_full()
+                                    .overflow_hidden()
+                                    .cursor_pointer()
                                     .text_color(close_color)
-                                    .icon(compact_icon(IconName::Close).small())
-                                    .tooltip(t!("nav.close_tab"))
+                                    .hover(|this| this.bg(tab_close_hover_bg))
+                                    .active(|this| this.bg(tab_close_active_bg))
+                                    .tooltip({
+                                        let tooltip = tab_close_tooltip.clone();
+                                        move |window, cx| {
+                                            Tooltip::new(tooltip.clone()).build(window, cx)
+                                        }
+                                    })
+                                    .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation();
+                                    })
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         cx.stop_propagation();
                                         this.close_tab(index, cx);
-                                    })),
+                                    }))
+                                    .child(
+                                        compact_icon(IconName::Close)
+                                            .with_size(TITLE_TAB_CLOSE_ICON),
+                                    ),
                             ),
                     )
             }))
