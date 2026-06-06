@@ -5,7 +5,7 @@
 use super::actions::{Cancel, Confirm, SelectDown, SelectLeft, SelectRight, SelectUp};
 use super::menu_item::MenuItemElement;
 use gpui::{
-    anchored, deferred, div, img, prelude::FluentBuilder, px, rems, Action, Anchor, AnyElement, App,
+    anchored, deferred, div, img, prelude::FluentBuilder, px, Action, Anchor, AnyElement, App,
     AppContext, Bounds, Context, DismissEvent, Edges, Entity, EventEmitter, FocusHandle, Focusable,
     Image, ImageFormat, InteractiveElement, IntoElement, KeyBinding, ObjectFit, ParentElement,
     Pixels, Render, ScrollHandle, SharedString, StatefulInteractiveElement, Styled, StyledImage,
@@ -26,6 +26,8 @@ const CONTEXT: &str = "CyberDesktopPopupMenu";
 
 /// Default row height for menu and submenu rows.
 pub const DEFAULT_ITEM_ROW_HEIGHT: Pixels = px(34.);
+/// Default minimum width for popup and context menus.
+pub const DEFAULT_POPUP_MENU_MIN_WIDTH: Pixels = px(225.);
 const MENU_CONTAINER_RADIUS: Pixels = px(14.);
 const MENU_ITEM_RADIUS: Pixels = px(9.);
 const MENU_EDGE_PADDING: Pixels = px(6.);
@@ -531,7 +533,7 @@ impl PopupMenu {
         self
     }
 
-    /// Set min width of the popup menu, default is 120px
+    /// Set min width of the popup menu, default is [`DEFAULT_POPUP_MENU_MIN_WIDTH`].
     pub fn min_w(mut self, width: impl Into<Pixels>) -> Self {
         self.min_width = Some(width.into());
         self
@@ -1671,8 +1673,7 @@ impl Render for PopupMenu {
                     .id("items")
                     .p(MENU_EDGE_PADDING)
                     .gap(px(2.))
-                    .min_w(rems(8.))
-                    .when_some(self.min_width, |this, min_width| this.min_w(min_width))
+                    .min_w(self.min_width.unwrap_or(DEFAULT_POPUP_MENU_MIN_WIDTH))
                     .max_w(max_width)
                     // Cap the height and turn on vertical scrolling only when the
                     // content actually overflows; otherwise the items area sizes
