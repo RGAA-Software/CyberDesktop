@@ -380,6 +380,10 @@ impl HomePage {
             .zip(drive.free_bytes)
             .map(|(total, free)| format_bytes_label(total.saturating_sub(free)));
         let free_label = drive.free_bytes.map(format_bytes_label);
+        let used_stat = used_label
+            .map(|size| t!("home.drive.used", size = size).to_string());
+        let free_stat = free_label
+            .map(|size| t!("home.drive.free", size = size).to_string());
         let frac = drive.used_fraction();
         let drive_icon = home_drive_tabler_icon(drive);
         bordered_home_card(format!("{prefix}-drive-{index}"), cx)
@@ -447,10 +451,11 @@ impl HomePage {
                         col.child(space_progress_bar(
                             SharedString::from(format!("{prefix}-bar-{index}")),
                             f,
+                            cx,
                         ))
                     })
                     .when(
-                        used_label.is_some() || free_label.is_some(),
+                        used_stat.is_some() || free_stat.is_some(),
                         |col| {
                             col.child(
                                 h_flex()
@@ -458,10 +463,10 @@ impl HomePage {
                                     .justify_between()
                                     .text_xs()
                                     .text_color(cx.theme().muted_foreground)
-                                    .when_some(used_label.clone(), |row, used| {
+                                    .when_some(used_stat.clone(), |row, used| {
                                         row.child(Label::new(used))
                                     })
-                                    .when_some(free_label.clone(), |row, free| {
+                                    .when_some(free_stat.clone(), |row, free| {
                                         row.child(Label::new(free))
                                     }),
                             )

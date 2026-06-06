@@ -659,6 +659,14 @@ home.widget.drives:
   en: Drives
   zh-CN: 驱动器
   zh-HK: 磁碟機
+home.drive.used:
+  en: "%{size} used"
+  zh-CN: "%{size} 已用"
+  zh-HK: "%{size} 已用"
+home.drive.free:
+  en: "%{size} free"
+  zh-CN: "%{size} 可用"
+  zh-HK: "%{size} 可用"
 home.widget.network:
   en: Network
   zh-CN: 网络

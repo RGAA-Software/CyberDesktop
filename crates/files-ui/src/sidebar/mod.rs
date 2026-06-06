@@ -7,5 +7,6 @@ mod model;
 mod view;
 
 pub use cache::{build_sidebar_sections_cached, sidebar_cache_key};
+pub use disk_ring::drive_usage_color;
 pub use model::SidebarSection;
 pub use view::render_sidebar;

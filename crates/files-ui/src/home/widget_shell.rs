@@ -211,10 +211,15 @@ pub fn net_notice(
         .child(text)
 }
 
-pub fn space_progress_bar(id: impl Into<ElementId>, fraction: f32) -> impl IntoElement {
+pub fn space_progress_bar(
+    id: impl Into<ElementId>,
+    fraction: f32,
+    cx: &App,
+) -> impl IntoElement {
     Progress::new(id)
         .w_full()
         .h(px(4.))
         .rounded(px(2.))
+        .color(crate::sidebar::drive_usage_color(fraction, cx))
         .value(fraction.clamp(0., 1.) * 100.)
 }
