@@ -159,9 +159,9 @@ mod tests {
     fn app_logo_loads() {
         let assets = Assets;
         let data = assets
-            .load("app/ic_file_manager_logo.svg")
+            .load("app/logo/ic_cyber_files.svg")
             .expect("load");
-        assert!(data.is_some(), "missing app/ic_file_manager_logo.svg");
+        assert!(data.is_some(), "missing app/logo/ic_cyber_files");
     }
 
     #[test]

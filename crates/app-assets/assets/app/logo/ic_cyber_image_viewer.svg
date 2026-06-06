@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- 真透明背景：没有 background、没有底色矩形、没有 checkerboard。外层图标距离画布边缘 5px。 -->
+
+  <rect x="5" y="5" width="1014" height="1014" rx="150" fill="#FF9D00"/>
+  <rect x="235" y="310" width="554" height="405" rx="44" fill="none" stroke="#FFFFFF" stroke-width="62"/>
+  <circle cx="650" cy="430" r="58" fill="#FFFFFF"/>
+  <path fill="#FFFFFF" d="
+    M 265 685
+    L 390 535
+    Q 405 518 420 535
+    L 485 615
+    L 595 480
+    Q 615 455 637 482
+    L 760 685
+    Z"/>
+</svg>

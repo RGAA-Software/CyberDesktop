@@ -7,8 +7,8 @@ use crate::color_icon::color_icon_box;
 use crate::list_icon_cache;
 use crate::tabler_icons;
 
-/// Full-color title bar logo (`app-assets/assets/app/ic_file_manager_logo.svg`).
-pub const APP_LOGO_PATH: &str = "app/ic_file_manager_logo.svg";
+/// Full-color title bar logo (`app-assets/assets/app/logo/ic_cyber_files.svg`).
+pub const APP_LOGO_PATH: &str = "app/logo/ic_cyber_files.svg";
 
 const APP_ICON_IMAGE_PX: Pixels = px(18.);
 /// Sidebar row icons (design V11 ~15–16px).
