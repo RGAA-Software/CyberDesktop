@@ -14,7 +14,7 @@ use super::compress_label::compress_context_menu_label;
 use super::helpers::{build_sort_prefs_menu, view_supports_grouping};
 use files_fs::is_archive_path;
 use app_platform_windows::{self as platform, ShellContextMenuEntry};
-use gpui::{Context, Entity, Pixels, SharedString, Window};
+use gpui::{Context, Entity, SharedString, Window};
 use gpui_component::{notification::Notification, Icon, IconName, WindowExt as _};
 
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
@@ -34,20 +34,11 @@ use crate::shell::preferences::{
 /// Fraction of the current window height used as the max height of the
 /// «Show more options» shell menu (and its nested submenus).
 ///
-/// The shell flyout can list a large number of verbs, so we cap it at 4/5 of
-/// the window and let [`PopupMenu`] scroll the overflow.
+/// The shell flyout can list a large number of verbs, so we cap it at 0.92 of
+/// the window and let [`PopupMenu`] scroll the overflow. It is passed to
+/// [`PopupMenu::max_h_fraction`], which resolves it against the live window size
+/// on every render so the cap keeps tracking the window after a resize.
 const SHELL_MENU_MAX_HEIGHT_FRACTION: f32 = 0.92;
-
-/// Max height for the shell flyout: 4/5 of the *current* window height.
-///
-/// Computed from the live window bounds (rather than a fixed pixel constant) so
-/// the cap tracks the window size at the moment the menu is built. Note that
-/// [`PopupMenu`] only engages scrolling when its content actually exceeds this
-/// height, so a short menu is never capped or given a scrollbar.
-fn shell_menu_max_height(window: &Window) -> Pixels {
-    let window_height = window.window_bounds().get_bounds().size.height;
-    window_height * SHELL_MENU_MAX_HEIGHT_FRACTION
-}
 
 fn menu_icon(name: IconName) -> Icon {
     crate::tabler_icons::from_icon_name(name)
@@ -490,10 +481,10 @@ pub(crate) fn append_shell_entries(
         if !flat_batch.is_empty() {
             menu = append_shell_flat_items(menu, &flat_batch, paths, extended_verbs);
         }
-        // ... then apply the shared 4/5-window scroll cap.
+        // ... then apply the shared 0.92-window scroll cap.
         menu.scrollable(true)
             .scrollbar_always(true)
-            .max_h(shell_menu_max_height(window))
+            .max_h_fraction(SHELL_MENU_MAX_HEIGHT_FRACTION)
     } else {
         // Branch 2: a flat list of items/separators (no nested submenu).
         for entry in entries {
@@ -520,10 +511,10 @@ pub(crate) fn append_shell_entries(
                 ShellContextMenuEntry::Submenu { .. } => {}
             }
         }
-        // Same 4/5-window scroll cap as the submenu branch above.
+        // Same 0.92-window scroll cap as the submenu branch above.
         menu.scrollable(true)
             .scrollbar_always(true)
-            .max_h(shell_menu_max_height(window))
+            .max_h_fraction(SHELL_MENU_MAX_HEIGHT_FRACTION)
     }
 }
 
