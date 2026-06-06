@@ -7,6 +7,7 @@ mod actions;
 mod context_menu;
 mod dropdown_menu;
 mod menu_item;
+mod menu_scrollbar;
 mod popup_menu;
 
 pub use context_menu::ContextMenuExt;

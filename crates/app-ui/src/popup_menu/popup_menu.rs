@@ -4,6 +4,7 @@
 
 use super::actions::{Cancel, Confirm, SelectDown, SelectLeft, SelectRight, SelectUp};
 use super::menu_item::MenuItemElement;
+use super::menu_scrollbar::{MenuScrollbar, MENU_SCROLLBAR_GAP, MENU_SCROLLBAR_WIDTH};
 use gpui::{
     anchored, deferred, div, img, prelude::FluentBuilder, px, Action, Anchor, AnyElement, App,
     AppContext, Bounds, Context, DismissEvent, Edges, Entity, EventEmitter, FocusHandle, Focusable,
@@ -12,10 +13,9 @@ use gpui::{
     WeakEntity, Window,
 };
 use gpui::{ClickEvent, Half, MouseDownEvent, Point, Subscription};
-use gpui_component::scroll::{Scrollbar, ScrollbarShow};
 use gpui_component::{
-    h_flex, kbd::Kbd, v_flex, ActiveTheme, ElementExt, Icon, IconName, Side, Sizable as _, Size,
-    StyledExt,
+    h_flex, kbd::Kbd, scroll::ScrollbarShow, v_flex, ActiveTheme, ElementExt, Icon, IconName, Side,
+    Sizable as _, Size, StyledExt,
 };
 
 use std::rc::Rc;
@@ -1680,6 +1680,7 @@ impl Render for PopupMenu {
                     // to its content and stays fully visible.
                     .when(needs_scroll, |this| {
                         this.max_h(max_height)
+                            .pr(MENU_SCROLLBAR_WIDTH + MENU_SCROLLBAR_GAP)
                             .overflow_y_scroll()
                             .track_scroll(&self.scroll_handle)
                     })
@@ -1699,7 +1700,7 @@ impl Render for PopupMenu {
             // is `deferred` (see `render_item`) and therefore painted outside
             // this clip rect.
             .when(needs_scroll, |this| {
-                let mut scrollbar = Scrollbar::vertical(&self.scroll_handle);
+                let mut scrollbar = MenuScrollbar::vertical(&self.scroll_handle);
                 // `ScrollbarShow::Always` suppresses the idle fade-out so the
                 // bar stays put while the user reads a long menu.
                 if self.scrollbar_always {
@@ -1709,9 +1710,9 @@ impl Render for PopupMenu {
                     div()
                         .absolute()
                         .top_0()
-                        .left_0()
                         .right_0()
                         .bottom_0()
+                        .w(MENU_SCROLLBAR_WIDTH)
                         .child(scrollbar),
                 )
             })
