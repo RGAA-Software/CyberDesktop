@@ -1,31 +1,15 @@
 use super::*;
 use crate::app_state::AppFileClipboard;
+use crate::file_type_icon_colors;
 use crate::file_type_icons;
 
 /// Opacity for items cut to the in-app clipboard but not pasted yet (Files `DimItemOpacity`).
 pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
 
 fn file_type_tile_colors(item: &FileItem, cx: &App) -> (Hsla, Hsla) {
-    if item.kind == FileItemKind::Folder {
-        return (cx.theme().accent, cx.theme().primary);
-    }
-    if item.kind == FileItemKind::Symlink {
-        return (cx.theme().muted, cx.theme().muted_foreground);
-    }
-    let ext = item
-        .extension
-        .as_deref()
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    match ext.as_str() {
-        "mp4" | "mkv" | "mov" | "avi" | "webm" | "wmv" | "m4v" => {
-            (cx.theme().info.opacity(0.12), cx.theme().info)
-        }
-        "pdf" => (cx.theme().danger.opacity(0.12), cx.theme().danger),
-        "epub" | "mobi" => (cx.theme().warning.opacity(0.12), cx.theme().warning),
-        "srt" | "vtt" | "ass" | "txt" => (cx.theme().secondary, cx.theme().muted_foreground),
-        _ => (cx.theme().muted, cx.theme().muted_foreground),
-    }
+    let is_dark = cx.theme().mode.is_dark();
+    let path = file_type_icons::svg_path_for_path(&item.path);
+    file_type_icon_colors::tile_colors_for_svg_path(path, is_dark)
 }
 
 pub(super) fn path_is_cut_pending(path: &Path, cx: &App) -> bool {
@@ -93,7 +77,7 @@ impl FileBrowser {
         cx: &App,
     ) -> impl IntoElement {
         let inner = Self::row_list_icon_inner(item, logical_size);
-        let tile_size = if logical_size >= px(28.) {
+        let tile_size = if logical_size >= FILE_LIST_ICON_TILE {
             logical_size
         } else {
             FILE_LIST_ICON_TILE

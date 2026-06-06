@@ -381,7 +381,7 @@ impl FileBrowser {
                     this.handle_external_drop_on_item(paths, &drop_target, window, cx);
                 }
             }))
-            .child(Self::row_list_icon(&item, px(14.), window, cx))
+            .child(Self::row_list_icon(&item, FILE_LIST_ICON_SIZE, window, cx))
             .child(
                 div()
                     .flex_1()
@@ -531,7 +531,7 @@ impl FileBrowser {
                     this.handle_external_drop_on_item(paths, &drop_target, window, cx);
                 }
             }))
-            .child(Self::row_list_icon(&item, px(14.), window, cx))
+            .child(Self::row_list_icon(&item, FILE_LIST_ICON_SIZE, window, cx))
             .child(
                 div()
                     .flex_1()

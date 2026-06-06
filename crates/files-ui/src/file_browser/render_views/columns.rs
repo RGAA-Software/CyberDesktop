@@ -436,9 +436,9 @@ impl FileBrowser {
             }))
             .child(
                 div()
-                    .w(px(20.))
+                    .w(FILE_LIST_ICON_TILE)
                     .flex_none()
-                    .child(Self::row_list_icon(&item, px(14.), window, cx)),
+                    .child(Self::row_list_icon(&item, FILE_LIST_ICON_SIZE, window, cx)),
             )
             .child(
                 div()

@@ -136,6 +136,9 @@ actions!(
 
 pub(super) const FILE_LIST_ROW_HEIGHT: Pixels = px(32.);
 pub(super) const FILE_LIST_ROW_GROUP: &str = "file-list-row";
+/// Icon glyph size in details / list / columns row layouts.
+pub(super) const FILE_LIST_ICON_SIZE: Pixels = px(18.);
+/// Colored tile behind row icons (details / list / columns).
 pub(super) const FILE_LIST_ICON_TILE: Pixels = px(24.);
 
 const FILE_ROW_SIZE_COMPACT: Size<Pixels> = size(px(1.), px(28.));

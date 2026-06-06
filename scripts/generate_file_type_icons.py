@@ -64,15 +64,134 @@ TABLER_OVERRIDES: dict[str, str] = {
     "cppm": "icons/tabler/file-type-cpp.svg",
 }
 
+# Common formats on Windows/desktop — Tabler icons (https://tabler.io/icons).
+# Used when Zed mapping is missing or for clearer category icons.
+COMMON_TABLER_OVERRIDES: dict[str, str] = {
+    # Audio → file-music
+    "aac": "icons/tabler/file-music.svg",
+    "aif": "icons/tabler/file-music.svg",
+    "aiff": "icons/tabler/file-music.svg",
+    "flac": "icons/tabler/file-music.svg",
+    "m4a": "icons/tabler/file-music.svg",
+    "mid": "icons/tabler/file-music.svg",
+    "midi": "icons/tabler/file-music.svg",
+    "mka": "icons/tabler/file-music.svg",
+    "mp3": "icons/tabler/file-music.svg",
+    "ogg": "icons/tabler/file-music.svg",
+    "opus": "icons/tabler/file-music.svg",
+    "wav": "icons/tabler/file-music.svg",
+    "weba": "icons/tabler/file-music.svg",
+    "wma": "icons/tabler/file-music.svg",
+    "wv": "icons/tabler/file-music.svg",
+    # Video → video
+    "avi": "icons/tabler/video.svg",
+    "flv": "icons/tabler/video.svg",
+    "m4v": "icons/tabler/video.svg",
+    "mkv": "icons/tabler/video.svg",
+    "mov": "icons/tabler/video.svg",
+    "mp4": "icons/tabler/video.svg",
+    "mpg": "icons/tabler/video.svg",
+    "mpeg": "icons/tabler/video.svg",
+    "webm": "icons/tabler/video.svg",
+    "wmv": "icons/tabler/video.svg",
+    # Binaries / libraries / installers → binary
+    "apk": "icons/tabler/binary.svg",
+    "app": "icons/tabler/binary.svg",
+    "bin": "icons/tabler/binary.svg",
+    "com": "icons/tabler/binary.svg",
+    "cpl": "icons/tabler/binary.svg",
+    "deb": "icons/tabler/binary.svg",
+    "dll": "icons/tabler/binary.svg",
+    "drv": "icons/tabler/binary.svg",
+    "dylib": "icons/tabler/binary.svg",
+    "exe": "icons/tabler/binary.svg",
+    "img": "icons/tabler/binary.svg",
+    "iso": "icons/tabler/binary.svg",
+    "msi": "icons/tabler/binary.svg",
+    "ocx": "icons/tabler/binary.svg",
+    "rpm": "icons/tabler/binary.svg",
+    "scr": "icons/tabler/binary.svg",
+    "so": "icons/tabler/binary.svg",
+    "sys": "icons/tabler/binary.svg",
+    "vhd": "icons/tabler/binary.svg",
+    "vhdx": "icons/tabler/binary.svg",
+    # Images → photo
+    "avif": "icons/tabler/photo.svg",
+    "cr2": "icons/tabler/photo.svg",
+    "gif": "icons/tabler/photo.svg",
+    "heic": "icons/tabler/photo.svg",
+    "heif": "icons/tabler/photo.svg",
+    "ico": "icons/tabler/photo.svg",
+    "nef": "icons/tabler/photo.svg",
+    "raw": "icons/tabler/photo.svg",
+    "tif": "icons/tabler/photo.svg",
+    "tiff": "icons/tabler/photo.svg",
+    "webp": "icons/tabler/photo.svg",
+    # Office / documents
+    "docx": "icons/tabler/file-type-docx.svg",
+    "odp": "icons/tabler/file-type-ppt.svg",
+    "ods": "icons/tabler/file-type-xls.svg",
+    "odt": "icons/tabler/file-type-doc.svg",
+    "rtf": "icons/tabler/file-type-doc.svg",
+    # Data / databases
+    "accdb": "icons/tabler/database.svg",
+    "dat": "icons/tabler/database.svg",
+    "db": "icons/tabler/database.svg",
+    "dbf": "icons/tabler/database.svg",
+    "mdb": "icons/tabler/database.svg",
+    "sdf": "icons/tabler/database.svg",
+    # Shell / scripts
+    "bash": "icons/tabler/terminal-2.svg",
+    "bat": "icons/tabler/terminal-2.svg",
+    "cmd": "icons/tabler/terminal-2.svg",
+    "fish": "icons/tabler/terminal-2.svg",
+    "nu": "icons/tabler/terminal-2.svg",
+    "ps1": "icons/tabler/terminal-2.svg",
+    "psm1": "icons/tabler/terminal-2.svg",
+    "sh": "icons/tabler/terminal-2.svg",
+    "zsh": "icons/tabler/terminal-2.svg",
+    # Text / config / logs
+    "cfg": "icons/tabler/file-settings.svg",
+    "conf": "icons/tabler/file-settings.svg",
+    "ini": "icons/tabler/file-settings.svg",
+    "log": "icons/tabler/file-text.svg",
+    "markdown": "icons/tabler/file-text.svg",
+    "md": "icons/tabler/file-text.svg",
+    "reg": "icons/tabler/file-settings.svg",
+    # Code / data interchange
+    "json": "icons/tabler/file-code.svg",
+    "jsonc": "icons/tabler/file-code.svg",
+    "yaml": "icons/tabler/file-code.svg",
+    "yml": "icons/tabler/file-code.svg",
+    # Ebooks
+    "azw": "icons/tabler/book.svg",
+    "azw3": "icons/tabler/book.svg",
+    "epub": "icons/tabler/book.svg",
+    "mobi": "icons/tabler/book.svg",
+    # Shortcuts / certs
+    "lnk": "icons/tabler/link.svg",
+    "cer": "icons/tabler/file-certificate.svg",
+    "crt": "icons/tabler/file-certificate.svg",
+    "p12": "icons/tabler/file-certificate.svg",
+    "pem": "icons/tabler/file-certificate.svg",
+    "pfx": "icons/tabler/file-certificate.svg",
+}
+
+
+def all_tabler_overrides() -> dict[str, str]:
+    merged = dict(COMMON_TABLER_OVERRIDES)
+    merged.update(TABLER_OVERRIDES)
+    return merged
+
 
 def parse_zed_arrays(text: str) -> tuple[list[tuple[str, list[str]]], dict[str, str]]:
     suffix_block = re.search(
-        r"const FILE_SUFFIXES_BY_ICON_KEY.*?=\s*&\[(.*?)\];",
+        r"const FILE_SUFFIXES_BY_ICON_KEY.*?=\s*&\[(.*)\]\s*;\s*\n\s*/// A mapping of a file type",
         text,
         re.DOTALL,
     )
     icons_block = re.search(
-        r"const FILE_ICONS.*?=\s*&\[(.*?)\];",
+        r"const FILE_ICONS.*?=\s*&\[(.*)\]\s*;\s*\n\s*/// Returns a mapping",
         text,
         re.DOTALL,
     )
@@ -80,7 +199,12 @@ def parse_zed_arrays(text: str) -> tuple[list[tuple[str, list[str]]], dict[str, 
         raise SystemExit("failed to parse Zed icon_theme.rs")
 
     suffixes: list[tuple[str, list[str]]] = []
-    for key, exts_raw in re.findall(r'\("([^"]+)",\s*&\[(.*?)\]\)', suffix_block.group(1), re.DOTALL):
+    # Allow `(\n        "key",\n        &[` multiline entries from Zed icon_theme.rs.
+    for key, exts_raw in re.findall(
+        r'\(\s*"([^"]+)"\s*,\s*&\[([^\]]*)\]\s*,?\s*\)',
+        suffix_block.group(1),
+        re.DOTALL,
+    ):
         exts = re.findall(r'"([^"]+)"', exts_raw)
         suffixes.append((key, exts))
 
@@ -130,7 +254,7 @@ def emit(suffixes: list[tuple[str, list[str]]], icons: dict[str, str]) -> None:
         "    static MAP: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();",
         "    MAP.get_or_init(|| HashMap::from([",
     ]
-    for ext, path in sorted(TABLER_OVERRIDES.items()):
+    for ext, path in sorted(all_tabler_overrides().items()):
         lines.append(f'        ("{ext}", "{path}"),')
     lines.extend(
         [
@@ -256,7 +380,12 @@ def main() -> None:
     suffixes, icons = parse_zed_arrays(text)
     normalize_zed_svgs()
     emit(suffixes, icons)
-    print(f"Wrote {OUT} ({len(suffixes)} icon keys, {len(TABLER_OVERRIDES)} Tabler overrides)")
+    overrides = all_tabler_overrides()
+    ext_count = sum(len(exts) for _, exts in suffixes)
+    print(
+        f"Wrote {OUT} ({len(suffixes)} Zed icon keys, {ext_count} Zed suffixes, "
+        f"{len(overrides)} Tabler overrides)"
+    )
 
 
 if __name__ == "__main__":

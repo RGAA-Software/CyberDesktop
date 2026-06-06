@@ -20,54 +20,150 @@ fn tabler_overrides() -> &'static HashMap<&'static str, &'static str> {
     static MAP: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
     MAP.get_or_init(|| HashMap::from([
         ("7z", "icons/tabler/file-type-zip.svg"),
+        ("aac", "icons/tabler/file-music.svg"),
+        ("accdb", "icons/tabler/database.svg"),
+        ("aif", "icons/tabler/file-music.svg"),
+        ("aiff", "icons/tabler/file-music.svg"),
+        ("apk", "icons/tabler/binary.svg"),
+        ("app", "icons/tabler/binary.svg"),
+        ("avi", "icons/tabler/video.svg"),
+        ("avif", "icons/tabler/photo.svg"),
+        ("azw", "icons/tabler/book.svg"),
+        ("azw3", "icons/tabler/book.svg"),
+        ("bash", "icons/tabler/terminal-2.svg"),
+        ("bat", "icons/tabler/terminal-2.svg"),
+        ("bin", "icons/tabler/binary.svg"),
         ("bmp", "icons/tabler/file-type-bmp.svg"),
         ("c++", "icons/tabler/file-type-cpp.svg"),
         ("cc", "icons/tabler/file-type-cpp.svg"),
+        ("cer", "icons/tabler/file-certificate.svg"),
+        ("cfg", "icons/tabler/file-settings.svg"),
         ("cjs", "icons/tabler/file-type-js.svg"),
+        ("cmd", "icons/tabler/terminal-2.svg"),
+        ("com", "icons/tabler/binary.svg"),
+        ("conf", "icons/tabler/file-settings.svg"),
+        ("cpl", "icons/tabler/binary.svg"),
         ("cpp", "icons/tabler/file-type-cpp.svg"),
         ("cppm", "icons/tabler/file-type-cpp.svg"),
+        ("cr2", "icons/tabler/photo.svg"),
+        ("crt", "icons/tabler/file-certificate.svg"),
         ("css", "icons/tabler/file-type-css.svg"),
         ("csv", "icons/tabler/file-type-csv.svg"),
         ("cts", "icons/tabler/file-type-ts.svg"),
         ("cxx", "icons/tabler/file-type-cpp.svg"),
+        ("dat", "icons/tabler/database.svg"),
+        ("db", "icons/tabler/database.svg"),
+        ("dbf", "icons/tabler/database.svg"),
+        ("deb", "icons/tabler/binary.svg"),
+        ("dll", "icons/tabler/binary.svg"),
         ("doc", "icons/tabler/file-type-doc.svg"),
         ("docx", "icons/tabler/file-type-doc.svg"),
+        ("drv", "icons/tabler/binary.svg"),
+        ("dylib", "icons/tabler/binary.svg"),
+        ("epub", "icons/tabler/book.svg"),
+        ("exe", "icons/tabler/binary.svg"),
+        ("fish", "icons/tabler/terminal-2.svg"),
+        ("flac", "icons/tabler/file-music.svg"),
+        ("flv", "icons/tabler/video.svg"),
+        ("gif", "icons/tabler/photo.svg"),
         ("gz", "icons/tabler/file-type-zip.svg"),
         ("h++", "icons/tabler/file-type-cpp.svg"),
+        ("heic", "icons/tabler/photo.svg"),
+        ("heif", "icons/tabler/photo.svg"),
         ("hh", "icons/tabler/file-type-cpp.svg"),
         ("hpp", "icons/tabler/file-type-cpp.svg"),
         ("htm", "icons/tabler/file-type-html.svg"),
         ("html", "icons/tabler/file-type-html.svg"),
         ("hxx", "icons/tabler/file-type-cpp.svg"),
+        ("ico", "icons/tabler/photo.svg"),
+        ("img", "icons/tabler/binary.svg"),
+        ("ini", "icons/tabler/file-settings.svg"),
         ("inl", "icons/tabler/file-type-cpp.svg"),
+        ("iso", "icons/tabler/binary.svg"),
         ("ixx", "icons/tabler/file-type-cpp.svg"),
         ("jpeg", "icons/tabler/file-type-jpg.svg"),
         ("jpg", "icons/tabler/file-type-jpg.svg"),
         ("js", "icons/tabler/file-type-js.svg"),
+        ("json", "icons/tabler/file-code.svg"),
+        ("jsonc", "icons/tabler/file-code.svg"),
+        ("lnk", "icons/tabler/link.svg"),
+        ("log", "icons/tabler/file-text.svg"),
+        ("m4a", "icons/tabler/file-music.svg"),
+        ("m4v", "icons/tabler/video.svg"),
+        ("markdown", "icons/tabler/file-text.svg"),
+        ("md", "icons/tabler/file-text.svg"),
+        ("mdb", "icons/tabler/database.svg"),
+        ("mid", "icons/tabler/file-music.svg"),
+        ("midi", "icons/tabler/file-music.svg"),
         ("mjs", "icons/tabler/file-type-js.svg"),
+        ("mka", "icons/tabler/file-music.svg"),
+        ("mkv", "icons/tabler/video.svg"),
+        ("mobi", "icons/tabler/book.svg"),
+        ("mov", "icons/tabler/video.svg"),
+        ("mp3", "icons/tabler/file-music.svg"),
+        ("mp4", "icons/tabler/video.svg"),
+        ("mpeg", "icons/tabler/video.svg"),
+        ("mpg", "icons/tabler/video.svg"),
+        ("msi", "icons/tabler/binary.svg"),
         ("mts", "icons/tabler/file-type-ts.svg"),
+        ("nef", "icons/tabler/photo.svg"),
+        ("nu", "icons/tabler/terminal-2.svg"),
+        ("ocx", "icons/tabler/binary.svg"),
+        ("odp", "icons/tabler/file-type-ppt.svg"),
+        ("ods", "icons/tabler/file-type-xls.svg"),
+        ("odt", "icons/tabler/file-type-doc.svg"),
+        ("ogg", "icons/tabler/file-music.svg"),
+        ("opus", "icons/tabler/file-music.svg"),
+        ("p12", "icons/tabler/file-certificate.svg"),
         ("pcss", "icons/tabler/file-type-css.svg"),
         ("pdf", "icons/tabler/file-type-pdf.svg"),
+        ("pem", "icons/tabler/file-certificate.svg"),
+        ("pfx", "icons/tabler/file-certificate.svg"),
         ("php", "icons/tabler/file-type-php.svg"),
         ("png", "icons/tabler/file-type-png.svg"),
         ("postcss", "icons/tabler/file-type-css.svg"),
         ("ppt", "icons/tabler/file-type-ppt.svg"),
         ("pptx", "icons/tabler/file-type-ppt.svg"),
+        ("ps1", "icons/tabler/terminal-2.svg"),
+        ("psm1", "icons/tabler/terminal-2.svg"),
         ("rar", "icons/tabler/file-type-zip.svg"),
+        ("raw", "icons/tabler/photo.svg"),
+        ("reg", "icons/tabler/file-settings.svg"),
+        ("rpm", "icons/tabler/binary.svg"),
         ("rs", "icons/tabler/file-type-rs.svg"),
+        ("rtf", "icons/tabler/file-type-doc.svg"),
+        ("scr", "icons/tabler/binary.svg"),
+        ("sdf", "icons/tabler/database.svg"),
+        ("sh", "icons/tabler/terminal-2.svg"),
+        ("so", "icons/tabler/binary.svg"),
         ("sql", "icons/tabler/file-type-sql.svg"),
         ("sqlite", "icons/tabler/file-type-sql.svg"),
         ("svg", "icons/tabler/file-type-svg.svg"),
+        ("sys", "icons/tabler/binary.svg"),
         ("tar", "icons/tabler/file-type-zip.svg"),
+        ("tif", "icons/tabler/photo.svg"),
+        ("tiff", "icons/tabler/photo.svg"),
         ("ts", "icons/tabler/file-type-ts.svg"),
         ("tsv", "icons/tabler/file-type-csv.svg"),
         ("tsx", "icons/tabler/file-type-ts.svg"),
         ("txt", "icons/tabler/file-type-txt.svg"),
+        ("vhd", "icons/tabler/binary.svg"),
+        ("vhdx", "icons/tabler/binary.svg"),
         ("vue", "icons/tabler/file-type-vue.svg"),
+        ("wav", "icons/tabler/file-music.svg"),
+        ("weba", "icons/tabler/file-music.svg"),
+        ("webm", "icons/tabler/video.svg"),
+        ("webp", "icons/tabler/photo.svg"),
+        ("wma", "icons/tabler/file-music.svg"),
+        ("wmv", "icons/tabler/video.svg"),
+        ("wv", "icons/tabler/file-music.svg"),
         ("xls", "icons/tabler/file-type-xls.svg"),
         ("xlsx", "icons/tabler/file-type-xls.svg"),
         ("xml", "icons/tabler/file-type-xml.svg"),
+        ("yaml", "icons/tabler/file-code.svg"),
+        ("yml", "icons/tabler/file-code.svg"),
         ("zip", "icons/tabler/file-type-zip.svg"),
+        ("zsh", "icons/tabler/terminal-2.svg"),
     ]))
 }
 
@@ -173,6 +269,16 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
     MAP.get_or_init(|| {
         let mut map = HashMap::new();
         map.insert("astro", "astro");
+        map.insert("aac", "audio");
+        map.insert("flac", "audio");
+        map.insert("m4a", "audio");
+        map.insert("mka", "audio");
+        map.insert("mp3", "audio");
+        map.insert("ogg", "audio");
+        map.insert("opus", "audio");
+        map.insert("wav", "audio");
+        map.insert("wma", "audio");
+        map.insert("wv", "audio");
         map.insert("bak", "backup");
         map.insert("bicep", "bicep");
         map.insert("lockb", "bun");
@@ -184,6 +290,17 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("rkt", "code");
         map.insert("scm", "code");
         map.insert("coffee", "coffeescript");
+        map.insert("c++", "cpp");
+        map.insert("h++", "cpp");
+        map.insert("cc", "cpp");
+        map.insert("cpp", "cpp");
+        map.insert("cppm", "cpp");
+        map.insert("cxx", "cpp");
+        map.insert("hh", "cpp");
+        map.insert("hpp", "cpp");
+        map.insert("hxx", "cpp");
+        map.insert("inl", "cpp");
+        map.insert("ixx", "cpp");
         map.insert("cr", "crystal");
         map.insert("ecr", "crystal");
         map.insert("cs", "csharp");
@@ -194,6 +311,23 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("cue", "cue");
         map.insert("dart", "dart");
         map.insert("diff", "diff");
+        map.insert("docker-compose.yml", "docker");
+        map.insert("docker-compose.yaml", "docker");
+        map.insert("compose.yml", "docker");
+        map.insert("compose.yaml", "docker");
+        map.insert("doc", "document");
+        map.insert("docx", "document");
+        map.insert("mdx", "document");
+        map.insert("odp", "document");
+        map.insert("ods", "document");
+        map.insert("odt", "document");
+        map.insert("pdf", "document");
+        map.insert("ppt", "document");
+        map.insert("pptx", "document");
+        map.insert("rtf", "document");
+        map.insert("txt", "document");
+        map.insert("xls", "document");
+        map.insert("xlsx", "document");
         map.insert("editorconfig", "editorconfig");
         map.insert("eex", "elixir");
         map.insert("ex", "elixir");
@@ -202,6 +336,23 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("leex", "elixir");
         map.insert("neex", "elixir");
         map.insert("elm", "elm");
+        map.insert("Emakefile", "erlang");
+        map.insert("app.src", "erlang");
+        map.insert("erl", "erlang");
+        map.insert("escript", "erlang");
+        map.insert("hrl", "erlang");
+        map.insert("rebar.config", "erlang");
+        map.insert("xrl", "erlang");
+        map.insert("yrl", "erlang");
+        map.insert("eslint.config.cjs", "eslint");
+        map.insert("eslint.config.cts", "eslint");
+        map.insert("eslint.config.js", "eslint");
+        map.insert("eslint.config.mjs", "eslint");
+        map.insert("eslint.config.mts", "eslint");
+        map.insert("eslint.config.ts", "eslint");
+        map.insert("eslintrc", "eslint");
+        map.insert("eslintrc.js", "eslint");
+        map.insert("eslintrc.json", "eslint");
         map.insert("otf", "font");
         map.insert("ttf", "font");
         map.insert("woff", "font");
@@ -219,8 +370,36 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("graphqls", "graphql");
         map.insert("hs", "haskell");
         map.insert("hcl", "hcl");
+        map.insert("helmfile.yaml", "helm");
+        map.insert("helmfile.yml", "helm");
+        map.insert("Chart.yaml", "helm");
+        map.insert("Chart.yml", "helm");
+        map.insert("Chart.lock", "helm");
+        map.insert("values.yaml", "helm");
+        map.insert("values.yml", "helm");
+        map.insert("requirements.yaml", "helm");
+        map.insert("requirements.yml", "helm");
+        map.insert("tpl", "helm");
         map.insert("htm", "html");
         map.insert("html", "html");
+        map.insert("avif", "image");
+        map.insert("bmp", "image");
+        map.insert("gif", "image");
+        map.insert("heic", "image");
+        map.insert("heif", "image");
+        map.insert("ico", "image");
+        map.insert("j2k", "image");
+        map.insert("jfif", "image");
+        map.insert("jp2", "image");
+        map.insert("jpeg", "image");
+        map.insert("jpg", "image");
+        map.insert("jxl", "image");
+        map.insert("png", "image");
+        map.insert("psd", "image");
+        map.insert("qoi", "image");
+        map.insert("svg", "image");
+        map.insert("tiff", "image");
+        map.insert("webp", "image");
         map.insert("ipynb", "ipynb");
         map.insert("java", "java");
         map.insert("cjs", "javascript");
@@ -247,6 +426,19 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("mlx", "ocaml");
         map.insert("odin", "odin");
         map.insert("php", "php");
+        map.insert("prettier.config.cjs", "prettier");
+        map.insert("prettier.config.js", "prettier");
+        map.insert("prettier.config.mjs", "prettier");
+        map.insert("prettierignore", "prettier");
+        map.insert("prettierrc", "prettier");
+        map.insert("prettierrc.cjs", "prettier");
+        map.insert("prettierrc.js", "prettier");
+        map.insert("prettierrc.json", "prettier");
+        map.insert("prettierrc.json5", "prettier");
+        map.insert("prettierrc.mjs", "prettier");
+        map.insert("prettierrc.toml", "prettier");
+        map.insert("prettierrc.yaml", "prettier");
+        map.insert("prettierrc.yml", "prettier");
         map.insert("prisma", "prisma");
         map.insert("pp", "puppet");
         map.insert("py", "python");
@@ -268,6 +460,41 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("conf", "settings");
         map.insert("ini", "settings");
         map.insert("sol", "solidity");
+        map.insert("accdb", "storage");
+        map.insert("csv", "storage");
+        map.insert("dat", "storage");
+        map.insert("db", "storage");
+        map.insert("dbf", "storage");
+        map.insert("dll", "storage");
+        map.insert("fmp", "storage");
+        map.insert("fp7", "storage");
+        map.insert("frm", "storage");
+        map.insert("gdb", "storage");
+        map.insert("ib", "storage");
+        map.insert("ldf", "storage");
+        map.insert("mdb", "storage");
+        map.insert("mdf", "storage");
+        map.insert("myd", "storage");
+        map.insert("myi", "storage");
+        map.insert("pdb", "storage");
+        map.insert("RData", "storage");
+        map.insert("rdata", "storage");
+        map.insert("sav", "storage");
+        map.insert("sdf", "storage");
+        map.insert("sql", "storage");
+        map.insert("sqlite", "storage");
+        map.insert("tsv", "storage");
+        map.insert("stylelint.config.cjs", "stylelint");
+        map.insert("stylelint.config.js", "stylelint");
+        map.insert("stylelint.config.mjs", "stylelint");
+        map.insert("stylelintignore", "stylelint");
+        map.insert("stylelintrc", "stylelint");
+        map.insert("stylelintrc.cjs", "stylelint");
+        map.insert("stylelintrc.js", "stylelint");
+        map.insert("stylelintrc.json", "stylelint");
+        map.insert("stylelintrc.mjs", "stylelint");
+        map.insert("stylelintrc.yaml", "stylelint");
+        map.insert("stylelintrc.yml", "stylelint");
         map.insert("surql", "surrealql");
         map.insert("svelte", "svelte");
         map.insert("swift", "swift");
@@ -275,6 +502,26 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("hbs", "template");
         map.insert("plist", "template");
         map.insert("xml", "template");
+        map.insert("bash", "terminal");
+        map.insert("bash_aliases", "terminal");
+        map.insert("bash_login", "terminal");
+        map.insert("bash_logout", "terminal");
+        map.insert("bash_profile", "terminal");
+        map.insert("bashrc", "terminal");
+        map.insert("fish", "terminal");
+        map.insert("nu", "terminal");
+        map.insert("profile", "terminal");
+        map.insert("ps1", "terminal");
+        map.insert("sh", "terminal");
+        map.insert("zlogin", "terminal");
+        map.insert("zlogout", "terminal");
+        map.insert("zprofile", "terminal");
+        map.insert("zsh", "terminal");
+        map.insert("zsh_aliases", "terminal");
+        map.insert("zsh_histfile", "terminal");
+        map.insert("zsh_history", "terminal");
+        map.insert("zshenv", "terminal");
+        map.insert("zshrc", "terminal");
         map.insert("tf", "terraform");
         map.insert("tfvars", "terraform");
         map.insert("toml", "toml");
@@ -284,6 +531,15 @@ fn extension_to_icon_key() -> &'static HashMap<&'static str, &'static str> {
         map.insert("v", "v");
         map.insert("vsh", "v");
         map.insert("vv", "v");
+        map.insert("COMMIT_EDITMSG", "vcs");
+        map.insert("EDIT_DESCRIPTION", "vcs");
+        map.insert("MERGE_MSG", "vcs");
+        map.insert("NOTES_EDITMSG", "vcs");
+        map.insert("TAG_EDITMSG", "vcs");
+        map.insert("gitattributes", "vcs");
+        map.insert("gitignore", "vcs");
+        map.insert("gitkeep", "vcs");
+        map.insert("gitmodules", "vcs");
         map.insert("vbproj", "vbproj");
         map.insert("avi", "video");
         map.insert("m4v", "video");
