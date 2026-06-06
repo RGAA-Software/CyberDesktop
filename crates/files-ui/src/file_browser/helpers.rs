@@ -1,5 +1,6 @@
 use super::*;
 use crate::app_state::AppFileClipboard;
+use crate::exe_icon_cache;
 use crate::file_type_icon_colors;
 use crate::file_type_icons;
 
@@ -10,6 +11,17 @@ fn file_type_tile_colors(item: &FileItem, cx: &App) -> (Hsla, Hsla) {
     let is_dark = cx.theme().mode.is_dark();
     let path = file_type_icons::svg_path_for_path(&item.path);
     file_type_icon_colors::tile_colors_for_svg_path(path, is_dark)
+}
+
+fn embedded_exe_tile_colors(cx: &App) -> (Hsla, Hsla) {
+    if cx.theme().mode.is_dark() {
+        (
+            cx.theme().muted.opacity(0.32),
+            cx.theme().muted_foreground,
+        )
+    } else {
+        (cx.theme().secondary, cx.theme().muted_foreground)
+    }
 }
 
 pub(super) fn path_is_cut_pending(path: &Path, cx: &App) -> bool {
@@ -31,7 +43,7 @@ impl FileBrowser {
         }
     }
 
-    fn row_list_icon_inner(item: &FileItem, logical_size: Pixels) -> AnyElement {
+    fn row_list_icon_svg(item: &FileItem, logical_size: Pixels) -> AnyElement {
         let svg_path = file_type_icons::svg_path_for_path(&item.path);
         div()
             .size(logical_size)
@@ -42,6 +54,31 @@ impl FileBrowser {
                 toolbar_tabler(svg_path).with_size(gpui_component::Size::Size(logical_size)),
             )
             .into_any_element()
+    }
+
+    fn row_list_icon_inner(
+        item: &FileItem,
+        logical_size: Pixels,
+        window: &Window,
+    ) -> (AnyElement, bool) {
+        #[cfg(windows)]
+        if exe_icon_cache::is_exe_item(item) {
+            let size_px =
+                platform::shell_icon_pixel_size(logical_size.as_f32(), window.scale_factor());
+            if let Some(png) = exe_icon_cache::cached_png(&item.path, size_px) {
+                return (
+                    img(std::sync::Arc::new(Image::from_bytes(
+                        ImageFormat::Png,
+                        (*png).clone(),
+                    )))
+                    .size(logical_size)
+                    .object_fit(ObjectFit::Contain)
+                    .into_any_element(),
+                    true,
+                );
+            }
+        }
+        (Self::row_list_icon_svg(item, logical_size), false)
     }
 
     pub(super) fn row_list_icon_tile(
@@ -69,20 +106,39 @@ impl FileBrowser {
             .into_any_element()
     }
 
-    /// List row icon: custom colored SVG -> Shell PNG -> GPUI fallback, on a type-colored tile.
+    /// List row icon: embedded `.exe` icon when available, else bundled SVG on a type-colored tile.
     pub(super) fn row_list_icon(
         item: &FileItem,
         logical_size: Pixels,
         window: &Window,
         cx: &App,
     ) -> impl IntoElement {
-        let inner = Self::row_list_icon_inner(item, logical_size);
+        let (inner, embedded_exe) = Self::row_list_icon_inner(item, logical_size, window);
         let tile_size = if logical_size >= FILE_LIST_ICON_TILE {
             logical_size
         } else {
             FILE_LIST_ICON_TILE
         };
-        Self::row_list_icon_tile(item, inner, tile_size, cx)
+        let (bg, fg) = if embedded_exe {
+            embedded_exe_tile_colors(cx)
+        } else {
+            file_type_tile_colors(item, cx)
+        };
+        let radius = if tile_size >= px(32.) {
+            px(10.)
+        } else {
+            px(7.)
+        };
+        div()
+            .size(tile_size)
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(radius)
+            .bg(bg)
+            .text_color(fg)
+            .child(inner)
     }
 
     pub(super) fn file_list_row_shell(
@@ -111,8 +167,40 @@ impl FileBrowser {
             .child(row)
     }
 
-    /// After directory refresh: load at most one Shell icon per category (folder, zip, exe, ...).
-    pub(super) fn schedule_list_icon_warm(&mut self, _window: &Window, _cx: &mut Context<Self>) {}
+    /// After directory refresh: extract embedded icons for visible `.exe` files (cached).
+    pub(super) fn schedule_list_icon_warm(&mut self, window: &Window, cx: &mut Context<Self>) {
+        if self.list_icon_warm_scheduled == self.list_icon_warm_token {
+            return;
+        }
+        self.list_icon_warm_scheduled = self.list_icon_warm_token;
+        #[cfg(windows)]
+        {
+            let paths = self
+                .display_items
+                .iter()
+                .filter(|item| exe_icon_cache::is_exe_item(item))
+                .map(|item| item.path.clone())
+                .collect::<Vec<_>>();
+            if paths.is_empty() {
+                return;
+            }
+            let size_px = platform::shell_icon_pixel_size(
+                FILE_LIST_ICON_SIZE.as_f32(),
+                window.scale_factor(),
+            );
+            cx.spawn(async move |this, cx| {
+                let _ = cx
+                    .background_spawn(async move { exe_icon_cache::warm_exe_icons(paths, size_px) })
+                    .await;
+                let _ = this.update(cx, |_, cx| cx.notify());
+            })
+            .detach();
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = (window, cx);
+        }
+    }
 
     pub(super) fn set_sort_option(&mut self, option: SortOption) {
         self.sort_preferences.option = option;
