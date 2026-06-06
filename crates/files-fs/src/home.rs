@@ -5,15 +5,46 @@ use files_core::{load_config, pinned_folder_paths, FileTagConfig};
 
 #[cfg(windows)]
 use app_platform_windows::{
-    list_shell_quick_access_folders, shell_pin_to_quick_access, shell_unpin_from_quick_access,
+    list_default_user_folders, DefaultUserFolderKind, shell_pin_to_quick_access,
+    shell_unpin_from_quick_access,
 };
 
-/// One quick-access folder on the Home page (Shell QA + user pinned).
+/// Which Tabler icon / semantics apply to a Home quick-access row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuickAccessFolderKind {
+    Desktop,
+    Documents,
+    Downloads,
+    Music,
+    Videos,
+    Pictures,
+    Custom,
+}
+
+#[cfg(windows)]
+impl From<DefaultUserFolderKind> for QuickAccessFolderKind {
+    fn from(kind: DefaultUserFolderKind) -> Self {
+        match kind {
+            DefaultUserFolderKind::Desktop => Self::Desktop,
+            DefaultUserFolderKind::Documents => Self::Documents,
+            DefaultUserFolderKind::Downloads => Self::Downloads,
+            DefaultUserFolderKind::Music => Self::Music,
+            DefaultUserFolderKind::Videos => Self::Videos,
+            DefaultUserFolderKind::Pictures => Self::Pictures,
+        }
+    }
+}
+
+/// One quick-access folder on the Home page (default user folders + user pinned).
 #[derive(Debug, Clone)]
 pub struct QuickAccessEntry {
     pub label: String,
     pub path: PathBuf,
+    pub kind: QuickAccessFolderKind,
+    /// Present in `settings.json` pinned list (shown in sidebar Pinned section).
     pub is_pinned: bool,
+    /// One of the six built-in user folders (Desktop, Documents, …).
+    pub is_default: bool,
 }
 
 pub fn list_quick_access_entries() -> Vec<QuickAccessEntry> {
@@ -24,19 +55,22 @@ pub fn list_quick_access_entries() -> Vec<QuickAccessEntry> {
     let mut seen = HashSet::new();
     let mut entries = Vec::new();
 
+    // 1. Default user folders — always first, never duplicated.
     #[cfg(windows)]
-    if let Ok(shell) = list_shell_quick_access_folders() {
-        for item in shell {
-            if item.path.exists() && seen.insert(path_key(&item.path)) {
-                entries.push(QuickAccessEntry {
-                    label: item.display_name,
-                    path: item.path.clone(),
-                    is_pinned: pinned_set.contains(&path_key(&item.path)),
-                });
-            }
+    for item in list_default_user_folders() {
+        let key = path_key(&item.path);
+        if seen.insert(key.clone()) {
+            entries.push(QuickAccessEntry {
+                label: item.display_name,
+                path: item.path,
+                kind: item.kind.into(),
+                is_pinned: pinned_set.contains(&key),
+                is_default: true,
+            });
         }
     }
 
+    // 2. Manually pinned folders — after defaults, skip duplicates.
     for path in pinned_folder_paths() {
         if !path.exists() || !seen.insert(path_key(&path)) {
             continue;
@@ -49,7 +83,9 @@ pub fn list_quick_access_entries() -> Vec<QuickAccessEntry> {
         entries.push(QuickAccessEntry {
             label,
             path,
+            kind: QuickAccessFolderKind::Custom,
             is_pinned: true,
+            is_default: false,
         });
     }
 

@@ -61,7 +61,7 @@ pub use home::{
     eject_drive, file_tag_previews, list_quick_access_entries, load_home_file_tags,
     open_storage_sense_settings, quick_access_automatic_destinations_dir,
     sync_pin_to_shell_quick_access, sync_unpin_from_shell_quick_access, FileTagPreview,
-    QuickAccessEntry,
+    QuickAccessEntry, QuickAccessFolderKind,
 };
 pub use item::{DirectoryReadOptions, FileItem, FileItemKind, TagRef};
 pub use local::read_directory;

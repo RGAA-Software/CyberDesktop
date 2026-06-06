@@ -10,9 +10,15 @@ pub const HOME_PAGE_PADDING_X: Pixels = px(26.);
 pub const HOME_PAGE_PADDING_Y: Pixels = px(22.);
 pub const HOME_SECTION_GAP: Pixels = px(26.);
 
-/// Design: `repeat(auto-fill, minmax(200px, 1fr))`.
-pub const CARD_MIN_WIDTH: Pixels = px(200.);
+/// Fixed width for quick-access and drive cards on the Home page.
+pub const CARD_CELL_WIDTH: Pixels = px(220.);
+/// Legacy alias — prefer [`CARD_CELL_WIDTH`].
+pub const CARD_MIN_WIDTH: Pixels = CARD_CELL_WIDTH;
 pub const GRID_GAP: Pixels = px(10.);
+/// Minimum clearance between the last item in a row and the right edge.
+const GRID_RIGHT_MARGIN: Pixels = px(20.);
+/// Reserve space when the home scroll area shows a vertical scrollbar.
+const GRID_SCROLLBAR_RESERVE: Pixels = px(12.);
 pub const TAG_COLUMNS: usize = 4;
 
 pub const QA_ITEM_HEIGHT: Pixels = px(68.);
@@ -38,18 +44,26 @@ pub fn estimated_content_width(window: &Window) -> Pixels {
     (window.viewport_size().width - sidebar - padding).max(px(400.))
 }
 
-pub fn auto_fill_column_count(container_width: Pixels, min_cell: Pixels, gap: Pixels) -> usize {
-    let w = container_width.as_f32();
-    let min = min_cell.as_f32();
-    let g = gap.as_f32();
-    ((w + g) / (min + g)).floor().max(1.) as usize
+fn effective_grid_width(container_width: Pixels) -> Pixels {
+    (container_width - GRID_SCROLLBAR_RESERVE).max(CARD_CELL_WIDTH)
 }
 
-pub fn column_cell_width(container_width: Pixels, columns: usize, gap: Pixels) -> Pixels {
-    let cols = columns.max(1) as f32;
-    let w = container_width.as_f32();
-    let g = gap.as_f32();
-    px((w - g * (cols - 1.)) / cols)
+/// How many fixed-width cards fit on one row with at least [`GRID_RIGHT_MARGIN`]
+/// clearance to the right edge. If the next card would leave less than 20px
+/// margin, it wraps to the next row instead.
+fn items_per_row(container_width: Pixels) -> usize {
+    let w = effective_grid_width(container_width).as_f32();
+    let cell = CARD_CELL_WIDTH.as_f32();
+    let gap = GRID_GAP.as_f32();
+    let margin = GRID_RIGHT_MARGIN.as_f32();
+    for count in (1..=32).rev() {
+        let n = count as f32;
+        let row_width = n * cell + (n - 1.) * gap;
+        if row_width + margin <= w + 0.5 {
+            return count;
+        }
+    }
+    1
 }
 
 /// Stop the Home page “show/hide widgets” menu from opening (bubble phase).
@@ -60,15 +74,15 @@ where
     element.on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
 }
 
-/// Quick access / drives: `auto-fill` with `minmax(200px, 1fr)`.
+/// Quick access / drives: fixed 220px cards; wrap when the right margin would
+/// fall below 20px.
 pub fn home_card_grid(
     container_width: Pixels,
     children: impl IntoIterator<Item = AnyElement>,
 ) -> impl IntoElement {
     let children: Vec<_> = children.into_iter().collect();
-    let columns = auto_fill_column_count(container_width, CARD_MIN_WIDTH, GRID_GAP);
-    let cell_width = column_cell_width(container_width, columns, GRID_GAP);
-    fixed_width_rows("home-card-grid", columns, cell_width, children)
+    let columns = items_per_row(container_width);
+    fixed_width_rows("home-card-grid", columns, CARD_CELL_WIDTH, children)
 }
 
 /// File tags: exactly 4 equal columns spanning the parent width.
@@ -109,6 +123,9 @@ fn fixed_width_rows(
                     div()
                         .flex_none()
                         .w(cell_width)
+                        .max_w(cell_width)
+                        .min_w_0()
+                        .overflow_hidden()
                         .child(child)
                         .into_any_element()
                 }))

@@ -13,7 +13,7 @@ pub const FILES_CONFIG_APP_ID: &str = "cyber_files";
 pub const EDITOR_CONFIG_APP_ID: &str = "cyber_editor";
 pub const MEDIA_PLAYER_CONFIG_APP_ID: &str = "cyber_media_player";
 
-pub const WINDOW_WIDTH: f32 = 1600.;
+pub const WINDOW_WIDTH: f32 = 1630.;
 pub const WINDOW_HEIGHT: f32 = 900.;
 
 pub const GITHUB_REPO_URL: &str = "https://github.com/RGAA-Software/CyberDesktop";

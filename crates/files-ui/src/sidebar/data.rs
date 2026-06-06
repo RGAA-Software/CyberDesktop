@@ -5,8 +5,8 @@ use files_core::{AppConfig, FileTagConfig};
 use files_fs::list_drives;
 #[cfg(windows)]
 use app_platform_windows::{
-    list_cloud_drive_roots, list_known_folder_folders, list_shell_quick_access_folders,
-    list_wsl_distro_roots, FOLDERID_LIBRARIES, FOLDERID_NETWORK,
+    list_cloud_drive_roots, list_known_folder_folders, list_wsl_distro_roots, FOLDERID_LIBRARIES,
+    FOLDERID_NETWORK,
 };
 
 use crate::shell::navigation::NavigationTarget;
@@ -120,21 +120,6 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
 fn load_pinned_entries(config: &AppConfig) -> Vec<SidebarEntry> {
     let mut seen = HashSet::new();
     let mut entries = Vec::new();
-
-    #[cfg(windows)]
-    if let Ok(shell) = list_shell_quick_access_folders() {
-        for item in shell {
-            if item.path.exists() && seen.insert(path_key(&item.path)) {
-                entries.push(SidebarEntry {
-                    label: item.display_name,
-                    target: NavigationTarget::Path(item.path),
-                    pinned_in_settings: false,
-                    color: None,
-                    usage_fraction: None,
-                });
-            }
-        }
-    }
 
     for path_str in &config.pinned_folders {
         let path = PathBuf::from(path_str);

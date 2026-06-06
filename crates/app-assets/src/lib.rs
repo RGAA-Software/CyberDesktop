@@ -174,6 +174,8 @@ mod tests {
             "icons/tabler/copy.svg",
             "icons/tabler/cut.svg",
             "icons/tabler/layout-columns.svg",
+            "icons/tabler/download.svg",
+            "icons/tabler/music.svg",
         ] {
             let data = assets.load(path).expect("load");
             assert!(data.is_some(), "missing {path}");

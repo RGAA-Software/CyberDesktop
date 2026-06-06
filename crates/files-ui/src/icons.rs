@@ -1,5 +1,6 @@
 //! App-wide Tabler icon helpers (24×24 outline, 18px on screen).
 
+use files_fs::{parse_tag_color_hex, DriveInfo, QuickAccessFolderKind};
 use gpui::{div, prelude::*, px, AnyElement, App, Hsla, Pixels};
 use gpui_component::{ActiveTheme as _, Icon, IconName, Sizable as _, Size};
 
@@ -114,4 +115,56 @@ pub fn pin_icon() -> Icon {
 
 pub fn tabs_icon() -> Icon {
     tabler_icons::icon(tabler_icons::PLUS)
+}
+
+/// Tabler asset for a Home quick-access row (`design/cyber_files.html` `.qa-icon`).
+pub fn home_quick_access_tabler_icon(kind: QuickAccessFolderKind) -> &'static str {
+    match kind {
+        QuickAccessFolderKind::Desktop => tabler_icons::DEVICE_DESKTOP,
+        QuickAccessFolderKind::Documents => tabler_icons::FILE_TEXT,
+        QuickAccessFolderKind::Downloads => tabler_icons::DOWNLOAD,
+        QuickAccessFolderKind::Music => tabler_icons::MUSIC,
+        QuickAccessFolderKind::Videos => tabler_icons::MOVIE,
+        QuickAccessFolderKind::Pictures => tabler_icons::PHOTO,
+        QuickAccessFolderKind::Custom => tabler_icons::FOLDER_FILLED,
+    }
+}
+
+/// Icon + tile background for a built-in quick-access folder.
+///
+/// Colors come from [`files_fs::TAG_COLOR_PRESETS`] (same palette as file tags).
+/// Returns `None` for manually pinned folders — use theme accent there.
+pub fn home_quick_access_palette(kind: QuickAccessFolderKind) -> Option<(Hsla, Hsla)> {
+    let hex = match kind {
+        QuickAccessFolderKind::Desktop => "#1E88E5",
+        QuickAccessFolderKind::Documents => "#3949AB",
+        QuickAccessFolderKind::Downloads => "#00897B",
+        QuickAccessFolderKind::Music => "#D81B60",
+        QuickAccessFolderKind::Videos => "#F4511E",
+        QuickAccessFolderKind::Pictures => "#FFB300",
+        QuickAccessFolderKind::Custom => return None,
+    };
+    let rgb = parse_tag_color_hex(hex)?;
+    let icon: Hsla = gpui::rgb(rgb).into();
+    let tile = icon.opacity(0.14);
+    Some((icon, tile))
+}
+
+/// Tabler asset for a Home drive card (`design/cyber_files.html` `.drive-icon`).
+pub fn home_drive_tabler_icon(drive: &DriveInfo) -> &'static str {
+    let root = drive.path.to_string_lossy().to_ascii_uppercase();
+    if root.starts_with("C:\\") {
+        tabler_icons::BRAND_WINDOWS
+    } else {
+        tabler_icons::DATABASE
+    }
+}
+
+/// Render a Tabler SVG at an explicit pixel size and tint.
+pub fn tabler_icon_element(path: &'static str, size: Pixels, color: Hsla) -> AnyElement {
+    div()
+        .flex_none()
+        .text_color(color)
+        .child(tabler_icons::icon(path).with_size(Size::Size(size)))
+        .into_any_element()
 }

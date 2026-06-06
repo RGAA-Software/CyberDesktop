@@ -25,13 +25,16 @@ use crate::home::page::HomePage;
 use crate::home::widget_shell::{
     block_home_page_context_menu, bordered_home_card, home_card_grid, net_notice,
     space_progress_bar, tag_cols_grid, DRIVE_CARD_PADDING_X, DRIVE_CARD_PADDING_Y,
-    DRIVE_ICON_TILE, HOME_CARD_RADIUS, QA_ICON_INNER, QA_ICON_TILE, QA_ITEM_HEIGHT,
+    DRIVE_ICON_TILE, QA_ICON_INNER, QA_ICON_TILE, QA_ITEM_HEIGHT,
     QA_ITEM_PADDING_X, QA_ITEM_PADDING_Y, RECENT_HEADER_HEIGHT, RECENT_ROW_HEIGHT,
 };
-use crate::icons::{pin_icon, toolbar_tabler};
+use crate::icons::{
+    home_drive_tabler_icon, home_quick_access_palette, home_quick_access_tabler_icon,
+    tabler_icon_element, toolbar_tabler,
+};
+use crate::shell_icon::shell_icon_for_path;
 use crate::tabler_icons;
 use app_ui::popup_menu::{ContextMenuExt as _, PopupMenu, PopupMenuItem};
-use crate::shell_icon::shell_icon_for_path;
 
 #[cfg(windows)]
 use app_platform_windows::{list_known_folder_folders, FOLDERID_NETWORK};
@@ -291,8 +294,10 @@ impl HomePage {
         let path = entry.path.clone();
         let label = entry.label.clone();
         let pinned = entry.is_pinned;
-        let subtitle = path.parent().map(|p| p.display().to_string()).unwrap_or_default();
-        self.ensure_home_thumbnail(&path, QA_ICON_INNER.as_f32(), window, cx);
+        let path_display = path.display().to_string();
+        let qa_icon = home_quick_access_tabler_icon(entry.kind);
+        let (icon_color, icon_tile_bg) = home_quick_access_palette(entry.kind)
+            .unwrap_or((cx.theme().primary, cx.theme().accent));
         bordered_home_card(format!("{prefix}-qa-{index}"), cx)
             .w_full()
             .h(QA_ITEM_HEIGHT)
@@ -324,23 +329,16 @@ impl HomePage {
                         div()
                             .size(QA_ICON_TILE)
                             .flex_none()
-                            .rounded(HOME_CARD_RADIUS)
-                            .bg(cx.theme().accent)
-                            .text_color(cx.theme().primary)
+                            .rounded(px(10.))
+                            .bg(icon_tile_bg)
                             .flex()
                             .items_center()
                             .justify_center()
-                            .relative()
-                            .child(self.home_card_image(&path, QA_ICON_INNER, window))
-                            .when(pinned, |el| {
-                                el.child(
-                                    div()
-                                        .absolute()
-                                        .top(px(2.))
-                                        .right(px(2.))
-                                        .child(pin_icon()),
-                                )
-                            }),
+                            .child(tabler_icon_element(
+                                qa_icon,
+                                QA_ICON_INNER,
+                                icon_color,
+                            )),
                     )
                     .child(
                         v_flex()
@@ -353,14 +351,12 @@ impl HomePage {
                                     .font_weight(gpui::FontWeight::SEMIBOLD)
                                     .truncate(),
                             )
-                            .when(!subtitle.is_empty(), |col| {
-                                col.child(
-                                    Label::new(subtitle)
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .truncate(),
-                                )
-                            }),
+                            .child(
+                                Label::new(path_display)
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .truncate(),
+                            ),
                     ),
             )
     }
@@ -385,7 +381,7 @@ impl HomePage {
             .map(|(total, free)| format_bytes_label(total.saturating_sub(free)));
         let free_label = drive.free_bytes.map(format_bytes_label);
         let frac = drive.used_fraction();
-        self.ensure_home_thumbnail(&path, DRIVE_ICON_TILE.as_f32(), window, cx);
+        let drive_icon = home_drive_tabler_icon(drive);
         bordered_home_card(format!("{prefix}-drive-{index}"), cx)
             .w_full()
             .px(DRIVE_CARD_PADDING_X)
@@ -421,7 +417,11 @@ impl HomePage {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .child(self.home_card_image(&path, px(18.), window)),
+                                    .child(tabler_icon_element(
+                                        drive_icon,
+                                        px(18.),
+                                        cx.theme().muted_foreground,
+                                    )),
                             )
                             .child(
                                 v_flex()

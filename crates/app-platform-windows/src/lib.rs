@@ -57,7 +57,10 @@ pub use icons::{
     icon_hint_for_path, icon_hint_from_extension, shell_dummy_icon_path, ShellIconHint,
 };
 #[cfg(windows)]
-pub use paths::{is_recycle_bin_path, recycle_bin_folder, SHELL_RECYCLE_BIN_PATH};
+pub use paths::{
+    is_recycle_bin_path, list_default_user_folders, recycle_bin_folder, DefaultUserFolder,
+    DefaultUserFolderKind, SHELL_RECYCLE_BIN_PATH,
+};
 pub use quick_access::{
     list_shell_quick_access_folders, shell_pin_to_quick_access, shell_unpin_from_quick_access,
     ShellQuickAccessEntry,
@@ -122,6 +125,27 @@ mod stubs {
 
     pub fn is_recycle_bin_path(_path: &Path) -> bool {
         false
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum DefaultUserFolderKind {
+        Desktop,
+        Documents,
+        Downloads,
+        Music,
+        Videos,
+        Pictures,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct DefaultUserFolder {
+        pub kind: DefaultUserFolderKind,
+        pub display_name: String,
+        pub path: PathBuf,
+    }
+
+    pub fn list_default_user_folders() -> Vec<DefaultUserFolder> {
+        Vec::new()
     }
 
     pub fn read_clipboard_file_paths() -> Vec<PathBuf> {

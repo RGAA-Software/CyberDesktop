@@ -77,6 +77,8 @@ TABLER_ICON_MAP: dict[str, str] = {
     "eye": "eye",
     "eye-off": "eye-off",
     "device-desktop": "device-desktop",
+    "download": "download",
+    "music": "music",
     "network": "network",
     "cloud": "cloud",
     "clock": "clock",
