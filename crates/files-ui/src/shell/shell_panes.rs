@@ -15,8 +15,7 @@ use files_core::{load_config, SessionPaneLayout};
 use files_fs::home_navigation_path;
 
 const PANE_SHELL_RADIUS: Pixels = px(14.);
-const PANE_TITLE_HEIGHT: Pixels = px(34.);
-const PANE_ACTIVE_TOP_BAR: Pixels = px(3.);
+const PANE_TITLE_HEIGHT: Pixels = px(35.);
 const SPLIT_BROWSER_PADDING: Pixels = px(10.);
 const SPLIT_BROWSER_GAP: Pixels = px(10.);
 
@@ -387,6 +386,7 @@ impl ShellPanes {
                     .cursor_row_resize()
             })
             .bg(cx.theme().border)
+            .rounded_full()
             .hover(|s| s.bg(cx.theme().drag_border))
             .on_double_click(cx.listener(|this, _, _, cx| {
                 this.reset_split_ratio(cx);
@@ -460,6 +460,7 @@ impl Render for ShellPanes {
                 .h(PANE_TITLE_HEIGHT)
                 .px(px(12.))
                 .items_center()
+                .rounded_t(PANE_SHELL_RADIUS)
                 .border_b_1()
                 .border_color(if is_active {
                     cx.theme().primary
@@ -500,15 +501,6 @@ impl Render for ShellPanes {
                         cx.theme().border
                     })
                     .bg(cx.theme().background)
-                    .when(is_active, |shell| {
-                        shell.child(
-                            div()
-                                .w_full()
-                                .h(PANE_ACTIVE_TOP_BAR)
-                                .flex_none()
-                                .bg(cx.theme().primary),
-                        )
-                    })
                     // Capture phase: activate before FileBrowser/list stop_propagation.
                     .capture_any_mouse_down(cx.listener(move |this, _, window, cx| {
                         this.activate_pane(side, window, cx);
