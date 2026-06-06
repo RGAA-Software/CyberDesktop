@@ -22,6 +22,7 @@ impl FileBrowser {
                 let item_sizes = Rc::new(vec![COLUMN_ROW_SIZE; item_count.max(1)]);
 
                 let is_active = self.active_column_index == Some(col_index);
+                let column_depth = col_index + 1;
 
                 v_flex()
                     .id(("files-column", col_index))
@@ -29,8 +30,15 @@ impl FileBrowser {
                     .flex_none()
                     .h_full()
                     .min_h_0()
-                    .border_r_1()
-                    .border_color(cx.theme().border)
+                    .rounded_t(COLUMNS_TITLE_RADIUS)
+                    .border_1()
+                    .border_color(if is_active {
+                        cx.theme().primary
+                    } else {
+                        cx.theme().border
+                    })
+                    .bg(cx.theme().background)
+                    .overflow_hidden()
                     .on_mouse_down(
                         MouseButton::Left,
                         cx.listener(move |this, _, _, cx| {
@@ -42,24 +50,50 @@ impl FileBrowser {
                     )
                     .child(
                         h_flex()
-                            .h_8()
-                            .px_2()
                             .flex_none()
+                            .w_full()
+                            .h(COLUMNS_TITLE_HEIGHT)
+                            .pl(px(12.))
+                            .pr(px(10.))
                             .items_center()
-                            .bg(if is_active {
+                            .gap(px(8.))
+                            .rounded_t(COLUMNS_TITLE_RADIUS)
+                            .border_b_1()
+                            .border_color(if is_active {
                                 cx.theme().primary
                             } else {
-                                cx.theme().muted
+                                cx.theme().border
                             })
-                            .text_xs()
-                            .text_color(if is_active {
-                                cx.theme().primary_foreground
+                            .bg(if is_active {
+                                cx.theme().accent
                             } else {
-                                cx.theme().muted_foreground
+                                cx.theme().background
                             })
                             .overflow_hidden()
-                            .text_ellipsis()
-                            .child(title),
+                            .child(
+                                Label::new(title)
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_sm()
+                                    .when(is_active, |label| label.font_semibold())
+                                    .text_color(if is_active {
+                                        cx.theme().accent_foreground
+                                    } else {
+                                        cx.theme().foreground
+                                    })
+                                    .truncate(),
+                            )
+                            .child(
+                                Label::new(column_depth.to_string())
+                                    .flex_none()
+                                    .text_sm()
+                                    .when(is_active, |label| label.font_semibold())
+                                    .text_color(if is_active {
+                                        cx.theme().accent_foreground
+                                    } else {
+                                        cx.theme().foreground
+                                    }),
+                            ),
                     )
                     .child(
                         v_flex()
@@ -223,6 +257,7 @@ impl FileBrowser {
                     .min_h_0()
                     .w_full()
                     .items_start()
+                    .gap(px(10.))
                     .overflow_x_scroll()
                     .map(|mut this| {
                         this.style().restrict_scroll_to_axis = Some(true);

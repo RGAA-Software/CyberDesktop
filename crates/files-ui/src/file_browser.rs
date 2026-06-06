@@ -149,7 +149,11 @@ pub(super) const GRID_CELL_SIZE: Size<Pixels> = size(px(118.), px(104.));
 pub(super) const GRID_CELL_SIZE_LARGE: Size<Pixels> = size(px(136.), px(120.));
 pub(super) const CARD_CELL_SIZE: Size<Pixels> = size(px(280.), px(120.));
 const COLUMN_ROW_SIZE: Size<Pixels> = size(px(1.), FILE_LIST_ROW_HEIGHT);
-const COLUMN_WIDTH: Pixels = px(240.);
+const COLUMN_WIDTH: Pixels = px(320.);
+/// Matches split-pane title bar height (`shell_panes::PANE_TITLE_HEIGHT`).
+const COLUMNS_TITLE_HEIGHT: Pixels = px(35.);
+/// Top corner radius for column title bars (matches `shell_panes::PANE_SHELL_RADIUS`).
+const COLUMNS_TITLE_RADIUS: Pixels = px(14.);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewMode {
