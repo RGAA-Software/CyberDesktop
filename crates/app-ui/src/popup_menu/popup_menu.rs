@@ -7,7 +7,7 @@ use super::menu_item::MenuItemElement;
 use super::menu_scrollbar::{MenuScrollbar, MENU_SCROLLBAR_GAP, MENU_SCROLLBAR_WIDTH};
 use gpui::{
     anchored, deferred, div, img, prelude::FluentBuilder, px, Action, Anchor, AnyElement, App,
-    AppContext, Bounds, Context, DismissEvent, Edges, Entity, EventEmitter, FocusHandle, Focusable,
+    AppContext, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
     Image, ImageFormat, InteractiveElement, IntoElement, KeyBinding, ObjectFit, ParentElement,
     Pixels, Render, ScrollHandle, SharedString, StatefulInteractiveElement, Styled, StyledImage,
     WeakEntity, Window,
@@ -484,8 +484,10 @@ impl PopupMenu {
         const SEPARATOR_HEIGHT: Pixels = px(9.);
         // Vertical gap inserted between every row (`gap_y_0p5`).
         const ROW_GAP: Pixels = px(2.);
-        // Items container top + bottom padding (`p_1`).
-        const VERTICAL_PADDING: Pixels = px(8.);
+        // Items container top + bottom padding (`p(MENU_EDGE_PADDING)` on both
+        // sides; MENU_EDGE_PADDING is 6px). The old estimate used 8px which
+        // under-counted and could skip scrolling when content barely overflows.
+        const VERTICAL_PADDING: Pixels = px(12.);
 
         // Must match the per-row height chosen in `render_item`.
         let item_height = match self.size {
@@ -1341,21 +1343,39 @@ impl PopupMenu {
         self.max_width.unwrap_or(px(500.))
     }
 
-    /// Calculate the anchor corner and left offset for child submenu
-    fn update_submenu_menu_anchor(&mut self, window: &Window) {
-        let bounds = self.bounds;
-        let max_width = self.max_width();
-        let (anchor, left) = if max_width + bounds.origin.x > window.bounds().size.width {
+    /// Choose the horizontal side (and offset) for a child submenu flyout.
+    ///
+    /// We only decide left-vs-right here and always use a *top* anchor. The
+    /// vertical fit (flip up near the bottom edge, snap fully into the window
+    /// for a tall scrolling menu) is delegated to gpui's `anchored` element,
+    /// whose default `SwitchAnchor` fit mode flips the vertical corner when the
+    /// flyout would overflow and otherwise snaps it inside the viewport. Because
+    /// the flyout is laid out as a child of its trigger row, gpui anchors it to
+    /// that row automatically, so it always appears next to «显示更多选项»
+    /// instead of being pushed away from it.
+    fn update_submenu_menu_anchor(&mut self, window: &Window, cx: &App) {
+        let menu_width = self.bounds.size.width;
+        if menu_width <= px(0.) {
+            return;
+        }
+
+        let child_max_width = self
+            .selected_index
+            .and_then(|ix| match self.menu_items.get(ix) {
+                Some(PopupMenuItem::Submenu { menu, .. }) => Some(menu.read(cx).max_width()),
+                _ => None,
+            })
+            .unwrap_or_else(|| self.max_width());
+
+        const FLYOUT_OVERLAP: Pixels = px(8.);
+        let window_width = window.viewport_size().width;
+        let open_left =
+            self.bounds.origin.x + menu_width + child_max_width > window_width;
+
+        self.submenu_anchor = if open_left {
             (Anchor::TopRight, -px(16.))
         } else {
-            (Anchor::TopLeft, bounds.size.width - px(8.))
-        };
-
-        let is_bottom_pos = bounds.origin.y + bounds.size.height > window.bounds().size.height;
-        self.submenu_anchor = if is_bottom_pos {
-            (anchor.other_side_along(gpui::Axis::Vertical), left)
-        } else {
-            (anchor, left)
+            (Anchor::TopLeft, menu_width - FLYOUT_OVERLAP)
         };
     }
 
@@ -1376,7 +1396,6 @@ impl PopupMenu {
         };
 
         let selected = self.selected_index == Some(ix);
-        const EDGE_PADDING: Pixels = px(4.);
         const INNER_PADDING: Pixels = px(8.);
 
         let is_submenu = matches!(item, PopupMenuItem::Submenu { .. });
@@ -1593,10 +1612,7 @@ impl PopupMenu {
                                         .when(!is_bottom_pos, |this| this.top_neg_1())
                                         .left(left)
                                         .child(menu.clone()),
-                                )
-                                // Keep the flyout inside the window (with a small
-                                // margin) instead of switching the anchor corner.
-                                .snap_to_window_with_margin(Edges::all(EDGE_PADDING)),
+                                ),
                         )
                         .with_priority(1)
                     })
@@ -1622,15 +1638,24 @@ struct RenderOptions {
 
 impl Render for PopupMenu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.update_submenu_menu_anchor(window);
+        self.update_submenu_menu_anchor(window, cx);
 
         let view = cx.entity().clone();
         let items_count = self.menu_items.len();
 
-        let max_height = self.max_height.unwrap_or_else(|| {
-            let window_half_height = window.window_bounds().get_bounds().size.height * 0.5;
-            window_half_height.min(px(450.))
-        });
+        // Clamp the requested cap to the *drawable viewport* (not the OS window
+        // bounds, which include the title bar). gpui's `anchored` snaps the
+        // flyout into `window.viewport_size()`, so a cap taller than the viewport
+        // could never actually be displayed — the menu would overflow and be
+        // clipped instead of sitting at the intended 0.92×-window height.
+        let viewport_height = window.viewport_size().height;
+        let max_height = self
+            .max_height
+            .unwrap_or_else(|| {
+                let window_half_height = window.window_bounds().get_bounds().size.height * 0.5;
+                window_half_height.min(px(450.))
+            })
+            .min(viewport_height - px(8.));
 
         // Decide here, up front, whether to turn on the scroll viewport and
         // scrollbar. We only do so when the menu opted into `scrollable` *and*
@@ -1675,11 +1700,12 @@ impl Render for PopupMenu {
                     .gap(px(2.))
                     .min_w(self.min_width.unwrap_or(DEFAULT_POPUP_MENU_MIN_WIDTH))
                     .max_w(max_width)
-                    // Cap the height and turn on vertical scrolling only when the
-                    // content actually overflows; otherwise the items area sizes
-                    // to its content and stays fully visible.
+                    // When the content overflows, pin the items area to exactly
+                    // `max_height` (0.92 × window for the shell menu) and scroll;
+                    // otherwise size to content and stay fully visible.
                     .when(needs_scroll, |this| {
-                        this.max_h(max_height)
+                        this.h(max_height)
+                            .max_h(max_height)
                             .pr(MENU_SCROLLBAR_WIDTH + MENU_SCROLLBAR_GAP)
                             .overflow_y_scroll()
                             .track_scroll(&self.scroll_handle)
