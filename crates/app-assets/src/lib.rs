@@ -1,7 +1,9 @@
 //! Embedded icon assets for CyberFiles.
 //!
 //! CyberFiles toolbar, navigation, and list icons use [Tabler Icons](https://tabler.io/icons) (outline,
-//! 24px) under `assets/icons/tabler/`. Run `python scripts/sync_tabler_icons.py` to refresh them.
+//! 24px) under `assets/icons/tabler/`. File-type icons use Tabler `file-type-*` where available and
+//! Zed-style language icons under `assets/icons/file_icons/` (from ../zed). Run
+//! `python scripts/sync_tabler_icons.py` and `python scripts/generate_file_type_icons.py` to refresh.
 //!
 //! Editor gutter chevrons, CyberEditor toolbar icons, and a few shared paths (`plus.svg`, `settings-2.svg`)
 //! remain as bundled SVGs in `assets/icons/`. Window chrome, theme toggle, GitHub, and tab close icons

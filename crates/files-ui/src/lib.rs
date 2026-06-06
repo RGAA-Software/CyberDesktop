@@ -3,6 +3,8 @@ mod app_state;
 #[cfg(feature = "full-app")]
 mod color_icon;
 #[cfg(feature = "full-app")]
+mod file_type_icons;
+#[cfg(feature = "full-app")]
 mod drag;
 #[cfg(feature = "full-app")]
 mod file_browser;

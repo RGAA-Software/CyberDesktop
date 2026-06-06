@@ -13,12 +13,10 @@ use crate::app_state::AppOperationHistory;
 use crate::file_ops::{
     spawn_compress, spawn_delete, spawn_extract, spawn_paste_from_clipboard,
 };
-use crate::color_icon;
 use crate::icons::{
     compact_icon, file_tag_empty_icon_element, toolbar_icon, toolbar_tabler,
 };
 use crate::tabler_icons;
-use crate::list_icon_cache;
 use app_ui::popup_menu::PopupMenu;
 use crate::shell::navigation::NavigationTarget;
 use app_ui::toolbar_button::TOOLBAR_BUTTON_PX;

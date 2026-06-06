@@ -1,5 +1,6 @@
 use super::*;
 use crate::app_state::AppFileClipboard;
+use crate::file_type_icons;
 
 /// Opacity for items cut to the in-app clipboard but not pasted yet (Files `DimItemOpacity`).
 pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
@@ -46,40 +47,16 @@ impl FileBrowser {
         }
     }
 
-    fn row_list_icon_inner(item: &FileItem, logical_size: Pixels, window: &Window) -> AnyElement {
-        if item.kind == FileItemKind::Folder {
-            return div()
-                .size(logical_size)
-                .flex()
-                .items_center()
-                .justify_center()
-                .child(toolbar_tabler(tabler_icons::FOLDER))
-                .into_any_element();
-        }
-        if let Some(ext) = item.extension.as_deref().filter(|e| !e.is_empty()) {
-            if let Some(path) = list_icon_cache::extension_svg_path(ext) {
-                return color_icon::color_icon_box(path, logical_size);
-            }
-        }
-        let px = platform::shell_icon_pixel_size(logical_size.as_f32(), window.scale_factor());
-        let key = list_icon_cache::list_icon_key(item);
-        if let Some(png) = list_icon_cache::list_icon_png_cached(&key, px) {
-            if !png.is_empty() {
-                return img(std::sync::Arc::new(Image::from_bytes(
-                    ImageFormat::Png,
-                    (*png).clone(),
-                )))
-                .size(logical_size)
-                .object_fit(ObjectFit::Contain)
-                .into_any_element();
-            }
-        }
+    fn row_list_icon_inner(item: &FileItem, logical_size: Pixels) -> AnyElement {
+        let svg_path = file_type_icons::svg_path_for_path(&item.path);
         div()
             .size(logical_size)
             .flex()
             .items_center()
             .justify_center()
-            .child(Self::file_item_kind_icon(item.kind))
+            .child(
+                toolbar_tabler(svg_path).with_size(gpui_component::Size::Size(logical_size)),
+            )
             .into_any_element()
     }
 
@@ -115,7 +92,7 @@ impl FileBrowser {
         window: &Window,
         cx: &App,
     ) -> impl IntoElement {
-        let inner = Self::row_list_icon_inner(item, logical_size, window);
+        let inner = Self::row_list_icon_inner(item, logical_size);
         let tile_size = if logical_size >= px(28.) {
             logical_size
         } else {
@@ -151,23 +128,7 @@ impl FileBrowser {
     }
 
     /// After directory refresh: load at most one Shell icon per category (folder, zip, exe, ...).
-    pub(super) fn schedule_list_icon_warm(&mut self, window: &Window, cx: &mut Context<Self>) {
-        if self.list_icon_warm_scheduled == self.list_icon_warm_token {
-            return;
-        }
-        self.list_icon_warm_scheduled = self.list_icon_warm_token;
-        let keys = list_icon_cache::list_icon_keys_for_items(&self.display_items);
-        let px = platform::shell_icon_pixel_size(16., window.scale_factor());
-        cx.spawn(async move |this, cx| {
-            let _ = cx
-                .background_spawn(async move {
-                    list_icon_cache::warm_list_icons(keys, px);
-                })
-                .await;
-            let _ = this.update(cx, |_, cx| cx.notify());
-        })
-        .detach();
-    }
+    pub(super) fn schedule_list_icon_warm(&mut self, _window: &Window, _cx: &mut Context<Self>) {}
 
     pub(super) fn set_sort_option(&mut self, option: SortOption) {
         self.sort_preferences.option = option;

@@ -505,13 +505,13 @@ fn popup_menu_path_item(
     let path = entry.path.clone();
     let label = entry.label.clone();
     let dimmed = entry.dimmed;
-    PopupMenuItem::element(move |window, _| {
+    PopupMenuItem::element(move |window, cx| {
         breadcrumb_menu_row(
             label.clone(),
             Some(crate::shell_icon::shell_icon_for_path(
                 &path,
                 px(16.),
-                window,
+                cx,
             )),
             dimmed,
             window,

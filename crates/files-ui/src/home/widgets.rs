@@ -533,7 +533,7 @@ impl HomePage {
             .child(div().w(px(28.)).flex_none().child(shell_icon_for_path(
                 &item.path,
                 px(16.),
-                window,
+                cx,
             )))
             .child(
                 div()
@@ -658,7 +658,7 @@ impl HomePage {
                                                         .child(shell_icon_for_path(
                                                             file_path,
                                                             px(14.),
-                                                            window,
+                                                            cx,
                                                         )),
                                                 )
                                                 .child(

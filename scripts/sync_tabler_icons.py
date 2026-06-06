@@ -88,7 +88,7 @@ TABLER_ICON_MAP: dict[str, str] = {
     "terminal-2": "terminal-2",
     "inbox": "inbox",
     "sort-ascending-letters": "sort-ascending-letters",
-    # File types
+    # File types (Tabler outline file-type-* where available)
     "file": "file",
     "file-text": "file-text",
     "file-code": "file-code",
@@ -97,6 +97,22 @@ TABLER_ICON_MAP: dict[str, str] = {
     "file-type-ts": "file-type-ts",
     "file-type-js": "file-type-js",
     "file-type-cpp": "brand-cpp",
+    "file-type-css": "file-type-css",
+    "file-type-xml": "file-type-xml",
+    "file-type-sql": "file-type-sql",
+    "file-type-doc": "file-type-doc",
+    "file-type-xls": "file-type-xls",
+    "file-type-ppt": "file-type-ppt",
+    "file-type-zip": "file-type-zip",
+    "file-type-bmp": "file-type-bmp",
+    "file-type-csv": "file-type-csv",
+    "file-type-jpg": "file-type-jpg",
+    "file-type-png": "file-type-png",
+    "file-type-vue": "file-type-vue",
+    "file-type-rs": "file-type-rs",
+    "file-type-php": "file-type-php",
+    "file-type-txt": "file-type-txt",
+    "file-type-svg": "file-type-svg",
     "movie": "movie",
     "photo": "photo",
     "book": "book",
@@ -132,8 +148,6 @@ def main() -> None:
     missing: list[str] = []
     for local_name, slug in sorted(TABLER_ICON_MAP.items()):
         dest = OUT_DIR / f"{local_name}.svg"
-        if dest.is_file():
-            continue
         try:
             content = download_icon(slug)
         except urllib.error.HTTPError as err:
@@ -142,7 +156,7 @@ def main() -> None:
         except OSError as err:
             missing.append(f"{local_name} ({slug}): {err}")
             continue
-        (OUT_DIR / f"{local_name}.svg").write_text(content, encoding="utf-8", newline="\n")
+        dest.write_text(content, encoding="utf-8", newline="\n")
 
     if missing:
         print("Failed downloads:")

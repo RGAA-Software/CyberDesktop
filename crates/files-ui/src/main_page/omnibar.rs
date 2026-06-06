@@ -964,7 +964,7 @@ impl MainPage {
                     .text_color(cx.theme().accent_foreground)
             })
             .when(!selected, |row| row.hover(|this| this.bg(cx.theme().accent.opacity(0.35))))
-            .child(shell_icon_for_path(&entry.path, px(16.), window))
+            .child(shell_icon_for_path(&entry.path, px(16.), cx))
             .child(
                 div()
                     .flex_1()

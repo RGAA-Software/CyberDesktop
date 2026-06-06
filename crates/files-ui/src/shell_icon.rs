@@ -1,27 +1,21 @@
-//! Windows Shell icons for paths (Files-style colorful folder / drive icons).
+//! Bundled SVG path icons (Tabler + Zed file_icons).
 
 use std::path::Path;
-use std::sync::Arc;
 
-use gpui::{div, img, prelude::*, AnyElement, Image, ImageFormat, ObjectFit, Pixels, Window};
+use gpui::{AnyElement, App, Pixels};
 
-#[cfg(windows)]
-use app_platform_windows::shell_icon_png_scaled;
+use crate::file_type_icons;
+use crate::icons::{chrome_icon_color, tabler_icon_element};
 
-#[cfg(windows)]
-pub fn shell_icon_for_path(path: &Path, logical_size: Pixels, window: &Window) -> AnyElement {
-    let scale = window.scale_factor();
-    let png = shell_icon_png_scaled(path, logical_size.as_f32(), scale).unwrap_or_default();
-    if png.is_empty() {
-        return div().size(logical_size).into_any();
-    }
-    img(Arc::new(Image::from_bytes(ImageFormat::Png, png)))
-        .size(logical_size)
-        .object_fit(ObjectFit::Contain)
-        .into_any()
+pub fn path_icon_for_path(path: &Path, logical_size: Pixels, cx: &App) -> AnyElement {
+    tabler_icon_element(
+        file_type_icons::svg_path_for_path(path),
+        logical_size,
+        chrome_icon_color(cx),
+    )
 }
 
-#[cfg(not(windows))]
-pub fn shell_icon_for_path(_path: &Path, logical_size: Pixels, _window: &Window) -> AnyElement {
-    div().size(logical_size).into_any()
+/// Legacy name kept for call sites migrating off Windows Shell icons.
+pub fn shell_icon_for_path(path: &Path, logical_size: Pixels, cx: &App) -> AnyElement {
+    path_icon_for_path(path, logical_size, cx)
 }

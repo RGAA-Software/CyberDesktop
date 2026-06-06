@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{img, prelude::*, AnyElement, Context, Image, ImageFormat, ObjectFit, Pixels, Window};
+use gpui::{img, prelude::*, AnyElement, App, Context, Image, ImageFormat, ObjectFit, Pixels, Window};
 
 use super::page::HomePage;
 
@@ -68,7 +68,7 @@ impl HomePage {
         &self,
         path: &Path,
         logical_size: Pixels,
-        window: &Window,
+        cx: &App,
     ) -> AnyElement {
         if let Some(bytes) = self.thumbnail_bytes.get(&thumbnail_cache_key(path)) {
             return img(Arc::new(Image::from_bytes(
@@ -79,6 +79,6 @@ impl HomePage {
             .object_fit(ObjectFit::Contain)
             .into_any();
         }
-        shell_icon_for_path(path, logical_size, window)
+        shell_icon_for_path(path, logical_size, cx)
     }
 }
