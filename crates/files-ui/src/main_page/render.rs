@@ -21,7 +21,7 @@ use super::{
     MainPage, NAV_TOOLBAR_HEIGHT, OMNIBAR_BAR_HEIGHT, TITLE_TAB_BAR_HEIGHT, TITLE_TAB_CLOSE_HIT,
     TITLE_TAB_CLOSE_ICON, TITLE_TAB_MIN_WIDTH, TITLE_TAB_WIDTH,
 };
-use crate::icons::{app_logo_element, compact_icon, pin_icon, toolbar_icon, toolbar_tabler};
+use crate::icons::{app_logo_element, compact_icon, pin_icon, pinned_icon, toolbar_icon, toolbar_tabler};
 use crate::tabler_icons;
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::preferences::apply_theme_mode;
@@ -55,6 +55,14 @@ fn path_tool_button(id: impl Into<ElementId>, cx: &App) -> Button {
         .border_1()
         .border_color(cx.theme().border)
         .bg(cx.theme().background)
+}
+
+fn active_path_tool_button(id: impl Into<ElementId>, cx: &App, active: bool) -> Button {
+    path_tool_button(id, cx).when(active, |btn| {
+        btn.bg(cx.theme().accent)
+            .border_color(cx.theme().primary)
+            .text_color(cx.theme().accent_foreground)
+    })
 }
 
 impl MainPage {
@@ -429,6 +437,7 @@ impl MainPage {
             )
             .child({
                 let dual_pane = self.dual_pane_active(cx);
+                let folder_pinned = self.current_folder_is_pinned(cx);
                 let mut trailing = h_flex()
                     .id("path-actions")
                     .flex_none()
@@ -436,24 +445,19 @@ impl MainPage {
                     .ml(px(6.))
                     .items_center()
                     .child(
-                        path_tool_button("nav-split-pane", cx)
+                        active_path_tool_button("nav-split-pane", cx, dual_pane)
                             .icon(toolbar_tabler(tabler_icons::LAYOUT_COLUMNS))
                             .tooltip(t!("nav.split_pane"))
-                            .when(dual_pane, |btn| {
-                                btn.bg(cx.theme().accent)
-                                    .border_color(cx.theme().primary)
-                                    .text_color(cx.theme().accent_foreground)
-                            })
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.toggle_dual_pane(cx);
                             })),
                     )
                     .child(
-                        nav_icon_button("nav-toggle-info")
-                            .icon(toolbar_icon(if show_info_pane {
-                                IconName::PanelRightClose
+                        active_path_tool_button("nav-toggle-info", cx, show_info_pane)
+                            .icon(toolbar_tabler(if show_info_pane {
+                                tabler_icons::LAYOUT_SIDEBAR_RIGHT_COLLAPSE
                             } else {
-                                IconName::PanelRightOpen
+                                tabler_icons::LAYOUT_SIDEBAR_RIGHT
                             }))
                             .tooltip(if show_info_pane {
                                 t!("nav.hide_info_pane")
@@ -466,9 +470,17 @@ impl MainPage {
                     );
                 if show_file_search {
                     trailing = trailing.child(
-                        path_tool_button("nav-pin-folder", cx)
-                            .icon(pin_icon())
-                            .tooltip(t!("nav.pin_folder"))
+                        active_path_tool_button("nav-pin-folder", cx, folder_pinned)
+                            .icon(if folder_pinned {
+                                pinned_icon()
+                            } else {
+                                pin_icon()
+                            })
+                            .tooltip(if folder_pinned {
+                                t!("sidebar.menu.unpin")
+                            } else {
+                                t!("nav.pin_folder")
+                            })
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.pin_current_folder(cx);
                             })),

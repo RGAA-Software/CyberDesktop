@@ -113,6 +113,10 @@ pub fn pin_icon() -> Icon {
     tabler_icons::icon(tabler_icons::PIN)
 }
 
+pub fn pinned_icon() -> Icon {
+    tabler_icons::icon(tabler_icons::PINNED)
+}
+
 pub fn tabs_icon() -> Icon {
     tabler_icons::icon(tabler_icons::PLUS)
 }

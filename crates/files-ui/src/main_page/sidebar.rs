@@ -1,10 +1,9 @@
 use std::path::PathBuf;
 
 use files_core::{load_config, save_config};
-use gpui::prelude::*;
+use gpui::{prelude::*, App};
 
 use super::MainPage;
-use crate::app_state::AppNavigation;
 use crate::shell::navigation::NavigationTarget;
 use crate::sidebar::sidebar_cache_key;
 
@@ -118,12 +117,25 @@ impl MainPage {
         if !config.pinned_folders.iter().any(|p| p == &path_string) {
             config.pinned_folders.push(path_string);
             let _ = save_config(&config);
-            if let Err(error) = files_fs::sync_pin_to_shell_quick_access(&path) {
-                tracing::warn!(target: "home", path = %path.display(), error = ?error, "pin to quick access failed");
-            }
             self.refresh_sidebar_cache(cx);
-            AppNavigation::refresh_quick_access(cx);
             cx.notify();
+
+            cx.spawn(async move |page, cx| {
+                let path_for_log = path.display().to_string();
+                let result = cx
+                    .background_spawn(async move { files_fs::sync_pin_to_shell_quick_access(&path) })
+                    .await;
+                if let Err(error) = result {
+                    tracing::warn!(
+                        target: "home",
+                        path = %path_for_log,
+                        error = ?error,
+                        "pin to quick access failed"
+                    );
+                }
+                let _ = page.update(cx, |page, cx| page.refresh_home_widgets(cx));
+            })
+            .detach();
         }
     }
 
@@ -133,14 +145,31 @@ impl MainPage {
             config.pinned_folders.remove(index);
             let _ = save_config(&config);
             let path = PathBuf::from(path_string);
-            if path.exists() {
-                if let Err(error) = files_fs::sync_unpin_from_shell_quick_access(&path) {
-                    tracing::warn!(target: "home", path = %path.display(), error = ?error, "unpin from quick access failed");
-                }
-            }
             self.refresh_sidebar_cache(cx);
-            AppNavigation::refresh_quick_access(cx);
             cx.notify();
+
+            cx.spawn(async move |page, cx| {
+                let path_for_log = path.display().to_string();
+                let result = cx
+                    .background_spawn(async move {
+                        if path.exists() {
+                            files_fs::sync_unpin_from_shell_quick_access(&path)
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .await;
+                if let Err(error) = result {
+                    tracing::warn!(
+                        target: "home",
+                        path = %path_for_log,
+                        error = ?error,
+                        "unpin from quick access failed"
+                    );
+                }
+                let _ = page.update(cx, |page, cx| page.refresh_home_widgets(cx));
+            })
+            .detach();
         }
     }
 
@@ -170,13 +199,24 @@ impl MainPage {
             .current_directory()
             .clone();
         let path_string = path.to_string_lossy().to_string();
-        let mut config = load_config().unwrap_or_default();
-        if let Some(index) = config.pinned_folders.iter().position(|p| p == &path_string) {
-            config.pinned_folders.remove(index);
+        if self.current_folder_is_pinned(cx) {
+            self.unpin_folder_path(&path_string, cx);
         } else {
-            config.pinned_folders.push(path_string);
+            self.pin_folder_path(path, cx);
         }
-        let _ = save_config(&config);
-        cx.notify();
+    }
+
+    pub(super) fn current_folder_is_pinned(&self, cx: &App) -> bool {
+        let pane = self.active_pane(cx);
+        let path_string = pane
+            .read(cx)
+            .file_browser()
+            .read(cx)
+            .current_directory()
+            .to_string_lossy()
+            .to_string();
+        load_config()
+            .map(|c| c.pinned_folders.iter().any(|p| p == &path_string))
+            .unwrap_or(false)
     }
 }
