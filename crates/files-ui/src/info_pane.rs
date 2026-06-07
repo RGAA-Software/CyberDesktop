@@ -220,6 +220,7 @@ pub struct InfoPane {
     native_video_surface: Option<NativeVideoSurface>,
     #[cfg(windows)]
     embedded_video_player: Option<MpvEmbedPlayer>,
+    context_menu_open: bool,
 }
 
 impl InfoPane {
@@ -283,6 +284,7 @@ impl InfoPane {
             native_video_surface: None,
             #[cfg(windows)]
             embedded_video_player: None,
+            context_menu_open: false,
         }
     }
 
@@ -462,6 +464,13 @@ impl InfoPane {
         }
     }
 
+    pub fn set_context_menu_open(&mut self, open: bool, cx: &mut Context<Self>) {
+        if self.context_menu_open != open {
+            self.context_menu_open = open;
+            cx.notify();
+        }
+    }
+
     pub fn set_selection(
         &mut self,
         selection: InfoPaneSelection,
@@ -580,6 +589,10 @@ impl InfoPane {
             return;
         };
         if self.selected_tab != 1 {
+            surface.set_visible(false);
+            return;
+        }
+        if self.context_menu_open {
             surface.set_visible(false);
             return;
         }

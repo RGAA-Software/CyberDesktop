@@ -223,6 +223,8 @@ impl MpvPlayer {
         player.set_option("terminal", "no")?;
         player.set_option("msg-level", "all=warn")?;
         player.set_option("vo", "libmpv")?;
+        player.set_option("hwdec", "auto")?;
+        player.set_option("hwdec-codecs", "all")?;
         player.set_option("keep-open", "yes")?;
         player.set_option("idle", "yes")?;
         player.set_option("audio-display", "no")?;
@@ -431,6 +433,9 @@ impl MpvEmbedPlayer {
         player.set_option("msg-level", "all=warn")?;
         player.set_option("vo", "gpu")?;
         player.set_option("gpu-context", "d3d11")?;
+        player.set_option("hwdec", "d3d11va")?;
+        player.set_option("hwdec-codecs", "all")?;
+        player.set_option("vd-lavc-dr", "yes")?;
         player.set_option("keep-open", "yes")?;
         player.set_option("idle", "yes")?;
         player.set_option("force-window", "immediate")?;

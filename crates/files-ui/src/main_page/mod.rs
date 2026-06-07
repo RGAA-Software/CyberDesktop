@@ -228,6 +228,12 @@ impl Render for MainPage {
         self.info_pane.update(cx, |pane, cx| {
             pane.set_selection(info_selection, info_read_options, cx);
         });
+        if show_info_pane {
+            let context_menu_open = self.active_file_browser(cx).read(cx).context_menu_open();
+            self.info_pane.update(cx, |pane, cx| {
+                pane.set_context_menu_open(context_menu_open, cx);
+            });
+        }
 
         v_flex()
             .id("main-page")

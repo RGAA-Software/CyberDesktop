@@ -401,6 +401,10 @@ impl FileBrowser {
         }
     }
 
+    pub fn context_menu_open(&self) -> bool {
+        self.context_menu_open
+    }
+
     pub fn read_options(&self) -> &DirectoryReadOptions {
         &self.read_options
     }
