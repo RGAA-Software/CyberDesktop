@@ -13,8 +13,9 @@ use gpui_component::{
 };
 
 use app_ui::{
-    apply_theme_mode, color_icon_box, title_bar::TitleBar, toolbar_icon, toolbar_icon_button,
-    GITHUB_REPO_URL, SettingsWindowState,
+    apply_theme_mode, color_icon_box, popup_menu::{PopupMenu, PopupMenuItem},
+    title_bar::TitleBar, toolbar_icon, toolbar_icon_button, DropdownMenu, GITHUB_REPO_URL,
+    SettingsWindowState,
 };
 
 use crate::audio_player::AudioPlayer;
@@ -1111,6 +1112,53 @@ impl Render for PlayerPage {
             .tooltip("GitHub")
             .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL));
 
+        let entity = cx.entity().clone();
+        let file_menu = Button::new("file-menu-btn")
+            .label("File")
+            .dropdown_menu(move |menu, _window, _cx| {
+                menu.item(
+                    PopupMenuItem::new("Open File").on_click({
+                        let entity = entity.clone();
+                        move |_, window, cx| {
+                            let _ = entity.update(cx, |this, cx| {
+                                this.open_file_dialog(window, cx);
+                            });
+                        }
+                    }),
+                )
+                .item(
+                    PopupMenuItem::new("Open Folder").on_click({
+                        let entity = entity.clone();
+                        move |_, window, cx| {
+                            let _ = entity.update(cx, |this, cx| {
+                                this.open_folder_dialog(window, cx);
+                            });
+                        }
+                    }),
+                )
+                .separator()
+                .item(
+                    PopupMenuItem::new("Load Subtitle").on_click({
+                        let entity = entity.clone();
+                        move |_, window, cx| {
+                            let _ = entity.update(cx, |this, cx| {
+                                this.open_subtitle_dialog(window, cx);
+                            });
+                        }
+                    }),
+                )
+                .item(
+                    PopupMenuItem::new("CC Track").on_click({
+                        let entity = entity.clone();
+                        move |_, _window, cx| {
+                            let _ = entity.update(cx, |this, _cx| {
+                                this.cycle_sub_track();
+                            });
+                        }
+                    }),
+                )
+            });
+
         v_flex()
             .id("player-page")
             .size_full()
@@ -1134,6 +1182,9 @@ impl Render for PlayerPage {
             }))
             .child(
                 TitleBar::new()
+                    .trailing_before_controls(theme_toggle)
+                    .trailing_before_controls(settings_btn)
+                    .trailing_before_controls(github_btn)
                     .child(
                         h_flex()
                             .id("title-bar-inner")
@@ -1157,67 +1208,7 @@ impl Render for PlayerPage {
                                             .child(SharedString::from("Cyber Media Player")),
                                     ),
                             )
-                            .child(div().flex_1().child(file_name))
-                            .child(
-                                h_flex()
-                                    .id("title-bar-actions")
-                                    .flex_none()
-                                    .items_center()
-                                    .gap(px(6.))
-                                    .px(px(10.))
-                                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                                    .child(theme_toggle)
-                                    .child(settings_btn)
-                                    .child(github_btn),
-                            ),
-                    )
-                    .trailing_before_controls(
-                        h_flex()
-                            .items_center()
-                            .gap(px(8.))
-                            .child(
-                                Button::new("open-file-btn")
-                                    .label("Open File")
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.open_file_dialog(window, cx);
-                                    })),
-                            )
-                            .child(
-                                Button::new("open-folder-btn")
-                                    .label("Open Folder")
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.open_folder_dialog(window, cx);
-                                    })),
-                            )
-                            .child(
-                                Button::new("load-sub-btn")
-                                    .label("Load Sub")
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.open_subtitle_dialog(window, cx);
-                                    })),
-                            )
-                            .child(
-                                Button::new("sub-track-btn")
-                                    .label({
-                                        let has_subs = !self.sub_tracks.is_empty();
-                                        let active = self.current_sub_id.is_some() && self.sub_visible;
-                                        if !has_subs {
-                                            "CC".into()
-                                        } else if active {
-                                            let label = self.current_sub_id.and_then(|id| {
-                                                self.sub_tracks.iter().find(|t| t.id == id)
-                                                    .and_then(|t| t.lang.clone())
-                                                    .or_else(|| Some(format!("{}", id)))
-                                            });
-                                            label.map(|l| format!("CC {}", l)).unwrap_or_else(|| "CC".into())
-                                        } else {
-                                            "CC Off".into()
-                                        }
-                                    })
-                                    .on_click(cx.listener(|this, _, _window, _cx| {
-                                        this.cycle_sub_track();
-                                    })),
-                            ),
+                            .child(div().flex_none().child(file_menu)),
                     ),
             )
             .child(
