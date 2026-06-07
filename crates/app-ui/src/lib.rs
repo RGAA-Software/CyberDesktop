@@ -47,6 +47,8 @@ pub fn init_editor_shell(cx: &mut App) {
     theme::install(cx);
     if let Some(ref cfg) = config {
         theme::apply_from_config(cfg, cx);
+    } else {
+        theme::apply_set("CyberEditor", gpui_component::ThemeMode::Light, cx);
     }
     SettingsWindowState::init(cx);
     use crate::cyber_editor::ExitEditor;

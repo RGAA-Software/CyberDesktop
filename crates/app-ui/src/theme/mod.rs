@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
-use app_assets::themes::{CYBERFILES, CYBERMEDIAPLAYER};
+use app_assets::themes::{CYBEREDITOR, CYBERFILES, CYBERMEDIAPLAYER};
 use files_core::AppConfig;
 use gpui::{px, App, SharedString};
 use gpui_component::{scroll::ScrollbarShow, Theme, ThemeConfig, ThemeMode, ThemeSet};
@@ -65,13 +65,14 @@ impl ThemeCatalog {
         match base {
             "Default" | "Default Light" | "Default Dark" => DEFAULT_THEME_SET_ID.into(),
             "CyberFiles Blue" | "CyberFiles Mint" | "CyberFiles Yellow" => "CyberFiles".into(),
+            "CyberEditor Blue" | "CyberEditor Dark" => "CyberEditor".into(),
             other => other.into(),
         }
     }
 
     fn load_embedded() -> Self {
         let mut sets = HashMap::new();
-        for json in [CYBERFILES, CYBERMEDIAPLAYER] {
+        for json in [CYBERFILES, CYBEREDITOR, CYBERMEDIAPLAYER] {
             if let Ok(set) = serde_json::from_str::<ThemeSet>(json) {
                 for entry in ThemeSetEntry::entries_from_family(set) {
                     sets.insert(entry.id.clone(), entry);

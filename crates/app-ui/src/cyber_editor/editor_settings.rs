@@ -23,6 +23,7 @@ fn ts(text: impl AsRef<str>) -> SharedString {
 
 const THEME_SETS: &[(&str, &str)] = &[
     ("CyberFiles", "CyberFiles"),
+    ("CyberEditor", "CyberEditor"),
     ("CyberMediaPlayer", "CyberMediaPlayer"),
 ];
 
