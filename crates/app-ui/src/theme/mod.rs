@@ -254,8 +254,8 @@ mod tests {
     #[test]
     fn embedded_theme_sets_load() {
         let catalog = ThemeCatalog::load_embedded();
-        assert_eq!(catalog.sets.len(), 2);
-        for id in ["CyberFiles", "CyberMediaPlayer"] {
+        assert_eq!(catalog.sets.len(), 3);
+        for id in ["CyberFiles", "CyberEditor", "CyberMediaPlayer"] {
             let entry = catalog.get(id).expect(id);
             assert!(entry.light.mode == ThemeMode::Light);
             assert!(entry.dark.mode == ThemeMode::Dark);
@@ -263,5 +263,8 @@ mod tests {
         let cyber = catalog.get("CyberFiles").unwrap();
         assert_eq!(cyber.light.name.as_ref(), "CyberFiles Light");
         assert_eq!(cyber.dark.name.as_ref(), "CyberFiles Dark");
+        let editor = catalog.get("CyberEditor").unwrap();
+        assert_eq!(editor.light.name.as_ref(), "CyberEditor Light");
+        assert_eq!(editor.dark.name.as_ref(), "CyberEditor Dark");
     }
 }
