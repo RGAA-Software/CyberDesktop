@@ -1,6 +1,17 @@
 //! Editor toolbar icons — same helpers as CyberFiles (`toolbar_icon` + `toolbar_icon_button`).
 
+use gpui::{px, AnyElement, App};
+use app_ui::color_icon_box;
+
 pub use app_ui::{toolbar_icon, toolbar_icon_button};
+
+/// Full-color title bar logo (`app-assets/assets/app/logo/ic_cyber_editor.svg`).
+pub const APP_LOGO_PATH: &str = "app/logo/ic_cyber_editor.svg";
+
+/// CyberEditor app icon for the title bar (left of the menu bar).
+pub fn app_logo_element(_cx: &App) -> AnyElement {
+    color_icon_box(APP_LOGO_PATH, px(20.))
+}
 
 pub(crate) mod paths {
     pub const CLOSE: &str = "icons/editor_close.svg";

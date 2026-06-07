@@ -1,3 +1,4 @@
+pub mod color_icon;
 pub mod cyber_editor;
 pub mod i18n;
 pub mod popup_menu;
@@ -13,6 +14,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 use gpui::App;
 
 pub use app_assets::Assets;
+pub use color_icon::{color_icon, color_icon_box};
 pub use files_core::GITHUB_REPO_URL;
 pub use cyber_editor::{
     apply_theme_mode, build_editor_settings, editor_menu_bar, pick_open_file_path, pick_save_file_path,

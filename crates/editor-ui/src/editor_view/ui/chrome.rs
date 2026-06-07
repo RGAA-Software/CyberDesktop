@@ -1,6 +1,6 @@
 //! UI fragment: `ui/chrome.rs`.
 
-use super::icons::{paths, toolbar_icon, toolbar_icon_button};
+use super::icons::{app_logo_element, paths, toolbar_icon, toolbar_icon_button};
 use app_ui::{apply_theme_mode, Tab, TabBar, GITHUB_REPO_URL};
 use gpui_component::{
     button::{Button, ButtonVariants as _},
@@ -275,9 +275,19 @@ impl EngineEditor {
                 .size_full()
                 .child(
                     div()
+                        .id("app-logo")
                         .flex_none()
-                        .text_size(px(13.0))
-                        .child(SharedString::from(t!("editor.app_name"))),
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(8.))
+                        .pr(px(12.))
+                        .child(app_logo_element(cx))
+                        .child(
+                            div()
+                                .text_size(px(13.0))
+                                .child(SharedString::from(t!("editor.app_name"))),
+                        ),
                 )
                 .child(div().flex_none().child(menu_bar)),
         )

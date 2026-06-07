@@ -12,9 +12,11 @@ use gpui_component::{
     ActiveTheme, ElementExt, Root,
 };
 
-use app_ui::title_bar::TitleBar;
+use app_ui::{color_icon_box, title_bar::TitleBar};
 
 use crate::audio_player::AudioPlayer;
+
+const APP_LOGO_PATH: &str = "app/logo/ic_cyber_media_player.svg";
 use crate::audio_visualizer::{AudioVisualizer, SPECTRUM_BANDS};
 use crate::media_player_config::MediaPlayerConfig;
 use crate::playlist::Playlist;
@@ -1105,6 +1107,20 @@ impl Render for PlayerPage {
                             .w_full()
                             .items_center()
                             .px(px(16.))
+                            .child(
+                                h_flex()
+                                    .id("app-logo")
+                                    .flex_none()
+                                    .items_center()
+                                    .gap(px(8.))
+                                    .pr(px(12.))
+                                    .child(color_icon_box(APP_LOGO_PATH, px(20.)))
+                                    .child(
+                                        div()
+                                            .text_size(px(13.0))
+                                            .child(SharedString::from("Cyber Media Player")),
+                                    ),
+                            )
                             .child(div().flex_1().child(file_name)),
                     )
                     .trailing_before_controls(

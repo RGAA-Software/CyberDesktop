@@ -4,7 +4,7 @@ use files_fs::{parse_tag_color_hex, DriveInfo, QuickAccessFolderKind};
 use gpui::{div, prelude::*, px, AnyElement, App, Hsla, Pixels};
 use gpui_component::{ActiveTheme as _, Icon, IconName, Sizable as _, Size};
 
-use crate::color_icon::color_icon_box;
+use app_ui::color_icon_box;
 use crate::list_icon_cache;
 use crate::tabler_icons;
 
