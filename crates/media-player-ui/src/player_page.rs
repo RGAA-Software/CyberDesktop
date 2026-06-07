@@ -3,16 +3,19 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use gpui::{
     div, px, size, App, AppContext, Bounds, Context, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, ParentElement, Render, SharedString, Size, StatefulInteractiveElement, Styled,
-    Subscription, Window, WindowBounds, WindowKind, WindowOptions,
+    IntoElement, MouseButton, MouseDownEvent, ParentElement, Render, SharedString, Size,
+    StatefulInteractiveElement, Styled, Subscription, Window, WindowBounds, WindowKind, WindowOptions,
 };
 use gpui::prelude::FluentBuilder;
 use gpui_component::{
     button::Button, h_flex, slider::Slider, slider::SliderEvent, slider::SliderState, v_flex,
-    ActiveTheme, ElementExt, Root,
+    ActiveTheme, ElementExt, IconName, Root, StyledExt as _, ThemeMode,
 };
 
-use app_ui::{color_icon_box, title_bar::TitleBar};
+use app_ui::{
+    apply_theme_mode, color_icon_box, title_bar::TitleBar, toolbar_icon, toolbar_icon_button,
+    GITHUB_REPO_URL, SettingsWindowState,
+};
 
 use crate::audio_player::AudioPlayer;
 
@@ -1077,6 +1080,37 @@ impl Render for PlayerPage {
             }
         };
 
+        let theme_icon = if cx.theme().mode.is_dark() {
+            IconName::Moon
+        } else {
+            IconName::Sun
+        };
+        let theme_toggle = toolbar_icon_button("theme-toggle")
+            .icon(toolbar_icon(theme_icon))
+            .tooltip("Toggle Theme")
+            .on_click(|_, _, cx| {
+                let mode = if cx.theme().mode.is_dark() {
+                    ThemeMode::Light
+                } else {
+                    ThemeMode::Dark
+                };
+                apply_theme_mode(mode, cx);
+            });
+        let settings_btn = toolbar_icon_button("settings")
+            .icon(toolbar_icon(IconName::Settings2))
+            .tooltip("Settings")
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|_this, _e: &MouseDownEvent, _w, cx| {
+                    cx.stop_propagation();
+                    SettingsWindowState::open_editor(cx);
+                }),
+            );
+        let github_btn = toolbar_icon_button("github")
+            .icon(toolbar_icon(IconName::Github))
+            .tooltip("GitHub")
+            .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL));
+
         v_flex()
             .id("player-page")
             .size_full()
@@ -1105,8 +1139,8 @@ impl Render for PlayerPage {
                             .id("title-bar-inner")
                             .h_full()
                             .w_full()
+                            .min_w_0()
                             .items_center()
-                            .px(px(16.))
                             .child(
                                 h_flex()
                                     .id("app-logo")
@@ -1117,11 +1151,25 @@ impl Render for PlayerPage {
                                     .child(color_icon_box(APP_LOGO_PATH, px(20.)))
                                     .child(
                                         div()
-                                            .text_size(px(13.0))
+                                            .text_sm()
+                                            .font_semibold()
+                                            .text_color(cx.theme().foreground)
                                             .child(SharedString::from("Cyber Media Player")),
                                     ),
                             )
-                            .child(div().flex_1().child(file_name)),
+                            .child(div().flex_1().child(file_name))
+                            .child(
+                                h_flex()
+                                    .id("title-bar-actions")
+                                    .flex_none()
+                                    .items_center()
+                                    .gap(px(6.))
+                                    .px(px(10.))
+                                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                    .child(theme_toggle)
+                                    .child(settings_btn)
+                                    .child(github_btn),
+                            ),
                     )
                     .trailing_before_controls(
                         h_flex()

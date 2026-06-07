@@ -6,7 +6,7 @@ use gpui_component::{
     button::{Button, ButtonVariants as _},
     h_flex,
     label::Label,
-    ActiveTheme as _, IconName, ThemeMode,
+    ActiveTheme as _, IconName, StyledExt as _, ThemeMode,
 };
 use super::super::imports::*;
 
@@ -261,35 +261,43 @@ impl EngineEditor {
             .tooltip(t!("nav.github"))
             .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL));
 
-        TitleBar::new()
-            .trailing_before_controls(theme_toggle)
-            .trailing_before_controls(settings_btn)
-            .trailing_before_controls(github_btn)
-            .child(
-            div()
-                .flex()
-                .flex_row()
+        TitleBar::new().child(
+            h_flex()
+                .id("title-bar-inner")
+                .h_full()
+                .w_full()
+                .min_w_0()
                 .items_center()
-                .gap_2()
-                .px_2()
-                .size_full()
                 .child(
-                    div()
+                    h_flex()
                         .id("app-logo")
                         .flex_none()
-                        .flex()
-                        .flex_row()
                         .items_center()
                         .gap(px(8.))
                         .pr(px(12.))
                         .child(app_logo_element(cx))
                         .child(
                             div()
-                                .text_size(px(13.0))
+                                .text_sm()
+                                .font_semibold()
+                                .text_color(cx.theme().foreground)
                                 .child(SharedString::from(t!("editor.app_name"))),
                         ),
                 )
-                .child(div().flex_none().child(menu_bar)),
+                .child(div().flex_none().child(menu_bar))
+                .child(div().flex_1())
+                .child(
+                    h_flex()
+                        .id("title-bar-actions")
+                        .flex_none()
+                        .items_center()
+                        .gap(px(6.))
+                        .px(px(10.))
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .child(theme_toggle)
+                        .child(settings_btn)
+                        .child(github_btn),
+                ),
         )
     }
 }
