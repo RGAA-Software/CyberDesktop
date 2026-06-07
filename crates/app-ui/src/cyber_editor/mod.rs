@@ -1,15 +1,7 @@
 mod app_menus;
-mod backend;
-mod buffer_model;
-mod document;
-mod editor_host;
 mod editor_settings;
 mod file_dialog;
-mod language;
-mod metadata;
-mod page;
 mod preferences;
-mod session;
 
 pub use preferences::apply_theme_mode;
 pub use app_menus::{init_editor_menus, menu_bar as editor_menu_bar, set_view_toggles};
@@ -17,16 +9,6 @@ pub use editor_settings::build_editor_settings;
 pub use file_dialog::{pick_open_file_path, pick_save_file_path};
 
 use gpui::{actions, App, KeyBinding};
-
-pub use page::CyberEditorPage;
-
-pub(crate) use backend::ModelEditorBackend;
-pub(crate) use buffer_model::{EditorBufferModel, SearchMatch};
-pub(crate) use document::{display_language, display_name, load_document};
-pub(crate) use editor_host::EditorHost;
-pub(crate) use language::{language_for_path, line_comment_prefix};
-pub(crate) use metadata::{detect_indent_style, detect_line_ending, IndentStyle, LineEndingKind};
-pub(crate) use session::EditorSession;
 
 pub const APP_NAME: &str = "CyberEditor";
 pub const EDITOR_CONTEXT: &str = "CyberEditor";

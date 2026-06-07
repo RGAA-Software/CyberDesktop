@@ -18,7 +18,7 @@ pub use color_icon::{color_icon, color_icon_box};
 pub use files_core::GITHUB_REPO_URL;
 pub use cyber_editor::{
     apply_theme_mode, build_editor_settings, editor_menu_bar, pick_open_file_path, pick_save_file_path,
-    set_view_toggles, AboutEditor, CyberEditorPage, EditorCopy, EditorCut, EditorPaste, EditorRedo,
+    set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, FoldAll, GoToLine,
     IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
     ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment, ToggleFold, ToggleLineNumbers,

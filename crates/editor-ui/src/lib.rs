@@ -2,7 +2,6 @@ pub mod editor_view;
 
 pub use app_ui::{
     open_editor_window, open_window, pick_open_file_path, pick_save_file_path, Assets,
-    CyberEditorPage,
 };
 pub use editor_view::EngineEditor;
 
