@@ -640,6 +640,7 @@ impl PlayerPage {
         self.apply_speed();
     }
 
+    #[allow(dead_code)]
     fn toggle_sub_visibility(&mut self) {
         self.sub_visible = !self.sub_visible;
         #[cfg(windows)]
@@ -882,19 +883,6 @@ impl Render for PlayerPage {
                 });
             }
         }
-
-        let file_name = self
-            .playlist
-            .current()
-            .and_then(|p| p.file_name())
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| {
-                if self.playlist.is_empty() {
-                    "Cyber Media Player".to_string()
-                } else {
-                    format!("{} items", self.playlist.len())
-                }
-            });
 
         let time_str = format!(
             "{} / {}",

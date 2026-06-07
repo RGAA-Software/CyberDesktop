@@ -2,7 +2,7 @@ use files_core::{APP_NAME, GITHUB_REPO_URL};
 use gpui::{prelude::*, *};
 use gpui_component::{
     badge::Badge,
-    button::{Button, ButtonVariants as _},
+    button::Button,
     h_flex,
     label::Label,
     tooltip::Tooltip,

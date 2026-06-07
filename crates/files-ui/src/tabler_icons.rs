@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! [Tabler Icons](https://tabler.io/icons) paths for CyberFiles UI (outline, 24×24).
 
 use gpui::{px, Pixels};

@@ -33,6 +33,7 @@ pub(super) fn path_is_cut_pending(path: &Path, cx: &App) -> bool {
 }
 
 impl FileBrowser {
+#[allow(dead_code)]
     pub(super) fn file_item_kind_icon(kind: FileItemKind) -> AnyElement {
         match kind {
             FileItemKind::Folder => toolbar_tabler(tabler_icons::FOLDER).into_any_element(),
@@ -81,6 +82,7 @@ impl FileBrowser {
         (Self::row_list_icon_svg(item, logical_size), false)
     }
 
+#[allow(dead_code)]
     pub(super) fn row_list_icon_tile(
         item: &FileItem,
         icon: AnyElement,

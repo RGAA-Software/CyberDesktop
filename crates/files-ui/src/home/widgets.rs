@@ -285,7 +285,7 @@ impl HomePage {
 
     fn qa_item(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         index: usize,
         prefix: &str,
         entry: &QuickAccessEntry,
@@ -363,7 +363,7 @@ impl HomePage {
 
     fn drive_card(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         index: usize,
         prefix: &str,
         drive: &DriveInfo,
@@ -495,7 +495,7 @@ impl HomePage {
 
     fn recent_row(
         &self,
-        window: &mut Window,
+        _window: &mut Window,
         index: usize,
         item: &RecentItem,
         cx: &mut Context<Self>,
@@ -566,7 +566,7 @@ impl HomePage {
 
     fn tag_container(
         &self,
-        window: &mut Window,
+        _window: &mut Window,
         index: usize,
         preview: &FileTagPreview,
         cx: &mut Context<Self>,

@@ -24,6 +24,7 @@ pub fn named_icon_path(name: &str) -> Option<&'static str> {
 }
 
 /// App-bundled SVG path for a file extension (e.g. `"pdf"`).
+#[allow(dead_code)]
 pub fn extension_svg_path(ext: &str) -> Option<&'static str> {
     let path = file_type_icons::svg_path_for_extension(ext);
     if path == file_type_icons::FALLBACK_FILE_ICON {

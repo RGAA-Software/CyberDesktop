@@ -245,6 +245,7 @@ impl From<Axis> for ScrollbarAxis {
     }
 }
 
+#[allow(dead_code)]
 impl ScrollbarAxis {
     /// Return true if the scrollbar axis is vertical.
     #[inline]
@@ -302,6 +303,7 @@ pub struct MenuScrollbar {
     max_fps: usize,
 }
 
+#[allow(dead_code)]
 impl MenuScrollbar {
     /// Create a new scrollbar.
     ///

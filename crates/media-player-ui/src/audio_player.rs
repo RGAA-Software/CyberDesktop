@@ -21,6 +21,7 @@ pub struct AudioState {
     pub play_error: Option<String>,
 }
 
+#[allow(dead_code)]
 enum AudioCommand {
     Play(PathBuf),
     TogglePause,
@@ -89,6 +90,7 @@ impl AudioPlayer {
         let _ = self.cmd_tx.send(AudioCommand::Stop);
     }
 
+    #[allow(dead_code)]
     pub fn seek_relative(&self, seconds: f64) {
         let _ = self.cmd_tx.send(AudioCommand::SeekRelative(seconds));
     }
@@ -97,6 +99,7 @@ impl AudioPlayer {
         let _ = self.cmd_tx.send(AudioCommand::SeekTo(position));
     }
 
+    #[allow(dead_code)]
     pub fn is_active_path(&self, path: &Path) -> bool {
         self.snapshot()
             .active_path
@@ -108,6 +111,7 @@ impl AudioPlayer {
         let _ = self.cmd_tx.send(AudioCommand::SetVolume(volume));
     }
 
+    #[allow(dead_code)]
     pub fn set_mute(&self, mute: bool) {
         let _ = self.cmd_tx.send(AudioCommand::SetMute(mute));
     }

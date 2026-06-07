@@ -31,5 +31,3 @@ pub use shell_panes::{PaneArrangement, PaneSide, ShellPanes};
 #[cfg(feature = "full-app")]
 pub use window::open_main_window;
 
-#[cfg(feature = "full-app")]
-pub(crate) use actions::*;

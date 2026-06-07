@@ -126,7 +126,7 @@ fn run_loopback_capture(
         info!("WASAPI loopback capture started");
 
         let channels = mix_format.nChannels as usize;
-        let sample_rate = mix_format.nSamplesPerSec as usize;
+        let _sample_rate = mix_format.nSamplesPerSec as usize;
         let format_tag = mix_format.wFormatTag;
         let bits_per_sample = mix_format.wBitsPerSample;
         let block_align = mix_format.nBlockAlign;

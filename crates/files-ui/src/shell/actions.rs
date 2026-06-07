@@ -1,4 +1,3 @@
-use gpui::actions;
 use schemars::JsonSchema;
 use serde::Deserialize;
 

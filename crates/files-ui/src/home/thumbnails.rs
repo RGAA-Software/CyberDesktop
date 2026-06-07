@@ -12,6 +12,7 @@ use app_platform_windows::shell_thumbnail_png_scaled;
 
 use crate::shell_icon::shell_icon_for_path;
 
+#[allow(dead_code)]
 pub fn thumbnail_cache_key(path: &Path) -> String {
     std::fs::canonicalize(path)
         .unwrap_or_else(|_| path.to_path_buf())
@@ -20,6 +21,7 @@ pub fn thumbnail_cache_key(path: &Path) -> String {
 }
 
 impl HomePage {
+#[allow(dead_code)]
     pub(super) fn ensure_home_thumbnail(
         &mut self,
         path: &Path,
@@ -64,6 +66,7 @@ impl HomePage {
         }
     }
 
+#[allow(dead_code)]
     pub(super) fn home_card_image(
         &self,
         path: &Path,

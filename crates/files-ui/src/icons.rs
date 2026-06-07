@@ -11,6 +11,7 @@ use crate::tabler_icons;
 /// Full-color title bar logo (`app-assets/assets/app/logo/ic_cyber_files.svg`).
 pub const APP_LOGO_PATH: &str = "app/logo/ic_cyber_files.svg";
 
+#[allow(dead_code)]
 const APP_ICON_IMAGE_PX: Pixels = px(18.);
 /// Sidebar row icons (design V11 ~15–16px).
 pub const SIDEBAR_ICON_PX: Pixels = px(16.);
@@ -88,18 +89,22 @@ pub fn home_icon() -> Icon {
     named_icon("home")
 }
 
+#[allow(dead_code)]
 pub fn folder_icon_element(cx: &App) -> AnyElement {
     chrome_icon_box(tabler_icons::FOLDER, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }
 
+#[allow(dead_code)]
 pub fn home_icon_element(cx: &App) -> AnyElement {
     chrome_icon_box(tabler_icons::HOME, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }
 
+#[allow(dead_code)]
 pub fn inbox_icon_element(cx: &App) -> AnyElement {
     chrome_icon_box(tabler_icons::INBOX, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }
 
+#[allow(dead_code)]
 pub fn delete_icon_element(cx: &App) -> AnyElement {
     chrome_icon_box(tabler_icons::TRASH, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
 }

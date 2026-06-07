@@ -8,6 +8,7 @@ struct AppMenuState {
 
 impl Global for AppMenuState {}
 
+#[allow(dead_code)]
 pub fn menu_bar(cx: &App) -> Entity<AppMenuBar> {
     cx.global::<AppMenuState>().menu_bar.clone()
 }

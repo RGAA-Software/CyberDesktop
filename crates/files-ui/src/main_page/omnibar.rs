@@ -946,7 +946,7 @@ impl MainPage {
     fn render_omnibar_suggestion_row(
         entry: &OmnibarPathSuggestion,
         selected: bool,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &App,
     ) -> impl IntoElement {
         h_flex()

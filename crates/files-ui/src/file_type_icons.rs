@@ -14,6 +14,7 @@ const DEFAULT_FILE: &str = "icons/file_icons/file.svg";
 const DEFAULT_FOLDER: &str = tabler_icons::FOLDER;
 const DEFAULT_SYMLINK: &str = tabler_icons::LINK;
 
+#[allow(dead_code)]
 pub const FALLBACK_FILE_ICON: &str = DEFAULT_FILE;
 
 fn tabler_overrides() -> &'static HashMap<&'static str, &'static str> {
@@ -582,6 +583,7 @@ pub fn svg_path_for_suffix(suffix: &str) -> &'static str {
 }
 
 /// Extension without leading dot, e.g. `"pdf"`.
+#[allow(dead_code)]
 pub fn svg_path_for_extension(ext: &str) -> &'static str {
     svg_path_for_suffix(ext)
 }
@@ -632,6 +634,7 @@ pub fn svg_path_for_path(path: &Path) -> &'static str {
     DEFAULT_FILE
 }
 
+#[allow(dead_code)]
 pub fn svg_path_for_kind_and_extension(kind: FileItemKind, extension: Option<&str>) -> &'static str {
     match kind {
         FileItemKind::Folder => DEFAULT_FOLDER,

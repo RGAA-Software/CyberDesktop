@@ -13,6 +13,7 @@ pub const HOME_SECTION_GAP: Pixels = px(26.);
 /// Fixed width for quick-access and drive cards on the Home page.
 pub const CARD_CELL_WIDTH: Pixels = px(220.);
 /// Legacy alias — prefer [`CARD_CELL_WIDTH`].
+#[allow(dead_code)]
 pub const CARD_MIN_WIDTH: Pixels = CARD_CELL_WIDTH;
 pub const GRID_GAP: Pixels = px(10.);
 /// Minimum clearance between the last item in a row and the right edge.
