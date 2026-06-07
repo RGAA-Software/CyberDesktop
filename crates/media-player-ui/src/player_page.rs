@@ -8,16 +8,17 @@ use gpui::{
 };
 use gpui::prelude::FluentBuilder;
 use gpui_component::{
-    button::Button, h_flex, slider::Slider, slider::SliderEvent, slider::SliderState, v_flex,
+    button::{Button, ButtonVariants as _}, h_flex, slider::Slider, slider::SliderEvent, slider::SliderState, v_flex,
     ActiveTheme, ElementExt, IconName, Root, StyledExt as _, ThemeMode,
 };
 
 use app_ui::{
-    apply_theme_mode, color_icon_box, popup_menu::{PopupMenu, PopupMenuItem},
-    title_bar::TitleBar, toolbar_icon, toolbar_icon_button, DropdownMenu, GITHUB_REPO_URL,
+    apply_theme_mode, color_icon_box,
+    title_bar::TitleBar, toolbar_icon, toolbar_icon_button, GITHUB_REPO_URL,
     SettingsWindowState,
 };
 
+use crate::app_menus::{MpvCycleSubTrack, MpvLoadSubtitle, MpvOpenFile, MpvOpenFolder};
 use crate::audio_player::AudioPlayer;
 
 const APP_LOGO_PATH: &str = "app/logo/ic_cyber_media_player.svg";
@@ -1031,8 +1032,8 @@ impl Render for PlayerPage {
                     .px(px(12.))
                     .py(px(8.))
                     .cursor_pointer()
-                    .when(is_active, |item| item.bg(cx.theme().primary.opacity(0.15)))
-                    .hover(|item| item.bg(cx.theme().primary.opacity(0.1)))
+                    .when(is_active, |item| item.bg(cx.theme().primary.opacity(0.25)))
+                    .hover(|item| item.bg(cx.theme().primary.opacity(0.15)))
                     .child(item_name)
                     .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
                         this.play_item(index, window, cx);
@@ -1112,56 +1113,21 @@ impl Render for PlayerPage {
             .tooltip("GitHub")
             .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL));
 
-        let entity = cx.entity().clone();
-        let file_menu = Button::new("file-menu-btn")
-            .label("File")
-            .dropdown_menu(move |menu, _window, _cx| {
-                menu.item(
-                    PopupMenuItem::new("Open File").on_click({
-                        let entity = entity.clone();
-                        move |_, window, cx| {
-                            let _ = entity.update(cx, |this, cx| {
-                                this.open_file_dialog(window, cx);
-                            });
-                        }
-                    }),
-                )
-                .item(
-                    PopupMenuItem::new("Open Folder").on_click({
-                        let entity = entity.clone();
-                        move |_, window, cx| {
-                            let _ = entity.update(cx, |this, cx| {
-                                this.open_folder_dialog(window, cx);
-                            });
-                        }
-                    }),
-                )
-                .separator()
-                .item(
-                    PopupMenuItem::new("Load Subtitle").on_click({
-                        let entity = entity.clone();
-                        move |_, window, cx| {
-                            let _ = entity.update(cx, |this, cx| {
-                                this.open_subtitle_dialog(window, cx);
-                            });
-                        }
-                    }),
-                )
-                .item(
-                    PopupMenuItem::new("CC Track").on_click({
-                        let entity = entity.clone();
-                        move |_, _window, cx| {
-                            let _ = entity.update(cx, |this, _cx| {
-                                this.cycle_sub_track();
-                            });
-                        }
-                    }),
-                )
-            });
-
         v_flex()
             .id("player-page")
             .size_full()
+            .on_action(cx.listener(|this, _: &MpvOpenFile, window, cx| {
+                this.open_file_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &MpvOpenFolder, window, cx| {
+                this.open_folder_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &MpvLoadSubtitle, window, cx| {
+                this.open_subtitle_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &MpvCycleSubTrack, _window, _cx| {
+                this.cycle_sub_track();
+            }))
             .on_drop(cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
                 let start_index = this.playlist.len();
                 let mut added = false;
@@ -1204,11 +1170,11 @@ impl Render for PlayerPage {
                                         div()
                                             .text_sm()
                                             .font_semibold()
-                                            .text_color(cx.theme().foreground)
+                                            .text_color(cx.theme().primary)
                                             .child(SharedString::from("Cyber Media Player")),
                                     ),
                             )
-                            .child(div().flex_none().child(file_menu)),
+                            .child(div().flex_none().child(crate::app_menus::menu_bar(cx))),
                     ),
             )
             .child(
@@ -1255,6 +1221,7 @@ impl Render for PlayerPage {
                             )
                             .child(
                                 Button::new("play-btn")
+                                    .primary()
                                     .label(play_label)
                                     .on_click(cx.listener(|this, _, _window, _cx| {
                                         if this.is_playing {

@@ -1,4 +1,6 @@
 #[cfg(feature = "full-app")]
+mod app_menus;
+#[cfg(feature = "full-app")]
 mod audio_player;
 #[cfg(feature = "full-app")]
 mod audio_visualizer;
@@ -20,4 +22,21 @@ pub use player_page::{open_main_window, PlayerPage};
 pub fn init(cx: &mut App) {
     let _ = app_assets::Assets.load_fonts(cx);
     gpui_component::init(cx);
+
+    // Initialize locale and theme system (shared with editor/files apps)
+    let config = files_core::load_config();
+    if let Some(ref cfg) = config {
+        app_ui::set_locale(&cfg.locale);
+    } else {
+        app_ui::init_locale();
+    }
+    app_ui::theme::install(cx);
+    if let Some(ref cfg) = config {
+        app_ui::theme::apply_from_config(cfg, cx);
+    } else {
+        // Media player defaults to CyberMediaPlayer theme on first launch
+        app_ui::theme::apply_set("CyberMediaPlayer", gpui_component::ThemeMode::Light, cx);
+    }
+
+    app_menus::init_media_player_menus(cx);
 }

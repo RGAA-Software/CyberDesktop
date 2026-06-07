@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
-use app_assets::themes::{ANT, AYU, CYBERFILES, GRUVBOX, ONE};
+use app_assets::themes::{CYBERFILES, CYBERMEDIAPLAYER};
 use files_core::AppConfig;
 use gpui::{px, App, SharedString};
 use gpui_component::{scroll::ScrollbarShow, Theme, ThemeConfig, ThemeMode, ThemeSet};
@@ -65,19 +65,13 @@ impl ThemeCatalog {
         match base {
             "Default" | "Default Light" | "Default Dark" => DEFAULT_THEME_SET_ID.into(),
             "CyberFiles Blue" | "CyberFiles Mint" | "CyberFiles Yellow" => "CyberFiles".into(),
-            "One Dark" | "One Light" => "One".into(),
-            "Ayu Dark" | "Ayu Light" => "Ayu".into(),
-            "Ayu Mirage" => "Ayu Mirage".into(),
-            "Gruvbox Dark" | "Gruvbox Light" => "Gruvbox".into(),
-            "Gruvbox Dark Hard" | "Gruvbox Light Hard" => "Gruvbox Hard".into(),
-            "Gruvbox Dark Soft" | "Gruvbox Light Soft" => "Gruvbox Soft".into(),
             other => other.into(),
         }
     }
 
     fn load_embedded() -> Self {
         let mut sets = HashMap::new();
-        for json in [CYBERFILES, ANT, ONE, AYU, GRUVBOX] {
+        for json in [CYBERFILES, CYBERMEDIAPLAYER] {
             if let Ok(set) = serde_json::from_str::<ThemeSet>(json) {
                 for entry in ThemeSetEntry::entries_from_family(set) {
                     sets.insert(entry.id.clone(), entry);
@@ -259,23 +253,14 @@ mod tests {
     #[test]
     fn embedded_theme_sets_load() {
         let catalog = ThemeCatalog::load_embedded();
-        assert_eq!(catalog.sets.len(), 8);
-        for id in [
-            "CyberFiles",
-            "Ant",
-            "One",
-            "Ayu",
-            "Ayu Mirage",
-            "Gruvbox",
-            "Gruvbox Hard",
-            "Gruvbox Soft",
-        ] {
+        assert_eq!(catalog.sets.len(), 2);
+        for id in ["CyberFiles", "CyberMediaPlayer"] {
             let entry = catalog.get(id).expect(id);
             assert!(entry.light.mode == ThemeMode::Light);
             assert!(entry.dark.mode == ThemeMode::Dark);
         }
-        let one = catalog.get("One").unwrap();
-        assert_eq!(one.light.name.as_ref(), "One Light");
-        assert_eq!(one.dark.name.as_ref(), "One Dark");
+        let cyber = catalog.get("CyberFiles").unwrap();
+        assert_eq!(cyber.light.name.as_ref(), "CyberFiles Light");
+        assert_eq!(cyber.dark.name.as_ref(), "CyberFiles Dark");
     }
 }

@@ -9,7 +9,7 @@ use files_core::AppConfig;
 fn sample_config() -> AppConfig {
     let mut config = AppConfig::default();
     config.locale = "zh-CN".into();
-    config.theme_name = "One".into();
+    config.theme_name = "CyberFiles".into();
     config.pinned_folders = (0..12)
         .map(|i| format!(r"C:\Users\demo\Documents\folder_{i}"))
         .collect();

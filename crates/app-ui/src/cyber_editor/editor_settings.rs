@@ -22,13 +22,8 @@ fn ts(text: impl AsRef<str>) -> SharedString {
 }
 
 const THEME_SETS: &[(&str, &str)] = &[
-    ("Ant", "Ant"),
-    ("One", "One"),
-    ("Ayu", "Ayu"),
-    ("Ayu Mirage", "Ayu Mirage"),
-    ("Gruvbox", "Gruvbox"),
-    ("Gruvbox Hard", "Gruvbox Hard"),
-    ("Gruvbox Soft", "Gruvbox Soft"),
+    ("CyberFiles", "CyberFiles"),
+    ("CyberMediaPlayer", "CyberMediaPlayer"),
 ];
 
 pub fn build_editor_settings(cx: &App) -> Settings {
