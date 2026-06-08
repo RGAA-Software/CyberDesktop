@@ -1,8 +1,8 @@
 <!--
-tags: [grid, aside, column, columns, menu, navigation, layout, sidebar, right, collapse]
+tags: [grid, aside, column, columns, menu, navigation, layout, sidebar, right, expand]
 category: Design
 version: "1.53"
-unicode: "f006"
+unicode: "f007"
 -->
 <svg
   xmlns="http://www.w3.org/2000/svg"
@@ -17,5 +17,5 @@ unicode: "f006"
 >
   <path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12" />
   <path d="M15 4v16" />
-  <path d="M9 10l2 2l-2 2" />
+  <path d="M10 10l-2 2l2 2" />
 </svg>

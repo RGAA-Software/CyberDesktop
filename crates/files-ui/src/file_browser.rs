@@ -25,7 +25,8 @@ use chrono::{DateTime, Local};
 use files_commands::{
     CancelRename, CompressItems, CopyItems, CopyPath, CutItems, DeleteItems,
     DeleteItemsPermanent, ExtractHere, ExtractToFolder, EmptyRecycleBin, FocusSearch,
-    NavigateNext, NavigatePrevious, NewFile, NewFolder, OpenInNewPane, OpenItem, PasteItems,
+    NavigateLeft, NavigateNext, NavigatePrevious, NavigateRight, NewFile, NewFolder, OpenInNewPane,
+    OpenItem, PasteItems,
     RedoOperation, RefreshDirectory, RenameItem, RestoreAllRecycleItems, RestoreRecycleItems,
     SelectAll, ShellProperties, UndoOperation, ViewCards, ViewColumns, ViewDetails, ViewGrid,
     ViewList, FILE_BROWSER,
@@ -148,7 +149,7 @@ const GROUP_HEADER_ROW_SIZE: Size<Pixels> = size(px(1.), px(32.));
 pub(super) const GRID_CELL_SIZE_SMALL: Size<Pixels> = size(px(100.), px(88.));
 pub(super) const GRID_CELL_SIZE: Size<Pixels> = size(px(118.), px(104.));
 pub(super) const GRID_CELL_SIZE_LARGE: Size<Pixels> = size(px(136.), px(120.));
-pub(super) const CARD_CELL_SIZE: Size<Pixels> = size(px(280.), px(120.));
+pub(super) const CARD_CELL_SIZE: Size<Pixels> = size(px(250.), px(120.));
 const COLUMN_ROW_SIZE: Size<Pixels> = size(px(1.), FILE_LIST_ROW_HEIGHT);
 const COLUMN_WIDTH: Pixels = px(320.);
 /// Matches split-pane title bar height (`shell_panes::PANE_TITLE_HEIGHT`).
@@ -412,6 +413,10 @@ pub struct FileBrowser {
     list_icon_warm_token: u64,
     list_icon_warm_scheduled: u64,
     _subscriptions: Vec<Subscription>,
+    /// Type-ahead jump string for quick file navigation (e.g. press "a" to jump to files starting with "a").
+    jump_string: String,
+    /// Task that clears jump_string after a timeout.
+    _jump_string_task: Option<Task<()>>,
     /// Cached measured cells-per-row for grid view.
     grid_cells_per_row: Option<usize>,
     /// Cached measured cells-per-row for cards view.
@@ -553,6 +558,8 @@ impl FileBrowser {
             list_icon_warm_token: 0,
             list_icon_warm_scheduled: u64::MAX,
             _subscriptions: Vec::new(),
+            jump_string: String::new(),
+            _jump_string_task: None,
             grid_cells_per_row: None,
             cards_cells_per_row: None,
             last_viewport_width: None,

@@ -395,9 +395,9 @@ impl FileBrowser {
         let cut_pending = path_is_cut_pending(&item.path, cx);
         v_flex()
             .id(("file-card-cell", index))
-            .flex_1()
-            .min_w(CARD_CELL_SIZE.width)
+            .w(CARD_CELL_SIZE.width)
             .h(CARD_CELL_SIZE.height)
+            .flex_none()
             .p_2()
             .gap_1()
             .items_center()

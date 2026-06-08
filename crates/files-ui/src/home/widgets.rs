@@ -5,8 +5,8 @@ use std::time::SystemTime;
 
 use chrono::{DateTime, Local};
 use files_fs::{
-    eject_drive, open_storage_sense_settings, recent_documents_enabled, DriveInfo, FileTagPreview,
-    QuickAccessEntry, RecentItem,
+    eject_drive, open_storage_sense_settings, recent_documents_enabled, DriveInfo,
+    FileTagPreview, QuickAccessEntry, RecentItem,
 };
 use app_platform_windows::open_item_properties;
 use gpui::{prelude::*, MouseButton, *};
@@ -29,8 +29,8 @@ use crate::home::widget_shell::{
     QA_ITEM_PADDING_X, QA_ITEM_PADDING_Y, RECENT_HEADER_HEIGHT, RECENT_ROW_HEIGHT,
 };
 use crate::icons::{
-    home_drive_tabler_icon, home_quick_access_palette, home_quick_access_tabler_icon,
-    tabler_icon_element, toolbar_tabler,
+    chrome_icon_color, home_drive_tabler_icon, home_quick_access_palette,
+    home_quick_access_tabler_icon, tabler_icon_element, toolbar_tabler,
 };
 use crate::shell_icon::shell_icon_for_path;
 use crate::tabler_icons;
@@ -386,6 +386,7 @@ impl HomePage {
             .map(|size| t!("home.drive.free", size = size).to_string());
         let frac = drive.used_fraction();
         let drive_icon = home_drive_tabler_icon(drive);
+        let drive_icon_color = chrome_icon_color(cx);
         bordered_home_card(format!("{prefix}-drive-{index}"), cx)
             .w_full()
             .px(DRIVE_CARD_PADDING_X)
@@ -424,7 +425,7 @@ impl HomePage {
                                     .child(tabler_icon_element(
                                         drive_icon,
                                         px(18.),
-                                        cx.theme().muted_foreground,
+                                        drive_icon_color,
                                     )),
                             )
                             .child(

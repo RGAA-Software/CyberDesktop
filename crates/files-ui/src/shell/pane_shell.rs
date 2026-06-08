@@ -92,6 +92,10 @@ impl PaneShell {
         self.file_browser.clone()
     }
 
+    pub fn home_page(&self) -> Option<Entity<HomePage>> {
+        self.home.clone()
+    }
+
     pub fn navigate(&mut self, target: NavigationTarget, cx: &mut Context<Self>) {
         if self.current_navigation_target(cx) == target {
             return;

@@ -3,7 +3,10 @@ use super::*;
 impl FileBrowser {
     /// Prefetch Shell context menu on the dedicated Shell STA worker (non-blocking for GPUI).
     pub(super) fn request_shell_menu_fetch(&mut self, window: &Window, cx: &mut Context<Self>) {
-        if self.browse_location != BrowseLocation::Directory {
+        if !matches!(
+            self.browse_location,
+            BrowseLocation::Directory | BrowseLocation::FileTag { .. }
+        ) {
             return;
         }
 

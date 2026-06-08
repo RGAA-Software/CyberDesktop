@@ -38,7 +38,8 @@ pub use clipboard::{
 };
 pub use columns::column_trail_for;
 pub use drives::{
-    default_user_profile, home_navigation_path, list_drives, user_desktop_directory, DriveInfo,
+    default_user_profile, home_navigation_path, is_system_drive, list_drives,
+    system_drive_root, user_desktop_directory, DriveInfo,
 };
 pub use file_tag::{
     apply_tags_to_items, build_path_tag_index, build_path_tag_index_from_config,

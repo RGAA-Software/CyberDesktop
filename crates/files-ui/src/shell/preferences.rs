@@ -57,6 +57,7 @@ pub fn apply_locale(locale: &str, cx: &mut App) {
 pub fn apply_theme_mode(mode: ThemeMode, cx: &mut App) {
     let set_id = theme::current_theme_set_id(cx);
     theme::apply_set(set_id.as_ref(), mode, cx);
+    refresh_theme_views(cx);
     cx.refresh_windows();
     persist_preferences(cx);
 }
@@ -64,8 +65,20 @@ pub fn apply_theme_mode(mode: ThemeMode, cx: &mut App) {
 pub fn apply_theme_name(name: SharedString, cx: &mut App) {
     let mode = Theme::global(cx).mode;
     theme::apply_set(name.as_ref(), mode, cx);
+    refresh_theme_views(cx);
     cx.refresh_windows();
     persist_preferences(cx);
+}
+
+fn refresh_theme_views(cx: &mut App) {
+    if let Some(nav) = cx.try_global::<crate::app_state::AppNavigation>() {
+        let page = nav.main_page();
+        let _ = page.update(cx, |page, cx| {
+            page.notify_all_homes(cx);
+            page.notify_all_file_browsers(cx);
+            cx.notify();
+        });
+    }
 }
 
 pub fn apply_font_size(size: f32, cx: &mut App) {

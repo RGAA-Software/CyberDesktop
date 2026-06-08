@@ -2,26 +2,48 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use gpui::{
-    div, px, size, App, AppContext, Bounds, Context, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, MouseButton, MouseDownEvent, ParentElement, Render, SharedString, Size,
+    div, px, size, App, AppContext, Bounds, Context, Empty, FocusHandle, Focusable, InteractiveElement,
+    IntoElement, MouseButton, MouseDownEvent, ParentElement, Pixels, Render, SharedString, Size,
     StatefulInteractiveElement, Styled, Subscription, Window, WindowBounds, WindowKind, WindowOptions,
 };
 use gpui::prelude::FluentBuilder;
 use gpui_component::{
-    button::{Button, ButtonVariants as _}, h_flex, slider::Slider, slider::SliderEvent, slider::SliderState, v_flex,
-    ActiveTheme, ElementExt, IconName, Root, StyledExt as _, ThemeMode,
+    button::{Button, ButtonVariants as _}, h_flex, v_flex,
+    ActiveTheme, ElementExt, IconName, Root, Selectable, Sizable, StyledExt as _, ThemeMode,
 };
+use crate::media_slider::{MediaSlider, MediaSliderEvent, MediaSliderState};
 
 use app_ui::{
-    apply_theme_mode, color_icon_box,
+    apply_theme_mode, color_icon_box, DropdownMenu,
     title_bar::TitleBar, toolbar_icon, toolbar_icon_button, GITHUB_REPO_URL,
     SettingsWindowState,
 };
 
-use crate::app_menus::{MpvCycleSubTrack, MpvLoadSubtitle, MpvOpenFile, MpvOpenFolder};
+use crate::app_menus::{MpvCycleSubTrack, MpvLoadSubtitle, MpvOpenFile, MpvOpenFolder, MpvSetLoopAll, MpvSetLoopNone, MpvSetLoopSingle, MpvSetSpeed05, MpvSetSpeed10, MpvSetSpeed15, MpvSetSpeed20};
 use crate::audio_player::AudioPlayer;
 
 const APP_LOGO_PATH: &str = "app/logo/ic_cyber_media_player.svg";
+
+// Tabler Icons
+const ICON_PLAY: &str = "icons/tabler/player-play.svg";
+const ICON_PAUSE: &str = "icons/tabler/player-pause.svg";
+const ICON_STOP: &str = "icons/tabler/player-stop.svg";
+const ICON_PREV: &str = "icons/tabler/player-track-prev.svg";
+const ICON_NEXT: &str = "icons/tabler/player-track-next.svg";
+const ICON_REPEAT_OFF: &str = "icons/tabler/repeat-off.svg";
+const ICON_REPEAT: &str = "icons/tabler/repeat.svg";
+const ICON_REPEAT_ONCE: &str = "icons/tabler/repeat-once.svg";
+const ICON_MAXIMIZE: &str = "icons/tabler/maximize.svg";
+const ICON_VOLUME: &str = "icons/tabler/volume.svg";
+const ICON_VOLUME_OFF: &str = "icons/tabler/volume-off.svg";
+const ICON_PLAYLIST_EXPAND: &str = "icons/tabler/layout-sidebar-right-expand.svg";
+const ICON_PLAYLIST_COLLAPSE: &str = "icons/tabler/layout-sidebar-right-collapse.svg";
+const ICON_SPEED: &str = "icons/tabler/gauge.svg";
+
+fn tabler_icon(path: &'static str) -> gpui_component::Icon {
+    use gpui_component::{Icon, IconName, Sizable as _};
+    Icon::new(IconName::File).path(path).with_size(gpui_component::Size::Size(gpui::px(18.)))
+}
 use crate::audio_visualizer::{AudioVisualizer, SPECTRUM_BANDS};
 use crate::media_player_config::MediaPlayerConfig;
 use crate::playlist::Playlist;
@@ -29,6 +51,15 @@ use crate::video_surface::{window_hwnd, NativeVideoSurface};
 
 #[cfg(windows)]
 use app_mpv_ffi::MpvEmbedPlayer;
+
+#[derive(Clone, Copy, Debug)]
+struct PlaylistResizeDrag;
+
+impl Render for PlaylistResizeDrag {
+    fn render(&mut self, _: &mut Window, _: &mut Context<'_, Self>) -> impl IntoElement {
+        Empty
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MediaType {
@@ -105,9 +136,13 @@ pub struct PlayerPage {
     loop_mode: LoopMode,
     shuffle: bool,
     speed: f64,
+    playlist_visible: bool,
+    playlist_width: Pixels,
+    resizing_playlist: bool,
+    content_bounds: Option<Bounds<Pixels>>,
     config: MediaPlayerConfig,
-    seek_slider: gpui::Entity<SliderState>,
-    volume_slider: gpui::Entity<SliderState>,
+    seek_slider: gpui::Entity<MediaSliderState>,
+    volume_slider: gpui::Entity<MediaSliderState>,
     seek_dragging: bool,
     volume: f64,
     muted: bool,
@@ -125,13 +160,13 @@ pub struct PlayerPage {
 impl PlayerPage {
     pub fn new(initial_paths: Vec<PathBuf>, cx: &mut Context<Self>) -> Self {
         let seek_slider =
-            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
-        let seek_subscription = cx.subscribe(&seek_slider, |this, _, event: &SliderEvent, cx| {
+            cx.new(|_| MediaSliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
+        let seek_subscription = cx.subscribe(&seek_slider, |this, _, event: &MediaSliderEvent, cx| {
             match event {
-                SliderEvent::Change(_) => {
+                MediaSliderEvent::Change(_) => {
                     this.seek_dragging = true;
                 }
-                SliderEvent::Release(value) => {
+                MediaSliderEvent::Release(value) => {
                     this.seek_dragging = false;
                     this.commit_seek(value.start(), cx);
                 }
@@ -141,11 +176,11 @@ impl PlayerPage {
         let config = MediaPlayerConfig::load();
         let default_volume = (config.volume.clamp(0.0, 100.0) / 100.0) as f32;
         let volume_slider =
-            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.01).default_value(default_volume));
+            cx.new(|_| MediaSliderState::new().min(0.0).max(1.0).step(0.01).default_value(default_volume));
         let volume_subscription =
-            cx.subscribe(&volume_slider, |this, _, event: &SliderEvent, cx| {
+            cx.subscribe(&volume_slider, |this, _, event: &MediaSliderEvent, cx| {
                 match event {
-                    SliderEvent::Change(value) | SliderEvent::Release(value) => {
+                    MediaSliderEvent::Change(value) | MediaSliderEvent::Release(value) => {
                         this.volume = f64::from(value.start()) * 100.0;
                         this.apply_volume(cx);
                     }
@@ -173,6 +208,10 @@ impl PlayerPage {
             loop_mode: LoopMode::None,
             shuffle: false,
             speed: 1.0,
+            playlist_visible: true,
+            playlist_width: px(280.),
+            resizing_playlist: false,
+            content_bounds: None,
             seek_slider,
             volume_slider,
             seek_dragging: false,
@@ -619,24 +658,21 @@ impl PlayerPage {
         self.save_config();
     }
 
-    fn toggle_loop_mode(&mut self) {
-        self.loop_mode = match self.loop_mode {
-            LoopMode::None => LoopMode::All,
-            LoopMode::All => LoopMode::Single,
-            LoopMode::Single => LoopMode::None,
-        };
+    fn set_loop_mode(&mut self, mode: LoopMode) {
+        self.loop_mode = mode;
     }
 
+    fn toggle_playlist_visibility(&mut self) {
+        self.playlist_visible = !self.playlist_visible;
+    }
+
+    #[allow(dead_code)]
     fn toggle_shuffle(&mut self) {
         self.shuffle = !self.shuffle;
     }
 
-    fn toggle_speed(&mut self) {
-        self.speed = match (self.speed * 10.0).round() as i64 {
-            10 => 1.5,
-            15 => 2.0,
-            _ => 1.0,
-        };
+    fn set_speed(&mut self, speed: f64) {
+        self.speed = speed;
         self.apply_speed();
     }
 
@@ -796,6 +832,7 @@ impl PlayerPage {
         .detach();
     }
 
+    #[allow(dead_code)]
     fn seek_relative(&mut self, seconds: f64) {
         let Some(current) = self.current_position else { return };
         let target = current.saturating_add(Duration::from_secs_f64(seconds));
@@ -890,7 +927,7 @@ impl Render for PlayerPage {
             Self::format_time(self.total_duration)
         );
 
-        let play_label = if self.is_paused {
+        let play_tooltip = if self.is_paused {
             "Resume"
         } else if self.is_playing {
             "Pause"
@@ -898,15 +935,7 @@ impl Render for PlayerPage {
             "Play"
         };
 
-        let mute_label = if self.muted { "Unmute" } else { "Mute" };
-
-        let loop_label = match self.loop_mode {
-            LoopMode::None => "Loop",
-            LoopMode::All => "LoopAll",
-            LoopMode::Single => "Loop1",
-        };
-
-        let shuffle_label = if self.shuffle { "Shuffle" } else { "Order" };
+        let mute_tooltip = if self.muted { "Unmute" } else { "Mute" };
         let speed_label = format!("{:.1}x", self.speed);
 
         let _entity = cx.entity().clone();
@@ -936,7 +965,11 @@ impl Render for PlayerPage {
                         });
                     }
                 }),
-            _ => {
+            None => div()
+                .id("empty-host")
+                .size_full()
+                .bg(gpui::rgba(0x0d121aff)),
+            Some(MediaType::Audio) => {
                 let audio_name = self
                     .playlist
                     .current()
@@ -1032,9 +1065,9 @@ impl Render for PlayerPage {
 
         let playlist_sidebar = {
             let base = v_flex()
-                .w(px(280.))
+                .w(self.playlist_width)
                 .h_full()
-                .border_r_1()
+                .border_l_1()
                 .border_color(cx.theme().border)
                 .child(
                     div()
@@ -1093,7 +1126,7 @@ impl Render for PlayerPage {
                 MouseButton::Left,
                 cx.listener(|_this, _e: &MouseDownEvent, _w, cx| {
                     cx.stop_propagation();
-                    SettingsWindowState::open_editor(cx);
+                    SettingsWindowState::open_media_player_settings(cx);
                 }),
             );
         let github_btn = toolbar_icon_button("github")
@@ -1116,6 +1149,27 @@ impl Render for PlayerPage {
             .on_action(cx.listener(|this, _: &MpvCycleSubTrack, _window, _cx| {
                 this.cycle_sub_track();
             }))
+            .on_action(cx.listener(|this, _: &MpvSetLoopNone, _window, _cx| {
+                this.set_loop_mode(LoopMode::None);
+            }))
+            .on_action(cx.listener(|this, _: &MpvSetLoopAll, _window, _cx| {
+                this.set_loop_mode(LoopMode::All);
+            }))
+            .on_action(cx.listener(|this, _: &MpvSetLoopSingle, _window, _cx| {
+                this.set_loop_mode(LoopMode::Single);
+            }))
+            .on_action(cx.listener(|this, _: &MpvSetSpeed05, _window, _cx| {
+                this.set_speed(0.5);
+            }))
+            .on_action(cx.listener(|this, _: &MpvSetSpeed10, _window, _cx| {
+                this.set_speed(1.0);
+            }))
+            .on_action(cx.listener(|this, _: &MpvSetSpeed15, _window, _cx| {
+                this.set_speed(1.5);
+            }))
+            .on_action(cx.listener(|this, _: &MpvSetSpeed20, _window, _cx| {
+                this.set_speed(2.0);
+            }))
             .on_drop(cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
                 let start_index = this.playlist.len();
                 let mut added = false;
@@ -1136,6 +1190,7 @@ impl Render for PlayerPage {
             }))
             .child(
                 TitleBar::new()
+                    .h(px(35.))
                     .trailing_before_controls(theme_toggle)
                     .trailing_before_controls(settings_btn)
                     .trailing_before_controls(github_btn)
@@ -1166,51 +1221,86 @@ impl Render for PlayerPage {
                     ),
             )
             .child(
-                h_flex()
-                    .flex_1()
-                    .min_h(px(200.))
-                    .child(playlist_sidebar)
-                    .child(div().flex_1().h_full().child(video_area)),
+                {
+                    let content_weak = cx.weak_entity();
+                    h_flex()
+                        .id("video-playlist-container")
+                        .flex_1()
+                        .min_h(px(200.))
+                        .on_prepaint(move |bounds, _, cx| {
+                            let _ = content_weak.update(cx, |this, _| {
+                                this.content_bounds = Some(bounds);
+                            });
+                        })
+                        .child(div().flex_1().h_full().child(video_area))
+                        .when(self.playlist_visible, |this| {
+                            this.child(
+                                div()
+                                    .id("playlist-splitter")
+                                    .w(px(4.))
+                                    .h_full()
+                                    .cursor_col_resize()
+                                    .when(self.resizing_playlist, |this| this.bg(cx.theme().primary))
+                                    .when(!self.resizing_playlist, |this| this.bg(cx.theme().border))
+                                    .hover(|style| style.bg(cx.theme().primary))
+                                    .on_drag(PlaylistResizeDrag, |_, _, _, cx| cx.new(|_| PlaylistResizeDrag))
+                                    .on_drag_move::<PlaylistResizeDrag>(cx.listener(
+                                        |this, event: &gpui::DragMoveEvent<PlaylistResizeDrag>, _, cx| {
+                                            this.resizing_playlist = true;
+                                            if let Some(bounds) = this.content_bounds {
+                                                let new_width = (bounds.right() - event.event.position.x).max(px(160.)).min(px(480.));
+                                                if (this.playlist_width - new_width).abs() > px(1.) {
+                                                    this.playlist_width = new_width;
+                                                    cx.notify();
+                                                }
+                                            }
+                                        },
+                                    ))
+                                    .on_drop(cx.listener(|this, _: &PlaylistResizeDrag, _, _cx| {
+                                        this.resizing_playlist = false;
+                                    })),
+                            )
+                            .child(playlist_sidebar)
+                        })
+                },
             )
             .child(
                 v_flex()
                     .px(px(16.))
-                    .py(px(8.))
-                    .gap(px(8.))
+                    .child(div().h(px(20.)).w_full())
                     .child(
                         h_flex()
                             .items_center()
                             .gap(px(8.))
                             .child(time_str)
                             .child(
-                                Slider::new(&self.seek_slider)
+                                MediaSlider::new(&self.seek_slider)
                                     .disabled(self.total_duration.is_none())
                                     .w_full(),
                             ),
                     )
+                    .child(div().h(px(1.)).w_full())
                     .child(
                         h_flex()
                             .h(px(48.))
                             .items_center()
-                            .gap(px(8.))
+                            .gap(px(4.))
                             .child(
-                                Button::new("prev-btn")
-                                    .label("Prev")
+                                toolbar_icon_button("prev-btn")
+                                    .icon(tabler_icon(ICON_PREV))
+                                    .tooltip("Previous")
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.play_prev(window, cx);
                                     })),
                             )
                             .child(
-                                Button::new("backward-btn")
-                                    .label("-5s")
-                                    .on_click(cx.listener(|this, _, _window, _cx| {
-                                        this.seek_relative(-5.0);
-                                    })),
-                            )
-                            .child(
-                                Button::new("play-btn")
-                                    .primary()
-                                    .label(play_label)
+                                toolbar_icon_button("play-btn")
+                                    .icon(tabler_icon(if self.is_playing && !self.is_paused {
+                                        ICON_PAUSE
+                                    } else {
+                                        ICON_PLAY
+                                    }))
+                                    .tooltip(play_tooltip)
                                     .on_click(cx.listener(|this, _, _window, _cx| {
                                         if this.is_playing {
                                             this.toggle_pause();
@@ -1218,70 +1308,107 @@ impl Render for PlayerPage {
                                     })),
                             )
                             .child(
-                                Button::new("stop-btn")
-                                    .label("Stop")
+                                toolbar_icon_button("stop-btn")
+                                    .icon(tabler_icon(ICON_STOP))
+                                    .tooltip("Stop")
                                     .on_click(cx.listener(|this, _, _window, _cx| {
                                         this.stop();
                                     })),
                             )
                             .child(
-                                Button::new("forward-btn")
-                                    .label("+5s")
-                                    .on_click(cx.listener(|this, _, _window, _cx| {
-                                        this.seek_relative(5.0);
-                                    })),
-                            )
-                            .child(
-                                Button::new("next-btn")
-                                    .label("Next")
+                                toolbar_icon_button("next-btn")
+                                    .icon(tabler_icon(ICON_NEXT))
+                                    .tooltip("Next")
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.play_next(window, cx);
                                     })),
                             )
                             .child(div().w(px(8.)))
-                            .child(
-                                Button::new("loop-btn")
-                                    .label(loop_label)
-                                    .on_click(cx.listener(|this, _, _window, _cx| {
-                                        this.toggle_loop_mode();
-                                    })),
-                            )
-                            .child(
-                                Button::new("shuffle-btn")
-                                    .label(shuffle_label)
-                                    .on_click(cx.listener(|this, _, _window, _cx| {
-                                        this.toggle_shuffle();
-                                    })),
-                            )
+                            .child({
+                                let (loop_icon, loop_tooltip) = match self.loop_mode {
+                                    LoopMode::None => (ICON_REPEAT_OFF, "Loop: Off"),
+                                    LoopMode::All => (ICON_REPEAT, "Loop: All"),
+                                    LoopMode::Single => (ICON_REPEAT_ONCE, "Loop: Single"),
+                                };
+                                toolbar_icon_button("loop-btn")
+                                    .icon(tabler_icon(loop_icon))
+                                    .tooltip(loop_tooltip)
+                                    .dropdown_menu_with_anchor(gpui::Anchor::BottomLeft, {
+                                        let current_mode = self.loop_mode;
+                                        move |menu, _window, _cx| {
+                                            menu.min_w(px(160.))
+                                                .check_side(gpui_component::Side::Right)
+                                                .menu_with_check_icon("Off", tabler_icon(ICON_REPEAT_OFF), current_mode == LoopMode::None, Box::new(crate::app_menus::MpvSetLoopNone))
+                                                .menu_with_check_icon("Loop All", tabler_icon(ICON_REPEAT), current_mode == LoopMode::All, Box::new(crate::app_menus::MpvSetLoopAll))
+                                                .menu_with_check_icon("Loop Single", tabler_icon(ICON_REPEAT_ONCE), current_mode == LoopMode::Single, Box::new(crate::app_menus::MpvSetLoopSingle))
+                                        }
+                                    })
+                            })
                             .child(
                                 Button::new("speed-btn")
+                                    .with_size(gpui_component::Size::Small)
+                                    .ghost()
+                                    .h(px(32.))
+                                    .icon(tabler_icon(ICON_SPEED))
                                     .label(speed_label)
-                                    .on_click(cx.listener(|this, _, _window, _cx| {
-                                        this.toggle_speed();
-                                    })),
+                                    .tooltip("Playback Speed")
+                                    .dropdown_menu_with_anchor(gpui::Anchor::BottomLeft, {
+                                        let current_speed = self.speed;
+                                        move |menu, _window, _cx| {
+                                            menu.min_w(px(160.))
+                                                .menu_with_check("0.5x", current_speed == 0.5, Box::new(crate::app_menus::MpvSetSpeed05))
+                                                .menu_with_check("1.0x", current_speed == 1.0, Box::new(crate::app_menus::MpvSetSpeed10))
+                                                .menu_with_check("1.5x", current_speed == 1.5, Box::new(crate::app_menus::MpvSetSpeed15))
+                                                .menu_with_check("2.0x", current_speed == 2.0, Box::new(crate::app_menus::MpvSetSpeed20))
+                                        }
+                                    }),
                             )
                             .child(
-                                Button::new("fullscreen-btn")
-                                    .label("Full")
+                                toolbar_icon_button("fullscreen-btn")
+                                    .icon(tabler_icon(ICON_MAXIMIZE))
+                                    .tooltip("Fullscreen")
                                     .on_click(cx.listener(|_this, _, window, _cx| {
                                         window.toggle_fullscreen();
                                     })),
                             )
                             .child(div().w(px(8.)))
                             .child(
-                                Button::new("mute-btn")
-                                    .label(mute_label)
+                                toolbar_icon_button("mute-btn")
+                                    .icon(tabler_icon(if self.muted {
+                                        ICON_VOLUME_OFF
+                                    } else {
+                                        ICON_VOLUME
+                                    }).when(self.muted, |icon| icon.text_color(cx.theme().danger)))
+                                    .tooltip(mute_tooltip)
                                     .on_click(cx.listener(|this, _, _window, cx| {
                                         this.toggle_mute(cx);
                                     })),
                             )
                             .child(
-                                Slider::new(&self.volume_slider)
-                                    .disabled(false)
-                                    .w(px(100.)),
+                                div()
+                                    .w(px(160.))
+                                    .child(
+                                        MediaSlider::new(&self.volume_slider)
+                                            .disabled(false)
+                                            .w_full(),
+                                    ),
                             )
-                            .child(div().flex_1()),
-                    ),
+                            .child(div().flex_1())
+                            .child(
+                                toolbar_icon_button("playlist-toggle-btn")
+                                    .icon(tabler_icon(if self.playlist_visible {
+                                        ICON_PLAYLIST_COLLAPSE
+                                    } else {
+                                        ICON_PLAYLIST_EXPAND
+                                    }))
+                                    .when(self.playlist_visible, |btn| btn.selected(true))
+                                    .tooltip(if self.playlist_visible { "Hide Playlist" } else { "Show Playlist" })
+                                    .on_click(cx.listener(|this, _, _window, _cx| {
+                                        this.toggle_playlist_visibility();
+                                    })),
+                            ),
+                    )
+                    .child(div().h(px(1.)).w_full())
             )
     }
 }
@@ -1291,7 +1418,7 @@ where
     E: Into<gpui::AnyView>,
     F: FnOnce(&mut Window, &mut App) -> E + Send + 'static,
 {
-    let window_size = size(px(1280.), px(720.));
+    let window_size = size(px(1630.), px(900.));
     let window_bounds = Bounds::centered(None, window_size, cx);
     let title = title.into();
 

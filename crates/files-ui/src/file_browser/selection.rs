@@ -284,12 +284,110 @@ impl FileBrowser {
             row = (row as isize + delta).clamp(0, max_row as isize) as usize;
             if let Some(item_index) = item_index_at_row(&self.display_rows, row) {
                 self.focused_index = Some(item_index);
+                self.selected_paths.clear();
+                if let Some(item) = self.display_items.get(item_index) {
+                    self.selected_paths.insert(item.path.clone());
+                }
+                self.anchor_index = Some(item_index);
                 self.scroll_handle
                     .scroll_to_item(row, ScrollStrategy::Center);
                 return;
             }
             if (delta < 0 && row == 0) || (delta > 0 && row == max_row) {
                 return;
+            }
+        }
+    }
+
+    /// Navigate up/down within the current column in Columns view.
+    pub(super) fn move_focus_column(&mut self, delta: isize) {
+        if self.column_listings.is_empty() {
+            return;
+        }
+        let col_index = self
+            .active_column_index
+            .unwrap_or_else(|| self.column_listings.len().saturating_sub(1));
+        let items = match self.column_listings.get(col_index) {
+            Some(items) if !items.is_empty() => items,
+            _ => return,
+        };
+
+        let current_index = self
+            .column_selected_path
+            .as_ref()
+            .filter(|(c, _)| *c == col_index)
+            .and_then(|(_, path)| items.iter().position(|item| item.path == *path))
+            .or_else(|| self.implicit_column_selected_index(col_index))
+            .unwrap_or(0);
+
+        let new_index = (current_index as isize + delta)
+            .clamp(0, items.len().saturating_sub(1) as isize)
+            as usize;
+
+        let item = &items[new_index];
+        self.selected_paths.clear();
+        self.selected_paths.insert(item.path.clone());
+        self.column_selected_path = Some((col_index, item.path.clone()));
+        self.focused_index = Some(new_index);
+        self.anchor_index = Some(new_index);
+        self.active_column_index = Some(col_index);
+
+        if let Some(scroll_handle) = self.column_scroll_handles.get(col_index) {
+            scroll_handle.scroll_to_item(new_index, ScrollStrategy::Center);
+        }
+    }
+
+    /// 2D focus navigation for Grid/Cards view (left/right/up/down within the tile grid).
+    pub(super) fn move_focus_2d(&mut self, dx: isize, dy: isize) {
+        if self.display_items.is_empty() {
+            return;
+        }
+
+        let cells_per_row = match self.view_mode {
+            ViewMode::Grid => self.grid_cells_per_row.unwrap_or(1).max(1),
+            ViewMode::Cards => self.cards_cells_per_row.unwrap_or(1).max(1),
+            _ => {
+                // Non-grid modes fall back to vertical line-based movement.
+                if dx != 0 {
+                    return;
+                }
+                self.move_focus(dy.signum());
+                return;
+            }
+        };
+
+        let current_index = self
+            .focused_index
+            .unwrap_or(0)
+            .min(self.display_items.len() - 1);
+        let current_row = current_index / cells_per_row;
+        let current_col = current_index % cells_per_row;
+
+        let max_row = (self.display_items.len() - 1) / cells_per_row;
+        let max_col = cells_per_row - 1;
+
+        let new_row = (current_row as isize + dy).clamp(0, max_row as isize) as usize;
+        let new_col = (current_col as isize + dx).clamp(0, max_col as isize) as usize;
+
+        let new_index = new_row * cells_per_row + new_col;
+        if new_index < self.display_items.len() {
+            self.focused_index = Some(new_index);
+            self.selected_paths.clear();
+            if let Some(item) = self.display_items.get(new_index) {
+                self.selected_paths.insert(item.path.clone());
+            }
+            self.anchor_index = Some(new_index);
+
+            match self.view_mode {
+                ViewMode::Grid => self
+                    .grid_scroll_handle
+                    .scroll_to_item(new_row, ScrollStrategy::Center),
+                ViewMode::Cards => self
+                    .cards_scroll_handle
+                    .scroll_to_item(new_row, ScrollStrategy::Center),
+                _ => self
+                    .scroll_handle
+                    .scroll_to_item(new_row, ScrollStrategy::Center),
             }
         }
     }
@@ -405,5 +503,130 @@ impl FileBrowser {
 
     pub(super) fn selected_paths_vec(&self) -> Vec<PathBuf> {
         self.effective_selected_paths()
+    }
+
+    /// Type-ahead jump to file by first-letter(s). Called on character key press.
+    pub(super) fn handle_key_char(&mut self, ch: char, cx: &mut Context<Self>) {
+        if self.renaming.is_some() {
+            return;
+        }
+
+        let ch_lower = ch.to_lowercase().to_string();
+        let new_string = if self.jump_string.len() == 1 && self.jump_string == ch_lower {
+            // Pressing the same single letter again: cycle to next match.
+            self.jump_string.clone()
+        } else {
+            self.jump_string.clone() + &ch_lower
+        };
+        self.jump_string = new_string;
+
+        // Determine the item list and current index based on view mode.
+        let (items, current_index) = match self.view_mode {
+            ViewMode::Columns => {
+                let col_index = self
+                    .active_column_index
+                    .unwrap_or_else(|| self.column_listings.len().saturating_sub(1));
+                let items = self.column_listings.get(col_index).cloned().unwrap_or_default();
+                let current = self
+                    .column_selected_path
+                    .as_ref()
+                    .filter(|(c, _)| *c == col_index)
+                    .and_then(|(_, path)| items.iter().position(|item| item.path == *path))
+                    .or_else(|| self.implicit_column_selected_index(col_index));
+                (items, current)
+            }
+            _ => {
+                let items = self.display_items.clone();
+                let current = self.focused_index;
+                (items, current)
+            }
+        };
+
+        if items.is_empty() {
+            return;
+        }
+
+        let search = &self.jump_string;
+        let _is_cycling = search.len() == 1;
+
+        // Find match: start after current if cycling with a single letter.
+        let match_index = if let Some(current) = current_index {
+            let after = items
+                .iter()
+                .enumerate()
+                .skip(current + 1)
+                .find(|(_, item)| {
+                    item.display_name
+                        .to_lowercase()
+                        .starts_with(search)
+                })
+                .map(|(i, _)| i);
+            if let Some(idx) = after {
+                Some(idx)
+            } else {
+                items
+                    .iter()
+                    .enumerate()
+                    .find(|(_, item)| {
+                        item.display_name
+                            .to_lowercase()
+                        .starts_with(search)
+                    })
+                    .map(|(i, _)| i)
+            }
+        } else {
+            items
+                .iter()
+                .enumerate()
+                .find(|(_, item)| {
+                    item.display_name
+                        .to_lowercase()
+                        .starts_with(search)
+                })
+                .map(|(i, _)| i)
+        };
+
+        if let Some(idx) = match_index {
+            let item = &items[idx];
+            match self.view_mode {
+                ViewMode::Columns => {
+                    let col_index = self
+                        .active_column_index
+                        .unwrap_or_else(|| self.column_listings.len().saturating_sub(1));
+                    self.selected_paths.clear();
+                    self.selected_paths.insert(item.path.clone());
+                    self.column_selected_path = Some((col_index, item.path.clone()));
+                    self.focused_index = Some(idx);
+                    self.anchor_index = Some(idx);
+                    self.active_column_index = Some(col_index);
+                    if let Some(scroll_handle) = self.column_scroll_handles.get(col_index) {
+                        scroll_handle.scroll_to_item(idx, ScrollStrategy::Center);
+                    }
+                }
+                _ => {
+                    self.focused_index = Some(idx);
+                    self.selected_paths.clear();
+                    self.selected_paths.insert(item.path.clone());
+                    self.anchor_index = Some(idx);
+                    if let Some(row) = row_for_item_index(&self.display_rows, idx) {
+                        self.scroll_handle
+                            .scroll_to_item(row, ScrollStrategy::Center);
+                    }
+                }
+            }
+        }
+
+        // Restart clear timer.
+        self._jump_string_task.take();
+        let entity = cx.entity().clone();
+        let _search_clone = self.jump_string.clone();
+        self._jump_string_task = Some(cx.spawn(async move |_, cx| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(1))
+                .await;
+            let _ = entity.update(cx, |this, _| {
+                this.jump_string.clear();
+            });
+        }));
     }
 }

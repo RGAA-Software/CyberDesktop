@@ -26,6 +26,18 @@ pub fn chrome_icon_color(cx: &App) -> Hsla {
     cx.theme().muted_foreground
 }
 
+/// Tile background + icon tint for chrome-style list icons (folders, drives).
+pub fn chrome_icon_tile_colors(cx: &App) -> (Hsla, Hsla) {
+    if cx.theme().mode.is_dark() {
+        (
+            cx.theme().muted.opacity(0.32),
+            chrome_icon_color(cx),
+        )
+    } else {
+        (cx.theme().secondary, chrome_icon_color(cx))
+    }
+}
+
 fn chrome_icon_box(path: &'static str, color: Hsla, size: Pixels) -> AnyElement {
     div()
         .size(size)
@@ -159,14 +171,27 @@ pub fn home_quick_access_palette(kind: QuickAccessFolderKind) -> Option<(Hsla, H
     Some((icon, tile))
 }
 
-/// Tabler asset for a Home drive card (`design/cyber_files.html` `.drive-icon`).
-pub fn home_drive_tabler_icon(drive: &DriveInfo) -> &'static str {
-    let root = drive.path.to_string_lossy().to_ascii_uppercase();
-    if root.starts_with("C:\\") {
+/// Tabler asset for a drive root: Windows logo on the system drive only.
+pub fn drive_tabler_icon(path: &std::path::Path) -> &'static str {
+    if files_fs::is_system_drive(path) {
         tabler_icons::BRAND_WINDOWS
     } else {
         tabler_icons::DATABASE
     }
+}
+
+/// Tabler asset for a Home drive card (`design/cyber_files.html` `.drive-icon`).
+pub fn home_drive_tabler_icon(drive: &DriveInfo) -> &'static str {
+    drive_tabler_icon(&drive.path)
+}
+
+/// Foreground tint from the light/dark icon palette (`file_type_icon_colors`).
+pub fn palette_icon_fg(svg_path: &'static str, cx: &App) -> Hsla {
+    let (_, fg) = crate::file_type_icon_colors::tile_colors_for_svg_path(
+        svg_path,
+        cx.theme().mode.is_dark(),
+    );
+    fg
 }
 
 /// Render a Tabler SVG at an explicit pixel size and tint.

@@ -5,7 +5,7 @@ use gpui_component::{menu::AppMenuBar, GlobalState};
 
 actions!(
     mediaplayer,
-    [MpvOpenFile, MpvOpenFolder, MpvLoadSubtitle, MpvCycleSubTrack]
+    [MpvOpenFile, MpvOpenFolder, MpvLoadSubtitle, MpvCycleSubTrack, MpvSetLoopNone, MpvSetLoopAll, MpvSetLoopSingle, MpvSetSpeed05, MpvSetSpeed10, MpvSetSpeed15, MpvSetSpeed20]
 );
 
 struct MediaPlayerMenuState {

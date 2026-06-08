@@ -39,6 +39,8 @@ actions!(
         PasteItems,
         NavigatePrevious,
         NavigateNext,
+        NavigateLeft,
+        NavigateRight,
         FocusSearch,
         FocusOmnibar,
         ViewDetails,
@@ -92,8 +94,4 @@ pub fn resolve_key_bindings() -> Vec<KeyBinding> {
         bindings.push(KeyBinding::new(keystroke, FocusSearch, Some("Input")));
     }
     bindings
-}
-
-pub fn file_browser_key_bindings() -> Vec<KeyBinding> {
-    resolve_key_bindings()
 }

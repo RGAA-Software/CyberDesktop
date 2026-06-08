@@ -242,6 +242,19 @@ impl MainPage {
         cx.notify();
     }
 
+    /// Repaint home dashboards after theme changes.
+    pub(crate) fn notify_all_homes(&self, cx: &mut Context<Self>) {
+        for tab in &self.tabs {
+            let mut panes = Vec::new();
+            tab.shell.read(cx).for_each_pane(|pane| panes.push(pane.clone()));
+            for pane in panes {
+                if let Some(home) = pane.read(cx).home_page() {
+                    let _ = home.update(cx, |_, cx| cx.notify());
+                }
+            }
+        }
+    }
+
     /// Refresh every file list (e.g. after in-app clipboard cut/copy/clear changes cut styling).
     pub(crate) fn notify_all_file_browsers(&self, cx: &mut Context<Self>) {
         for tab in &self.tabs {

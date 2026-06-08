@@ -29,7 +29,7 @@ pub use popup_menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem};
 pub use settings_window::{SettingsWindowState};
 pub use tab::{Tab, TabBar};
 pub use title_bar::{title_bar_bottom_rule, TitleBar, TITLE_BAR_HEIGHT};
-pub use toolbar_button::{toolbar_icon, toolbar_icon_button, TOOLBAR_BUTTON_PX, TOOLBAR_ICON_BUTTON_SIZE};
+pub use toolbar_button::{toolbar_icon, toolbar_icon_button, toolbar_labeled_button, TOOLBAR_BUTTON_PX, TOOLBAR_ICON_BUTTON_SIZE};
 pub use window::{open_editor_window, open_window, open_window_with_close_handler};
 
 pub fn init_editor_shell(cx: &mut App) {

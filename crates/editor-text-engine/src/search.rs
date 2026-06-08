@@ -370,14 +370,6 @@ fn byte_to_char(s: &str, byte_idx: usize) -> usize {
     s[..byte_idx.min(s.len())].chars().count()
 }
 
-#[allow(dead_code)]
-fn to_match(s: &str, line_start_char: usize, start_byte: usize, end_byte: usize) -> Match {
-    Match {
-        start: line_start_char + byte_to_char(s, start_byte),
-        end: line_start_char + byte_to_char(s, end_byte),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -13,7 +13,7 @@ use rust_i18n::t;
 
 use crate::app_state::AppNavigation;
 use crate::drag::DraggedFilePaths;
-use crate::icons::sidebar_tabler_icon;
+use crate::icons::{chrome_icon_color, drive_tabler_icon, sidebar_tabler_icon};
 use files_fs::parse_tag_color_hex;
 use crate::main_page::MainPage;
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
@@ -48,10 +48,19 @@ pub fn render_sidebar(
         .min_w_0()
         .border_0();
 
+    let best_non_drive_depth = best_non_drive_match_depth(&active, sections);
+
     for (index, section) in sections.iter().enumerate() {
         let mut menu = SidebarMenuWithDrop::new();
         for entry in &section.entries {
-            append_sidebar_entry(&mut menu, &page, entry, section.kind, &active);
+            append_sidebar_entry(
+                &mut menu,
+                &page,
+                entry,
+                section.kind,
+                &active,
+                best_non_drive_depth,
+            );
         }
         let block = SidebarSectionBlock::section(section.title.clone(), menu, index == 0);
         sidebar = sidebar.child(block);
@@ -150,8 +159,14 @@ fn append_sidebar_entry(
     entry: &SidebarEntry,
     section: SidebarSectionKind,
     active: &NavigationTarget,
+    best_non_drive_depth: Option<usize>,
 ) {
-    let is_active = navigation_matches(active, &entry.target);
+    let is_active = navigation_matches(
+        active,
+        &entry.target,
+        section,
+        best_non_drive_depth,
+    );
     let page_click = page.clone();
     let page_middle = page.clone();
     let page_menu = page.clone();
@@ -236,14 +251,6 @@ fn append_sidebar_entry(
     }
 }
 
-fn sidebar_icon_color(active: bool, cx: &App) -> Hsla {
-    if active {
-        cx.theme().primary
-    } else {
-        cx.theme().muted_foreground
-    }
-}
-
 fn tabler_path_for_sidebar_entry(
     entry: &SidebarEntry,
     section: SidebarSectionKind,
@@ -254,7 +261,7 @@ fn tabler_path_for_sidebar_entry(
         (NavigationTarget::FileTag(_), _) => tabler_icons::TAG,
         (NavigationTarget::Settings, _) => tabler_icons::SETTINGS,
         (NavigationTarget::SearchResults { .. }, _) => tabler_icons::SEARCH,
-        (_, SidebarSectionKind::Drives) => tabler_icons::DEVICE_DESKTOP,
+        (NavigationTarget::Path(path), SidebarSectionKind::Drives) => drive_tabler_icon(path),
         (_, SidebarSectionKind::Cloud) => tabler_icons::CLOUD,
         (_, SidebarSectionKind::Network) => tabler_icons::NETWORK,
         (_, SidebarSectionKind::Wsl) => tabler_icons::BRAND_WINDOWS,
@@ -282,7 +289,12 @@ fn sidebar_entry_icon(
             .into();
             sidebar_tabler_icon(tabler_icons::TAG, icon_color)
         } else {
-            sidebar_tabler_icon(path, sidebar_icon_color(active, cx))
+            let color = if active {
+                cx.theme().primary
+            } else {
+                chrome_icon_color(cx)
+            };
+            sidebar_tabler_icon(path, color)
         }
     }
 }
@@ -380,15 +392,67 @@ fn build_entry_context_menu(
     menu
 }
 
-pub fn navigation_matches(active: &NavigationTarget, entry: &NavigationTarget) -> bool {
+pub fn navigation_matches(
+    active: &NavigationTarget,
+    entry: &NavigationTarget,
+    section: SidebarSectionKind,
+    best_non_drive_depth: Option<usize>,
+) -> bool {
     match (active, entry) {
         (NavigationTarget::Home, NavigationTarget::Home) => true,
         (NavigationTarget::RecycleBin, NavigationTarget::RecycleBin) => true,
         (NavigationTarget::FileTag(active), NavigationTarget::FileTag(entry)) => active == entry,
         (NavigationTarget::Path(current), NavigationTarget::Path(sidebar)) => {
-            paths_match(sidebar, current)
+            if section == SidebarSectionKind::Drives {
+                drive_path_matches(sidebar, current, best_non_drive_depth)
+            } else {
+                paths_match(sidebar, current)
+            }
         }
         _ => false,
+    }
+}
+
+/// Longest matching pinned/library/cloud/network/wsl path depth for the active location.
+fn best_non_drive_match_depth(
+    active: &NavigationTarget,
+    sections: &[SidebarSection],
+) -> Option<usize> {
+    let NavigationTarget::Path(current) = active else {
+        return None;
+    };
+    sections
+        .iter()
+        .filter(|section| section.kind != SidebarSectionKind::Drives)
+        .flat_map(|section| section.entries.iter())
+        .filter_map(|entry| {
+            let NavigationTarget::Path(sidebar) = &entry.target else {
+                return None;
+            };
+            paths_match(sidebar, current).then(|| path_depth(sidebar))
+        })
+        .max()
+}
+
+fn path_depth(path: &Path) -> usize {
+    path.components().count()
+}
+
+/// Drive rows highlight at the root, or under the drive only when no more specific sidebar path matches.
+fn drive_path_matches(
+    drive: &Path,
+    current: &Path,
+    best_non_drive_depth: Option<usize>,
+) -> bool {
+    if paths_equal(drive, current) {
+        return true;
+    }
+    if !paths_match(drive, current) {
+        return false;
+    }
+    match best_non_drive_depth {
+        Some(depth) if depth > path_depth(drive) => false,
+        _ => true,
     }
 }
 

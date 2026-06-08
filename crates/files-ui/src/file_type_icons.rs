@@ -613,10 +613,7 @@ pub fn svg_path_for_path(path: &Path) -> &'static str {
     {
         let s = path.to_string_lossy();
         if s.len() == 3 && s.as_bytes()[1] == b':' && s.as_bytes()[2] == b'\\' {
-            if s.starts_with('C') || s.starts_with('c') {
-                return tabler_icons::BRAND_WINDOWS;
-            }
-            return tabler_icons::DATABASE;
+            return crate::icons::drive_tabler_icon(path);
         }
     }
     if path.is_dir() {

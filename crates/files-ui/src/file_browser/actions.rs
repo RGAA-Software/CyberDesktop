@@ -160,12 +160,38 @@ impl FileBrowser {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.move_focus(-1);
+        match self.view_mode {
+            ViewMode::Grid | ViewMode::Cards => self.move_focus_2d(0, -1),
+            ViewMode::Columns => self.move_focus_column(-1),
+            _ => self.move_focus(-1),
+        }
         cx.notify();
     }
 
     pub(super) fn on_navigate_next(&mut self, _: &NavigateNext, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_focus(1);
+        match self.view_mode {
+            ViewMode::Grid | ViewMode::Cards => self.move_focus_2d(0, 1),
+            ViewMode::Columns => self.move_focus_column(1),
+            _ => self.move_focus(1),
+        }
+        cx.notify();
+    }
+
+    pub(super) fn on_navigate_left(&mut self, _: &NavigateLeft, _: &mut Window, cx: &mut Context<Self>) {
+        match self.view_mode {
+            ViewMode::Grid | ViewMode::Cards => self.move_focus_2d(-1, 0),
+            ViewMode::Columns => self.move_focus_column(-1),
+            _ => self.move_focus(-1),
+        }
+        cx.notify();
+    }
+
+    pub(super) fn on_navigate_right(&mut self, _: &NavigateRight, _: &mut Window, cx: &mut Context<Self>) {
+        match self.view_mode {
+            ViewMode::Grid | ViewMode::Cards => self.move_focus_2d(1, 0),
+            ViewMode::Columns => self.move_focus_column(1),
+            _ => self.move_focus(1),
+        }
         cx.notify();
     }
 
