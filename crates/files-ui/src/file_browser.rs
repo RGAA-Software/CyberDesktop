@@ -413,6 +413,10 @@ pub struct FileBrowser {
     list_icon_warm_token: u64,
     list_icon_warm_scheduled: u64,
     _subscriptions: Vec<Subscription>,
+    /// Type-ahead jump string for quick file navigation (e.g. press "a" to jump to files starting with "a").
+    jump_string: String,
+    /// Task that clears jump_string after a timeout.
+    _jump_string_task: Option<Task<()>>,
     /// Cached measured cells-per-row for grid view.
     grid_cells_per_row: Option<usize>,
     /// Cached measured cells-per-row for cards view.
@@ -554,6 +558,8 @@ impl FileBrowser {
             list_icon_warm_token: 0,
             list_icon_warm_scheduled: u64::MAX,
             _subscriptions: Vec::new(),
+            jump_string: String::new(),
+            _jump_string_task: None,
             grid_cells_per_row: None,
             cards_cells_per_row: None,
             last_viewport_width: None,

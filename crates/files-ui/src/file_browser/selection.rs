@@ -504,4 +504,129 @@ impl FileBrowser {
     pub(super) fn selected_paths_vec(&self) -> Vec<PathBuf> {
         self.effective_selected_paths()
     }
+
+    /// Type-ahead jump to file by first-letter(s). Called on character key press.
+    pub(super) fn handle_key_char(&mut self, ch: char, cx: &mut Context<Self>) {
+        if self.renaming.is_some() {
+            return;
+        }
+
+        let ch_lower = ch.to_lowercase().to_string();
+        let new_string = if self.jump_string.len() == 1 && self.jump_string == ch_lower {
+            // Pressing the same single letter again: cycle to next match.
+            self.jump_string.clone()
+        } else {
+            self.jump_string.clone() + &ch_lower
+        };
+        self.jump_string = new_string;
+
+        // Determine the item list and current index based on view mode.
+        let (items, current_index) = match self.view_mode {
+            ViewMode::Columns => {
+                let col_index = self
+                    .active_column_index
+                    .unwrap_or_else(|| self.column_listings.len().saturating_sub(1));
+                let items = self.column_listings.get(col_index).cloned().unwrap_or_default();
+                let current = self
+                    .column_selected_path
+                    .as_ref()
+                    .filter(|(c, _)| *c == col_index)
+                    .and_then(|(_, path)| items.iter().position(|item| item.path == *path))
+                    .or_else(|| self.implicit_column_selected_index(col_index));
+                (items, current)
+            }
+            _ => {
+                let items = self.display_items.clone();
+                let current = self.focused_index;
+                (items, current)
+            }
+        };
+
+        if items.is_empty() {
+            return;
+        }
+
+        let search = &self.jump_string;
+        let _is_cycling = search.len() == 1;
+
+        // Find match: start after current if cycling with a single letter.
+        let match_index = if let Some(current) = current_index {
+            let after = items
+                .iter()
+                .enumerate()
+                .skip(current + 1)
+                .find(|(_, item)| {
+                    item.display_name
+                        .to_lowercase()
+                        .starts_with(search)
+                })
+                .map(|(i, _)| i);
+            if let Some(idx) = after {
+                Some(idx)
+            } else {
+                items
+                    .iter()
+                    .enumerate()
+                    .find(|(_, item)| {
+                        item.display_name
+                            .to_lowercase()
+                        .starts_with(search)
+                    })
+                    .map(|(i, _)| i)
+            }
+        } else {
+            items
+                .iter()
+                .enumerate()
+                .find(|(_, item)| {
+                    item.display_name
+                        .to_lowercase()
+                        .starts_with(search)
+                })
+                .map(|(i, _)| i)
+        };
+
+        if let Some(idx) = match_index {
+            let item = &items[idx];
+            match self.view_mode {
+                ViewMode::Columns => {
+                    let col_index = self
+                        .active_column_index
+                        .unwrap_or_else(|| self.column_listings.len().saturating_sub(1));
+                    self.selected_paths.clear();
+                    self.selected_paths.insert(item.path.clone());
+                    self.column_selected_path = Some((col_index, item.path.clone()));
+                    self.focused_index = Some(idx);
+                    self.anchor_index = Some(idx);
+                    self.active_column_index = Some(col_index);
+                    if let Some(scroll_handle) = self.column_scroll_handles.get(col_index) {
+                        scroll_handle.scroll_to_item(idx, ScrollStrategy::Center);
+                    }
+                }
+                _ => {
+                    self.focused_index = Some(idx);
+                    self.selected_paths.clear();
+                    self.selected_paths.insert(item.path.clone());
+                    self.anchor_index = Some(idx);
+                    if let Some(row) = row_for_item_index(&self.display_rows, idx) {
+                        self.scroll_handle
+                            .scroll_to_item(row, ScrollStrategy::Center);
+                    }
+                }
+            }
+        }
+
+        // Restart clear timer.
+        self._jump_string_task.take();
+        let entity = cx.entity().clone();
+        let _search_clone = self.jump_string.clone();
+        self._jump_string_task = Some(cx.spawn(async move |_, cx| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(1))
+                .await;
+            let _ = entity.update(cx, |this, _| {
+                this.jump_string.clear();
+            });
+        }));
+    }
 }

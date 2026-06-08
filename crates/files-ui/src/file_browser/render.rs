@@ -387,6 +387,16 @@ impl Render for FileBrowser {
             .on_action(cx.listener(Self::on_open_in_new_window))
             .on_action(cx.listener(Self::on_open_with_dialog))
             .on_action(cx.listener(Self::on_create_shortcut))
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _window, cx| {
+                let key = event.keystroke.key.as_str();
+                if key.len() == 1 {
+                    let ch = key.chars().next().unwrap();
+                    if ch.is_alphanumeric() {
+                        this.handle_key_char(ch, cx);
+                        cx.notify();
+                    }
+                }
+            }))
             .when(self.show_content_toolbar, |this| {
                 this.child(self.render_content_toolbar(cx))
             })
