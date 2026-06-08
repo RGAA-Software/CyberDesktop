@@ -139,6 +139,7 @@ impl EngineEditor {
             self.rebuild_display_lines();
             self.needs_focus = true;
             self.retarget_search_panel();
+            self.sync_markdown_preview(_cx);
         } else if target < self.tabs.len() {
             let slot = &mut self.tabs[target];
             slot.document = document;
@@ -204,6 +205,7 @@ impl EngineEditor {
         self.active_folds.clear();
         self.rebuild_display_lines();
         self.document.set_caret(0);
+        self.sync_markdown_preview(cx);
         cx.notify();
     }
 

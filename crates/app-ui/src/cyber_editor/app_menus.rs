@@ -8,7 +8,7 @@ use super::{
     AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
     FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, KeyboardShortcuts,
     NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs,
-    SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap,
+    SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap, ToggleMarkdownPreview,
 };
 
 struct EditorMenuState {
@@ -124,6 +124,7 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
                     .checked(line_numbers_checked),
                 MenuItem::action(SharedString::from(t!("editor.menu.word_wrap")), ToggleSoftWrap)
                     .checked(soft_wrap_checked),
+                MenuItem::action(SharedString::from(t!("editor.menu.markdown_preview")), ToggleMarkdownPreview),
             ],
             disabled: false,
         },

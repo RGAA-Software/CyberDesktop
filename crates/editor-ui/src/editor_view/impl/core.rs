@@ -89,10 +89,20 @@ impl EngineEditor {
         .detach();
     }
 
+    pub(crate) fn sync_markdown_preview(&mut self, cx: &mut Context<Self>) {
+        if let Some(preview) = self.markdown_preview.as_ref() {
+            let text = self.document.buffer().to_string();
+            preview.update(cx, |preview, cx| {
+                preview.update_from_text(text, cx);
+            });
+        }
+    }
+
     pub(crate) fn changed(&mut self, cx: &mut Context<Self>) {
         self.rebuild_display_lines();
         self.caret_blink_visible = true;
         self.ensure_caret_visible();
+        self.sync_markdown_preview(cx);
         cx.notify();
     }
 

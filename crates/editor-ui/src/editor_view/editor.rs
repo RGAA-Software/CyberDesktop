@@ -6,6 +6,7 @@ use std::time::SystemTime;
 
 use editor_text_engine::{Document, FoldRange, SyntaxState};
 use gpui::{prelude::*, px, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, ScrollHandle, Size, Window};
+use markdown_preview_ui::MarkdownPreviewView;
 
 use super::language::language_for_path;
 use super::state::{
@@ -124,6 +125,10 @@ pub struct EngineEditor {
     pub(crate) external_file_drop_hover: bool,
     /// Buffer line under the pointer in the fold gutter, if any.
     pub(crate) fold_gutter_hover_line: Option<usize>,
+    /// Whether markdown preview panel is shown.
+    pub(crate) show_preview: bool,
+    /// The markdown preview view entity, when open.
+    pub(crate) markdown_preview: Option<Entity<MarkdownPreviewView>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -199,6 +204,8 @@ impl EngineEditor {
             file_load_gen: 0,
             external_file_drop_hover: false,
             fold_gutter_hover_line: None,
+            show_preview: false,
+            markdown_preview: None,
         };
         editor.rebuild_display_lines();
         editor

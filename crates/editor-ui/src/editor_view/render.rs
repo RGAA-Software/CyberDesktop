@@ -53,6 +53,7 @@ impl Render for EngineEditor {
             editor: cx.entity(),
             colors,
         };
+        let _show_preview = self.show_preview;
 
         div()
             .flex()
@@ -125,6 +126,9 @@ impl Render for EngineEditor {
                     }))
                     .on_action(cx.listener(|this, _: &FoldAll, _w, cx| this.fold_all(cx)))
                     .on_action(cx.listener(|this, _: &UnfoldAll, _w, cx| this.unfold_all(cx)))
+                    .on_action(cx.listener(|this, _: &ToggleMarkdownPreview, _w, cx| {
+                        this.toggle_markdown_preview(cx)
+                    }))
                     .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
                     .on_mouse_down(MouseButton::Right, cx.listener(Self::on_mouse_right))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
@@ -171,7 +175,19 @@ impl Render for EngineEditor {
                     .children(shortcuts)
                     .children(close_confirm)
                     .children(recent)
-                    .child(context_menu),
+                    .child(context_menu)
+                    .children(markdown_preview.map(|view| {
+                        div()
+                            .absolute()
+                            .right_0()
+                            .top_0()
+                            .bottom_0()
+                            .w(px(400.0))
+                            .border_l_1()
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().background)
+                            .child(view)
+                    })),
             )
             .child(header)
     }

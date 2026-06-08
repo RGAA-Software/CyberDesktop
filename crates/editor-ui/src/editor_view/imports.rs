@@ -14,8 +14,9 @@ pub use app_ui::{
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, GoToLine,
     IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
     ReplaceText, SaveFile, SaveFileAs, SelectAll, TitleBar, ToggleComment, ToggleLineNumbers,
-    ToggleSoftWrap, ToggleFold, FoldAll, UnfoldAll, EDITOR_CONTEXT,
+    ToggleSoftWrap, ToggleMarkdownPreview, ToggleFold, FoldAll, UnfoldAll, EDITOR_CONTEXT,
 };
+
 pub use rust_i18n::t;
 pub use gpui::{
     div, point, prelude::*, px, rgb, size, App, Bounds, ClickEvent, ClipboardItem, Context, CursorStyle,

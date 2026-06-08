@@ -37,6 +37,7 @@ actions!(
         OutdentSelection,
         ToggleLineNumbers,
         ToggleSoftWrap,
+        ToggleMarkdownPreview,
         FindNext,
         FindPrevious,
         AboutEditor,
@@ -99,6 +100,8 @@ pub fn init(cx: &mut App) {
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-z", ToggleSoftWrap, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("alt-m", ToggleMarkdownPreview, Some(EDITOR_CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-shift-f", ToggleFold, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-shift-k", FoldAll, Some(EDITOR_CONTEXT)),
@@ -154,6 +157,8 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-l", ToggleLineNumbers, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("alt-z", ToggleSoftWrap, Some(EDITOR_CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("alt-m", ToggleMarkdownPreview, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
         KeyBinding::new("alt-shift-f", ToggleFold, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]

@@ -16,6 +16,8 @@ members = [
     "crates/app-ui",
     "crates/files-ui",
     "crates/editor-ui",
+    "crates/markdown-preview-engine",
+    "crates/markdown-preview-ui",
     "crates/media-player-ui",
 ]
 default-members = ["crates/files-app", "crates/editor-app"]
@@ -38,6 +40,8 @@ editor-text-engine = { path = "crates/editor-text-engine" }
 app-ui = { path = "crates/app-ui", default-features = false }
 files-ui = { path = "crates/files-ui", default-features = false }
 editor-ui = { path = "crates/editor-ui" }
+markdown-preview-engine = { path = "crates/markdown-preview-engine" }
+markdown-preview-ui = { path = "crates/markdown-preview-ui" }
 media-player-app = { path = "crates/media-player-app" }
 media-player-ui = { path = "crates/media-player-ui" }
 

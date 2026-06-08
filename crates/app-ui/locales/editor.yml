@@ -135,6 +135,10 @@ editor.menu.word_wrap:
   en: Word Wrap
   zh-CN: 自动换行
   zh-HK: 自動換行
+editor.menu.markdown_preview:
+  en: Markdown Preview
+  zh-CN: Markdown 预览
+  zh-HK: Markdown 預覽
 editor.menu.keyboard_shortcuts:
   en: Keyboard Shortcuts
   zh-CN: 键盘快捷键

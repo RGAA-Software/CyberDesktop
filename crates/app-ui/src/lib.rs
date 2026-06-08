@@ -22,7 +22,7 @@ pub use cyber_editor::{
     EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, FoldAll, GoToLine,
     IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
     ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment, ToggleFold, ToggleLineNumbers,
-    ToggleSoftWrap, UnfoldAll, EDITOR_CONTEXT,
+    ToggleMarkdownPreview, ToggleSoftWrap, UnfoldAll, EDITOR_CONTEXT,
 };
 pub use i18n::{init_locale, locale, set_locale};
 pub use popup_menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem};

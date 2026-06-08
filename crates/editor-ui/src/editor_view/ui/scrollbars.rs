@@ -135,13 +135,14 @@ impl EngineEditor {
         let thumb_hover = cx.theme().scrollbar_thumb_hover;
         let metrics = self.hscrollbar_metrics()?;
         let gutter = self.gutter_width;
+        let hscrollbar_right = if self.show_preview { px(400.0 + 14.0) } else { px(14.0) };
         Some(
             div()
                 .id("editor-hscrollbar")
                 .absolute()
                 .bottom_0()
                 .left(gutter)
-                .right(px(14.0))
+                .right(hscrollbar_right)
                 .h(px(12.0))
                 .cursor_default()
                 .on_mouse_down(
@@ -190,12 +191,13 @@ impl EngineEditor {
         let thumb = cx.theme().scrollbar_thumb;
         let thumb_hover = cx.theme().scrollbar_thumb_hover;
         let metrics = self.scrollbar_metrics()?;
+        let scrollbar_right = if self.show_preview { px(400.0) } else { px(0.0) };
         Some(
             div()
                 .id("editor-scrollbar")
                 .absolute()
                 .top_0()
-                .right_0()
+                .right(scrollbar_right)
                 .h_full()
                 .w(px(12.0))
                 .cursor_default()

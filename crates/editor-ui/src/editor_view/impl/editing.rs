@@ -117,6 +117,20 @@ impl EngineEditor {
         cx.notify();
     }
 
+    pub(crate) fn toggle_markdown_preview(&mut self, cx: &mut Context<Self>) {
+        self.show_preview = !self.show_preview;
+        if self.show_preview && self.markdown_preview.is_none() {
+            self.markdown_preview = Some(markdown_preview_ui::markdown_preview_view(cx));
+        }
+        if let Some(preview) = self.markdown_preview.as_ref() {
+            let text = self.document.buffer().to_string();
+            preview.update(cx, |preview, cx| {
+                preview.update_from_text(text, cx);
+            });
+        }
+        cx.notify();
+    }
+
     // ---- Go to Line ------------------------------------------------------
 
 }
