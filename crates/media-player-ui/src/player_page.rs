@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use gpui::{
     div, px, size, App, AppContext, Bounds, Context, Empty, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, MouseButton, MouseDownEvent, ParentElement, Pixels, Render, SharedString, Size,
+    IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement, Pixels, Render, SharedString, Size,
     StatefulInteractiveElement, Styled, Subscription, Window, WindowBounds, WindowKind, WindowOptions,
 };
 use gpui::prelude::FluentBuilder;
@@ -34,6 +34,7 @@ const ICON_REPEAT_OFF: &str = "icons/tabler/repeat-off.svg";
 const ICON_REPEAT: &str = "icons/tabler/repeat.svg";
 const ICON_REPEAT_ONCE: &str = "icons/tabler/repeat-once.svg";
 const ICON_MAXIMIZE: &str = "icons/tabler/maximize.svg";
+const ICON_EXIT_FULLSCREEN: &str = "icons/tabler/arrows-diagonal-minimize.svg";
 const ICON_VOLUME: &str = "icons/tabler/volume.svg";
 const ICON_VOLUME_OFF: &str = "icons/tabler/volume-off.svg";
 const ICON_PLAYLIST_EXPAND: &str = "icons/tabler/layout-sidebar-right-expand.svg";
@@ -154,6 +155,7 @@ pub struct PlayerPage {
     visualizer_generation: u64,
     spectrum_max_height: f32,
     is_fullscreen: bool,
+    show_fs_top_bar: bool,
     _seek_subscription: Subscription,
     _volume_subscription: Subscription,
 }
@@ -226,6 +228,7 @@ impl PlayerPage {
             visualizer_generation: 0,
             spectrum_max_height: 180.0,
             is_fullscreen: false,
+            show_fs_top_bar: false,
             config,
             _seek_subscription: seek_subscription,
             _volume_subscription: volume_subscription,
@@ -684,7 +687,16 @@ impl PlayerPage {
     fn exit_fullscreen(&mut self, window: &mut Window) {
         if self.is_fullscreen {
             self.is_fullscreen = false;
+            self.show_fs_top_bar = false;
             window.toggle_fullscreen();
+        }
+    }
+
+    fn update_fs_top_bar(&mut self, mouse_y: Pixels, cx: &mut Context<Self>) {
+        let should_show = mouse_y <= px(300.);
+        if self.show_fs_top_bar != should_show {
+            self.show_fs_top_bar = should_show;
+            cx.notify();
         }
     }
 
@@ -1163,9 +1175,42 @@ impl Render for PlayerPage {
             return div()
                 .id("player-page-fullscreen")
                 .size_full()
+                .relative()
                 .track_focus(&self.focus_handle)
                 .on_action(exit_fullscreen_action)
+                .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
+                    this.update_fs_top_bar(event.position.y, cx);
+                }))
                 .child(div().size_full().child(video_area))
+                .when(self.show_fs_top_bar, |this| {
+                    this.child(
+                        div()
+                            .id("fs-top-bar")
+                            .absolute()
+                            .top(px(30.))
+                            .left(px(0.))
+                            .right(px(0.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .px(px(12.))
+                                    .py(px(8.))
+                                    .rounded(px(8.))
+                                    .bg(gpui::hsla(0.0, 0.0, 0.0, 0.6))
+                                    .child(
+                                        toolbar_icon_button("fs-exit-fullscreen")
+                                            .icon(tabler_icon(ICON_EXIT_FULLSCREEN))
+                                            .tooltip("Exit Fullscreen")
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.exit_fullscreen(window);
+                                                cx.notify();
+                                            })),
+                                    ),
+                            ),
+                    )
+                })
                 .into_any_element();
         }
 
