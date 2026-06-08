@@ -93,7 +93,3 @@ pub fn resolve_key_bindings() -> Vec<KeyBinding> {
     }
     bindings
 }
-
-pub fn file_browser_key_bindings() -> Vec<KeyBinding> {
-    resolve_key_bindings()
-}
