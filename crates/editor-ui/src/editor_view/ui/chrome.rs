@@ -261,7 +261,9 @@ impl EngineEditor {
             .tooltip(t!("nav.github"))
             .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL));
 
-        TitleBar::new().child(
+        TitleBar::new()
+            .h(px(35.))
+            .child(
             h_flex()
                 .id("title-bar-inner")
                 .h_full()
