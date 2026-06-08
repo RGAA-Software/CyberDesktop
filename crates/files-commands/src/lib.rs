@@ -39,6 +39,8 @@ actions!(
         PasteItems,
         NavigatePrevious,
         NavigateNext,
+        NavigateLeft,
+        NavigateRight,
         FocusSearch,
         FocusOmnibar,
         ViewDetails,

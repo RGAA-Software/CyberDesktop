@@ -25,7 +25,8 @@ use chrono::{DateTime, Local};
 use files_commands::{
     CancelRename, CompressItems, CopyItems, CopyPath, CutItems, DeleteItems,
     DeleteItemsPermanent, ExtractHere, ExtractToFolder, EmptyRecycleBin, FocusSearch,
-    NavigateNext, NavigatePrevious, NewFile, NewFolder, OpenInNewPane, OpenItem, PasteItems,
+    NavigateLeft, NavigateNext, NavigatePrevious, NavigateRight, NewFile, NewFolder, OpenInNewPane,
+    OpenItem, PasteItems,
     RedoOperation, RefreshDirectory, RenameItem, RestoreAllRecycleItems, RestoreRecycleItems,
     SelectAll, ShellProperties, UndoOperation, ViewCards, ViewColumns, ViewDetails, ViewGrid,
     ViewList, FILE_BROWSER,

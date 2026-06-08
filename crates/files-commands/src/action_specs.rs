@@ -3,11 +3,10 @@ use gpui::KeyBinding;
 use crate::{
     CancelRename, CloseActivePane, CopyItems, CopyPath, CutItems, DeleteItems,
     DeleteItemsPermanent, FILE_BROWSER, FocusOmnibar, FocusOtherPane, FocusSearch, NavigateBack,
-    NavigateForward, NavigateNext, NavigatePrevious, NavigateUp, NewFile, NewFolder, OpenInNewPane,
-    OpenItem, PasteItems, RedoOperation, RefreshDirectory, ReopenClosedTab, RenameItem, SelectAll,
-    SplitPaneHorizontally, SplitPaneVertically,
-    ToggleDualPane, UndoOperation, ViewCards,
-    ViewColumns, ViewDetails, ViewGrid, ViewList,
+    NavigateForward, NavigateLeft, NavigateNext, NavigatePrevious, NavigateRight, NavigateUp, NewFile,
+    NewFolder, OpenInNewPane, OpenItem, PasteItems, RedoOperation, RefreshDirectory, ReopenClosedTab,
+    RenameItem, SelectAll, SplitPaneHorizontally, SplitPaneVertically, ToggleDualPane, UndoOperation,
+    ViewCards, ViewColumns, ViewDetails, ViewGrid, ViewList,
 };
 
 pub struct ActionSpec {
@@ -96,6 +95,20 @@ pub fn action_specs() -> &'static [ActionSpec] {
             default_keystroke_mac: None,
             context: Some(FILE_BROWSER),
             i18n_key: "settings.actions.navigate_next",
+        },
+        ActionSpec {
+            id: "navigate_left",
+            default_keystroke: "left",
+            default_keystroke_mac: None,
+            context: Some(FILE_BROWSER),
+            i18n_key: "settings.actions.navigate_left",
+        },
+        ActionSpec {
+            id: "navigate_right",
+            default_keystroke: "right",
+            default_keystroke_mac: None,
+            context: Some(FILE_BROWSER),
+            i18n_key: "settings.actions.navigate_right",
         },
         ActionSpec {
             id: "new_folder",
@@ -288,6 +301,8 @@ pub fn key_binding_for(spec: &ActionSpec, keystroke: &str) -> Option<KeyBinding>
         "delete_items_permanent" => KeyBinding::new(keystroke, DeleteItemsPermanent, spec.context),
         "navigate_previous" => KeyBinding::new(keystroke, NavigatePrevious, spec.context),
         "navigate_next" => KeyBinding::new(keystroke, NavigateNext, spec.context),
+        "navigate_left" => KeyBinding::new(keystroke, NavigateLeft, spec.context),
+        "navigate_right" => KeyBinding::new(keystroke, NavigateRight, spec.context),
         "new_folder" => KeyBinding::new(keystroke, NewFolder, spec.context),
         "new_file" => KeyBinding::new(keystroke, NewFile, spec.context),
         "focus_search" => KeyBinding::new(keystroke, FocusSearch, spec.context),

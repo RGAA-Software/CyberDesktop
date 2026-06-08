@@ -356,6 +356,8 @@ impl Render for FileBrowser {
             .on_action(cx.listener(Self::on_extract_to_folder))
             .on_action(cx.listener(Self::on_navigate_previous))
             .on_action(cx.listener(Self::on_navigate_next))
+            .on_action(cx.listener(Self::on_navigate_left))
+            .on_action(cx.listener(Self::on_navigate_right))
             .on_action(cx.listener(Self::on_sort_name))
             .on_action(cx.listener(Self::on_sort_created))
             .on_action(cx.listener(Self::on_sort_modified))

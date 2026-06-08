@@ -284,12 +284,110 @@ impl FileBrowser {
             row = (row as isize + delta).clamp(0, max_row as isize) as usize;
             if let Some(item_index) = item_index_at_row(&self.display_rows, row) {
                 self.focused_index = Some(item_index);
+                self.selected_paths.clear();
+                if let Some(item) = self.display_items.get(item_index) {
+                    self.selected_paths.insert(item.path.clone());
+                }
+                self.anchor_index = Some(item_index);
                 self.scroll_handle
                     .scroll_to_item(row, ScrollStrategy::Center);
                 return;
             }
             if (delta < 0 && row == 0) || (delta > 0 && row == max_row) {
                 return;
+            }
+        }
+    }
+
+    /// Navigate up/down within the current column in Columns view.
+    pub(super) fn move_focus_column(&mut self, delta: isize) {
+        if self.column_listings.is_empty() {
+            return;
+        }
+        let col_index = self
+            .active_column_index
+            .unwrap_or_else(|| self.column_listings.len().saturating_sub(1));
+        let items = match self.column_listings.get(col_index) {
+            Some(items) if !items.is_empty() => items,
+            _ => return,
+        };
+
+        let current_index = self
+            .column_selected_path
+            .as_ref()
+            .filter(|(c, _)| *c == col_index)
+            .and_then(|(_, path)| items.iter().position(|item| item.path == *path))
+            .or_else(|| self.implicit_column_selected_index(col_index))
+            .unwrap_or(0);
+
+        let new_index = (current_index as isize + delta)
+            .clamp(0, items.len().saturating_sub(1) as isize)
+            as usize;
+
+        let item = &items[new_index];
+        self.selected_paths.clear();
+        self.selected_paths.insert(item.path.clone());
+        self.column_selected_path = Some((col_index, item.path.clone()));
+        self.focused_index = Some(new_index);
+        self.anchor_index = Some(new_index);
+        self.active_column_index = Some(col_index);
+
+        if let Some(scroll_handle) = self.column_scroll_handles.get(col_index) {
+            scroll_handle.scroll_to_item(new_index, ScrollStrategy::Center);
+        }
+    }
+
+    /// 2D focus navigation for Grid/Cards view (left/right/up/down within the tile grid).
+    pub(super) fn move_focus_2d(&mut self, dx: isize, dy: isize) {
+        if self.display_items.is_empty() {
+            return;
+        }
+
+        let cells_per_row = match self.view_mode {
+            ViewMode::Grid => self.grid_cells_per_row.unwrap_or(1).max(1),
+            ViewMode::Cards => self.cards_cells_per_row.unwrap_or(1).max(1),
+            _ => {
+                // Non-grid modes fall back to vertical line-based movement.
+                if dx != 0 {
+                    return;
+                }
+                self.move_focus(dy.signum());
+                return;
+            }
+        };
+
+        let current_index = self
+            .focused_index
+            .unwrap_or(0)
+            .min(self.display_items.len() - 1);
+        let current_row = current_index / cells_per_row;
+        let current_col = current_index % cells_per_row;
+
+        let max_row = (self.display_items.len() - 1) / cells_per_row;
+        let max_col = cells_per_row - 1;
+
+        let new_row = (current_row as isize + dy).clamp(0, max_row as isize) as usize;
+        let new_col = (current_col as isize + dx).clamp(0, max_col as isize) as usize;
+
+        let new_index = new_row * cells_per_row + new_col;
+        if new_index < self.display_items.len() {
+            self.focused_index = Some(new_index);
+            self.selected_paths.clear();
+            if let Some(item) = self.display_items.get(new_index) {
+                self.selected_paths.insert(item.path.clone());
+            }
+            self.anchor_index = Some(new_index);
+
+            match self.view_mode {
+                ViewMode::Grid => self
+                    .grid_scroll_handle
+                    .scroll_to_item(new_row, ScrollStrategy::Center),
+                ViewMode::Cards => self
+                    .cards_scroll_handle
+                    .scroll_to_item(new_row, ScrollStrategy::Center),
+                _ => self
+                    .scroll_handle
+                    .scroll_to_item(new_row, ScrollStrategy::Center),
             }
         }
     }
