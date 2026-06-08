@@ -121,6 +121,9 @@ impl Render for EngineEditor {
             .on_action(cx.listener(|this, _: &ToggleMarkdownPreview, _w, cx| {
                 this.toggle_markdown_preview(cx)
             }))
+            .on_action(cx.listener(|this, _: &ToggleFullMarkdownPreview, _w, cx| {
+                this.toggle_full_markdown_preview(cx)
+            }))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_mouse_down(MouseButton::Right, cx.listener(Self::on_mouse_right))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
@@ -179,49 +182,64 @@ impl Render for EngineEditor {
                 let _ = content_weak.update(cx, |this, _| {
                     this.content_bounds = Some(bounds);
                 });
-            })
-            .child(editor_surface);
+            });
 
-        if self.show_preview {
+        if self.show_full_preview {
             if let Some(preview_state) = self.markdown_preview.as_ref() {
                 main_area = main_area.child(
                     div()
-                        .id("preview-splitter")
-                        .w(px(4.))
+                        .id("markdown-full-preview")
+                        .flex_1()
                         .h_full()
-                        .cursor_col_resize()
-                        .when(self.resizing_preview, |this| this.bg(cx.theme().primary))
-                        .when(!self.resizing_preview, |this| this.bg(cx.theme().border))
-                        .hover(|style| style.bg(cx.theme().primary))
-                        .on_drag(PreviewResizeDrag, |_, _, _, cx| cx.new(|_| PreviewResizeDrag))
-                        .on_drag_move::<PreviewResizeDrag>(cx.listener(
-                            |this, event: &gpui::DragMoveEvent<PreviewResizeDrag>, _, cx| {
-                                this.resizing_preview = true;
-                                if let Some(bounds) = this.content_bounds {
-                                    let new_width = (bounds.right() - event.event.position.x)
-                                        .max(px(160.))
-                                        .min(px(800.));
-                                    if (this.preview_width - new_width).abs() > px(1.) {
-                                        this.preview_width = new_width;
-                                        cx.notify();
-                                    }
-                                }
-                            },
-                        ))
-                        .on_drop(cx.listener(|this, _: &PreviewResizeDrag, _, _cx| {
-                            this.resizing_preview = false;
-                        })),
-                );
-                main_area = main_area.child(
-                    div()
-                        .id("markdown-preview-panel")
-                        .w(self.preview_width)
-                        .h_full()
-                        .border_l_1()
-                        .border_color(cx.theme().border)
                         .bg(cx.theme().background)
                         .child(gpui_component::text::TextView::new(preview_state).scrollable(true).size_full()),
                 );
+            } else {
+                main_area = main_area.child(editor_surface);
+            }
+        } else {
+            main_area = main_area.child(editor_surface);
+            if self.show_preview {
+                if let Some(preview_state) = self.markdown_preview.as_ref() {
+                    main_area = main_area.child(
+                        div()
+                            .id("preview-splitter")
+                            .w(px(4.))
+                            .h_full()
+                            .cursor_col_resize()
+                            .when(self.resizing_preview, |this| this.bg(cx.theme().primary))
+                            .when(!self.resizing_preview, |this| this.bg(cx.theme().border))
+                            .hover(|style| style.bg(cx.theme().primary))
+                            .on_drag(PreviewResizeDrag, |_, _, _, cx| cx.new(|_| PreviewResizeDrag))
+                            .on_drag_move::<PreviewResizeDrag>(cx.listener(
+                                |this, event: &gpui::DragMoveEvent<PreviewResizeDrag>, _, cx| {
+                                    this.resizing_preview = true;
+                                    if let Some(bounds) = this.content_bounds {
+                                        let new_width = (bounds.right() - event.event.position.x)
+                                            .max(px(160.))
+                                            .min(px(800.));
+                                        if (this.preview_width - new_width).abs() > px(1.) {
+                                            this.preview_width = new_width;
+                                            cx.notify();
+                                        }
+                                    }
+                                },
+                            ))
+                            .on_drop(cx.listener(|this, _: &PreviewResizeDrag, _, _cx| {
+                                this.resizing_preview = false;
+                            })),
+                    );
+                    main_area = main_area.child(
+                        div()
+                            .id("markdown-preview-panel")
+                            .w(self.preview_width)
+                            .h_full()
+                            .border_l_1()
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().background)
+                            .child(gpui_component::text::TextView::new(preview_state).scrollable(true).size_full()),
+                    );
+                }
             }
         }
 

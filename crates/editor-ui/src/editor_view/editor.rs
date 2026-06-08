@@ -133,8 +133,10 @@ pub struct EngineEditor {
     pub(crate) external_file_drop_hover: bool,
     /// Buffer line under the pointer in the fold gutter, if any.
     pub(crate) fold_gutter_hover_line: Option<usize>,
-    /// Whether markdown preview panel is shown.
+    /// Whether markdown preview panel is shown (split mode).
     pub(crate) show_preview: bool,
+    /// Whether full-page markdown preview is shown (no editor).
+    pub(crate) show_full_preview: bool,
     /// The markdown preview view entity, when open.
     pub(crate) markdown_preview: Option<Entity<gpui_component::text::TextViewState>>,
     /// Width of the markdown preview panel when shown.
@@ -219,6 +221,7 @@ impl EngineEditor {
             external_file_drop_hover: false,
             fold_gutter_hover_line: None,
             show_preview: false,
+            show_full_preview: false,
             markdown_preview: None,
             preview_width: px(400.0),
             resizing_preview: false,

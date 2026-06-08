@@ -38,6 +38,7 @@ actions!(
         ToggleLineNumbers,
         ToggleSoftWrap,
         ToggleMarkdownPreview,
+        ToggleFullMarkdownPreview,
         FindNext,
         FindPrevious,
         AboutEditor,

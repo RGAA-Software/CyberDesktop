@@ -119,7 +119,29 @@ impl EngineEditor {
 
     pub(crate) fn toggle_markdown_preview(&mut self, cx: &mut Context<Self>) {
         self.show_preview = !self.show_preview;
+        if self.show_preview {
+            self.show_full_preview = false;
+        }
         if self.show_preview && self.markdown_preview.is_none() {
+            self.markdown_preview = Some(cx.new(|cx| {
+                gpui_component::text::TextViewState::markdown("", cx)
+            }));
+        }
+        if let Some(preview) = self.markdown_preview.as_ref() {
+            let text = self.document.buffer().to_string();
+            preview.update(cx, |preview, cx| {
+                preview.set_text(&text, cx);
+            });
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn toggle_full_markdown_preview(&mut self, cx: &mut Context<Self>) {
+        self.show_full_preview = !self.show_full_preview;
+        if self.show_full_preview {
+            self.show_preview = false;
+        }
+        if self.show_full_preview && self.markdown_preview.is_none() {
             self.markdown_preview = Some(cx.new(|cx| {
                 gpui_component::text::TextViewState::markdown("", cx)
             }));
