@@ -14,7 +14,7 @@ mod player_page;
 mod playlist;
 mod video_surface;
 
-use gpui::App;
+use gpui::{App, KeyBinding};
 
 pub use app_assets::Assets;
 #[cfg(feature = "full-app")]
@@ -41,4 +41,7 @@ pub fn init(cx: &mut App) {
     }
 
     app_menus::init_media_player_menus(cx);
+
+    // Bind Escape key to exit fullscreen
+    cx.bind_keys([KeyBinding::new("escape", app_menus::MpvExitFullscreen, None)]);
 }

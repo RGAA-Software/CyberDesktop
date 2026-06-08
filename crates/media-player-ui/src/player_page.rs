@@ -19,7 +19,7 @@ use app_ui::{
     SettingsWindowState,
 };
 
-use crate::app_menus::{MpvCycleSubTrack, MpvLoadSubtitle, MpvOpenFile, MpvOpenFolder, MpvSetLoopAll, MpvSetLoopNone, MpvSetLoopSingle, MpvSetSpeed05, MpvSetSpeed10, MpvSetSpeed15, MpvSetSpeed20};
+use crate::app_menus::{MpvCycleSubTrack, MpvExitFullscreen, MpvLoadSubtitle, MpvOpenFile, MpvOpenFolder, MpvSetLoopAll, MpvSetLoopNone, MpvSetLoopSingle, MpvSetSpeed05, MpvSetSpeed10, MpvSetSpeed15, MpvSetSpeed20};
 use crate::audio_player::AudioPlayer;
 
 const APP_LOGO_PATH: &str = "app/logo/ic_cyber_media_player.svg";
@@ -153,6 +153,7 @@ pub struct PlayerPage {
     visualizer_spectrum: Vec<f32>,
     visualizer_generation: u64,
     spectrum_max_height: f32,
+    is_fullscreen: bool,
     _seek_subscription: Subscription,
     _volume_subscription: Subscription,
 }
@@ -224,6 +225,7 @@ impl PlayerPage {
             visualizer_spectrum: vec![0.0; SPECTRUM_BANDS],
             visualizer_generation: 0,
             spectrum_max_height: 180.0,
+            is_fullscreen: false,
             config,
             _seek_subscription: seek_subscription,
             _volume_subscription: volume_subscription,
@@ -669,6 +671,21 @@ impl PlayerPage {
     #[allow(dead_code)]
     fn toggle_shuffle(&mut self) {
         self.shuffle = !self.shuffle;
+    }
+
+    fn toggle_fullscreen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.is_fullscreen = !self.is_fullscreen;
+        window.toggle_fullscreen();
+        if self.is_fullscreen {
+            window.focus(&self.focus_handle, cx);
+        }
+    }
+
+    fn exit_fullscreen(&mut self, window: &mut Window) {
+        if self.is_fullscreen {
+            self.is_fullscreen = false;
+            window.toggle_fullscreen();
+        }
     }
 
     fn set_speed(&mut self, speed: f64) {
@@ -1134,9 +1151,33 @@ impl Render for PlayerPage {
             .tooltip("GitHub")
             .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL));
 
-        v_flex()
+        let exit_fullscreen_action = cx.listener(|this, _: &MpvExitFullscreen, window, cx| {
+            if this.is_fullscreen {
+                this.exit_fullscreen(window);
+                cx.notify();
+            }
+        });
+
+        if self.is_fullscreen {
+            window.focus(&self.focus_handle, cx);
+            return div()
+                .id("player-page-fullscreen")
+                .size_full()
+                .track_focus(&self.focus_handle)
+                .on_action(exit_fullscreen_action)
+                .child(div().size_full().child(video_area))
+                .into_any_element();
+        }
+
+        return v_flex()
             .id("player-page")
             .size_full()
+            .on_action(cx.listener(|this, _: &MpvExitFullscreen, window, cx| {
+                if this.is_fullscreen {
+                    this.exit_fullscreen(window);
+                    cx.notify();
+                }
+            }))
             .on_action(cx.listener(|this, _: &MpvOpenFile, window, cx| {
                 this.open_file_dialog(window, cx);
             }))
@@ -1367,9 +1408,9 @@ impl Render for PlayerPage {
                                 toolbar_icon_button("fullscreen-btn")
                                     .icon(tabler_icon(ICON_MAXIMIZE))
                                     .tooltip("Fullscreen")
-                                    .on_click(cx.listener(|_this, _, window, _cx| {
-                                        window.toggle_fullscreen();
-                                    })),
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                this.toggle_fullscreen(window, cx);
+                            })),
                             )
                             .child(div().w(px(8.)))
                             .child(
@@ -1410,6 +1451,7 @@ impl Render for PlayerPage {
                     )
                     .child(div().h(px(1.)).w_full())
             )
+            .into_any_element()
     }
 }
 

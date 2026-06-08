@@ -4,17 +4,38 @@ use raw_window_handle::RawWindowHandle;
 #[cfg(windows)]
 use windows::core::w;
 #[cfg(windows)]
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, SW_HIDE, SW_SHOW, WS_BORDER, WS_CHILD,
-    WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_VISIBLE,
+    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, SW_HIDE, SW_SHOW, WM_MOUSEACTIVATE,
+    MA_NOACTIVATE, WS_BORDER, WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_VISIBLE,
 };
+
+#[cfg(windows)]
+use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 
 #[derive(Debug)]
 pub struct NativeVideoSurface {
     #[cfg(windows)]
     hwnd: HWND,
+}
+
+#[cfg(windows)]
+unsafe extern "system" fn video_surface_subclass_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _uidsubclass: usize,
+    _dwrefdata: usize,
+) -> LRESULT {
+    // Prevent the video surface from stealing focus on mouse clicks,
+    // so keyboard events (e.g. Escape to exit fullscreen) keep routing
+    // to the parent GPUI window.
+    if msg == WM_MOUSEACTIVATE {
+        return LRESULT(MA_NOACTIVATE as isize);
+    }
+    DefSubclassProc(hwnd, msg, wparam, lparam)
 }
 
 impl NativeVideoSurface {
@@ -39,6 +60,7 @@ impl NativeVideoSurface {
 
         unsafe {
             let _ = ShowWindow(hwnd, SW_SHOW);
+            let _ = SetWindowSubclass(hwnd, Some(video_surface_subclass_proc), 0, 0);
         }
 
         Ok(Self { hwnd })
