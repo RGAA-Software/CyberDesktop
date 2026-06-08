@@ -7,6 +7,8 @@ mod audio_visualizer;
 #[cfg(feature = "full-app")]
 mod media_player_config;
 #[cfg(feature = "full-app")]
+mod media_slider;
+#[cfg(feature = "full-app")]
 mod player_page;
 #[cfg(feature = "full-app")]
 mod playlist;
