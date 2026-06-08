@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use gpui::{
-    div, px, size, App, AppContext, Bounds, Context, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, MouseButton, MouseDownEvent, ParentElement, Render, SharedString, Size,
+    div, px, size, App, AppContext, Bounds, Context, Empty, FocusHandle, Focusable, InteractiveElement,
+    IntoElement, MouseButton, MouseDownEvent, ParentElement, Pixels, Render, SharedString, Size,
     StatefulInteractiveElement, Styled, Subscription, Window, WindowBounds, WindowKind, WindowOptions,
 };
 use gpui::prelude::FluentBuilder;
@@ -51,6 +51,15 @@ use crate::video_surface::{window_hwnd, NativeVideoSurface};
 
 #[cfg(windows)]
 use app_mpv_ffi::MpvEmbedPlayer;
+
+#[derive(Clone, Copy, Debug)]
+struct PlaylistResizeDrag;
+
+impl Render for PlaylistResizeDrag {
+    fn render(&mut self, _: &mut Window, _: &mut Context<'_, Self>) -> impl IntoElement {
+        Empty
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MediaType {
@@ -128,6 +137,9 @@ pub struct PlayerPage {
     shuffle: bool,
     speed: f64,
     playlist_visible: bool,
+    playlist_width: Pixels,
+    resizing_playlist: bool,
+    content_bounds: Option<Bounds<Pixels>>,
     config: MediaPlayerConfig,
     seek_slider: gpui::Entity<MediaSliderState>,
     volume_slider: gpui::Entity<MediaSliderState>,
@@ -197,6 +209,9 @@ impl PlayerPage {
             shuffle: false,
             speed: 1.0,
             playlist_visible: true,
+            playlist_width: px(280.),
+            resizing_playlist: false,
+            content_bounds: None,
             seek_slider,
             volume_slider,
             seek_dragging: false,
@@ -1050,7 +1065,7 @@ impl Render for PlayerPage {
 
         let playlist_sidebar = {
             let base = v_flex()
-                .w(px(280.))
+                .w(self.playlist_width)
                 .h_full()
                 .border_l_1()
                 .border_color(cx.theme().border)
@@ -1111,7 +1126,7 @@ impl Render for PlayerPage {
                 MouseButton::Left,
                 cx.listener(|_this, _e: &MouseDownEvent, _w, cx| {
                     cx.stop_propagation();
-                    SettingsWindowState::open_editor(cx);
+                    SettingsWindowState::open_media_player_settings(cx);
                 }),
             );
         let github_btn = toolbar_icon_button("github")
@@ -1206,16 +1221,53 @@ impl Render for PlayerPage {
                     ),
             )
             .child(
-                h_flex()
-                    .flex_1()
-                    .min_h(px(200.))
-                    .child(div().flex_1().h_full().child(video_area))
-                    .when(self.playlist_visible, |this| this.child(playlist_sidebar)),
+                {
+                    let content_weak = cx.weak_entity();
+                    h_flex()
+                        .id("video-playlist-container")
+                        .flex_1()
+                        .min_h(px(200.))
+                        .on_prepaint(move |bounds, _, cx| {
+                            let _ = content_weak.update(cx, |this, _| {
+                                this.content_bounds = Some(bounds);
+                            });
+                        })
+                        .child(div().flex_1().h_full().child(video_area))
+                        .when(self.playlist_visible, |this| {
+                            this.child(
+                                div()
+                                    .id("playlist-splitter")
+                                    .w(px(4.))
+                                    .h_full()
+                                    .cursor_col_resize()
+                                    .when(self.resizing_playlist, |this| this.bg(cx.theme().primary))
+                                    .when(!self.resizing_playlist, |this| this.bg(cx.theme().border))
+                                    .hover(|style| style.bg(cx.theme().primary))
+                                    .on_drag(PlaylistResizeDrag, |_, _, _, cx| cx.new(|_| PlaylistResizeDrag))
+                                    .on_drag_move::<PlaylistResizeDrag>(cx.listener(
+                                        |this, event: &gpui::DragMoveEvent<PlaylistResizeDrag>, _, cx| {
+                                            this.resizing_playlist = true;
+                                            if let Some(bounds) = this.content_bounds {
+                                                let new_width = (bounds.right() - event.event.position.x).max(px(160.)).min(px(480.));
+                                                if (this.playlist_width - new_width).abs() > px(1.) {
+                                                    this.playlist_width = new_width;
+                                                    cx.notify();
+                                                }
+                                            }
+                                        },
+                                    ))
+                                    .on_drop(cx.listener(|this, _: &PlaylistResizeDrag, _, _cx| {
+                                        this.resizing_playlist = false;
+                                    })),
+                            )
+                            .child(playlist_sidebar)
+                        })
+                },
             )
             .child(
                 v_flex()
                     .px(px(16.))
-                    .child(div().h(px(17.)).w_full())
+                    .child(div().h(px(20.)).w_full())
                     .child(
                         h_flex()
                             .items_center()
@@ -1366,7 +1418,7 @@ where
     E: Into<gpui::AnyView>,
     F: FnOnce(&mut Window, &mut App) -> E + Send + 'static,
 {
-    let window_size = size(px(1280.), px(720.));
+    let window_size = size(px(1630.), px(900.));
     let window_bounds = Bounds::centered(None, window_size, cx);
     let title = title.into();
 

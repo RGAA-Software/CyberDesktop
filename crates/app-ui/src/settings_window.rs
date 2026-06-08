@@ -29,6 +29,14 @@ impl SettingsWindowState {
     }
 
     pub fn open_editor(cx: &mut App) {
+        Self::open_with_title_bar_height(cx, None);
+    }
+
+    pub fn open_media_player_settings(cx: &mut App) {
+        Self::open_with_title_bar_height(cx, Some(px(35.)));
+    }
+
+    fn open_with_title_bar_height(cx: &mut App, title_bar_height: Option<gpui::Pixels>) {
         Self::init(cx);
 
         if let Some(handle) = cx.global::<Self>().handle {
@@ -43,20 +51,24 @@ impl SettingsWindowState {
             cx.global_mut::<Self>().handle = None;
         }
 
-        open_settings_window(cx);
+        open_settings_window(cx, title_bar_height);
     }
 }
 
 struct SettingsWindow {
     focus_handle: FocusHandle,
+    title_bar_height: Option<gpui::Pixels>,
 }
 
 impl SettingsWindow {
     fn new(cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
+            title_bar_height: None,
         }
     }
+
+
 }
 
 impl Focusable for SettingsWindow {
@@ -74,7 +86,7 @@ impl Render for SettingsWindow {
             .track_focus(&self.focus_handle)
             .child(
                 title_bar_bottom_rule(TitleBar::new().child(t!("nav.settings")), cx)
-                    .h(TITLE_BAR_HEIGHT)
+                    .h(self.title_bar_height.unwrap_or(TITLE_BAR_HEIGHT))
                     .flex_shrink_0(),
             )
             .child(
@@ -119,7 +131,7 @@ impl Render for SettingsShell {
     }
 }
 
-fn open_settings_window(cx: &mut App) {
+fn open_settings_window(cx: &mut App, title_bar_height: Option<gpui::Pixels>) {
     let mut window_size = size(px(SETTINGS_WINDOW_WIDTH), px(SETTINGS_WINDOW_HEIGHT));
     if let Some(display) = cx.primary_display() {
         let display_size = display.bounds().size;
@@ -151,7 +163,13 @@ fn open_settings_window(cx: &mut App) {
                     cx.global_mut::<SettingsWindowState>().handle = None;
                     true
                 });
-                let view = cx.new(|cx| SettingsWindow::new(cx));
+                let view = cx.new(|cx| {
+                    let mut w = SettingsWindow::new(cx);
+                    if let Some(h) = title_bar_height {
+                        w.title_bar_height = Some(h);
+                    }
+                    w
+                });
                 let shell = cx.new(|_| SettingsShell::new(view));
                 cx.new(|cx| Root::new(shell, window, cx))
             })
