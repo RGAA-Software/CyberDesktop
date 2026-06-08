@@ -12,8 +12,6 @@ default = []
 app-ui = { workspace = true, default-features = false, features = ["editor-shell"] }
 app-assets.workspace = true
 editor-text-engine.workspace = true
-markdown-preview-engine.workspace = true
-markdown-preview-ui.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
 rust-i18n.workspace = true

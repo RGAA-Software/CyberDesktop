@@ -48,10 +48,13 @@ pub(crate) fn paint(
         // Clip the (horizontally scrollable) text + selections so they never
         // bleed over the fixed line-number gutter, the vertical scrollbar, or
         // the markdown preview panel when visible.
-        let preview_width = if canvas.editor.read(cx).show_preview {
-            px(400.0)
-        } else {
-            px(0.0)
+        let preview_width = {
+            let editor = canvas.editor.read(cx);
+            if editor.show_preview {
+                editor.preview_width
+            } else {
+                px(0.0)
+            }
         };
         let content_mask = gpui::ContentMask {
             bounds: Bounds::from_corners(

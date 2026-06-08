@@ -93,7 +93,7 @@ impl EngineEditor {
         if let Some(preview) = self.markdown_preview.as_ref() {
             let text = self.document.buffer().to_string();
             preview.update(cx, |preview, cx| {
-                preview.update_from_text(text, cx);
+                preview.set_text(&text, cx);
             });
         }
     }

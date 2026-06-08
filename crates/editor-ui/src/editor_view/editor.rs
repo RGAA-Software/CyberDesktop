@@ -5,8 +5,16 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use editor_text_engine::{Document, FoldRange, SyntaxState};
-use gpui::{prelude::*, px, App, Bounds, Context, Entity, FocusHandle, Pixels, Point, ScrollHandle, Size, Window};
-use markdown_preview_ui::MarkdownPreviewView;
+use gpui::{prelude::*, px, App, Bounds, Context, Empty, Entity, FocusHandle, IntoElement, Pixels, Point, Render, ScrollHandle, Size, Window};
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct PreviewResizeDrag;
+
+impl Render for PreviewResizeDrag {
+    fn render(&mut self, _: &mut Window, _: &mut Context<'_, Self>) -> impl IntoElement {
+        Empty
+    }
+}
 
 use super::language::language_for_path;
 use super::state::{
@@ -128,7 +136,13 @@ pub struct EngineEditor {
     /// Whether markdown preview panel is shown.
     pub(crate) show_preview: bool,
     /// The markdown preview view entity, when open.
-    pub(crate) markdown_preview: Option<Entity<MarkdownPreviewView>>,
+    pub(crate) markdown_preview: Option<Entity<gpui_component::text::TextViewState>>,
+    /// Width of the markdown preview panel when shown.
+    pub(crate) preview_width: Pixels,
+    /// Whether the user is currently dragging the preview resize handle.
+    pub(crate) resizing_preview: bool,
+    /// Bounds of the editor content area (used for preview resize calculations).
+    pub(crate) content_bounds: Option<Bounds<Pixels>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,6 +220,9 @@ impl EngineEditor {
             fold_gutter_hover_line: None,
             show_preview: false,
             markdown_preview: None,
+            preview_width: px(400.0),
+            resizing_preview: false,
+            content_bounds: None,
         };
         editor.rebuild_display_lines();
         editor

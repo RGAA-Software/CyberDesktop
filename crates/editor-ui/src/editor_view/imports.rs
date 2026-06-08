@@ -38,7 +38,7 @@ pub use gpui_component::{
 };
 
 pub(crate) use super::canvas::EditorCanvas;
-pub(crate) use super::editor::{CloseTarget, EngineEditor};
+pub(crate) use super::editor::{CloseTarget, EngineEditor, PreviewResizeDrag};
 pub(crate) use super::language::{comment_prefix, language_for_path};
 pub(crate) use super::state::*;
 pub(crate) use super::text_util::wrap_rows;

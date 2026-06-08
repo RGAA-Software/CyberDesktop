@@ -1,6 +1,7 @@
 //! Root `Render` implementation for the editor view.
 
 use super::imports::*;
+use gpui_component::ElementExt;
 
 impl Focusable for EngineEditor {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
@@ -53,7 +54,176 @@ impl Render for EngineEditor {
             editor: cx.entity(),
             colors,
         };
-        let _show_preview = self.show_preview;
+
+        let editor_surface = div()
+            .track_focus(&focus)
+            .key_context(EDITOR_CONTEXT)
+            .on_key_down(cx.listener(Self::on_key_down))
+            .on_action(cx.listener(|this, _: &NewFile, _w, cx| this.new_tab(cx)))
+            .on_action(cx.listener(|this, _: &OpenFile, _w, cx| this.open_file(cx)))
+            .on_action(cx.listener(|this, _: &SaveFile, _w, cx| this.save_file(cx)))
+            .on_action(cx.listener(|this, _: &SaveFileAs, _w, cx| this.save_file_as(cx)))
+            .on_action(cx.listener(|this, _: &ExitEditor, window, cx| {
+                if this.request_window_close(cx) {
+                    window.remove_window();
+                }
+            }))
+            .on_action(cx.listener(|this, _: &EditorUndo, _w, cx| {
+                this.document.undo();
+                this.changed(cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditorRedo, _w, cx| {
+                this.document.redo();
+                this.changed(cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditorCut, _w, cx| this.cut(cx)))
+            .on_action(cx.listener(|this, _: &EditorCopy, _w, cx| this.copy(cx)))
+            .on_action(cx.listener(|this, _: &EditorPaste, _w, cx| this.paste(cx)))
+            .on_action(cx.listener(|this, _: &SelectAll, _w, cx| {
+                this.document.select_all();
+                cx.notify();
+            }))
+            .on_action(cx.listener(|this, _: &FindText, window, cx| {
+                this.open_find(false, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FindInFiles, window, cx| {
+                this.open_search_panel(window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ReplaceText, window, cx| {
+                this.open_find(true, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ReplaceAllText, window, cx| {
+                this.open_find(true, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &FindNext, _w, cx| this.do_find(true, cx)))
+            .on_action(cx.listener(|this, _: &FindPrevious, _w, cx| this.do_find(false, cx)))
+            .on_action(cx.listener(|this, _: &IndentSelection, _w, cx| this.indent(cx)))
+            .on_action(cx.listener(|this, _: &OutdentSelection, _w, cx| this.outdent(cx)))
+            .on_action(cx.listener(|this, _: &ToggleComment, _w, cx| this.toggle_comment(cx)))
+            .on_action(cx.listener(|this, _: &ToggleLineNumbers, _w, cx| {
+                this.toggle_line_numbers(cx)
+            }))
+            .on_action(cx.listener(|this, _: &ToggleSoftWrap, _w, cx| {
+                this.toggle_soft_wrap(cx)
+            }))
+            .on_action(cx.listener(|this, _: &AboutEditor, _w, cx| this.toggle_about(cx)))
+            .on_action(cx.listener(|this, _: &KeyboardShortcuts, _w, cx| {
+                this.toggle_shortcuts(cx)
+            }))
+            .on_action(cx.listener(|this, _: &GoToLine, window, cx| {
+                this.open_goto(window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ToggleFold, _w, cx| {
+                this.toggle_fold_at_caret(cx)
+            }))
+            .on_action(cx.listener(|this, _: &FoldAll, _w, cx| this.fold_all(cx)))
+            .on_action(cx.listener(|this, _: &UnfoldAll, _w, cx| this.unfold_all(cx)))
+            .on_action(cx.listener(|this, _: &ToggleMarkdownPreview, _w, cx| {
+                this.toggle_markdown_preview(cx)
+            }))
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
+            .on_mouse_down(MouseButton::Right, cx.listener(Self::on_mouse_right))
+            .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
+            .on_mouse_move(cx.listener(Self::on_mouse_move))
+            .on_scroll_wheel(cx.listener(Self::on_scroll))
+            .on_drag_move::<ExternalPaths>(cx.listener(
+                |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
+                    let droppable = super::r#impl::external_paths_are_droppable(event.drag(cx));
+                    this.set_external_file_drop_hover(droppable, window, cx);
+                },
+            ))
+            .can_drop(|payload, _, _| {
+                payload
+                    .downcast_ref::<ExternalPaths>()
+                    .is_some_and(super::r#impl::external_paths_are_droppable)
+            })
+            .drag_over::<ExternalPaths>(move |style, paths, _, _| {
+                if super::r#impl::external_paths_are_droppable(paths) {
+                    style.cursor(CursorStyle::PointingHand).bg(drop_highlight)
+                } else {
+                    style.cursor(CursorStyle::OperationNotAllowed)
+                }
+            })
+            .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
+                this.handle_external_file_drop(paths, cx);
+                this.set_external_file_drop_hover(false, window, cx);
+            }))
+            .relative()
+            .flex_1()
+            .min_w_0()
+            .min_h_0()
+            .bg(colors.background)
+            .text_color(colors.foreground)
+            .text_size(self.font_size)
+            .line_height(self.line_height)
+            .font_family(cx.theme().mono_font_family.clone())
+            .child(canvas)
+            .children(file_load_bar)
+            .children(scrollbar)
+            .children(hscrollbar)
+            .children(find_bar)
+            .children(goto_bar)
+            .children(search_panel)
+            .children(about)
+            .children(shortcuts)
+            .children(close_confirm)
+            .children(recent)
+            .child(context_menu);
+
+        let content_weak = cx.weak_entity();
+        let mut main_area = h_flex()
+            .id("editor-main-area")
+            .flex_1()
+            .min_h_0()
+            .on_prepaint(move |bounds, _, cx| {
+                let _ = content_weak.update(cx, |this, _| {
+                    this.content_bounds = Some(bounds);
+                });
+            })
+            .child(editor_surface);
+
+        if self.show_preview {
+            if let Some(preview_state) = self.markdown_preview.as_ref() {
+                main_area = main_area.child(
+                    div()
+                        .id("preview-splitter")
+                        .w(px(4.))
+                        .h_full()
+                        .cursor_col_resize()
+                        .when(self.resizing_preview, |this| this.bg(cx.theme().primary))
+                        .when(!self.resizing_preview, |this| this.bg(cx.theme().border))
+                        .hover(|style| style.bg(cx.theme().primary))
+                        .on_drag(PreviewResizeDrag, |_, _, _, cx| cx.new(|_| PreviewResizeDrag))
+                        .on_drag_move::<PreviewResizeDrag>(cx.listener(
+                            |this, event: &gpui::DragMoveEvent<PreviewResizeDrag>, _, cx| {
+                                this.resizing_preview = true;
+                                if let Some(bounds) = this.content_bounds {
+                                    let new_width = (bounds.right() - event.event.position.x)
+                                        .max(px(160.))
+                                        .min(px(800.));
+                                    if (this.preview_width - new_width).abs() > px(1.) {
+                                        this.preview_width = new_width;
+                                        cx.notify();
+                                    }
+                                }
+                            },
+                        ))
+                        .on_drop(cx.listener(|this, _: &PreviewResizeDrag, _, _cx| {
+                            this.resizing_preview = false;
+                        })),
+                );
+                main_area = main_area.child(
+                    div()
+                        .id("markdown-preview-panel")
+                        .w(self.preview_width)
+                        .h_full()
+                        .border_l_1()
+                        .border_color(cx.theme().border)
+                        .bg(cx.theme().background)
+                        .child(gpui_component::text::TextView::new(preview_state).scrollable(true).size_full()),
+                );
+            }
+        }
 
         div()
             .flex()
@@ -62,133 +232,7 @@ impl Render for EngineEditor {
             .child(title_bar)
             .child(tab_bar)
             .children(disk_banner)
-            .child(
-                div()
-                    .track_focus(&focus)
-                    .key_context(EDITOR_CONTEXT)
-                    .on_key_down(cx.listener(Self::on_key_down))
-                    .on_action(cx.listener(|this, _: &NewFile, _w, cx| this.new_tab(cx)))
-                    .on_action(cx.listener(|this, _: &OpenFile, _w, cx| this.open_file(cx)))
-                    .on_action(cx.listener(|this, _: &SaveFile, _w, cx| this.save_file(cx)))
-                    .on_action(cx.listener(|this, _: &SaveFileAs, _w, cx| this.save_file_as(cx)))
-                    .on_action(cx.listener(|this, _: &ExitEditor, window, cx| {
-                        if this.request_window_close(cx) {
-                            window.remove_window();
-                        }
-                    }))
-                    .on_action(cx.listener(|this, _: &EditorUndo, _w, cx| {
-                        this.document.undo();
-                        this.changed(cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &EditorRedo, _w, cx| {
-                        this.document.redo();
-                        this.changed(cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &EditorCut, _w, cx| this.cut(cx)))
-                    .on_action(cx.listener(|this, _: &EditorCopy, _w, cx| this.copy(cx)))
-                    .on_action(cx.listener(|this, _: &EditorPaste, _w, cx| this.paste(cx)))
-                    .on_action(cx.listener(|this, _: &SelectAll, _w, cx| {
-                        this.document.select_all();
-                        cx.notify();
-                    }))
-                    .on_action(cx.listener(|this, _: &FindText, window, cx| {
-                        this.open_find(false, window, cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &FindInFiles, window, cx| {
-                        this.open_search_panel(window, cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &ReplaceText, window, cx| {
-                        this.open_find(true, window, cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &ReplaceAllText, window, cx| {
-                        this.open_find(true, window, cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &FindNext, _w, cx| this.do_find(true, cx)))
-                    .on_action(cx.listener(|this, _: &FindPrevious, _w, cx| this.do_find(false, cx)))
-                    .on_action(cx.listener(|this, _: &IndentSelection, _w, cx| this.indent(cx)))
-                    .on_action(cx.listener(|this, _: &OutdentSelection, _w, cx| this.outdent(cx)))
-                    .on_action(cx.listener(|this, _: &ToggleComment, _w, cx| this.toggle_comment(cx)))
-                    .on_action(cx.listener(|this, _: &ToggleLineNumbers, _w, cx| {
-                        this.toggle_line_numbers(cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &ToggleSoftWrap, _w, cx| {
-                        this.toggle_soft_wrap(cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &AboutEditor, _w, cx| this.toggle_about(cx)))
-                    .on_action(cx.listener(|this, _: &KeyboardShortcuts, _w, cx| {
-                        this.toggle_shortcuts(cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &GoToLine, window, cx| {
-                        this.open_goto(window, cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &ToggleFold, _w, cx| {
-                        this.toggle_fold_at_caret(cx)
-                    }))
-                    .on_action(cx.listener(|this, _: &FoldAll, _w, cx| this.fold_all(cx)))
-                    .on_action(cx.listener(|this, _: &UnfoldAll, _w, cx| this.unfold_all(cx)))
-                    .on_action(cx.listener(|this, _: &ToggleMarkdownPreview, _w, cx| {
-                        this.toggle_markdown_preview(cx)
-                    }))
-                    .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
-                    .on_mouse_down(MouseButton::Right, cx.listener(Self::on_mouse_right))
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
-                    .on_mouse_move(cx.listener(Self::on_mouse_move))
-                    .on_scroll_wheel(cx.listener(Self::on_scroll))
-                    .on_drag_move::<ExternalPaths>(cx.listener(
-                        |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
-                            let droppable = super::r#impl::external_paths_are_droppable(event.drag(cx));
-                            this.set_external_file_drop_hover(droppable, window, cx);
-                        },
-                    ))
-                    .can_drop(|payload, _, _| {
-                        payload
-                            .downcast_ref::<ExternalPaths>()
-                            .is_some_and(super::r#impl::external_paths_are_droppable)
-                    })
-                    .drag_over::<ExternalPaths>(move |style, paths, _, _| {
-                        if super::r#impl::external_paths_are_droppable(paths) {
-                            style.cursor(CursorStyle::PointingHand).bg(drop_highlight)
-                        } else {
-                            style.cursor(CursorStyle::OperationNotAllowed)
-                        }
-                    })
-                    .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
-                        this.handle_external_file_drop(paths, cx);
-                        this.set_external_file_drop_hover(false, window, cx);
-                    }))
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .bg(colors.background)
-                    .text_color(colors.foreground)
-                    .text_size(self.font_size)
-                    .line_height(self.line_height)
-                    .font_family(cx.theme().mono_font_family.clone())
-                    .child(canvas)
-                    .children(file_load_bar)
-                    .children(scrollbar)
-                    .children(hscrollbar)
-                    .children(find_bar)
-                    .children(goto_bar)
-                    .children(search_panel)
-                    .children(about)
-                    .children(shortcuts)
-                    .children(close_confirm)
-                    .children(recent)
-                    .child(context_menu)
-                    .children(markdown_preview.map(|view| {
-                        div()
-                            .absolute()
-                            .right_0()
-                            .top_0()
-                            .bottom_0()
-                            .w(px(400.0))
-                            .border_l_1()
-                            .border_color(cx.theme().border)
-                            .bg(cx.theme().background)
-                            .child(view)
-                    })),
-            )
+            .child(main_area)
             .child(header)
     }
 }
