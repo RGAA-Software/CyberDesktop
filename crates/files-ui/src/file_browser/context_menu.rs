@@ -766,9 +766,9 @@ fn build_item_menu(
 ) -> PopupMenu {
     match browser.read(cx).browse_location.clone() {
         BrowseLocation::RecycleBin => build_recycle_item_menu(menu, browser, window, cx),
-        BrowseLocation::FileTag { .. } => build_file_tag_item_menu(menu, browser, window, cx),
-        BrowseLocation::Directory => build_directory_item_menu(menu, browser, window, cx),
-        BrowseLocation::SearchResults { .. } => {
+        BrowseLocation::Directory
+        | BrowseLocation::FileTag { .. }
+        | BrowseLocation::SearchResults { .. } => {
             build_directory_item_menu(menu, browser, window, cx)
         }
     }
@@ -1113,48 +1113,6 @@ fn build_recycle_item_menu(
         crate::tabler_icons::icon(crate::tabler_icons::CLIPBOARD),
         Box::new(PasteItems),
         !can_paste,
-    )
-}
-
-fn build_file_tag_item_menu(
-    menu: PopupMenu,
-    browser: Entity<FileBrowser>,
-    _window: &mut Window,
-    cx: &mut Context<PopupMenu>,
-) -> PopupMenu {
-    let state = browser.read(cx);
-    let paths = state.selected_paths_vec();
-    let single_dir = paths.len() == 1 && paths[0].is_dir();
-    let focus = state.focus_handle.clone();
-
-    let mut menu = menu.action_context(focus);
-    menu = menu_action(
-        menu,
-        t!("files.menu.open"),
-        IconName::FolderOpen,
-        Box::new(OpenItem),
-    );
-
-    if single_dir {
-        let path = paths[0].clone();
-        menu = menu.item(menu_click_item_with_icon(
-            t!("sidebar.menu.open_new_tab"),
-            crate::tabler_icons::icon(crate::tabler_icons::PLUS),
-            move |_, _, cx| AppNavigation::open_path_in_new_tab(path.clone(), cx),
-        ));
-    }
-
-    menu = menu_action(
-        menu,
-        t!("files.menu.copy_path"),
-        IconName::Copy,
-        Box::new(CopyPath),
-    );
-    menu_action(
-        menu,
-        t!("files.menu.properties"),
-        IconName::Info,
-        Box::new(ShellProperties),
     )
 }
 
