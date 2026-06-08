@@ -26,6 +26,18 @@ pub fn chrome_icon_color(cx: &App) -> Hsla {
     cx.theme().muted_foreground
 }
 
+/// Tile background + icon tint for chrome-style list icons (folders, drives).
+pub fn chrome_icon_tile_colors(cx: &App) -> (Hsla, Hsla) {
+    if cx.theme().mode.is_dark() {
+        (
+            cx.theme().muted.opacity(0.32),
+            chrome_icon_color(cx),
+        )
+    } else {
+        (cx.theme().secondary, chrome_icon_color(cx))
+    }
+}
+
 fn chrome_icon_box(path: &'static str, color: Hsla, size: Pixels) -> AnyElement {
     div()
         .size(size)
@@ -173,10 +185,10 @@ pub fn home_drive_tabler_icon(drive: &DriveInfo) -> &'static str {
     drive_tabler_icon(&drive.path)
 }
 
-/// Theme-aware tint for the system-drive Windows icon only.
-pub fn system_drive_tabler_icon_color(cx: &App) -> Hsla {
+/// Foreground tint from the light/dark icon palette (`file_type_icon_colors`).
+pub fn palette_icon_fg(svg_path: &'static str, cx: &App) -> Hsla {
     let (_, fg) = crate::file_type_icon_colors::tile_colors_for_svg_path(
-        tabler_icons::BRAND_WINDOWS,
+        svg_path,
         cx.theme().mode.is_dark(),
     );
     fg

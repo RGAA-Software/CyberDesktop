@@ -5,7 +5,7 @@ use std::time::SystemTime;
 
 use chrono::{DateTime, Local};
 use files_fs::{
-    eject_drive, is_system_drive, open_storage_sense_settings, recent_documents_enabled, DriveInfo,
+    eject_drive, open_storage_sense_settings, recent_documents_enabled, DriveInfo,
     FileTagPreview, QuickAccessEntry, RecentItem,
 };
 use app_platform_windows::open_item_properties;
@@ -29,7 +29,7 @@ use crate::home::widget_shell::{
     QA_ITEM_PADDING_X, QA_ITEM_PADDING_Y, RECENT_HEADER_HEIGHT, RECENT_ROW_HEIGHT,
 };
 use crate::icons::{
-    home_drive_tabler_icon, home_quick_access_palette, system_drive_tabler_icon_color,
+    chrome_icon_color, home_drive_tabler_icon, home_quick_access_palette,
     home_quick_access_tabler_icon, tabler_icon_element, toolbar_tabler,
 };
 use crate::shell_icon::shell_icon_for_path;
@@ -386,11 +386,7 @@ impl HomePage {
             .map(|size| t!("home.drive.free", size = size).to_string());
         let frac = drive.used_fraction();
         let drive_icon = home_drive_tabler_icon(drive);
-        let drive_icon_color = if is_system_drive(&drive.path) {
-            system_drive_tabler_icon_color(cx)
-        } else {
-            cx.theme().muted_foreground
-        };
+        let drive_icon_color = chrome_icon_color(cx);
         bordered_home_card(format!("{prefix}-drive-{index}"), cx)
             .w_full()
             .px(DRIVE_CARD_PADDING_X)

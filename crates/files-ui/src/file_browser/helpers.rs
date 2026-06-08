@@ -7,6 +7,9 @@ use crate::file_type_icons;
 pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
 
 fn file_type_tile_colors(item: &FileItem, cx: &App) -> (Hsla, Hsla) {
+    if item.kind == FileItemKind::Folder {
+        return crate::icons::chrome_icon_tile_colors(cx);
+    }
     let is_dark = cx.theme().mode.is_dark();
     let path = file_type_icons::svg_path_for_path(&item.path);
     file_type_icon_colors::tile_colors_for_svg_path(path, is_dark)
@@ -46,6 +49,7 @@ impl FileBrowser {
     fn row_list_icon_inner(
         item: &FileItem,
         logical_size: Pixels,
+        fg: Hsla,
         window: &Window,
     ) -> (AnyElement, bool) {
         #[cfg(windows)]
@@ -71,6 +75,7 @@ impl FileBrowser {
                 .flex()
                 .items_center()
                 .justify_center()
+                .text_color(fg)
                 .child(
                     toolbar_tabler(file_type_icons::svg_path_for_path(&item.path))
                         .with_size(gpui_component::Size::Size(logical_size)),
@@ -113,7 +118,8 @@ impl FileBrowser {
         window: &Window,
         cx: &App,
     ) -> impl IntoElement {
-        let (inner, embedded_exe) = Self::row_list_icon_inner(item, logical_size, window);
+        let (bg, fg) = file_type_tile_colors(item, cx);
+        let (inner, embedded_exe) = Self::row_list_icon_inner(item, logical_size, fg, window);
         let tile_size = if logical_size >= FILE_LIST_ICON_TILE {
             logical_size
         } else {
@@ -122,7 +128,7 @@ impl FileBrowser {
         let (bg, fg) = if embedded_exe {
             embedded_exe_tile_colors(cx)
         } else {
-            file_type_tile_colors(item, cx)
+            (bg, fg)
         };
         let radius = if tile_size >= px(32.) {
             px(10.)

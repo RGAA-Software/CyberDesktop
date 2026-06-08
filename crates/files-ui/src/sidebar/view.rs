@@ -13,8 +13,7 @@ use rust_i18n::t;
 
 use crate::app_state::AppNavigation;
 use crate::drag::DraggedFilePaths;
-use crate::icons::{drive_tabler_icon, sidebar_tabler_icon, system_drive_tabler_icon_color};
-use files_fs::is_system_drive;
+use crate::icons::{chrome_icon_color, drive_tabler_icon, sidebar_tabler_icon};
 use files_fs::parse_tag_color_hex;
 use crate::main_page::MainPage;
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
@@ -237,14 +236,6 @@ fn append_sidebar_entry(
     }
 }
 
-fn sidebar_icon_color(active: bool, cx: &App) -> Hsla {
-    if active {
-        cx.theme().primary
-    } else {
-        cx.theme().muted_foreground
-    }
-}
-
 fn tabler_path_for_sidebar_entry(
     entry: &SidebarEntry,
     section: SidebarSectionKind,
@@ -272,10 +263,6 @@ fn sidebar_entry_icon(
     let path = tabler_path_for_sidebar_entry(entry, section);
     let tag_color = entry.color.clone();
     let is_file_tag = matches!(entry.target, NavigationTarget::FileTag(_));
-    let is_system_drive = matches!(
-        (&entry.target, section),
-        (NavigationTarget::Path(drive_path), SidebarSectionKind::Drives) if is_system_drive(drive_path)
-    );
     move |_window, cx| {
         if is_file_tag {
             let icon_color: Hsla = gpui::rgb(
@@ -286,15 +273,13 @@ fn sidebar_entry_icon(
             )
             .into();
             sidebar_tabler_icon(tabler_icons::TAG, icon_color)
-        } else if is_system_drive {
+        } else {
             let color = if active {
                 cx.theme().primary
             } else {
-                system_drive_tabler_icon_color(cx)
+                chrome_icon_color(cx)
             };
             sidebar_tabler_icon(path, color)
-        } else {
-            sidebar_tabler_icon(path, sidebar_icon_color(active, cx))
         }
     }
 }
