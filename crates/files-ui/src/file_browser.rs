@@ -148,7 +148,7 @@ const GROUP_HEADER_ROW_SIZE: Size<Pixels> = size(px(1.), px(32.));
 pub(super) const GRID_CELL_SIZE_SMALL: Size<Pixels> = size(px(100.), px(88.));
 pub(super) const GRID_CELL_SIZE: Size<Pixels> = size(px(118.), px(104.));
 pub(super) const GRID_CELL_SIZE_LARGE: Size<Pixels> = size(px(136.), px(120.));
-pub(super) const CARD_CELL_SIZE: Size<Pixels> = size(px(280.), px(120.));
+pub(super) const CARD_CELL_SIZE: Size<Pixels> = size(px(250.), px(120.));
 const COLUMN_ROW_SIZE: Size<Pixels> = size(px(1.), FILE_LIST_ROW_HEIGHT);
 const COLUMN_WIDTH: Pixels = px(320.);
 /// Matches split-pane title bar height (`shell_panes::PANE_TITLE_HEIGHT`).
