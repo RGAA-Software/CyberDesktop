@@ -22,7 +22,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     MIIM_SUBMENU, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON, WM_INITMENUPOPUP,
 };
 
-use crate::shell_icon::{menu_icon_pixel_size, system_scale_factor};
+#[cfg(test)]
+use crate::shell_icon::menu_icon_pixel_size;
 use crate::shell_menu_icon::{
     init_popup_menu, refresh_item_bitmap, resolve_menu_item_icon, set_menu_icon_extract_px,
 };
@@ -731,7 +732,7 @@ pub fn open_in_new_explorer_window(path: &Path) -> anyhow::Result<()> {
     }
 }
 
-/// Preloads Shell `QueryContextMenu` on a background thread (Files `WarmUpQueryContextMenuAsync`).
+/// Preloads Shell STA thread (lightweight) so first real QueryContextMenu doesn't need to spawn it.
 pub fn warm_up_query_context_menu() {
     std::thread::Builder::new()
         .name("cyber_desktop-shell-warmup".into())
@@ -739,32 +740,7 @@ pub fn warm_up_query_context_menu() {
             use std::time::Instant;
             let thread_start = Instant::now();
             tracing::info!(target: "startup", step = "shell_warmup_thread_begin");
-            let path = std::env::temp_dir().join("cyber_desktop_shell_warmup.txt");
-            shell_log!("warm_up start: {}", path.display());
-            let query_start = Instant::now();
-            let result: anyhow::Result<Vec<ShellContextMenuEntry>> = (|| {
-                std::fs::write(&path, b"")?;
-                let icon_px = menu_icon_pixel_size(system_scale_factor());
-                let entries =
-                    shell_menu_session::query_with_session(&[path.clone()], false, icon_px)?;
-                let _ = std::fs::remove_file(&path);
-                Ok(entries)
-            })();
-            tracing::info!(
-                target: "startup",
-                step = "shell_warmup_query_context_menu",
-                block_ms = query_start.elapsed().as_secs_f64() * 1000.0
-            );
-            match result {
-                Ok(entries) => {
-                    shell_log!("warm_up ok: entries={}", entries.len());
-                }
-                Err(error) => {
-                    shell_log!("warm_up err: {error:#}");
-                    let _ = std::fs::remove_file(&path);
-                }
-            }
-            shell_menu_session::clear_session();
+            shell_menu_session::init_sta_thread();
             tracing::info!(
                 target: "startup",
                 step = "shell_warmup_thread_done",

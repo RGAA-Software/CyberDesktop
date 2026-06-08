@@ -25,6 +25,11 @@ fn shell_op_lock() -> std::sync::MutexGuard<'static, ()> {
         .expect("shell menu op lock")
 }
 
+/// Ensure the STA message thread is spawned (lightweight — no QueryContextMenu yet).
+pub fn init_sta_thread() {
+    let _ = shell_sta();
+}
+
 pub fn clear_session() {
     let _guard = shell_op_lock();
     shell_sta().dispatch(context_menu::release_prepared_menu);
