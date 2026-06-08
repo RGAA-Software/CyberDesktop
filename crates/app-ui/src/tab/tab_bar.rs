@@ -553,6 +553,7 @@ impl RenderOnce for TabBar {
                     .id("tabs-inner")
                     .relative()
                     .min_w_0()
+                    .items_center()
                     .gap(gap)
                     .overflow_x_scroll()
                     .when_some(self.scroll_handle, |this, scroll_handle| {

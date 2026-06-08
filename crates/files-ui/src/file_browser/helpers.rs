@@ -3,7 +3,6 @@ use crate::app_state::AppFileClipboard;
 use crate::exe_icon_cache;
 use crate::file_type_icon_colors;
 use crate::file_type_icons;
-
 /// Opacity for items cut to the in-app clipboard but not pasted yet (Files `DimItemOpacity`).
 pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
 
@@ -44,19 +43,6 @@ impl FileBrowser {
         }
     }
 
-    fn row_list_icon_svg(item: &FileItem, logical_size: Pixels) -> AnyElement {
-        let svg_path = file_type_icons::svg_path_for_path(&item.path);
-        div()
-            .size(logical_size)
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                toolbar_tabler(svg_path).with_size(gpui_component::Size::Size(logical_size)),
-            )
-            .into_any_element()
-    }
-
     fn row_list_icon_inner(
         item: &FileItem,
         logical_size: Pixels,
@@ -79,7 +65,19 @@ impl FileBrowser {
                 );
             }
         }
-        (Self::row_list_icon_svg(item, logical_size), false)
+        (
+            div()
+                .size(logical_size)
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(
+                    toolbar_tabler(file_type_icons::svg_path_for_path(&item.path))
+                        .with_size(gpui_component::Size::Size(logical_size)),
+                )
+                .into_any_element(),
+            false,
+        )
     }
 
 #[allow(dead_code)]

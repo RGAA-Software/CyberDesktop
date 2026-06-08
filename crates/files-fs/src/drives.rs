@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct DriveInfo {
@@ -28,6 +28,24 @@ impl DriveInfo {
         }
         Some((total.saturating_sub(free) as f32) / total as f32)
     }
+}
+
+/// Windows system drive root (e.g. `C:\`), from `SystemDrive`.
+pub fn system_drive_root() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".to_string());
+        Some(PathBuf::from(format!("{}\\", drive.trim_end_matches('\\'))))
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
+/// True when `path` is the system drive root (e.g. `C:\`).
+pub fn is_system_drive(path: &Path) -> bool {
+    system_drive_root().is_some_and(|root| path == root)
 }
 
 /// Lists ready local drive roots (e.g. `C:\`, `D:\`).

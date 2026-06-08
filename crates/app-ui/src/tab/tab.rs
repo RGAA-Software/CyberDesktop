@@ -638,12 +638,8 @@ impl RenderOnce for Tab {
         };
         if flat_chip {
             if titlebar_medium {
-                let border = Edges {
-                    left: px(1.),
-                    right: px(1.),
-                    top: px(1.),
-                    bottom: px(0.),
-                };
+                // Reserve a 1px border on every chip so selected/unselected share the same box size.
+                let border = Edges::all(px(1.));
                 tab_style.borders = border;
                 tab_style.border_color = if self.selected {
                     cx.theme().border
@@ -707,7 +703,7 @@ impl RenderOnce for Tab {
         self.base
             .id(self.ix)
             .flex()
-            .flex_wrap()
+            .flex_row()
             .gap_1()
             .items_center()
             .flex_shrink_0()
@@ -749,7 +745,9 @@ impl RenderOnce for Tab {
             .child(
                 h_flex()
                     .flex_1()
-                    .h(inner_height)
+                    .min_h_0()
+                    .when(flat_chip, |this| this.h_full())
+                    .when(!flat_chip, |this| this.h(inner_height))
                     .line_height(relative(1.))
                     .whitespace_nowrap()
                     .items_center()
