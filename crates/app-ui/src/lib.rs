@@ -1,5 +1,6 @@
 pub mod color_icon;
 pub mod cyber_editor;
+pub mod http_client_impl;
 pub mod i18n;
 pub mod popup_menu;
 mod settings_window;
@@ -33,6 +34,7 @@ pub use toolbar_button::{toolbar_icon, toolbar_icon_button, toolbar_labeled_butt
 pub use window::{open_editor_window, open_window, open_window_with_close_handler};
 
 pub fn init_editor_shell(cx: &mut App) {
+    http_client_impl::init(cx);
     let _ = app_assets::Assets.load_fonts(cx);
     let config = files_core::load_config();
     if let Some(ref cfg) = config {

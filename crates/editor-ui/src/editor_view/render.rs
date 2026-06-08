@@ -155,6 +155,7 @@ impl Render for EngineEditor {
             .flex_1()
             .min_w_0()
             .min_h_0()
+            .h_full()
             .bg(colors.background)
             .text_color(colors.foreground)
             .text_size(self.font_size)

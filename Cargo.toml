@@ -44,12 +44,15 @@ media-player-ui = { path = "crates/media-player-ui" }
 # zed-industries/zed (GPUI only)
 gpui = { git = "https://github.com/zed-industries/zed" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", package = "gpui_platform", features = ["font-kit"] }
+http_client = { git = "https://github.com/zed-industries/zed" }
 
 # longbridge/gpui-component (git only; see docs/dependency-policy.md)
 gpui-component = { git = "https://github.com/longbridge/gpui-component", features = ["tree-sitter-languages"] }
 gpui-component-assets = { git = "https://github.com/longbridge/gpui-component", package = "gpui-component-assets" }
 
 anyhow = "1.0"
+futures = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 chrono = "0.4"
 rolling-file = "0.2"
 rust-i18n = "4"
