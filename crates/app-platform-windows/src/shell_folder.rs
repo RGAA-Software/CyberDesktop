@@ -176,9 +176,8 @@ pub fn wsl_installed() -> bool {
 /// WSL distributions under `\wsl.localhost\` or `\wsl$\`.
 #[cfg(windows)]
 pub fn list_wsl_distro_roots() -> Vec<ShellFolderEntry> {
-    if !wsl_installed() {
-        return Vec::new();
-    }
+    // Do not gate on wsl_installed() registry check — it is unreliable across
+    // WSL install methods (Store vs MSI). Just try to enumerate the UNC paths.
     for root in [r"\wsl.localhost\", r"\wsl$\"] {
         let path = PathBuf::from(root);
         // Skip the expensive .exists() call; just try to read_dir and catch errors.
