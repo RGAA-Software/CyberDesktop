@@ -61,6 +61,7 @@ impl FileBrowser {
 
         // WSL paths are served by the Plan9 server; the notify watcher is unreliable there.
         if files_fs::is_wsl_path(&self.current_dir) {
+            tracing::debug!(target: "wsl", path = %self.current_dir.display(), "skipping directory watcher for WSL path");
             return;
         }
 

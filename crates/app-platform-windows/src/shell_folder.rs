@@ -187,11 +187,21 @@ pub fn list_wsl_distro_roots() -> Vec<ShellFolderEntry> {
         .output();
     match output {
         Ok(output) if output.status.success() => {
-            let text = String::from_utf8_lossy(&output.stdout);
+            // wsl.exe outputs UTF-16LE on some Windows versions and UTF-8 on others.
+            let text = if output.stdout.windows(2).any(|w| w == [0, 0]) || output.stdout.iter().filter(|&&b| b == 0).count() > 2 {
+                // Contains many NUL bytes → treat as UTF-16LE.
+                let u16_len = output.stdout.len() / 2;
+                let u16_slice: &[u16] = unsafe {
+                    std::slice::from_raw_parts(output.stdout.as_ptr() as *const u16, u16_len)
+                };
+                String::from_utf16_lossy(u16_slice)
+            } else {
+                String::from_utf8_lossy(&output.stdout).into_owned()
+            };
             let mut entries = Vec::new();
             for name in text.lines() {
-                let name = name.trim();
-                if name.is_empty() {
+                let name = name.trim().trim_matches('\0');
+                if name.is_empty() || name.contains('\0') {
                     continue;
                 }
                 // Use \\wsl.localhost\ when available (Win11), else \\wsl$\.
