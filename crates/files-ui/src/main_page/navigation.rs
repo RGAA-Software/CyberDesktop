@@ -15,6 +15,54 @@ fn refresh_dual_pane_menus(cx: &mut App) {
 }
 
 impl MainPage {
+    /// Called when the set of available drives changes (e.g. USB inserted/removed).
+    pub fn on_drives_changed(&mut self, cx: &mut Context<Self>) {
+        use std::collections::HashSet;
+
+        // Refresh sidebar so drive list stays current.
+        self.refresh_sidebar_cache(cx);
+
+        // Refresh every Home dashboard so drive cards update.
+        for tab in &self.tabs {
+            let shell = tab.shell.clone();
+            shell.update(cx, |shell, cx| {
+                shell.for_each_pane(|pane| {
+                    pane.update(cx, |pane, cx| {
+                        pane.reload_home(cx);
+                    });
+                });
+            });
+        }
+
+        // If any pane is browsing a path whose drive root is gone, navigate it to Home.
+        let available_roots: HashSet<String> = files_fs::list_drives()
+            .into_iter()
+            .filter_map(|d| files_fs::path_drive_root(&d.path))
+            .collect();
+
+        for tab in &self.tabs {
+            let shell = tab.shell.clone();
+            shell.update(cx, |shell, cx| {
+                shell.for_each_pane(|pane| {
+                    pane.update(cx, |pane, cx| {
+                        if let NavigationTarget::Path(ref path) = pane.current_navigation_target(cx) {
+                            if let Some(root) = files_fs::path_drive_root(path) {
+                                // Only react to local drive removals (e.g. USB eject).
+                                // Network paths are not in list_drives() and should not trigger auto-navigation.
+                                if root.len() == 2 && root.as_bytes().get(1) == Some(&b':') {
+                                    if !available_roots.contains(&root) {
+                                        pane.navigate(NavigationTarget::Home, cx);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+        }
+
+        cx.notify();
+    }
     pub fn open_path_in_new_tab(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         record_path_history(&path);
         self.add_tab(NavigationTarget::Path(path), cx);

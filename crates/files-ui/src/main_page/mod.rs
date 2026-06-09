@@ -90,6 +90,7 @@ pub struct MainPage {
     show_status_center: bool,
     pending_settings_toggle: bool,
     tab_bar_popup_menu: Option<tab_bar_menu::TabBarPopupMenuState>,
+    _drive_monitor_task: Option<Task<()>>,
 }
 
 impl MainPage {
@@ -129,7 +130,7 @@ impl MainPage {
             let next_id = restored.len() as u64;
             (restored, 0, next_id)
         };
-        let this = Self {
+        let mut this = Self {
             focus_handle: cx.focus_handle(),
             tabs,
             active_tab,
@@ -167,6 +168,7 @@ impl MainPage {
             show_status_center: false,
             pending_settings_toggle: false,
             tab_bar_popup_menu: None,
+            _drive_monitor_task: None,
         };
         // Propagate initial show_info_pane to all file browsers.
         for tab in &this.tabs {
@@ -186,6 +188,33 @@ impl MainPage {
                 });
             }
         }
+        #[cfg(windows)]
+        {
+            this._drive_monitor_task = Some(cx.spawn(async move |page, cx| {
+                use std::collections::HashSet;
+                use std::path::PathBuf;
+                use std::time::Duration;
+
+                let mut last_drives: HashSet<PathBuf> = HashSet::new();
+                loop {
+                    cx.background_executor().timer(Duration::from_millis(1500)).await;
+                    let drives = cx.background_spawn(async move {
+                        files_fs::list_drives().into_iter().map(|d| d.path).collect::<HashSet<_>>()
+                    }).await;
+
+                    if !last_drives.is_empty() && drives != last_drives {
+                        let ok = page.update(cx, |page, cx| {
+                            page.on_drives_changed(cx);
+                        }).is_ok();
+                        if !ok {
+                            break;
+                        }
+                    }
+                    last_drives = drives;
+                }
+            }));
+        }
+
         files_core::log_startup_step("main_page_new_done");
         this
     }
