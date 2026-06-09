@@ -185,6 +185,13 @@ pub fn home_drive_tabler_icon(drive: &DriveInfo) -> &'static str {
     drive_tabler_icon(&drive.path)
 }
 
+/// Tabler asset for a WSL distro sidebar entry.
+pub fn wsl_distro_tabler_icon(_distro_name: &str) -> &'static str {
+    // TODO: Map known distros (ubuntu, debian, kali, opensuse, alpine) to brand icons
+    //       if they are added to app-assets. For now, use a terminal icon.
+    tabler_icons::TERMINAL
+}
+
 /// Foreground tint from the light/dark icon palette (`file_type_icon_colors`).
 pub fn palette_icon_fg(svg_path: &'static str, cx: &App) -> Hsla {
     let (_, fg) = crate::file_type_icon_colors::tile_colors_for_svg_path(

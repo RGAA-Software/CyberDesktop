@@ -1,4 +1,5 @@
 use files_core::{APP_NAME, GITHUB_REPO_URL};
+use files_fs;
 use gpui::{prelude::*, *};
 use gpui_component::{
     badge::Badge,
@@ -35,7 +36,13 @@ fn tab_icon_for_target(target: &NavigationTarget) -> Icon {
         NavigationTarget::RecycleBin => tabler_icons::TRASH,
         NavigationTarget::FileTag(_) => tabler_icons::TAG,
         NavigationTarget::SearchResults { .. } => tabler_icons::SEARCH,
-        NavigationTarget::Path(_) => tabler_icons::FOLDER,
+        NavigationTarget::Path(p) => {
+            if files_fs::is_wsl_path(p) {
+                tabler_icons::TERMINAL
+            } else {
+                tabler_icons::FOLDER
+            }
+        }
     };
     toolbar_tabler(path)
 }

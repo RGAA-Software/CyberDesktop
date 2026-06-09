@@ -59,6 +59,11 @@ impl FileBrowser {
             return;
         }
 
+        // WSL paths are served by the Plan9 server; the notify watcher is unreliable there.
+        if files_fs::is_wsl_path(&self.current_dir) {
+            return;
+        }
+
         let Ok((watcher, events)) =
             DirectoryWatcher::watch(&self.current_dir, Duration::from_millis(300))
         else {

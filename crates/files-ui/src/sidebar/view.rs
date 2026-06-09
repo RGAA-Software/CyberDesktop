@@ -264,7 +264,7 @@ fn tabler_path_for_sidebar_entry(
         (NavigationTarget::Path(path), SidebarSectionKind::Drives) => drive_tabler_icon(path),
         (_, SidebarSectionKind::Cloud) => tabler_icons::CLOUD,
         (_, SidebarSectionKind::Network) => tabler_icons::NETWORK,
-        (_, SidebarSectionKind::Wsl) => tabler_icons::BRAND_WINDOWS,
+        (_, SidebarSectionKind::Wsl) => crate::icons::wsl_distro_tabler_icon(&entry.label),
         (_, SidebarSectionKind::Library) => tabler_icons::BOOK,
         (NavigationTarget::Path(_), _) => tabler_icons::FOLDER,
     }

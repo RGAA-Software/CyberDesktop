@@ -227,7 +227,6 @@ fn load_wsl_entries() -> Vec<SidebarEntry> {
     {
         list_wsl_distro_roots()
             .into_iter()
-            .filter(|e| e.path.exists())
             .map(|e| SidebarEntry {
                 label: e.display_name,
                 target: NavigationTarget::Path(e.path),

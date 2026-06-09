@@ -69,6 +69,15 @@ pub fn path_drive_root(path: &Path) -> Option<String> {
     }
 }
 
+/// True when `path` is a WSL UNC path (`\\wsl$\` or `\\wsl.localhost\`).
+pub fn is_wsl_path(path: &Path) -> bool {
+    let text = path.to_string_lossy();
+    // Strip the verbatim prefix if present (`\\?\UNC\wsl$\...` -> `\\wsl$\...`).
+    let text = text.strip_prefix(r"\\?\UNC\").unwrap_or(&text);
+    let lower = text.to_ascii_lowercase();
+    lower.starts_with(r"\\wsl$\") || lower.starts_with(r"\\wsl.localhost\")
+}
+
 /// True when any source path shares a drive/share root with `destination` (Files `AreItemsInSameDrive`).
 pub fn are_paths_on_same_drive(source_paths: &[PathBuf], destination: &Path) -> bool {
     let Some(dest_root) = path_drive_root(destination) else {

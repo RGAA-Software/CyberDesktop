@@ -73,8 +73,8 @@ pub use omnibar::{
     BreadcrumbVisibleLayout, OmnibarPathSuggestion, PathBreadcrumb, BREADCRUMB_BLOCK_GAP,
 };
 pub use path_util::{
-    all_direct_children_of, are_paths_on_same_drive, is_direct_child_of, normalize_directory_path,
-    normalize_path, path_drive_root, paths_equal, paths_equal_directory,
+    all_direct_children_of, are_paths_on_same_drive, is_direct_child_of, is_wsl_path,
+    normalize_directory_path, normalize_path, path_drive_root, paths_equal, paths_equal_directory,
 };
 pub use ops::{
     count_delete_items, create_directory, create_file, delete_paths, delete_paths_cancellable,

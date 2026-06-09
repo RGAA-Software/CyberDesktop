@@ -2,8 +2,9 @@
 
 use std::path::PathBuf;
 
-use windows::core::GUID;
+use windows::core::{PCWSTR, GUID};
 use windows::Win32::Foundation::{HWND, S_OK};
+use windows::Win32::System::Registry::{RegCloseKey, RegOpenKeyExW, HKEY_LOCAL_MACHINE, KEY_READ};
 use windows::Win32::UI::Shell::Common::{ITEMIDLIST, STRRET};
 use windows::Win32::UI::Shell::{
     IEnumIDList, ILFree, IShellFolder, SHGetDesktopFolder, SHGetKnownFolderIDList, StrRetToStrW,
@@ -149,14 +150,38 @@ pub fn list_cloud_drive_roots() -> Vec<ShellFolderEntry> {
     Vec::new()
 }
 
-/// WSL distributions under `\\wsl.localhost\` or `\\wsl$\`.
+/// Check whether WSL is installed by looking at the registry.
+pub fn wsl_installed() -> bool {
+    unsafe {
+        let subkey_wide: Vec<u16> = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss\MSI"
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        let mut key = windows::Win32::System::Registry::HKEY::default();
+        let ok = RegOpenKeyExW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(subkey_wide.as_ptr()),
+            0,
+            KEY_READ,
+            &mut key,
+        )
+        .is_ok();
+        if ok {
+            let _ = RegCloseKey(key);
+        }
+        ok
+    }
+}
+
+/// WSL distributions under `\wsl.localhost\` or `\wsl$\`.
 #[cfg(windows)]
 pub fn list_wsl_distro_roots() -> Vec<ShellFolderEntry> {
-    for root in [r"\\wsl.localhost\", r"\\wsl$\"] {
+    if !wsl_installed() {
+        return Vec::new();
+    }
+    for root in [r"\wsl.localhost\", r"\wsl$\"] {
         let path = PathBuf::from(root);
-        if !path.exists() {
-            continue;
-        }
+        // Skip the expensive .exists() call; just try to read_dir and catch errors.
         let Ok(read) = std::fs::read_dir(&path) else {
             continue;
         };

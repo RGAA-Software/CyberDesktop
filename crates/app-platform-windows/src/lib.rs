@@ -86,8 +86,8 @@ pub use shell::{
 #[cfg(windows)]
 #[cfg(windows)]
 pub use shell_folder::{
-    list_cloud_drive_roots, list_known_folder_folders, list_wsl_distro_roots, ShellFolderEntry,
-    FOLDERID_LIBRARIES, FOLDERID_NETWORK,
+    list_cloud_drive_roots, list_known_folder_folders, list_wsl_distro_roots, wsl_installed,
+    ShellFolderEntry, FOLDERID_LIBRARIES, FOLDERID_NETWORK,
 };
 #[cfg(windows)]
 pub use shell_icon::{
