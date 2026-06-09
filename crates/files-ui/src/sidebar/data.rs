@@ -97,6 +97,7 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
 
     if config.show_sidebar_section_wsl {
         let entries = files_core::time_startup_step("sidebar_section_wsl", load_wsl_entries);
+        tracing::info!(target: "wsl", count = entries.len(), "sidebar WSL entries loaded");
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Wsl,

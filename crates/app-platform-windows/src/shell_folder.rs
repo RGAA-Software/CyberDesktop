@@ -177,10 +177,52 @@ pub fn wsl_installed() -> bool {
 #[cfg(windows)]
 pub fn list_wsl_distro_roots() -> Vec<ShellFolderEntry> {
     // Do not gate on wsl_installed() registry check — it is unreliable across
-    // WSL install methods (Store vs MSI). Just try to enumerate the UNC paths.
-    for root in [r"\wsl.localhost\", r"\wsl$\"] {
+    // WSL install methods (Store vs MSI).
+    tracing::info!(target: "wsl", "enumerating WSL distros");
+
+    // std::fs::read_dir does not reliably access the WSL Plan9 UNC paths,
+    // so use the wsl.exe CLI which is the most robust method.
+    let output = std::process::Command::new("wsl.exe")
+        .args(["-l", "--quiet"])
+        .output();
+    match output {
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            let mut entries = Vec::new();
+            for name in text.lines() {
+                let name = name.trim();
+                if name.is_empty() {
+                    continue;
+                }
+                // Use \\wsl.localhost\ when available (Win11), else \\wsl$\.
+                let path = if std::path::Path::new(r"\\wsl.localhost\").exists() {
+                    PathBuf::from(format!(r"\\wsl.localhost\{name}"))
+                } else {
+                    PathBuf::from(format!(r"\\wsl$\{name}"))
+                };
+                entries.push(ShellFolderEntry {
+                    display_name: name.to_string(),
+                    path,
+                });
+            }
+            if !entries.is_empty() {
+                entries.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+                tracing::info!(target: "wsl", count = entries.len(), "found WSL distros");
+                return entries;
+            }
+        }
+        Ok(output) => {
+            let err = String::from_utf8_lossy(&output.stderr);
+            tracing::warn!(target: "wsl", error = %err, "wsl -l failed");
+        }
+        Err(e) => {
+            tracing::warn!(target: "wsl", error = %e, "wsl.exe not found");
+        }
+    }
+
+    // Fallback: try UNC paths directly (works on some systems).
+    for root in [r"\\wsl.localhost\", r"\\wsl$\"] {
         let path = PathBuf::from(root);
-        // Skip the expensive .exists() call; just try to read_dir and catch errors.
         let Ok(read) = std::fs::read_dir(&path) else {
             continue;
         };
@@ -201,9 +243,12 @@ pub fn list_wsl_distro_roots() -> Vec<ShellFolderEntry> {
         }
         if !entries.is_empty() {
             entries.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+            tracing::info!(target: "wsl", count = entries.len(), "found WSL distros via UNC");
             return entries;
         }
     }
+
+    tracing::info!(target: "wsl", "no WSL distros found");
     Vec::new()
 }
 
