@@ -279,6 +279,31 @@ impl Render for FileBrowser {
             self.watched_dir = Some(self.current_dir.clone());
             self.restart_directory_watcher(cx);
         }
+        #[cfg(windows)]
+        if is_shell_virtual_folder(&self.current_dir)
+            && self._network_load_task.is_none()
+            && self.items.is_empty()
+        {
+            let read_options = self.read_options;
+            self._network_load_task = Some(cx.spawn(async move |browser, cx| {
+                let entries = cx
+                    .background_spawn(async move { list_network_computers() })
+                    .await;
+                let _ = browser.update(cx, |browser, _cx| {
+                    let mut items = Vec::new();
+                    for entry in entries {
+                        if let Ok(item) = FileItem::from_path(entry.path, read_options) {
+                            items.push(item);
+                        }
+                    }
+                    sort_items(&mut items, browser.sort_preferences);
+                    browser.items = items;
+                    browser.apply_filter();
+                    browser.reconcile_selection();
+                    browser.clamp_focused_index();
+                });
+            }));
+        }
 
         let viewport_width = window.viewport_size().width;
         if self.last_viewport_width != Some(viewport_width) {

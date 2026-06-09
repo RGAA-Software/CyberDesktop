@@ -219,6 +219,10 @@ sidebar.pinned.placeholder:
   en: Pin folders in settings (coming soon)
   zh-CN: 在设置中固定文件夹（即将推出）
   zh-HK: 在設定中固定資料夾（即將推出）
+sidebar.network_places:
+  en: Network
+  zh-CN: 网络位置
+  zh-HK: 網路位置
 sidebar.network.placeholder:
   en: Network locations (coming soon)
   zh-CN: 网络位置（即将推出）

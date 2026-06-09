@@ -37,7 +37,7 @@ use crate::tabler_icons;
 use app_ui::popup_menu::{ContextMenuExt as _, PopupMenu, PopupMenuItem};
 
 #[cfg(windows)]
-use app_platform_windows::{list_known_folder_folders, FOLDERID_NETWORK};
+use app_platform_windows::list_network_computers;
 
 #[derive(Clone)]
 pub struct NetworkEntry {
@@ -48,10 +48,8 @@ pub struct NetworkEntry {
 pub fn load_network_entries() -> Vec<NetworkEntry> {
     #[cfg(windows)]
     {
-        list_known_folder_folders(&FOLDERID_NETWORK)
-            .unwrap_or_default()
+        list_network_computers()
             .into_iter()
-            .filter(|e| !e.path.as_os_str().is_empty())
             .map(|e| NetworkEntry {
                 label: e.display_name,
                 path: e.path,

@@ -263,7 +263,10 @@ fn tabler_path_for_sidebar_entry(
         (NavigationTarget::SearchResults { .. }, _) => tabler_icons::SEARCH,
         (NavigationTarget::Path(path), SidebarSectionKind::Drives) => drive_tabler_icon(path),
         (_, SidebarSectionKind::Cloud) => tabler_icons::CLOUD,
-        (_, SidebarSectionKind::Network) => tabler_icons::NETWORK,
+        (NavigationTarget::Path(path), SidebarSectionKind::Network)
+            if path.as_os_str() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}" =>
+            tabler_icons::NETWORK,
+        (_, SidebarSectionKind::Network) => tabler_icons::SERVER,
         (_, SidebarSectionKind::Wsl) => crate::icons::wsl_distro_tabler_icon(&entry.label),
         (_, SidebarSectionKind::Library) => tabler_icons::BOOK,
         (NavigationTarget::Path(_), _) => tabler_icons::FOLDER,

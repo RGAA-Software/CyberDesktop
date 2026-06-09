@@ -5,8 +5,8 @@ use files_core::{AppConfig, FileTagConfig};
 use files_fs::list_drives;
 #[cfg(windows)]
 use app_platform_windows::{
-    list_cloud_drive_roots, list_known_folder_folders, list_wsl_distro_roots, FOLDERID_LIBRARIES,
-    FOLDERID_NETWORK,
+    list_cloud_drive_roots, list_known_folder_folders, list_wsl_distro_roots,
+    FOLDERID_LIBRARIES,
 };
 
 use crate::shell::navigation::NavigationTarget;
@@ -206,18 +206,13 @@ fn load_cloud_entries() -> Vec<SidebarEntry> {
 fn load_network_entries() -> Vec<SidebarEntry> {
     #[cfg(windows)]
     {
-        list_known_folder_folders(&FOLDERID_NETWORK)
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|e| !e.path.as_os_str().is_empty())
-            .map(|e| SidebarEntry {
-                label: e.display_name,
-                target: NavigationTarget::Path(e.path),
-                pinned_in_settings: false,
-                color: None,
-                usage_fraction: None,
-            })
-            .collect()
+        vec![SidebarEntry {
+            label: rust_i18n::t!("sidebar.network_places").to_string(),
+            target: NavigationTarget::Path(PathBuf::from(r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}")),
+            pinned_in_settings: false,
+            color: None,
+            usage_fraction: None,
+        }]
     }
     #[cfg(not(windows))]
     Vec::new()

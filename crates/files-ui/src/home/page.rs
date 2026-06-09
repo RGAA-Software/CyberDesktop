@@ -17,7 +17,7 @@ use rust_i18n::t;
 
 use crate::app_state::AppNavigation;
 use crate::home::widget_shell::{HOME_PAGE_PADDING_X, HOME_PAGE_PADDING_Y, HOME_SECTION_GAP};
-use crate::home::widgets::{load_network_entries, NetworkEntry};
+// Network widget removed per design: network browsing moved to sidebar "Network Places"
 use crate::shell::{append_dual_pane_popup_menu, dual_pane_menu_state, DualPanePopupProfile};
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
 
@@ -26,7 +26,7 @@ use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
 pub struct HomeSnapshot {
     pub quick_access: Vec<QuickAccessEntry>,
     pub drives: Vec<DriveInfo>,
-    pub network: Vec<NetworkEntry>,
+    // Network widget removed per design
     pub tag_previews: Vec<FileTagPreview>,
     pub recent: Vec<RecentItem>,
 }
@@ -40,7 +40,7 @@ impl HomeSnapshot {
             list_quick_access_entries,
         );
         let drives = files_core::time_startup_step("home_snapshot_drives", list_drives);
-        let network = files_core::time_startup_step("home_snapshot_network", load_network_entries);
+        // Network widget removed per design
         let tag_previews =
             files_core::time_startup_step("home_snapshot_tag_previews", || file_tag_previews(&tags));
         let recent = files_core::time_startup_step("home_snapshot_recent", list_recent_files);
@@ -48,7 +48,6 @@ impl HomeSnapshot {
         Self {
             quick_access,
             drives,
-            network,
             tag_previews,
             recent,
         }
@@ -279,7 +278,6 @@ impl Render for HomePage {
         let snapshot = self.snapshot.clone().unwrap_or_else(|| HomeSnapshot {
             quick_access: Vec::new(),
             drives: Vec::new(),
-            network: Vec::new(),
             tag_previews: Vec::new(),
             recent: Vec::new(),
         });
@@ -351,9 +349,7 @@ impl Render for HomePage {
                             "drives" => self
                                 .render_drives_widget(window, cx, &snapshot.drives)
                                 .into_any_element(),
-                            "network" => self
-                                .render_network_widget(window, cx, &snapshot.network)
-                                .into_any_element(),
+                            // "network" widget removed per design
                             "file_tags" => self
                                 .render_file_tags_widget(window, cx, &snapshot.tag_previews)
                                 .into_any_element(),

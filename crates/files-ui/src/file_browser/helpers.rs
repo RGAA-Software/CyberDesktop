@@ -743,10 +743,48 @@ pub(super) fn load_files_dir(
     options: DirectoryReadOptions,
     sort: SortPreferences,
 ) -> (Vec<FileItem>, Option<String>) {
+    #[cfg(windows)]
+    if is_shell_virtual_folder(path) {
+        // Shell virtual folders (e.g. Network Places) are populated asynchronously
+        // by the FileBrowser render loop to avoid blocking the UI thread.
+        return (Vec::new(), None);
+    }
+    #[cfg(windows)]
+    if is_network_computer_root(path) {
+        let shares = app_platform_windows::list_network_shares(path);
+        let mut items = Vec::new();
+        for entry in shares {
+            if let Ok(item) = FileItem::from_path(entry.path, options) {
+                items.push(item);
+            }
+        }
+        sort_items(&mut items, sort);
+        return (items, None);
+    }
     match read_directory(path, options, sort) {
         Ok(items) => (items, None),
         Err(error) => (Vec::new(), Some(error.to_string())),
     }
+}
+
+#[cfg(windows)]
+fn is_network_computer_root(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    // \\COMPUTERNAME  or  \\?\UNC\COMPUTERNAME
+    let stripped = s.strip_prefix(r"\\?\UNC\").unwrap_or(&s);
+    if !stripped.starts_with(r"\\") {
+        return false;
+    }
+    let after_server = &stripped[2..];
+    // Must be exactly one backslash-separated component (the computer name)
+    !after_server.contains('\\') && !after_server.is_empty()
+}
+
+/// Shell virtual folder path (e.g. Network Places ::{F02C1A0D...})
+#[cfg(windows)]
+pub(super) fn is_shell_virtual_folder(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    s.starts_with("::{") || s.to_ascii_lowercase().starts_with("shell:")
 }
 
 pub(super) fn item_sizes_for_display_rows(

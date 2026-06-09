@@ -1,5 +1,6 @@
 //! Enumerate children of Shell known folders (Files sidebar sections).
 
+use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
 use windows::core::{PCWSTR, GUID};
@@ -7,9 +8,9 @@ use windows::Win32::Foundation::{HWND, S_OK};
 use windows::Win32::System::Registry::{RegCloseKey, RegOpenKeyExW, HKEY_LOCAL_MACHINE, KEY_READ};
 use windows::Win32::UI::Shell::Common::{ITEMIDLIST, STRRET};
 use windows::Win32::UI::Shell::{
-    IEnumIDList, ILFree, IShellFolder, SHGetDesktopFolder, SHGetKnownFolderIDList, StrRetToStrW,
-    KF_FLAG_DEFAULT, SHCONTF_FOLDERS, SHCONTF_INCLUDEHIDDEN, SHGDNF, SHGDN_FORPARSING,
-    SHGDN_INFOLDER,
+    IEnumIDList, ILFree, IShellFolder, SHGetDesktopFolder, SHGetKnownFolderIDList,
+    SHParseDisplayName, StrRetToStrW, KF_FLAG_DEFAULT, SHCONTF_ENABLE_ASYNC, SHCONTF_FASTITEMS,
+    SHCONTF_FOLDERS, SHCONTF_INCLUDEHIDDEN, SHGDNF, SHGDN_FORPARSING, SHGDN_INFOLDER,
 };
 
 use crate::com::ensure_com_apartment;
@@ -56,9 +57,12 @@ unsafe fn is_folder_item(folder: &IShellFolder, pidl: *const ITEMIDLIST) -> bool
     folder.GetAttributesOf(&apidl, &mut attrs).is_ok() && attrs & SFGAO_FOLDER != 0
 }
 
-unsafe fn enum_folder_pidls(folder: &IShellFolder) -> anyhow::Result<Vec<*mut ITEMIDLIST>> {
+unsafe fn enum_folder_pidls(folder: &IShellFolder, enable_async: bool) -> anyhow::Result<Vec<*mut ITEMIDLIST>> {
     let mut enum_id: Option<IEnumIDList> = None;
-    let flags = (SHCONTF_FOLDERS.0 | SHCONTF_INCLUDEHIDDEN.0) as u32;
+    let mut flags = (SHCONTF_FOLDERS.0 | SHCONTF_INCLUDEHIDDEN.0 | SHCONTF_FASTITEMS.0) as u32;
+    if enable_async {
+        flags |= SHCONTF_ENABLE_ASYNC.0 as u32;
+    }
     let hr = folder.EnumObjects(HWND::default(), flags, &mut enum_id);
     if hr != S_OK {
         anyhow::bail!("EnumObjects failed: {hr:?}");
@@ -68,12 +72,17 @@ unsafe fn enum_folder_pidls(folder: &IShellFolder) -> anyhow::Result<Vec<*mut IT
     };
 
     let mut pidls = Vec::new();
+    let start = std::time::Instant::now();
     loop {
         let mut pidl: *mut ITEMIDLIST = std::ptr::null_mut();
         let mut fetched = 0u32;
         let mut batch = [pidl];
         let hr = enum_id.Next(&mut batch, Some(&mut fetched));
         if hr != S_OK || fetched == 0 {
+            if enable_async && start.elapsed() < std::time::Duration::from_secs(5) {
+                pump_messages(std::time::Duration::from_millis(50));
+                continue;
+            }
             break;
         }
         pidl = batch[0];
@@ -85,6 +94,24 @@ unsafe fn enum_folder_pidls(folder: &IShellFolder) -> anyhow::Result<Vec<*mut IT
     Ok(pidls)
 }
 
+/// Pump Windows messages briefly so that async Shell callbacks can complete.
+unsafe fn pump_messages(duration: std::time::Duration) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
+    };
+    let start = std::time::Instant::now();
+    let mut msg = std::mem::zeroed::<MSG>();
+    while start.elapsed() < duration {
+        if PeekMessageW(&mut msg, HWND::default(), 0, 0, PM_REMOVE).into() {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        } else {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+}
+
 unsafe fn list_known_folder_folders_inner(
     folder_id: &GUID,
 ) -> anyhow::Result<Vec<ShellFolderEntry>> {
@@ -93,7 +120,7 @@ unsafe fn list_known_folder_folders_inner(
     let shell_folder: IShellFolder = desktop.BindToObject(folder_pidl, None)?;
 
     let mut entries = Vec::new();
-    for pidl in enum_folder_pidls(&shell_folder)? {
+    for pidl in enum_folder_pidls(&shell_folder, false)? {
         if !is_folder_item(&shell_folder, pidl) {
             ILFree(Some(pidl));
             continue;
@@ -259,6 +286,141 @@ pub fn list_wsl_distro_roots() -> Vec<ShellFolderEntry> {
     }
 
     tracing::info!(target: "wsl", "no WSL distros found");
+    Vec::new()
+}
+
+/// Enumerate network computers from the Shell Network virtual folder.
+#[cfg(windows)]
+pub fn list_network_computers() -> Vec<ShellFolderEntry> {
+    let entries = unsafe { list_network_computers_inner(false) };
+    tracing::info!(target: "network", count = entries.len(), "found network computers");
+    entries
+}
+
+#[cfg(windows)]
+unsafe fn list_network_computers_inner(enable_async: bool) -> Vec<ShellFolderEntry> {
+    let guid_wide: Vec<u16> = r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+        .encode_utf16()
+        .chain([0])
+        .collect();
+    let mut pidl: *mut ITEMIDLIST = std::ptr::null_mut();
+    if SHParseDisplayName(PCWSTR(guid_wide.as_ptr()), None, &mut pidl, 0, None).is_err() {
+        return Vec::new();
+    }
+    if pidl.is_null() {
+        return Vec::new();
+    }
+
+    let desktop: IShellFolder = match SHGetDesktopFolder() {
+        Ok(d) => d,
+        Err(_) => {
+            ILFree(Some(pidl));
+            return Vec::new();
+        }
+    };
+    let shell_folder: IShellFolder = match desktop.BindToObject(pidl, None) {
+        Ok(f) => f,
+        Err(_) => {
+            ILFree(Some(pidl));
+            return Vec::new();
+        }
+    };
+
+    let pidls = match enum_folder_pidls(&shell_folder, enable_async) {
+        Ok(p) => p,
+        Err(_) => {
+            ILFree(Some(pidl));
+            return Vec::new();
+        }
+    };
+
+    let mut entries = Vec::new();
+    for child_pidl in pidls {
+        let display_name = display_name_of(&shell_folder, child_pidl, SHGDN_INFOLDER).unwrap_or_default();
+        let parsing = display_name_of(&shell_folder, child_pidl, SHGDN_FORPARSING).unwrap_or_default();
+        if parsing.is_empty() {
+            ILFree(Some(child_pidl));
+            continue;
+        }
+        entries.push(ShellFolderEntry {
+            display_name,
+            path: PathBuf::from(&parsing),
+        });
+        ILFree(Some(child_pidl));
+    }
+
+    ILFree(Some(pidl));
+    entries
+}
+
+/// Enumerate shares inside a network computer (e.g. \\COMPUTERNAME).
+#[cfg(windows)]
+pub fn list_network_shares(path: &std::path::Path) -> Vec<ShellFolderEntry> {
+    let entries = unsafe { list_network_shares_inner(path) };
+    tracing::info!(target: "network", path = %path.display(), count = entries.len(), "found network shares");
+    entries
+}
+
+#[cfg(windows)]
+unsafe fn list_network_shares_inner(path: &std::path::Path) -> Vec<ShellFolderEntry> {
+    let path_wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+    let mut pidl: *mut ITEMIDLIST = std::ptr::null_mut();
+    if SHParseDisplayName(PCWSTR(path_wide.as_ptr()), None, &mut pidl, 0, None).is_err() {
+        return Vec::new();
+    }
+    if pidl.is_null() {
+        return Vec::new();
+    }
+
+    let desktop: IShellFolder = match SHGetDesktopFolder() {
+        Ok(d) => d,
+        Err(_) => {
+            ILFree(Some(pidl));
+            return Vec::new();
+        }
+    };
+    let shell_folder: IShellFolder = match desktop.BindToObject(pidl, None) {
+        Ok(f) => f,
+        Err(_) => {
+            ILFree(Some(pidl));
+            return Vec::new();
+        }
+    };
+
+    let pidls = match enum_folder_pidls(&shell_folder, true) {
+        Ok(p) => p,
+        Err(_) => {
+            ILFree(Some(pidl));
+            return Vec::new();
+        }
+    };
+
+    let mut entries = Vec::new();
+    for child_pidl in pidls {
+        let display_name = display_name_of(&shell_folder, child_pidl, SHGDN_INFOLDER).unwrap_or_default();
+        let parsing = display_name_of(&shell_folder, child_pidl, SHGDN_FORPARSING).unwrap_or_default();
+        if parsing.is_empty() {
+            ILFree(Some(child_pidl));
+            continue;
+        }
+        entries.push(ShellFolderEntry {
+            display_name,
+            path: std::path::PathBuf::from(&parsing),
+        });
+        ILFree(Some(child_pidl));
+    }
+
+    ILFree(Some(pidl));
+    entries
+}
+
+#[cfg(not(windows))]
+pub fn list_network_computers() -> Vec<ShellFolderEntry> {
+    Vec::new()
+}
+
+#[cfg(not(windows))]
+pub fn list_network_shares(_path: &std::path::Path) -> Vec<ShellFolderEntry> {
     Vec::new()
 }
 
