@@ -1,7 +1,7 @@
 //! Paint shaped lines, selections, carets, and gutter.
 
 use gpui::{
-    fill, point, px, App, Bounds, CursorStyle, Element, ElementInputHandler, GlobalElementId, Pixels,
+    fill, point, App, Bounds, CursorStyle, Element, ElementInputHandler, GlobalElementId, Pixels,
     Window,
 };
 
@@ -46,20 +46,11 @@ pub(crate) fn paint(
         );
 
         // Clip the (horizontally scrollable) text + selections so they never
-        // bleed over the fixed line-number gutter, the vertical scrollbar, or
-        // the markdown preview panel when visible.
-        let preview_width = {
-            let editor = canvas.editor.read(cx);
-            if editor.show_preview {
-                editor.preview_width
-            } else {
-                px(0.0)
-            }
-        };
+        // bleed over the fixed line-number gutter or the vertical scrollbar.
         let content_mask = gpui::ContentMask {
             bounds: Bounds::from_corners(
                 point(bounds.left() + gutter_width, bounds.top()),
-                point(bounds.right() - preview_width, bounds.bottom() - bottom_inset),
+                point(bounds.right(), bounds.bottom() - bottom_inset),
             ),
         };
         window.with_content_mask(Some(content_mask), |window| {

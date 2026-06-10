@@ -199,6 +199,12 @@ impl Render for EngineEditor {
                         .flex_1()
                         .h_full()
                         .bg(cx.theme().background)
+                        .on_action(cx.listener(|this, _: &ToggleMarkdownPreview, _w, cx| {
+                            this.toggle_markdown_preview(cx)
+                        }))
+                        .on_action(cx.listener(|this, _: &ToggleFullMarkdownPreview, _w, cx| {
+                            this.toggle_full_markdown_preview(cx)
+                        }))
                         .child(gpui_component::text::TextView::new(preview_state).scrollable(true).size_full()),
                 );
             } else {

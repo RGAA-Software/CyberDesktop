@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use editor_text_engine::{Document, FoldRange, SyntaxState};
-use gpui::{prelude::*, px, App, Bounds, Context, Empty, Entity, FocusHandle, IntoElement, Pixels, Point, Render, ScrollHandle, Size, Window};
+use gpui::{px, App, AppContext, Bounds, Context, Empty, Entity, FocusHandle, IntoElement, Pixels, Point, Render, ScrollHandle, Size, Window};
+use app_ui::{ToggleMarkdownPreview, ToggleFullMarkdownPreview};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct PreviewResizeDrag;
@@ -227,6 +228,20 @@ impl EngineEditor {
             resizing_preview: false,
             content_bounds: None,
         };
+        let weak = cx.weak_entity();
+        let app: &mut App = cx;
+        app.on_action(move |_: &ToggleMarkdownPreview, cx| {
+            weak.update(cx, |this, cx| {
+                this.toggle_markdown_preview(cx);
+            }).ok();
+        });
+        let weak = cx.weak_entity();
+        let app: &mut App = cx;
+        app.on_action(move |_: &ToggleFullMarkdownPreview, cx| {
+            weak.update(cx, |this, cx| {
+                this.toggle_full_markdown_preview(cx);
+            }).ok();
+        });
         editor.rebuild_display_lines();
         editor
     }
