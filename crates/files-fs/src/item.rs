@@ -33,6 +33,10 @@ pub struct FileItem {
     pub is_symlink: bool,
     /// Tags assigned in config (not persisted on disk).
     pub tags: Vec<TagRef>,
+    /// Network category (only set for items in the Shell Network virtual folder).
+    pub network_category: Option<String>,
+    /// Localized group title for the network category (System.ItemTypeText when available).
+    pub network_category_label: Option<String>,
 }
 
 impl FileItem {
@@ -79,6 +83,8 @@ impl FileItem {
             is_readonly: metadata.permissions().readonly(),
             is_symlink,
             tags: Vec::new(),
+            network_category: None,
+            network_category_label: None,
         })
     }
 

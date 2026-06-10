@@ -78,6 +78,24 @@ pub fn is_wsl_path(path: &Path) -> bool {
     lower.starts_with(r"\\wsl$\") || lower.starts_with(r"\\wsl.localhost\")
 }
 
+/// True when `path` points at a network computer root such as `\\COMPUTER`
+/// or `\\?\UNC\COMPUTER` (as opposed to a share like `\\COMPUTER\SHARE`).
+#[cfg(windows)]
+pub fn is_network_computer_root(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    let stripped = s.strip_prefix(r"\\?\UNC\").unwrap_or(&s);
+    if !stripped.starts_with(r"\\") {
+        return false;
+    }
+    let after_server = &stripped[2..];
+    !after_server.contains('\\') && !after_server.is_empty()
+}
+
+#[cfg(not(windows))]
+pub fn is_network_computer_root(_path: &Path) -> bool {
+    false
+}
+
 /// True when any source path shares a drive/share root with `destination` (Files `AreItemsInSameDrive`).
 pub fn are_paths_on_same_drive(source_paths: &[PathBuf], destination: &Path) -> bool {
     let Some(dest_root) = path_drive_root(destination) else {

@@ -79,7 +79,7 @@ pub use sevenzip::{bundled_dll_path, extract_in_process, SevenZipExtractError};
 pub use shell::{
     clear_shell_menu_session, format_shell_menu_label, invoke_shell_context_menu_item,
     invoke_shell_properties, load_lazy_submenu, open_in_new_explorer_window, open_item_properties,
-    query_shell_context_menu_items, show_open_with_dialog, show_open_with_dialog_blocking,
+    query_shell_context_menu_items, shell_execute_open, show_open_with_dialog, show_open_with_dialog_blocking,
     show_shell_context_menu,
     warm_up_query_context_menu, ShellContextMenuEntry,
 };
@@ -87,7 +87,7 @@ pub use shell::{
 #[cfg(windows)]
 pub use shell_folder::{
     list_cloud_drive_roots, list_known_folder_folders, list_network_computers,
-    list_network_shares, list_wsl_distro_roots, wsl_installed, ShellFolderEntry,
+    list_network_shares, list_wsl_distro_roots, wsl_installed, NetworkItemCategory, ShellFolderEntry,
     FOLDERID_LIBRARIES, FOLDERID_NETWORK,
 };
 #[cfg(windows)]
@@ -271,13 +271,29 @@ mod stubs {
         Ok(Vec::new())
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum NetworkItemCategory {
+        Computer,
+        MediaDevice,
+        Printer,
+        OtherDevice,
+        Infrastructure,
+        Unknown,
+    }
+
     #[derive(Debug, Clone)]
     pub struct ShellFolderEntry {
         pub display_name: String,
         pub path: PathBuf,
+        pub category: NetworkItemCategory,
+        pub item_type_text: Option<String>,
     }
 
     pub fn open_item_properties(_path: &Path) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    pub fn shell_execute_open(_path: &Path) -> anyhow::Result<()> {
         Ok(())
     }
 

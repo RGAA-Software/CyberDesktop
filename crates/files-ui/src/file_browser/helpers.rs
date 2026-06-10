@@ -3,6 +3,7 @@ use crate::app_state::AppFileClipboard;
 use crate::exe_icon_cache;
 use crate::file_type_icon_colors;
 use crate::file_type_icons;
+use files_fs::is_network_computer_root;
 /// Opacity for items cut to the in-app clipboard but not pasted yet (Files `DimItemOpacity`).
 pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
 
@@ -17,10 +18,7 @@ fn file_type_tile_colors(item: &FileItem, cx: &App) -> (Hsla, Hsla) {
 
 fn embedded_exe_tile_colors(cx: &App) -> (Hsla, Hsla) {
     if cx.theme().mode.is_dark() {
-        (
-            cx.theme().muted.opacity(0.32),
-            cx.theme().muted_foreground,
-        )
+        (cx.theme().muted.opacity(0.32), cx.theme().muted_foreground)
     } else {
         (cx.theme().secondary, cx.theme().muted_foreground)
     }
@@ -30,12 +28,11 @@ pub(super) fn path_is_cut_pending(path: &Path, cx: &App) -> bool {
     let Some(clipboard) = AppFileClipboard::peek(cx) else {
         return false;
     };
-    clipboard.operation == ClipboardOperation::Cut
-        && clipboard.paths.iter().any(|p| p == path)
+    clipboard.operation == ClipboardOperation::Cut && clipboard.paths.iter().any(|p| p == path)
 }
 
 impl FileBrowser {
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub(super) fn file_item_kind_icon(kind: FileItemKind) -> AnyElement {
         match kind {
             FileItemKind::Folder => toolbar_tabler(tabler_icons::FOLDER).into_any_element(),
@@ -53,20 +50,42 @@ impl FileBrowser {
         window: &Window,
     ) -> (AnyElement, bool) {
         #[cfg(windows)]
-        if exe_icon_cache::is_exe_item(item) {
+        {
             let size_px =
                 platform::shell_icon_pixel_size(logical_size.as_f32(), window.scale_factor());
-            if let Some(png) = exe_icon_cache::cached_png(&item.path, size_px) {
-                return (
-                    img(std::sync::Arc::new(Image::from_bytes(
-                        ImageFormat::Png,
-                        (*png).clone(),
-                    )))
-                    .size(logical_size)
-                    .object_fit(ObjectFit::Contain)
-                    .into_any_element(),
-                    true,
-                );
+
+            // 1. Embedded `.exe` icon.
+            if exe_icon_cache::is_exe_item(item) {
+                if let Some(png) = exe_icon_cache::cached_png(&item.path, size_px) {
+                    return (
+                        img(std::sync::Arc::new(Image::from_bytes(
+                            ImageFormat::Png,
+                            (*png).clone(),
+                        )))
+                        .size(logical_size)
+                        .object_fit(ObjectFit::Contain)
+                        .into_any_element(),
+                        true,
+                    );
+                }
+            }
+
+            // 2. Network virtual-folder items (Media Devices, Printers, etc.) — colorful Shell icons.
+            if item.network_category.is_some() {
+                if let Some(png) = platform::shell_icon_png_from_cache(&item.path, size_px)
+                    .filter(|p| !p.is_empty())
+                {
+                    return (
+                        img(std::sync::Arc::new(Image::from_bytes(
+                            ImageFormat::Png,
+                            png,
+                        )))
+                        .size(logical_size)
+                        .object_fit(ObjectFit::Contain)
+                        .into_any_element(),
+                        true,
+                    );
+                }
             }
         }
         (
@@ -85,7 +104,7 @@ impl FileBrowser {
         )
     }
 
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub(super) fn row_list_icon_tile(
         item: &FileItem,
         icon: AnyElement,
@@ -173,7 +192,8 @@ impl FileBrowser {
             .child(row)
     }
 
-    /// After directory refresh: extract embedded icons for visible `.exe` files (cached).
+    /// After directory refresh: extract embedded icons for visible `.exe` files and
+    /// network virtual-folder items (cached).
     pub(super) fn schedule_list_icon_warm(&mut self, window: &Window, cx: &mut Context<Self>) {
         if self.list_icon_warm_scheduled == self.list_icon_warm_token {
             return;
@@ -181,13 +201,19 @@ impl FileBrowser {
         self.list_icon_warm_scheduled = self.list_icon_warm_token;
         #[cfg(windows)]
         {
-            let paths = self
+            let exe_paths: Vec<_> = self
                 .display_items
                 .iter()
                 .filter(|item| exe_icon_cache::is_exe_item(item))
                 .map(|item| item.path.clone())
-                .collect::<Vec<_>>();
-            if paths.is_empty() {
+                .collect();
+            let network_paths: Vec<_> = self
+                .display_items
+                .iter()
+                .filter(|item| item.network_category.is_some())
+                .map(|item| item.path.clone())
+                .collect();
+            if exe_paths.is_empty() && network_paths.is_empty() {
                 return;
             }
             let size_px = platform::shell_icon_pixel_size(
@@ -195,9 +221,20 @@ impl FileBrowser {
                 window.scale_factor(),
             );
             cx.spawn(async move |this, cx| {
-                let _ = cx
-                    .background_spawn(async move { exe_icon_cache::warm_exe_icons(paths, size_px) })
-                    .await;
+                if !exe_paths.is_empty() {
+                    let _ = cx
+                        .background_spawn(async move { exe_icon_cache::warm_exe_icons(exe_paths, size_px) })
+                        .await;
+                }
+                if !network_paths.is_empty() {
+                    let _ = cx
+                        .background_spawn(async move {
+                            for path in network_paths {
+                                let _ = platform::shell_icon_png(&path, size_px);
+                            }
+                        })
+                        .await;
+                }
                 let _ = this.update(cx, |_, cx| cx.notify());
             })
             .detach();
@@ -470,8 +507,7 @@ pub(crate) fn build_sort_prefs_menu(
         Box::new(GroupByTag),
         grouping_available,
     );
-    menu
-        .separator()
+    menu.separator()
         .menu_with_check_icon(
             t!("files.show_hidden.items"),
             menu_icon(if show_hidden {
@@ -680,8 +716,7 @@ pub(crate) fn build_sort_prefs_toolbar_menu(
         Box::new(GroupByTag),
         grouping_available,
     );
-    menu
-        .separator()
+    menu.separator()
         .menu_with_check(
             t!("files.show_hidden.items"),
             show_hidden,
@@ -751,33 +786,14 @@ pub(super) fn load_files_dir(
     }
     #[cfg(windows)]
     if is_network_computer_root(path) {
-        let shares = app_platform_windows::list_network_shares(path);
-        let mut items = Vec::new();
-        for entry in shares {
-            if let Ok(item) = FileItem::from_path(entry.path, options) {
-                items.push(item);
-            }
-        }
-        sort_items(&mut items, sort);
-        return (items, None);
+        // Shares for a network computer are enumerated asynchronously by the
+        // FileBrowser render loop so the UI thread isn't blocked by slow PCs.
+        return (Vec::new(), None);
     }
     match read_directory(path, options, sort) {
         Ok(items) => (items, None),
         Err(error) => (Vec::new(), Some(error.to_string())),
     }
-}
-
-#[cfg(windows)]
-fn is_network_computer_root(path: &Path) -> bool {
-    let s = path.to_string_lossy();
-    // \\COMPUTERNAME  or  \\?\UNC\COMPUTERNAME
-    let stripped = s.strip_prefix(r"\\?\UNC\").unwrap_or(&s);
-    if !stripped.starts_with(r"\\") {
-        return false;
-    }
-    let after_server = &stripped[2..];
-    // Must be exactly one backslash-separated component (the computer name)
-    !after_server.contains('\\') && !after_server.is_empty()
 }
 
 /// Shell virtual folder path (e.g. Network Places ::{F02C1A0D...})
@@ -1131,9 +1147,7 @@ pub(super) fn open_with_cybereditor(path: &Path) -> anyhow::Result<()> {
     let Some(editor) = resolve_cybereditor_exe() else {
         return open_with_system(path);
     };
-    std::process::Command::new(&editor)
-        .arg(path)
-        .spawn()?;
+    std::process::Command::new(&editor).arg(path).spawn()?;
     Ok(())
 }
 
@@ -1152,9 +1166,7 @@ pub(super) fn open_with_cybermediaplayer(path: &Path) -> anyhow::Result<()> {
     let Some(player) = resolve_cybermediaplayer_exe() else {
         return open_with_system(path);
     };
-    std::process::Command::new(&player)
-        .arg(path)
-        .spawn()?;
+    std::process::Command::new(&player).arg(path).spawn()?;
     Ok(())
 }
 

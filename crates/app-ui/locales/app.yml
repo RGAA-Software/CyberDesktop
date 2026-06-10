@@ -135,6 +135,34 @@ files.open.file:
   en: Open file
   zh-CN: 打开文件
   zh-HK: 開啟檔案
+files.network.loading:
+  en: Loading network locations…
+  zh-CN: 正在加载网络位置…
+  zh-HK: 正在載入網路位置…
+network.category.computer:
+  en: Computers
+  zh-CN: 计算机
+  zh-HK: 電腦
+network.category.media_device:
+  en: Media Devices
+  zh-CN: 媒体设备
+  zh-HK: 媒體裝置
+network.category.printer:
+  en: Printers
+  zh-CN: 打印机
+  zh-HK: 印表機
+network.category.other_device:
+  en: Other Devices
+  zh-CN: 其他设备
+  zh-HK: 其他裝置
+network.category.infrastructure:
+  en: Network Infrastructure
+  zh-CN: 网络基础架构
+  zh-HK: 網路基礎架構
+network.category.unknown:
+  en: Unknown
+  zh-CN: 未知
+  zh-HK: 未知
 sidebar.workspace:
   en: Workspace
   zh-CN: 工作区

@@ -103,5 +103,7 @@ fn file_item_from_recycle_entry(
         is_readonly: false,
         is_symlink: false,
         tags: Vec::new(),
+        network_category: None,
+        network_category_label: None,
     }
 }

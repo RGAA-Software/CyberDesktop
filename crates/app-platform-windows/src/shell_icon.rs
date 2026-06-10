@@ -15,10 +15,10 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
 use windows::Win32::UI::Controls::{IImageList, ILD_TRANSPARENT};
 use windows::Win32::UI::Shell::{
-    ExtractIconExW, IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SHGetFileInfoW,
-    SHGetImageList, SHFILEINFOW, SHGFI_SYSICONINDEX, SHGFI_USEFILEATTRIBUTES, SHIL_EXTRALARGE,
-    SHIL_JUMBO, SHIL_LARGE, SHIL_SMALL, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY, SIIGBF_SCALEUP,
-    SIIGBF_THUMBNAILONLY,
+    ExtractIconExW, ILFree, IShellItem, IShellItemImageFactory, SHCreateItemFromIDList,
+    SHCreateItemFromParsingName, SHParseDisplayName, SHGetFileInfoW, SHGetImageList, SHFILEINFOW,
+    SHGFI_SYSICONINDEX, SHGFI_USEFILEATTRIBUTES, SHIL_EXTRALARGE, SHIL_JUMBO, SHIL_LARGE,
+    SHIL_SMALL, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY, SIIGBF_SCALEUP, SIIGBF_THUMBNAILONLY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO};
 
@@ -203,7 +203,21 @@ unsafe fn shell_icon_png_inner(
 ) -> anyhow::Result<Vec<u8>> {
     let parsing = shell_icon_parsing_path(path);
     let wide = path_to_wide(&parsing);
-    let item: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)?;
+
+    // Try SHCreateItemFromParsingName first (fastest for filesystem paths).
+    let item: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)
+        .or_else(|_| {
+            // Fallback for virtual-folder parsing paths (e.g. `{GUID}\{GUID}`).
+            let mut pidl: *mut windows::Win32::UI::Shell::Common::ITEMIDLIST = std::ptr::null_mut();
+            SHParseDisplayName(PCWSTR(wide.as_ptr()), None, &mut pidl, 0, None)?;
+            if pidl.is_null() {
+                anyhow::bail!("SHParseDisplayName returned null PIDL");
+            }
+            let item: IShellItem = SHCreateItemFromIDList(pidl)?;
+            ILFree(Some(pidl));
+            Ok(item)
+        })?;
+
     let factory: IShellItemImageFactory = item.cast()?;
     let hbitmap = factory.GetImage(
         SIZE {

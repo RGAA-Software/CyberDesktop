@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::OnceLock;
 
-use files_fs::FileItemKind;
+use files_fs::{is_network_computer_root, FileItemKind};
 
 use crate::tabler_icons;
 
@@ -614,6 +614,13 @@ pub fn svg_path_for_path(path: &Path) -> &'static str {
         let s = path.to_string_lossy();
         if s.len() == 3 && s.as_bytes()[1] == b':' && s.as_bytes()[2] == b'\\' {
             return crate::icons::drive_tabler_icon(path);
+        }
+        if is_network_computer_root(path) {
+            return tabler_icons::DEVICE_DESKTOP;
+        }
+        // Media devices / printers / other Shell items under the Network virtual folder.
+        if s.contains("F02C1A0D-BE21-4350-88B0-7367FC96EF3C") {
+            return tabler_icons::SERVER;
         }
     }
     if path.is_dir() {

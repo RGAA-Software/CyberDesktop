@@ -45,7 +45,7 @@ use files_fs::{
     FileClipboard, FileItem, FileItemKind, FileOperation, GroupByDateUnit, GroupOption, SortDirection, SortOption, SortPreferences,
 };
 #[cfg(windows)]
-use app_platform_windows::list_network_computers;
+use app_platform_windows::{list_network_computers, list_network_shares};
 use app_platform_windows::{self as platform, ShellContextMenuEntry};
 use gpui::{
     actions, anchored, deferred, prelude::*, ClickEvent, ClipboardItem, DismissEvent, Entity,
@@ -420,6 +420,7 @@ pub struct FileBrowser {
     /// Task that clears jump_string after a timeout.
     _jump_string_task: Option<Task<()>>,
     _network_load_task: Option<Task<()>>,
+    network_loading: bool,
     /// Cached measured cells-per-row for grid view.
     grid_cells_per_row: Option<usize>,
     /// Cached measured cells-per-row for cards view.
@@ -564,6 +565,7 @@ impl FileBrowser {
             jump_string: String::new(),
             _jump_string_task: None,
             _network_load_task: None,
+            network_loading: false,
             grid_cells_per_row: None,
             cards_cells_per_row: None,
             last_viewport_width: None,

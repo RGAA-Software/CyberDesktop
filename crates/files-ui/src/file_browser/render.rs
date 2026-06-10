@@ -1,9 +1,7 @@
-use super::*;
 use super::helpers::view_supports_grouping;
-use gpui_component::{
-    button::Button,
-    Icon,
-};
+use super::*;
+use files_fs::is_network_computer_root;
+use gpui_component::{button::Button, spinner::Spinner, Icon};
 
 const ACTION_BAR_HEIGHT: Pixels = px(48.);
 
@@ -43,6 +41,41 @@ impl FileBrowser {
             )
             .child(
                 Label::new(t!("file_tag.empty"))
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground),
+            )
+    }
+
+    fn render_network_loading_state(&self, cx: &App) -> impl IntoElement {
+        v_flex()
+            .id("network-loading")
+            .size_full()
+            .items_center()
+            .justify_center()
+            .gap_3()
+            .child(Spinner::new().small().color(cx.theme().muted_foreground))
+            .child(
+                Label::new(t!("files.network.loading"))
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground),
+            )
+    }
+
+    fn render_network_empty_state(&self, cx: &App) -> impl IntoElement {
+        v_flex()
+            .id("network-empty")
+            .size_full()
+            .items_center()
+            .justify_center()
+            .gap_3()
+            .child(
+                div()
+                    .text_color(cx.theme().muted_foreground)
+                    .opacity(0.55)
+                    .child(toolbar_tabler(tabler_icons::DEVICE_DESKTOP)),
+            )
+            .child(
+                Label::new(t!("home.widget.network.empty"))
                     .text_sm()
                     .text_color(cx.theme().muted_foreground),
             )
@@ -280,27 +313,77 @@ impl Render for FileBrowser {
             self.restart_directory_watcher(cx);
         }
         #[cfg(windows)]
-        if is_shell_virtual_folder(&self.current_dir)
-            && self._network_load_task.is_none()
-            && self.items.is_empty()
-        {
+        let current_dir_str = self.current_dir.to_string_lossy().to_string();
+        #[cfg(windows)]
+        let is_network_root = current_dir_str == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}";
+        #[cfg(windows)]
+        let needs_network_load = is_network_root || is_network_computer_root(&self.current_dir);
+        #[cfg(not(windows))]
+        let needs_network_load = false;
+        #[cfg(windows)]
+        if needs_network_load && self._network_load_task.is_none() && self.items.is_empty() {
+            self.network_loading = true;
             let read_options = self.read_options;
+            let current_dir = self.current_dir.clone();
+            let loading_computers = is_network_root;
             self._network_load_task = Some(cx.spawn(async move |browser, cx| {
-                let entries = cx
-                    .background_spawn(async move { list_network_computers() })
-                    .await;
+                tracing::info!(target: "network", path = %current_dir.display(), "starting network load");
+                let entries = if loading_computers {
+                    cx.background_spawn(async move {
+                        tracing::info!(target: "network", "enumerating network computers");
+                        let entries = list_network_computers();
+                        tracing::info!(target: "network", count = entries.len(), "network computers enumerated");
+                        entries
+                    })
+                    .await
+                } else {
+                    cx.background_spawn(async move {
+                        tracing::info!(target: "network", path = %current_dir.display(), "enumerating network shares");
+                        let entries = list_network_shares(&current_dir);
+                        tracing::info!(target: "network", path = %current_dir.display(), count = entries.len(), "network shares enumerated");
+                        entries
+                    })
+                    .await
+                };
                 let _ = browser.update(cx, |browser, _cx| {
+                    browser.network_loading = false;
                     let mut items = Vec::new();
+                    tracing::info!(target: "network", count = entries.len(), "building file items");
                     for entry in entries {
-                        if let Ok(item) = FileItem::from_path(entry.path, read_options) {
-                            items.push(item);
-                        }
+                        let mut item = FileItem::from_path(entry.path.clone(), read_options)
+                            .unwrap_or_else(|_| FileItem {
+                                path: entry.path.clone(),
+                                name_raw: entry.display_name.clone(),
+                                display_name: entry.display_name,
+                                extension: None,
+                                kind: FileItemKind::Folder,
+                                size: None,
+                                created: None,
+                                modified: None,
+                                accessed: None,
+                                is_hidden: false,
+                                is_system: false,
+                                is_readonly: false,
+                                is_symlink: false,
+                                tags: Vec::new(),
+                                network_category: None,
+                                network_category_label: None,
+                            });
+                        item.network_category = Some(entry.category.label().to_string());
+                        item.network_category_label = Some(
+                            entry
+                                .item_type_text
+                                .clone()
+                                .unwrap_or_else(|| t!(entry.category.label()).to_string()),
+                        );
+                        items.push(item);
                     }
                     sort_items(&mut items, browser.sort_preferences);
                     browser.items = items;
                     browser.apply_filter();
                     browser.reconcile_selection();
                     browser.clamp_focused_index();
+                    tracing::info!(target: "network", display_count = browser.display_items.len(), "network load complete");
                 });
             }));
         }
@@ -325,12 +408,13 @@ impl Render for FileBrowser {
         let group_date_unit = self.group_date_unit;
         let grouping_available = view_supports_grouping(self.view_mode);
         let in_recycle_bin = self.browse_location == BrowseLocation::RecycleBin;
-        let in_search_results = matches!(self.browse_location, BrowseLocation::SearchResults { .. });
-        let recycle_item_count = if in_recycle_bin {
-            self.items.len()
-        } else {
-            0
-        };
+        let in_search_results =
+            matches!(self.browse_location, BrowseLocation::SearchResults { .. });
+        let recycle_item_count = if in_recycle_bin { self.items.len() } else { 0 };
+        let show_network_loading =
+            needs_network_load && self.network_loading && self.items.is_empty();
+        let show_network_empty =
+            needs_network_load && !self.network_loading && self.items.is_empty();
 
         let page_gap = if self.show_content_toolbar && !self.show_toolbar {
             px(0.)
@@ -764,11 +848,20 @@ impl Render for FileBrowser {
                     .when(self.file_tag_is_empty(), |this| {
                         this.child(self.render_file_tag_empty_state(cx))
                     })
-                    .when(!self.file_tag_is_empty(), |this| {
-                        this.child(self.file_list(window, cx))
-                            .when_some(self.render_main_sweep_overlay(cx), |this, overlay| {
-                                this.child(overlay)
-                            })
+                    .when(
+                        !self.file_tag_is_empty() && !show_network_loading && !show_network_empty,
+                        |this| {
+                            this.child(self.file_list(window, cx))
+                                .when_some(self.render_main_sweep_overlay(cx), |this, overlay| {
+                                    this.child(overlay)
+                                })
+                        },
+                    )
+                    .when(show_network_loading, |this| {
+                        this.child(self.render_network_loading_state(cx))
+                    })
+                    .when(show_network_empty, |this| {
+                        this.child(self.render_network_empty_state(cx))
                     }),
             )
             .when(self.context_menu_open, |this| {

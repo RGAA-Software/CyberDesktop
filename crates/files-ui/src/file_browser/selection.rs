@@ -123,7 +123,8 @@ impl FileBrowser {
                     self.sort_preferences,
                     &self.search_query,
                 );
-                self.column_scroll_handles.truncate(self.column_listings.len());
+                self.column_scroll_handles
+                    .truncate(self.column_listings.len());
             }
         }
     }
@@ -210,20 +211,47 @@ impl FileBrowser {
             }
             return;
         }
+
+        // Look up the full item so we can check network_category for virtual folder items.
+        let network_category = self
+            .items
+            .iter()
+            .find(|item| item.path == path)
+            .and_then(|item| item.network_category.as_deref());
+
         match kind {
             FileItemKind::Folder => {
                 if matches!(self.browse_location, BrowseLocation::FileTag { .. }) {
                     AppNavigation::navigate_to_path(path, cx);
                     return;
                 }
+                // Network items: computers navigate internally, everything else uses ShellExecute
+                // so Windows invokes the correct default handler.
+                if let Some(cat) = network_category {
+                    if cat == "network.category.computer" {
+                        self.navigate_to(path, cx);
+                    } else {
+                        if let Err(error) = platform::shell_execute_open(&path) {
+                            self.error = Some(error.to_string());
+                        }
+                    }
+                    return;
+                }
                 self.navigate_to(path, cx);
             }
             FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
+                // Network virtual-folder items: let Windows invoke the correct default handler.
+                if network_category.is_some() {
+                    if let Err(error) = platform::shell_execute_open(&path) {
+                        self.error = Some(error.to_string());
+                    }
+                    return;
+                }
                 let use_cybereditor = files_core::open_text_with_cybereditor_enabled()
                     && editor_text_engine::is_cybereditor_openable(&path)
                     && !is_executable_or_script_path(&path);
-                let use_cybermediaplayer = files_core::open_media_with_cybermediaplayer_enabled()
-                    && is_media_file(&path);
+                let use_cybermediaplayer =
+                    files_core::open_media_with_cybermediaplayer_enabled() && is_media_file(&path);
                 let result = if use_cybereditor {
                     open_with_cybereditor(&path)
                 } else if use_cybermediaplayer {
@@ -321,8 +349,7 @@ impl FileBrowser {
             .unwrap_or(0);
 
         let new_index = (current_index as isize + delta)
-            .clamp(0, items.len().saturating_sub(1) as isize)
-            as usize;
+            .clamp(0, items.len().saturating_sub(1) as isize) as usize;
 
         let item = &items[new_index];
         self.selected_paths.clear();
@@ -439,8 +466,7 @@ impl FileBrowser {
     }
 
     pub fn primary_selected_item(&self) -> Option<&FileItem> {
-        if self.view_mode == ViewMode::Columns
-            && self.browse_location == BrowseLocation::Directory
+        if self.view_mode == ViewMode::Columns && self.browse_location == BrowseLocation::Directory
         {
             if let Some((selected_col, selected_path)) = self.column_selected_path.as_ref() {
                 if let Some(items) = self.column_listings.get(*selected_col) {
@@ -488,8 +514,7 @@ impl FileBrowser {
             return self.selected_paths.iter().cloned().collect();
         }
 
-        if self.view_mode == ViewMode::Columns
-            && self.browse_location == BrowseLocation::Directory
+        if self.view_mode == ViewMode::Columns && self.browse_location == BrowseLocation::Directory
         {
             return self.primary_path().into_iter().collect();
         }
@@ -526,7 +551,11 @@ impl FileBrowser {
                 let col_index = self
                     .active_column_index
                     .unwrap_or_else(|| self.column_listings.len().saturating_sub(1));
-                let items = self.column_listings.get(col_index).cloned().unwrap_or_default();
+                let items = self
+                    .column_listings
+                    .get(col_index)
+                    .cloned()
+                    .unwrap_or_default();
                 let current = self
                     .column_selected_path
                     .as_ref()
@@ -555,11 +584,7 @@ impl FileBrowser {
                 .iter()
                 .enumerate()
                 .skip(current + 1)
-                .find(|(_, item)| {
-                    item.display_name
-                        .to_lowercase()
-                        .starts_with(search)
-                })
+                .find(|(_, item)| item.display_name.to_lowercase().starts_with(search))
                 .map(|(i, _)| i);
             if let Some(idx) = after {
                 Some(idx)
@@ -567,22 +592,14 @@ impl FileBrowser {
                 items
                     .iter()
                     .enumerate()
-                    .find(|(_, item)| {
-                        item.display_name
-                            .to_lowercase()
-                        .starts_with(search)
-                    })
+                    .find(|(_, item)| item.display_name.to_lowercase().starts_with(search))
                     .map(|(i, _)| i)
             }
         } else {
             items
                 .iter()
                 .enumerate()
-                .find(|(_, item)| {
-                    item.display_name
-                        .to_lowercase()
-                        .starts_with(search)
-                })
+                .find(|(_, item)| item.display_name.to_lowercase().starts_with(search))
                 .map(|(i, _)| i)
         };
 
