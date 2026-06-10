@@ -55,11 +55,7 @@ impl MainPage {
         match pane.target() {
             NavigationTarget::Path(_) => {
                 let path = pane.file_browser().read(cx).current_directory();
-                SharedString::from(
-                    path.file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_else(|| path.to_string_lossy().to_string()),
-                )
+                NavigationTarget::Path(path.to_path_buf()).tab_title()
             }
             target => target.tab_title(),
         }

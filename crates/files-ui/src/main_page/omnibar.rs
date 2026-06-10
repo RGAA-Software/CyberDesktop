@@ -725,7 +725,15 @@ impl MainPage {
                     .read(cx)
                     .current_directory()
                     .clone();
-                path_breadcrumbs(&dir)
+                let dir_str = dir.to_string_lossy();
+                if dir_str == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}" {
+                    vec![PathBreadcrumb {
+                        label: t!("sidebar.network_places").to_string(),
+                        path: dir,
+                    }]
+                } else {
+                    path_breadcrumbs(&dir)
+                }
             }
             NavigationTarget::Home => Vec::new(),
             NavigationTarget::Settings => vec![PathBreadcrumb {

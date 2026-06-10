@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use gpui::SharedString;
+use rust_i18n::t;
 
 /// Where a tab's main content is focused (Files: path string, "Home", settings, etc.).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,11 +26,17 @@ impl NavigationTarget {
             NavigationTarget::SearchResults { query } => {
                 SharedString::from(format!("Search: {query}"))
             }
-            NavigationTarget::Path(path) => SharedString::from(
-                path.file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| path.to_string_lossy().to_string()),
-            ),
+            NavigationTarget::Path(path) => {
+                if path.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}" {
+                    SharedString::from(t!("sidebar.network_places").to_string())
+                } else {
+                    SharedString::from(
+                        path.file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| path.to_string_lossy().to_string()),
+                    )
+                }
+            }
         }
     }
 
@@ -62,18 +69,7 @@ impl NavigationTarget {
 
     /// Title for a closed-tab menu row from its persisted `tab` key.
     pub fn label_for_session_tab(tab_key: &str) -> SharedString {
-        let target = Self::decode_session_tab(tab_key);
-        match &target {
-            NavigationTarget::Path(_) => {
-                let path = PathBuf::from(tab_key);
-                SharedString::from(
-                    path.file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_else(|| path.to_string_lossy().to_string()),
-                )
-            }
-            _ => target.tab_title(),
-        }
+        Self::decode_session_tab(tab_key).tab_title()
     }
 
     pub fn toolbar_path_label(&self) -> String {
@@ -83,7 +79,13 @@ impl NavigationTarget {
             NavigationTarget::Settings => "Settings".to_string(),
             NavigationTarget::FileTag(name) => name.clone(),
             NavigationTarget::SearchResults { query } => query.clone(),
-            NavigationTarget::Path(path) => path.to_string_lossy().to_string(),
+            NavigationTarget::Path(path) => {
+                if path.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}" {
+                    t!("sidebar.network_places").to_string()
+                } else {
+                    path.to_string_lossy().to_string()
+                }
+            }
         }
     }
 }
