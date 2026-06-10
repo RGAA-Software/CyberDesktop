@@ -35,6 +35,8 @@ impl EngineEditor {
         slot.file_meta = self.file_meta;
         slot.disk_changed = self.disk_changed;
         slot.active_folds = std::mem::take(&mut self.active_folds);
+        slot.show_preview = self.show_preview;
+        slot.show_full_preview = self.show_full_preview;
     }
 
     /// Pulls `tabs[index]` into the live fields and makes it active.
@@ -48,6 +50,8 @@ impl EngineEditor {
         self.file_meta = slot.file_meta;
         self.disk_changed = slot.disk_changed;
         self.active_folds = std::mem::take(&mut slot.active_folds);
+        self.show_preview = slot.show_preview;
+        self.show_full_preview = slot.show_full_preview;
         self.line_width_cache.clear();
         self.syntax_parse_inflight = false;
         self.syntax_parse_target_rev = None;
@@ -68,6 +72,13 @@ impl EngineEditor {
         // search and clear stale results.
         self.retarget_search_panel();
         self.sync_markdown_preview(cx);
+        set_view_toggles(
+            self.show_line_numbers,
+            self.soft_wrap,
+            self.show_preview,
+            self.show_full_preview,
+            cx,
+        );
         self.pending_tab_scroll_to_ix = Some(index);
         cx.notify();
     }
@@ -91,6 +102,13 @@ impl EngineEditor {
         self.document.set_caret(0);
         self.retarget_search_panel();
         self.sync_markdown_preview(cx);
+        set_view_toggles(
+            self.show_line_numbers,
+            self.soft_wrap,
+            self.show_preview,
+            self.show_full_preview,
+            cx,
+        );
         self.pending_tab_scroll_to_ix = Some(index);
         cx.notify();
     }
@@ -129,6 +147,13 @@ impl EngineEditor {
             let next = index.min(self.tabs.len() - 1);
             self.activate(next);
             self.sync_markdown_preview(cx);
+            set_view_toggles(
+                self.show_line_numbers,
+                self.soft_wrap,
+                self.show_preview,
+                self.show_full_preview,
+                cx,
+            );
             self.pending_tab_scroll_to_ix = Some(next);
         } else {
             self.tabs.remove(index);

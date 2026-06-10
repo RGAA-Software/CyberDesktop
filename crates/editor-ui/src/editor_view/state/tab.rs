@@ -19,6 +19,10 @@ pub(crate) struct TabSlot {
     /// Set when the file changed on disk since we last loaded/saved it.
     pub(crate) disk_changed: bool,
     pub(crate) active_folds: Vec<FoldRange>,
+    /// Whether markdown preview panel is shown (split mode).
+    pub(crate) show_preview: bool,
+    /// Whether full-page markdown preview is shown (no editor).
+    pub(crate) show_full_preview: bool,
 }
 
 impl TabSlot {
@@ -33,6 +37,8 @@ impl TabSlot {
             file_meta: None,
             disk_changed: false,
             active_folds: Vec::new(),
+            show_preview: false,
+            show_full_preview: false,
         }
     }
 }

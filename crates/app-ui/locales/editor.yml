@@ -139,6 +139,10 @@ editor.menu.markdown_preview:
   en: Markdown Preview
   zh-CN: Markdown 预览
   zh-HK: Markdown 預覽
+editor.menu.full_markdown_preview:
+  en: Full Markdown Preview
+  zh-CN: 全屏 Markdown 预览
+  zh-HK: 全屏 Markdown 預覽
 editor.menu.keyboard_shortcuts:
   en: Keyboard Shortcuts
   zh-CN: 键盘快捷键

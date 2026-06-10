@@ -90,7 +90,13 @@ impl EngineEditor {
 
     pub(crate) fn toggle_line_numbers(&mut self, cx: &mut Context<Self>) {
         self.show_line_numbers = !self.show_line_numbers;
-        set_view_toggles(self.show_line_numbers, self.soft_wrap, cx);
+        set_view_toggles(
+            self.show_line_numbers,
+            self.soft_wrap,
+            self.show_preview,
+            self.show_full_preview,
+            cx,
+        );
         cx.notify();
     }
 
@@ -133,6 +139,13 @@ impl EngineEditor {
                 preview.set_text(&text, cx);
             });
         }
+        set_view_toggles(
+            self.show_line_numbers,
+            self.soft_wrap,
+            self.show_preview,
+            self.show_full_preview,
+            cx,
+        );
         cx.notify();
     }
 
@@ -152,6 +165,13 @@ impl EngineEditor {
                 preview.set_text(&text, cx);
             });
         }
+        set_view_toggles(
+            self.show_line_numbers,
+            self.soft_wrap,
+            self.show_preview,
+            self.show_full_preview,
+            cx,
+        );
         cx.notify();
     }
 

@@ -212,7 +212,13 @@ impl EngineEditor {
         } else {
             self.scroll_y = self.line_height * self.wrap_top_line as f32;
         }
-        set_view_toggles(self.show_line_numbers, self.soft_wrap, cx);
+        set_view_toggles(
+            self.show_line_numbers,
+            self.soft_wrap,
+            self.show_preview,
+            self.show_full_preview,
+            cx,
+        );
         cx.notify();
     }
 

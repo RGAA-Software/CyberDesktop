@@ -203,6 +203,8 @@ impl EngineEditor {
         self.disk_changed = false;
         self.marked_range = None;
         self.active_folds.clear();
+        self.show_preview = false;
+        self.show_full_preview = false;
         self.rebuild_display_lines();
         self.document.set_caret(0);
         self.sync_markdown_preview(cx);

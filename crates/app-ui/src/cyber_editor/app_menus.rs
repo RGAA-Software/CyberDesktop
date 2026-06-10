@@ -16,6 +16,8 @@ struct EditorMenuState {
     menu_bar: Entity<AppMenuBar>,
     line_numbers_checked: bool,
     soft_wrap_checked: bool,
+    markdown_preview_checked: bool,
+    full_markdown_preview_checked: bool,
 }
 
 impl Global for EditorMenuState {}
@@ -30,18 +32,28 @@ pub fn init_editor_menus(cx: &mut App) -> Entity<AppMenuBar> {
         menu_bar: menu_bar.clone(),
         line_numbers_checked: true,
         soft_wrap_checked: false,
+        markdown_preview_checked: false,
+        full_markdown_preview_checked: false,
     });
     reload(cx);
     menu_bar
 }
 
-pub fn set_view_toggles(line_numbers_checked: bool, soft_wrap_checked: bool, cx: &mut App) {
+pub fn set_view_toggles(
+    line_numbers_checked: bool,
+    soft_wrap_checked: bool,
+    markdown_preview_checked: bool,
+    full_markdown_preview_checked: bool,
+    cx: &mut App,
+) {
     if !cx.has_global::<EditorMenuState>() {
         return;
     }
     cx.update_global::<EditorMenuState, _>(|state, _| {
         state.line_numbers_checked = line_numbers_checked;
         state.soft_wrap_checked = soft_wrap_checked;
+        state.markdown_preview_checked = markdown_preview_checked;
+        state.full_markdown_preview_checked = full_markdown_preview_checked;
     });
     reload(cx);
 }
@@ -53,11 +65,23 @@ pub fn reload(cx: &mut App) {
     let menu_bar = cx.global::<EditorMenuState>().menu_bar.clone();
     let line_numbers_checked = cx.global::<EditorMenuState>().line_numbers_checked;
     let soft_wrap_checked = cx.global::<EditorMenuState>().soft_wrap_checked;
-    cx.set_menus(build_menus(line_numbers_checked, soft_wrap_checked));
-    let owned = build_menus(line_numbers_checked, soft_wrap_checked)
-        .into_iter()
-        .map(|menu| menu.owned())
-        .collect();
+    let markdown_preview_checked = cx.global::<EditorMenuState>().markdown_preview_checked;
+    let full_markdown_preview_checked = cx.global::<EditorMenuState>().full_markdown_preview_checked;
+    cx.set_menus(build_menus(
+        line_numbers_checked,
+        soft_wrap_checked,
+        markdown_preview_checked,
+        full_markdown_preview_checked,
+    ));
+    let owned = build_menus(
+        line_numbers_checked,
+        soft_wrap_checked,
+        markdown_preview_checked,
+        full_markdown_preview_checked,
+    )
+    .into_iter()
+    .map(|menu| menu.owned())
+    .collect();
     if cx.has_global::<GlobalState>() {
         GlobalState::global_mut(cx).set_app_menus(owned);
     }
@@ -70,7 +94,12 @@ fn menu_title(label: impl Into<SharedString>, access_key: char) -> SharedString 
     SharedString::from(format!("{}({access_key})", label.as_ref()))
 }
 
-fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu> {
+fn build_menus(
+    line_numbers_checked: bool,
+    soft_wrap_checked: bool,
+    markdown_preview_checked: bool,
+    full_markdown_preview_checked: bool,
+) -> Vec<Menu> {
     vec![
         Menu {
             name: menu_title(SharedString::from(t!("editor.menu.file")), 'F'),
@@ -125,8 +154,10 @@ fn build_menus(line_numbers_checked: bool, soft_wrap_checked: bool) -> Vec<Menu>
                     .checked(line_numbers_checked),
                 MenuItem::action(SharedString::from(t!("editor.menu.word_wrap")), ToggleSoftWrap)
                     .checked(soft_wrap_checked),
-                MenuItem::action(SharedString::from(t!("editor.menu.markdown_preview")), ToggleMarkdownPreview),
-                MenuItem::action(SharedString::from(t!("editor.menu.full_markdown_preview")), ToggleFullMarkdownPreview),
+                MenuItem::action(SharedString::from(t!("editor.menu.markdown_preview")), ToggleMarkdownPreview)
+                    .checked(markdown_preview_checked),
+                MenuItem::action(SharedString::from(t!("editor.menu.full_markdown_preview")), ToggleFullMarkdownPreview)
+                    .checked(full_markdown_preview_checked),
             ],
             disabled: false,
         },

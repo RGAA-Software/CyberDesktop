@@ -179,6 +179,12 @@ impl Render for EngineEditor {
             .id("editor-main-area")
             .flex_1()
             .min_h_0()
+            .on_action(cx.listener(|this, _: &ToggleMarkdownPreview, _w, cx| {
+                this.toggle_markdown_preview(cx)
+            }))
+            .on_action(cx.listener(|this, _: &ToggleFullMarkdownPreview, _w, cx| {
+                this.toggle_full_markdown_preview(cx)
+            }))
             .on_prepaint(move |bounds, _, cx| {
                 let _ = content_weak.update(cx, |this, _| {
                     this.content_bounds = Some(bounds);
