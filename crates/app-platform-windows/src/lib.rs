@@ -92,9 +92,9 @@ pub use shell_folder::{
 };
 #[cfg(windows)]
 pub use shell_icon::{
-    menu_icon_pixel_size, shell_icon_pixel_size, shell_icon_png, shell_icon_png_for_list_key,
-    shell_icon_png_from_cache, shell_icon_png_scaled, shell_thumbnail_png_scaled,
-    system_scale_factor,
+    menu_icon_pixel_size, shell_icon_pixel_size, shell_icon_png, shell_icon_png_batch,
+    shell_icon_png_for_list_key, shell_icon_png_from_cache, shell_icon_png_scaled,
+    shell_thumbnail_png_scaled, system_scale_factor,
 };
 pub use storage::open_storage_sense_settings;
 pub use volume::{volume_details, DriveKind, VolumeDetails};

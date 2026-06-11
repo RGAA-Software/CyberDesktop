@@ -192,6 +192,26 @@ fn shell_icon_png_uncached(path: &Path, size: u32, is_folder: bool) -> anyhow::R
     })
 }
 
+/// Batch-extract Shell icons for multiple paths in a **single** STA thread.
+/// Avoids the per-icon thread-spawn overhead that makes `shell_icon_png` slow
+/// when called in a loop (e.g. warming 10+ network device icons).
+pub fn shell_icon_png_batch(
+    entries: &[(PathBuf, u32)],
+) -> Vec<(PathBuf, u32, Option<Vec<u8>>)> {
+    let entries = entries.to_vec();
+    run_sta_task(move || unsafe {
+        let mut results = Vec::with_capacity(entries.len());
+        for (path, size) in entries {
+            let png = shell_icon_png_inner(&path, size, false)
+                .or_else(|_| shell_icon_via_shgetfileinfo(&path, false, size))
+                .ok()
+                .filter(|b| !b.is_empty());
+            results.push((path, size, png));
+        }
+        results
+    })
+}
+
 /// Path string passed to `SHCreateItemFromParsingName` (Files uses `Shell:RecycleBinFolder` for the bin icon).
 fn shell_icon_parsing_path(path: &Path) -> PathBuf {
     let s = path.to_string_lossy();

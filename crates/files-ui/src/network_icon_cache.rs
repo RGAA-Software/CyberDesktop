@@ -127,17 +127,24 @@ fn needs_warm(path: &Path, size_px: u32) -> bool {
 }
 
 /// Load missing network device icons on a background thread.
-/// Each extracted icon is written to disk so it survives app restarts.
+/// Icons are extracted in a single STA thread batch to avoid the
+/// per-icon thread-spawn overhead (each `run_sta_task` creates a
+/// new thread + OleInitialize, which dominates the actual icon read).
 #[cfg(windows)]
 pub fn warm_network_icons(paths: Vec<PathBuf>, size_px: u32) {
-    for path in paths {
-        if !needs_warm(&path, size_px) {
-            continue;
-        }
-        let result = platform::shell_icon_png(&path, size_px);
-        match result {
-            Ok(png) if !png.is_empty() => store_hit(&path, size_px, png),
-            _ => store_miss(&path, size_px),
+    let entries: Vec<(PathBuf, u32)> = paths
+        .into_iter()
+        .filter(|p| needs_warm(p, size_px))
+        .map(|p| (p, size_px))
+        .collect();
+    if entries.is_empty() {
+        return;
+    }
+    let results = platform::shell_icon_png_batch(&entries);
+    for (path, size, png) in results {
+        match png {
+            Some(png) if !png.is_empty() => store_hit(&path, size, png),
+            _ => store_miss(&path, size),
         }
     }
 }
