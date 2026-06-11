@@ -210,52 +210,17 @@ impl FileBrowser {
 
     /// After directory refresh: extract embedded icons for visible `.exe` files and
     /// network virtual-folder items (cached).
-    pub(super) fn schedule_list_icon_warm(&mut self, window: &Window, cx: &mut Context<Self>) {
+    ///
+    /// DISABLED: Shell icon extraction is too slow for network devices (SSDP
+    /// timeouts can hang for 5-10s). We always show the default Tabler icons.
+    pub(super) fn schedule_list_icon_warm(&mut self, _window: &Window, _cx: &mut Context<Self>) {
         if self.list_icon_warm_scheduled == self.list_icon_warm_token {
             return;
         }
         self.list_icon_warm_scheduled = self.list_icon_warm_token;
-        #[cfg(windows)]
-        {
-            let exe_paths: Vec<_> = self
-                .display_items
-                .iter()
-                .filter(|item| exe_icon_cache::is_exe_item(item))
-                .map(|item| item.path.clone())
-                .collect();
-            let network_paths: Vec<_> = self
-                .display_items
-                .iter()
-                .filter(|item| item.network_category.is_some())
-                .map(|item| item.path.clone())
-                .collect();
-            if exe_paths.is_empty() && network_paths.is_empty() {
-                return;
-            }
-            let size_px = platform::shell_icon_pixel_size(
-                FILE_LIST_ICON_SIZE.as_f32(),
-                window.scale_factor(),
-            );
-            // Warm icons in the background; do NOT notify from a detached task
-            // because it races with render and spams "RefCell already borrowed".
-            // Icons will appear on the next natural render cycle.
-            if !exe_paths.is_empty() {
-                cx.background_spawn(async move {
-                    exe_icon_cache::warm_exe_icons(exe_paths, size_px);
-                })
-                .detach();
-            }
-            if !network_paths.is_empty() {
-                cx.background_spawn(async move {
-                    network_icon_cache::warm_network_icons(network_paths, size_px);
-                })
-                .detach();
-            }
-        }
-        #[cfg(not(windows))]
-        {
-            let _ = (window, cx);
-        }
+        // Icon warming is disabled. Shell icon extraction is too slow for
+        // network devices (SSDP timeouts can hang for 5-10s). Default Tabler
+        // icons are shown immediately instead.
     }
 
     pub(super) fn set_sort_option(&mut self, option: SortOption) {
