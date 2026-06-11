@@ -12,10 +12,15 @@ impl FileBrowser {
     pub(super) fn apply_filter(&mut self) {
         self.display_items = filter_items_by_query(&self.items, &self.search_query);
         let grouping = self.grouping_enabled();
+        let effective_group_option = if self.is_network_location() {
+            self.network_group_option
+        } else {
+            self.group_option
+        };
         self.display_rows = if grouping {
             build_display_rows(
                 &self.display_items,
-                self.group_option,
+                effective_group_option,
                 self.group_date_unit,
                 self.sort_preferences.direction,
                 &self.collapsed_groups,

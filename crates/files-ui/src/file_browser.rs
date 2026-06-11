@@ -386,6 +386,9 @@ pub struct FileBrowser {
     display_items: Vec<FileItem>,
     display_rows: Vec<DisplayRow>,
     group_option: GroupOption,
+    /// Group option used exclusively for network/virtual locations so that
+    /// grouping by category does not pollute the global preference.
+    network_group_option: GroupOption,
     group_date_unit: GroupByDateUnit,
     collapsed_groups: BTreeSet<String>,
     column_trail: Vec<PathBuf>,
@@ -538,6 +541,7 @@ impl FileBrowser {
             display_items,
             display_rows,
             group_option,
+            network_group_option: GroupOption::FileType,
             group_date_unit,
             collapsed_groups: BTreeSet::new(),
             column_trail,

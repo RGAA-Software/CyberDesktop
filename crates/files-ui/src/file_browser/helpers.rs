@@ -250,13 +250,23 @@ impl FileBrowser {
     }
 
     pub(super) fn set_group_option(&mut self, option: GroupOption, cx: &mut Context<Self>) {
-        if self.group_option == option {
+        let is_network = self.is_network_location();
+        let current = if is_network {
+            self.network_group_option
+        } else {
+            self.group_option
+        };
+        if current == option {
             return;
         }
-        self.group_option = option;
+        if is_network {
+            self.network_group_option = option;
+        } else {
+            self.group_option = option;
+            self.persist_prefs();
+        }
         self.collapsed_groups.clear();
         self.apply_filter();
-        self.persist_prefs();
         cx.notify();
     }
 
@@ -266,14 +276,24 @@ impl FileBrowser {
         unit: GroupByDateUnit,
         cx: &mut Context<Self>,
     ) {
-        if self.group_option == option && self.group_date_unit == unit {
+        let is_network = self.is_network_location();
+        let current = if is_network {
+            self.network_group_option
+        } else {
+            self.group_option
+        };
+        if current == option && self.group_date_unit == unit {
             return;
         }
-        self.group_option = option;
+        if is_network {
+            self.network_group_option = option;
+        } else {
+            self.group_option = option;
+            self.persist_prefs();
+        }
         self.group_date_unit = unit;
         self.collapsed_groups.clear();
         self.apply_filter();
-        self.persist_prefs();
         cx.notify();
     }
 
@@ -287,8 +307,26 @@ impl FileBrowser {
         cx.notify();
     }
 
+    /// True when the current directory is a network/virtual location that should
+    /// use its own group-option storage.
+    #[cfg(windows)]
+    pub(super) fn is_network_location(&self) -> bool {
+        self.current_dir.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+            || is_network_computer_root(&self.current_dir)
+    }
+
+    #[cfg(not(windows))]
+    pub(super) fn is_network_location(&self) -> bool {
+        false
+    }
+
     pub(super) fn grouping_enabled(&self) -> bool {
-        self.group_option != GroupOption::None && view_supports_grouping(self.view_mode)
+        let effective = if self.is_network_location() {
+            self.network_group_option
+        } else {
+            self.group_option
+        };
+        effective != GroupOption::None && view_supports_grouping(self.view_mode)
     }
 
     pub(super) fn sort_label(&self) -> String {

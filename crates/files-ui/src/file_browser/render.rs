@@ -337,16 +337,14 @@ impl Render for FileBrowser {
         let needs_network_load = false;
 
         #[cfg(windows)]
-        if needs_network_load {
-            // Use cached network items if available; avoid re-enumerating on every visit.
-            if self._network_load_task.is_none() && self.items.is_empty() {
-                if let Some(cached) = self.network_items_cache.get(&self.current_dir).cloned() {
-                    self.items = cached;
-                    self.apply_filter();
-                    self.reconcile_selection();
-                    self.clamp_focused_index();
-                } else {
-                    self.network_loading = true;
+        if needs_network_load && self._network_load_task.is_none() && self.items.is_empty() {
+            if let Some(cached) = self.network_items_cache.get(&self.current_dir).cloned() {
+                self.items = cached;
+                self.apply_filter();
+                self.reconcile_selection();
+                self.clamp_focused_index();
+            } else {
+                self.network_loading = true;
                     let current_dir = self.current_dir.clone();
                     let loading_computers = is_network_root;
                     let task_dir = current_dir.clone();
@@ -415,7 +413,7 @@ impl Render for FileBrowser {
                             if browser.current_dir == task_dir {
                                 browser.items = items;
                                 // Automatically group network items by category.
-                                browser.group_option = GroupOption::FileType;
+                                browser.network_group_option = GroupOption::FileType;
                                 browser.apply_filter();
                                 browser.reconcile_selection();
                                 browser.clamp_focused_index();
@@ -428,7 +426,6 @@ impl Render for FileBrowser {
                     }));
                 }
             }
-        }
 
         let viewport_width = window.viewport_size().width;
         if self.last_viewport_width != Some(viewport_width) {
@@ -453,10 +450,11 @@ impl Render for FileBrowser {
         let in_search_results =
             matches!(self.browse_location, BrowseLocation::SearchResults { .. });
         let recycle_item_count = if in_recycle_bin { self.items.len() } else { 0 };
+        let has_pending_network_task = self._network_load_task.is_some();
         let show_network_loading =
-            needs_network_load && self.network_loading && self.items.is_empty();
+            needs_network_load && self.items.is_empty() && (has_pending_network_task || self.network_loading);
         let show_network_empty =
-            needs_network_load && !self.network_loading && self.items.is_empty();
+            needs_network_load && self.items.is_empty() && !has_pending_network_task && !self.network_loading;
 
         let page_gap = if self.show_content_toolbar && !self.show_toolbar {
             px(0.)
