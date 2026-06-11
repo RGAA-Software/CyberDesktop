@@ -3,6 +3,7 @@ use crate::app_state::AppFileClipboard;
 use crate::exe_icon_cache;
 use crate::file_type_icon_colors;
 use crate::file_type_icons;
+use crate::network_icon_cache;
 use files_fs::is_network_computer_root;
 /// Opacity for items cut to the in-app clipboard but not pasted yet (Files `DimItemOpacity`).
 pub(super) const CUT_PENDING_ITEM_OPACITY: f32 = 0.4;
@@ -72,13 +73,13 @@ impl FileBrowser {
 
             // 2. Network virtual-folder items (Media Devices, Printers, etc.) — colorful Shell icons.
             if item.network_category.is_some() {
-                if let Some(png) = platform::shell_icon_png_from_cache(&item.path, size_px)
+                if let Some(png) = network_icon_cache::cached_png(&item.path, size_px)
                     .filter(|p| !p.is_empty())
                 {
                     return (
                         img(std::sync::Arc::new(Image::from_bytes(
                             ImageFormat::Png,
-                            png,
+                            (*png).clone(),
                         )))
                         .size(logical_size)
                         .object_fit(ObjectFit::Contain)
@@ -220,24 +221,21 @@ impl FileBrowser {
                 FILE_LIST_ICON_SIZE.as_f32(),
                 window.scale_factor(),
             );
-            cx.spawn(async move |this, cx| {
-                if !exe_paths.is_empty() {
-                    let _ = cx
-                        .background_spawn(async move { exe_icon_cache::warm_exe_icons(exe_paths, size_px) })
-                        .await;
-                }
-                if !network_paths.is_empty() {
-                    let _ = cx
-                        .background_spawn(async move {
-                            for path in network_paths {
-                                let _ = platform::shell_icon_png(&path, size_px);
-                            }
-                        })
-                        .await;
-                }
-                let _ = this.update(cx, |_, cx| cx.notify());
-            })
-            .detach();
+            // Warm icons in the background; do NOT notify from a detached task
+            // because it races with render and spams "RefCell already borrowed".
+            // Icons will appear on the next natural render cycle.
+            if !exe_paths.is_empty() {
+                cx.background_spawn(async move {
+                    exe_icon_cache::warm_exe_icons(exe_paths, size_px);
+                })
+                .detach();
+            }
+            if !network_paths.is_empty() {
+                cx.background_spawn(async move {
+                    network_icon_cache::warm_network_icons(network_paths, size_px);
+                })
+                .detach();
+            }
         }
         #[cfg(not(windows))]
         {

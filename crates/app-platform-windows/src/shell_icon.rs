@@ -80,13 +80,16 @@ pub fn shell_icon_png_from_cache(path: &Path, size: u32) -> Option<Vec<u8>> {
 pub fn shell_icon_png(path: &Path, size: u32) -> anyhow::Result<Vec<u8>> {
     let size = size.max(16);
     let key = (path.to_path_buf(), size);
-    let mut guard = ICON_CACHE.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
-    let cache = guard.get_or_insert_with(HashMap::new);
-    if let Some(bytes) = cache.get(&key) {
-        return Ok(bytes.clone());
+    {
+        let guard = ICON_CACHE.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        if let Some(bytes) = guard.as_ref().and_then(|c| c.get(&key)) {
+            return Ok(bytes.clone());
+        }
     }
     let png = shell_icon_png_uncached(path, size, false)?;
-    cache.insert(key, png.clone());
+    if let Ok(mut guard) = ICON_CACHE.lock() {
+        guard.get_or_insert_with(HashMap::new).insert(key, png.clone());
+    }
     Ok(png)
 }
 
@@ -94,15 +97,18 @@ pub fn shell_icon_png(path: &Path, size: u32) -> anyhow::Result<Vec<u8>> {
 pub fn shell_icon_png_for_list_key(cache_key: &str, size: u32) -> anyhow::Result<Vec<u8>> {
     let size = size.max(16);
     let key = (cache_key.to_string(), size);
-    let mut guard = LIST_KEY_CACHE.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
-    let cache = guard.get_or_insert_with(HashMap::new);
-    if let Some(bytes) = cache.get(&key) {
-        return Ok(bytes.clone());
+    {
+        let guard = LIST_KEY_CACHE.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        if let Some(bytes) = guard.as_ref().and_then(|c| c.get(&key)) {
+            return Ok(bytes.clone());
+        }
     }
     let path = shell_dummy_icon_path(cache_key);
     let is_folder = cache_key == ":folder:";
     let png = shell_icon_png_uncached(&path, size, is_folder)?;
-    cache.insert(key, png.clone());
+    if let Ok(mut guard) = LIST_KEY_CACHE.lock() {
+        guard.get_or_insert_with(HashMap::new).insert(key, png.clone());
+    }
     Ok(png)
 }
 
@@ -137,15 +143,18 @@ pub fn shell_thumbnail_png_scaled(
 ) -> anyhow::Result<Option<Vec<u8>>> {
     let size = shell_icon_pixel_size(logical_px, scale_factor);
     let key = (path.to_path_buf(), size);
-    let mut guard = THUMBNAIL_CACHE.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
-    let cache = guard.get_or_insert_with(HashMap::new);
-    if let Some(bytes) = cache.get(&key) {
-        return Ok(Some(bytes.clone()));
+    {
+        let guard = THUMBNAIL_CACHE.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        if let Some(bytes) = guard.as_ref().and_then(|c| c.get(&key)) {
+            return Ok(Some(bytes.clone()));
+        }
     }
     let Some(png) = shell_thumbnail_png_uncached(path, size)? else {
         return Ok(None);
     };
-    cache.insert(key, png.clone());
+    if let Ok(mut guard) = THUMBNAIL_CACHE.lock() {
+        guard.get_or_insert_with(HashMap::new).insert(key, png.clone());
+    }
     Ok(Some(png))
 }
 

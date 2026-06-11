@@ -152,6 +152,14 @@ fn size_sort_index(key: &str) -> i64 {
 }
 
 fn type_group(item: &FileItem) -> (String, String) {
+    // Network virtual-folder items group by their Shell category.
+    if let Some(ref cat) = item.network_category {
+        let label = item
+            .network_category_label
+            .clone()
+            .unwrap_or_else(|| cat.clone());
+        return (format!("net:{}", cat), label);
+    }
     match item.kind {
         FileItemKind::Folder => ("type:folder".into(), String::new()),
         FileItemKind::Symlink => ("type:symlink".into(), String::new()),
@@ -173,10 +181,24 @@ fn type_group(item: &FileItem) -> (String, String) {
 }
 
 fn type_sort_index(key: &str) -> i64 {
+    if key.starts_with("net:") {
+        return network_category_sort_index(key);
+    }
     if key == "type:folder" {
         0
     } else {
         1
+    }
+}
+
+fn network_category_sort_index(key: &str) -> i64 {
+    match key.strip_prefix("net:") {
+        Some("network.category.infrastructure") => 0,
+        Some("network.category.computer") => 1,
+        Some("network.category.media_device") => 2,
+        Some("network.category.printer") => 3,
+        Some("network.category.other_device") => 4,
+        _ => 5,
     }
 }
 
@@ -420,6 +442,8 @@ mod tests {
             is_readonly: false,
             is_symlink: false,
             tags: Vec::new(),
+            network_category: None,
+            network_category_label: None,
         }
     }
 
@@ -520,5 +544,32 @@ mod tests {
         let old = system_time_on(NaiveDate::from_ymd_opt(2024, 6, 1).unwrap());
         let label = time_span_label(Some(old), GroupByDateUnit::Year, now);
         assert_eq!(label.key, "date:year:2024");
+    }
+
+    #[test]
+    fn network_items_group_by_category() {
+        let mut computer = item("PC1", FileItemKind::Folder, None);
+        computer.network_category = Some("network.category.computer".into());
+        computer.network_category_label = Some("Computer".into());
+
+        let mut printer = item("Printer1", FileItemKind::Folder, None);
+        printer.network_category = Some("network.category.printer".into());
+        printer.network_category_label = Some("Printer".into());
+
+        let mut media = item("Media1", FileItemKind::Folder, None);
+        media.network_category = Some("network.category.media_device".into());
+        media.network_category_label = Some("Media Device".into());
+
+        let items = vec![computer.clone(), printer.clone(), media.clone()];
+        let groups = group_items(
+            &items,
+            GroupOption::FileType,
+            GroupByDateUnit::Year,
+            SortDirection::Ascending,
+        );
+        assert_eq!(groups.len(), 3);
+        assert_eq!(groups[0].key, "net:network.category.computer");
+        assert_eq!(groups[1].key, "net:network.category.media_device");
+        assert_eq!(groups[2].key, "net:network.category.printer");
     }
 }

@@ -600,6 +600,10 @@ pub(crate) fn config_dir() -> Option<PathBuf> {
     ProjectDirs::from("com", "cyber_desktop", config_app_id()).map(|dirs| dirs.config_dir().into())
 }
 
+pub fn cache_dir() -> Option<PathBuf> {
+    ProjectDirs::from("com", "cyber_desktop", config_app_id()).map(|dirs| dirs.cache_dir().into())
+}
+
 /// Loads settings from the in-memory cache (disk on first access).
 ///
 /// Returns `None` when the config directory is unavailable, or when no settings

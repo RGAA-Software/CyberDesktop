@@ -25,6 +25,8 @@ mod keybindings;
 #[cfg(feature = "full-app")]
 mod list_icon_cache;
 #[cfg(feature = "full-app")]
+mod network_icon_cache;
+#[cfg(feature = "full-app")]
 mod main_page;
 #[cfg(feature = "full-app")]
 mod omnibar;

@@ -421,6 +421,8 @@ pub struct FileBrowser {
     _jump_string_task: Option<Task<()>>,
     _network_load_task: Option<Task<()>>,
     network_loading: bool,
+    /// Cache of network/virtual-folder items so we don't re-enumerate on every visit.
+    network_items_cache: std::collections::HashMap<PathBuf, Vec<FileItem>>,
     /// Cached measured cells-per-row for grid view.
     grid_cells_per_row: Option<usize>,
     /// Cached measured cells-per-row for cards view.
@@ -566,6 +568,7 @@ impl FileBrowser {
             _jump_string_task: None,
             _network_load_task: None,
             network_loading: false,
+            network_items_cache: std::collections::HashMap::new(),
             grid_cells_per_row: None,
             cards_cells_per_row: None,
             last_viewport_width: None,

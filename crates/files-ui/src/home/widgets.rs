@@ -23,7 +23,7 @@ use rust_i18n::t;
 use crate::app_state::AppNavigation;
 use crate::home::page::HomePage;
 use crate::home::widget_shell::{
-    block_home_page_context_menu, bordered_home_card, home_card_grid, net_notice,
+    block_home_page_context_menu, bordered_home_card, home_card_grid,
     space_progress_bar, tag_cols_grid, DRIVE_CARD_PADDING_X, DRIVE_CARD_PADDING_Y,
     DRIVE_ICON_TILE, QA_ICON_INNER, QA_ICON_TILE, QA_ITEM_HEIGHT,
     QA_ITEM_PADDING_X, QA_ITEM_PADDING_Y, RECENT_HEADER_HEIGHT, RECENT_ROW_HEIGHT,
@@ -35,32 +35,6 @@ use crate::icons::{
 use crate::shell_icon::shell_icon_for_path;
 use crate::tabler_icons;
 use app_ui::popup_menu::{ContextMenuExt as _, PopupMenu, PopupMenuItem};
-
-#[cfg(windows)]
-use app_platform_windows::list_network_computers;
-
-#[derive(Clone)]
-pub struct NetworkEntry {
-    pub label: String,
-    pub path: PathBuf,
-}
-
-pub fn load_network_entries() -> Vec<NetworkEntry> {
-    #[cfg(windows)]
-    {
-        list_network_computers()
-            .into_iter()
-            .map(|e| NetworkEntry {
-                label: e.display_name,
-                path: e.path,
-            })
-            .collect()
-    }
-    #[cfg(not(windows))]
-    {
-        Vec::new()
-    }
-}
 
 impl HomePage {
     fn section_header(
@@ -151,52 +125,6 @@ impl HomePage {
                             .into_any_element()
                     }),
                 )),
-        )
-    }
-
-    pub(super) fn render_network_widget(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-        entries: &[NetworkEntry],
-    ) -> impl IntoElement {
-        block_home_page_context_menu(
-            v_flex()
-                .id("home-widget-network")
-                .w_full()
-                .gap_1()
-                .child(self.section_header(
-                    "home-network-header",
-                    Self::section_icon(tabler_icons::NETWORK, cx),
-                    t!("home.widget.network"),
-                    cx,
-                ))
-                .when(entries.is_empty(), |b| {
-                    b.child(net_notice(
-                        "home-network-notice",
-                        toolbar_tabler(tabler_icons::INFO_CIRCLE),
-                        t!("home.widget.network.empty"),
-                        cx,
-                    ))
-                })
-                .when(!entries.is_empty(), |b| {
-                    b.child(home_card_grid(
-                        self.layout_width(window),
-                        entries.iter().enumerate().map(|(index, entry)| {
-                            let drive = DriveInfo {
-                                path: entry.path.clone(),
-                                label: entry.label.clone(),
-                                volume_label: None,
-                                total_bytes: None,
-                                free_bytes: None,
-                                is_removable: false,
-                                is_network: true,
-                            };
-                            self.drive_card(window, index, "home-network", &drive, cx)
-                                .into_any_element()
-                        }),
-                    ))
-                }),
         )
     }
 

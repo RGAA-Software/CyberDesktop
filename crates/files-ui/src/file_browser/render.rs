@@ -258,6 +258,15 @@ impl FileBrowser {
                         cx.notify();
                     })),
             )
+            .child(
+                icon_action_button("action-refresh")
+                    .icon(toolbar_icon(IconName::Redo2))
+                    .tooltip(t!("nav.refresh"))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.refresh();
+                        cx.notify();
+                    })),
+            )
             .child(div().flex_1().min_w_0())
             .child(
                 h_flex()
@@ -310,7 +319,13 @@ impl Render for FileBrowser {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.watched_dir.as_ref() != Some(&self.current_dir) {
             self.watched_dir = Some(self.current_dir.clone());
-            self.restart_directory_watcher(cx);
+            // Skip watcher for network/virtual paths — they have no reliable
+            // filesystem events and the watcher can cause RefCell borrow races.
+            let is_network_virtual = self.current_dir.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+                || files_fs::is_network_computer_root(&self.current_dir);
+            if !is_network_virtual {
+                self.restart_directory_watcher(cx);
+            }
         }
         #[cfg(windows)]
         let current_dir_str = self.current_dir.to_string_lossy().to_string();
@@ -320,72 +335,90 @@ impl Render for FileBrowser {
         let needs_network_load = is_network_root || is_network_computer_root(&self.current_dir);
         #[cfg(not(windows))]
         let needs_network_load = false;
+
         #[cfg(windows)]
-        if needs_network_load && self._network_load_task.is_none() && self.items.is_empty() {
-            self.network_loading = true;
-            let read_options = self.read_options;
-            let current_dir = self.current_dir.clone();
-            let loading_computers = is_network_root;
-            self._network_load_task = Some(cx.spawn(async move |browser, cx| {
-                tracing::info!(target: "network", path = %current_dir.display(), "starting network load");
-                let entries = if loading_computers {
-                    cx.background_spawn(async move {
-                        tracing::info!(target: "network", "enumerating network computers");
-                        let entries = list_network_computers();
-                        tracing::info!(target: "network", count = entries.len(), "network computers enumerated");
-                        entries
-                    })
-                    .await
+        if needs_network_load {
+            // Use cached network items if available; avoid re-enumerating on every visit.
+            if self._network_load_task.is_none() && self.items.is_empty() {
+                if let Some(cached) = self.network_items_cache.get(&self.current_dir).cloned() {
+                    self.items = cached;
+                    self.apply_filter();
+                    self.reconcile_selection();
+                    self.clamp_focused_index();
                 } else {
-                    cx.background_spawn(async move {
-                        tracing::info!(target: "network", path = %current_dir.display(), "enumerating network shares");
-                        let entries = list_network_shares(&current_dir);
-                        tracing::info!(target: "network", path = %current_dir.display(), count = entries.len(), "network shares enumerated");
-                        entries
-                    })
-                    .await
-                };
-                let _ = browser.update(cx, |browser, _cx| {
-                    browser.network_loading = false;
-                    let mut items = Vec::new();
-                    tracing::info!(target: "network", count = entries.len(), "building file items");
-                    for entry in entries {
-                        let mut item = FileItem::from_path(entry.path.clone(), read_options)
-                            .unwrap_or_else(|_| FileItem {
-                                path: entry.path.clone(),
-                                name_raw: entry.display_name.clone(),
-                                display_name: entry.display_name,
-                                extension: None,
-                                kind: FileItemKind::Folder,
-                                size: None,
-                                created: None,
-                                modified: None,
-                                accessed: None,
-                                is_hidden: false,
-                                is_system: false,
-                                is_readonly: false,
-                                is_symlink: false,
-                                tags: Vec::new(),
-                                network_category: None,
-                                network_category_label: None,
-                            });
-                        item.network_category = Some(entry.category.label().to_string());
-                        item.network_category_label = Some(
-                            entry
-                                .item_type_text
-                                .clone()
-                                .unwrap_or_else(|| t!(entry.category.label()).to_string()),
-                        );
-                        items.push(item);
-                    }
-                    sort_items(&mut items, browser.sort_preferences);
-                    browser.items = items;
-                    browser.apply_filter();
-                    browser.reconcile_selection();
-                    browser.clamp_focused_index();
-                    tracing::info!(target: "network", display_count = browser.display_items.len(), "network load complete");
-                });
-            }));
+                    self.network_loading = true;
+                    let current_dir = self.current_dir.clone();
+                    let loading_computers = is_network_root;
+                    let task_dir = current_dir.clone();
+                    self._network_load_task = Some(cx.spawn(async move |browser, cx| {
+                        let path = task_dir.clone();
+                        tracing::info!(target: "network", path = %path.display(), "starting network load");
+                        let entries = if loading_computers {
+                            cx.background_spawn(async move {
+                                tracing::info!(target: "network", "enumerating network computers");
+                                let entries = list_network_computers();
+                                tracing::info!(target: "network", count = entries.len(), "network computers enumerated");
+                                entries
+                            })
+                            .await
+                        } else {
+                            cx.background_spawn(async move {
+                                tracing::info!(target: "network", path = %path.display(), "enumerating network shares");
+                                let entries = list_network_shares(&path);
+                                tracing::info!(target: "network", path = %path.display(), count = entries.len(), "network shares enumerated");
+                                entries
+                            })
+                            .await
+                        };
+
+                        // Build FileItems on the background thread so we never block the UI
+                        // with filesystem syscalls for virtual / network paths.
+                        let mut items = cx.background_spawn(async move {
+                            let mut items = Vec::new();
+                            for entry in entries {
+                                let item = FileItem {
+                                    path: entry.path.clone(),
+                                    name_raw: entry.display_name.clone(),
+                                    display_name: entry.display_name.clone(),
+                                    extension: None,
+                                    kind: FileItemKind::Folder,
+                                    size: None,
+                                    created: None,
+                                    modified: None,
+                                    accessed: None,
+                                    is_hidden: false,
+                                    is_system: false,
+                                    is_readonly: false,
+                                    is_symlink: false,
+                                    tags: Vec::new(),
+                                    network_category: Some(entry.category.label().to_string()),
+                                    network_category_label: Some(
+                                        entry.item_type_text.clone()
+                                            .unwrap_or_else(|| entry.category.label().to_string()),
+                                    ),
+                                };
+                                items.push(item);
+                            }
+                            items
+                        }).await;
+
+                        let _ = browser.update(cx, |browser, _cx| {
+                            browser.network_loading = false;
+                            browser._network_load_task = None;
+                            sort_items(&mut items, browser.sort_preferences);
+                            browser.network_items_cache.insert(task_dir.clone(), items.clone());
+                            browser.items = items;
+                            // Automatically group network items by category.
+                            browser.group_option = GroupOption::FileType;
+                            browser.apply_filter();
+                            browser.reconcile_selection();
+                            browser.clamp_focused_index();
+                            browser.list_icon_warm_token = browser.list_icon_warm_token.wrapping_add(1);
+                            tracing::info!(target: "network", display_count = browser.display_items.len(), "network load complete");
+                        });
+                    }));
+                }
+            }
         }
 
         let viewport_width = window.viewport_size().width;

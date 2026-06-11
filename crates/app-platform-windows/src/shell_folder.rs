@@ -484,6 +484,9 @@ pub fn list_wsl_distro_roots() -> Vec<ShellFolderEntry> {
 /// enumeration requires an apartment-threaded COM context.
 #[cfg(windows)]
 pub fn list_network_computers() -> Vec<ShellFolderEntry> {
+    // Use synchronous enumeration — SHCONTF_ENABLE_ASYNC produced unreliable
+    // partial results (sometimes 1-2 items, sometimes many). run_sta_task runs
+    // on its own STA thread so the UI is never blocked.
     let entries = run_sta_task(|| unsafe { list_network_computers_inner(false) });
     tracing::info!(target: "network", count = entries.len(), "found network computers");
     entries
@@ -609,7 +612,7 @@ unsafe fn list_network_shares_inner(path: &std::path::Path) -> Vec<ShellFolderEn
     };
     tracing::info!(target: "network", path = %path.display(), "BindToObject succeeded");
 
-    let pidls = match enum_folder_pidls(&shell_folder, true, 0) {
+    let pidls = match enum_folder_pidls(&shell_folder, false, 0) {
         Ok(p) => p,
         Err(e) => {
             tracing::warn!(target: "network", path = %path.display(), error = ?e, "EnumObjects failed");

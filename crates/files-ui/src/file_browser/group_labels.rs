@@ -33,6 +33,10 @@ pub(super) fn localized_group_title(key: &str, fallback: &str) -> String {
         _ if key.starts_with("type:ext:") => key["type:ext:".len()..].to_ascii_uppercase(),
         "tag:none" => t!("files.group.tag.untagged").into_owned(),
         _ if key.starts_with("tag:") => key["tag:".len()..].to_string(),
+        _ if key.starts_with("net:") => {
+            let cat = &key["net:".len()..];
+            t!(cat).into_owned()
+        }
         _ => fallback.to_string(),
     }
 }

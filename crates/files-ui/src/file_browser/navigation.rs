@@ -140,6 +140,16 @@ impl FileBrowser {
         if matches!(self.browse_location, BrowseLocation::SearchResults { .. }) {
             self.refresh_search_results(cx);
         } else {
+            // Force-refresh: clear network cache so the next render re-enumerates.
+            #[cfg(windows)]
+            {
+                let is_network = self.current_dir.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+                    || files_fs::is_network_computer_root(&self.current_dir);
+                if is_network {
+                    self.network_items_cache.remove(&self.current_dir);
+                    self._network_load_task = None;
+                }
+            }
             self.refresh();
         }
     }
@@ -195,7 +205,23 @@ impl FileBrowser {
     pub(super) fn refresh(&mut self) {
         let (mut items, error) = match &self.browse_location {
             BrowseLocation::Directory => {
-                load_files_dir(&self.current_dir, self.read_options, self.sort_preferences)
+                #[cfg(windows)]
+                {
+                    let is_network = self.current_dir.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+                        || files_fs::is_network_computer_root(&self.current_dir);
+                    if is_network {
+                        // Do NOT clear the cache here — only reload() (F5/refresh button)
+                        // should force re-enumeration. This keeps the cache alive when
+                        // switching tabs or sidebar items back to a network location.
+                        (Vec::new(), None)
+                    } else {
+                        load_files_dir(&self.current_dir, self.read_options, self.sort_preferences)
+                    }
+                }
+                #[cfg(not(windows))]
+                {
+                    load_files_dir(&self.current_dir, self.read_options, self.sort_preferences)
+                }
             }
             BrowseLocation::RecycleBin => {
                 match read_recycle_bin(self.read_options, self.sort_preferences) {

@@ -189,29 +189,6 @@ pub fn bordered_home_card(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
         .bg(cx.theme().secondary)
 }
 
-pub fn net_notice(
-    id: impl Into<ElementId>,
-    icon: impl IntoElement,
-    text: impl IntoElement,
-    cx: &App,
-) -> impl IntoElement {
-    h_flex()
-        .id(id)
-        .w_full()
-        .gap(px(8.))
-        .px(px(16.))
-        .py(px(12.))
-        .rounded(px(8.))
-        .border_1()
-        .border_color(cx.theme().info.opacity(0.16))
-        .bg(cx.theme().info.opacity(0.08))
-        .text_sm()
-        .text_color(cx.theme().info)
-        .items_center()
-        .child(icon)
-        .child(text)
-}
-
 pub fn space_progress_bar(
     id: impl Into<ElementId>,
     fraction: f32,
