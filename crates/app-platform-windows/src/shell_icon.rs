@@ -192,29 +192,54 @@ fn shell_icon_png_uncached(path: &Path, size: u32, is_folder: bool) -> anyhow::R
     })
 }
 
-/// Batch-extract Shell icons for multiple paths in a **single** STA thread.
-/// Avoids the per-icon thread-spawn overhead that makes `shell_icon_png` slow
-/// when called in a loop (e.g. warming 10+ network device icons).
+const ICON_EXTRACT_TIMEOUT_MS: u64 = 500;
+
+/// Extract a single icon with a per-device timeout.
+/// A few network devices (SSDP, WSD) can hang for 5-10s in
+/// `SHCreateItemFromParsingName`; we abandon them and let the UI
+/// show the default Tabler fallback.
+fn shell_icon_png_timed(path: &Path, size: u32) -> Option<Vec<u8>> {
+    let path = path.to_path_buf();
+    let path_str = path.display().to_string();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let png = run_sta_task(move || unsafe {
+            shell_icon_png_inner(&path, size, false)
+                .or_else(|_| shell_icon_via_shgetfileinfo(&path, false, size))
+                .ok()
+                .filter(|b| !b.is_empty())
+        });
+        let _ = tx.send(png);
+    });
+    match rx.recv_timeout(std::time::Duration::from_millis(ICON_EXTRACT_TIMEOUT_MS)) {
+        Ok(png) => png,
+        Err(_) => {
+            tracing::warn!(
+                target: "shell_icon",
+                path = path_str,
+                timeout_ms = ICON_EXTRACT_TIMEOUT_MS,
+                "icon extraction timed out"
+            );
+            None
+        }
+    }
+}
+
+/// Batch-extract Shell icons with a **per-device timeout**.
+/// Each device gets its own STA thread so one slow device cannot
+/// block the entire batch (e.g. an SSDP printer hanging for 9s).
 pub fn shell_icon_png_batch(
     entries: &[(PathBuf, u32)],
 ) -> Vec<(PathBuf, u32, Option<Vec<u8>>)> {
-    let entries = entries.to_vec();
-    let count = entries.len();
     let t0 = std::time::Instant::now();
-    let results = run_sta_task(move || unsafe {
-        let mut results = Vec::with_capacity(entries.len());
-        for (path, size) in entries {
-            let png = shell_icon_png_inner(&path, size, false)
-                .or_else(|_| shell_icon_via_shgetfileinfo(&path, false, size))
-                .ok()
-                .filter(|b| !b.is_empty());
-            results.push((path, size, png));
-        }
-        results
-    });
+    let mut results = Vec::with_capacity(entries.len());
+    for (path, size) in entries {
+        let png = shell_icon_png_timed(path, *size);
+        results.push((path.clone(), *size, png));
+    }
     tracing::info!(
         target: "shell_icon",
-        count,
+        count = entries.len(),
         total_ms = %t0.elapsed().as_secs_f64() * 1000.0,
         "shell_icon_png_batch complete"
     );
