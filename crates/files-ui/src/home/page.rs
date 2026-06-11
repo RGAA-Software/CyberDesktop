@@ -21,38 +21,7 @@ use crate::home::widget_shell::{HOME_PAGE_PADDING_X, HOME_PAGE_PADDING_Y, HOME_S
 use crate::shell::{append_dual_pane_popup_menu, dual_pane_menu_state, DualPanePopupProfile};
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
 
-/// Loaded Home dashboard data (Files `RefreshWidgetProperties` snapshot).
-#[derive(Clone)]
-pub struct HomeSnapshot {
-    pub quick_access: Vec<QuickAccessEntry>,
-    pub drives: Vec<DriveInfo>,
-    // Network widget removed per design
-    pub tag_previews: Vec<FileTagPreview>,
-    pub recent: Vec<RecentItem>,
-}
 
-impl HomeSnapshot {
-    fn load() -> Self {
-        files_core::log_startup_step("home_snapshot_load_begin");
-        let tags = files_core::time_startup_step("home_snapshot_file_tags", load_home_file_tags);
-        let quick_access = files_core::time_startup_step(
-            "home_snapshot_quick_access",
-            list_quick_access_entries,
-        );
-        let drives = files_core::time_startup_step("home_snapshot_drives", list_drives);
-        // Network widget removed per design
-        let tag_previews =
-            files_core::time_startup_step("home_snapshot_tag_previews", || file_tag_previews(&tags));
-        let recent = files_core::time_startup_step("home_snapshot_recent", list_recent_files);
-        files_core::log_startup_step("home_snapshot_load_done");
-        Self {
-            quick_access,
-            drives,
-            tag_previews,
-            recent,
-        }
-    }
-}
 
 struct HomePopupMenuState {
     position: Point<Pixels>,
@@ -62,8 +31,12 @@ struct HomePopupMenuState {
 
 pub struct HomePage {
     pub(super) prefs: HomeWidgetPrefs,
-    snapshot: Option<HomeSnapshot>,
-    loading: bool,
+    /// Each widget loads independently; empty = not yet loaded.
+    pub(super) quick_access: Vec<QuickAccessEntry>,
+    pub(super) drives: Vec<DriveInfo>,
+    pub(super) tag_previews: Vec<FileTagPreview>,
+    pub(super) recent: Vec<RecentItem>,
+    /// Generation counter for deduping stale reloads.
     load_generation: u64,
     popup_menu: Option<HomePopupMenuState>,
     #[cfg(windows)]
@@ -81,8 +54,10 @@ impl HomePage {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let mut page = Self {
             prefs: home_widget_prefs(),
-            snapshot: None,
-            loading: false,
+            quick_access: Vec::new(),
+            drives: Vec::new(),
+            tag_previews: Vec::new(),
+            recent: Vec::new(),
             load_generation: 0,
             popup_menu: None,
             #[cfg(windows)]
@@ -124,35 +99,59 @@ impl HomePage {
     }
 
     pub fn reload(&mut self, cx: &mut Context<Self>) {
-        self.snapshot = None;
+        self.quick_access.clear();
+        self.drives.clear();
+        self.tag_previews.clear();
+        self.recent.clear();
         self.thumbnail_bytes.clear();
         self.thumbnail_pending.clear();
         self.schedule_load(cx);
     }
 
     fn schedule_load(&mut self, cx: &mut Context<Self>) {
-        if self.loading {
-            return;
-        }
-        self.loading = true;
         self.load_generation = self.load_generation.wrapping_add(1);
         let generation = self.load_generation;
+
+        // Quick Access
         cx.spawn(async move |page, cx| {
-            files_core::log_startup_step("home_snapshot_spawn_begin");
-            let snapshot = cx
-                .background_spawn(async move { HomeSnapshot::load() })
-                .await;
-            files_core::log_startup_step("home_snapshot_spawn_done");
-            let _ = page.update(cx, |page, cx| {
-                if page.load_generation != generation {
-                    return;
-                }
-                page.snapshot = Some(snapshot);
-                page.loading = false;
-                cx.notify();
+            let entries = cx.background_spawn(async move { list_quick_access_entries() }).await;
+            let _ = page.update(cx, |page, _cx| {
+                if page.load_generation != generation { return; }
+                page.quick_access = entries;
+                _cx.notify();
             });
-        })
-        .detach();
+        }).detach();
+
+        // Drives
+        cx.spawn(async move |page, cx| {
+            let drives = cx.background_spawn(async move { list_drives() }).await;
+            let _ = page.update(cx, |page, _cx| {
+                if page.load_generation != generation { return; }
+                page.drives = drives;
+                _cx.notify();
+            });
+        }).detach();
+
+        // File Tags (depends on tag list + previews)
+        cx.spawn(async move |page, cx| {
+            let tags = cx.background_spawn(async move { load_home_file_tags() }).await;
+            let previews = cx.background_spawn(async move { file_tag_previews(&tags) }).await;
+            let _ = page.update(cx, |page, _cx| {
+                if page.load_generation != generation { return; }
+                page.tag_previews = previews;
+                _cx.notify();
+            });
+        }).detach();
+
+        // Recent
+        cx.spawn(async move |page, cx| {
+            let recent = cx.background_spawn(async move { list_recent_files() }).await;
+            let _ = page.update(cx, |page, _cx| {
+                if page.load_generation != generation { return; }
+                page.recent = recent;
+                _cx.notify();
+            });
+        }).detach();
     }
 
     fn close_popup_menu(&mut self) {
@@ -271,16 +270,6 @@ fn build_page_context_menu(
 impl Render for HomePage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.prefs = home_widget_prefs();
-        if self.snapshot.is_none() && !self.loading {
-            self.schedule_load(cx);
-        }
-
-        let snapshot = self.snapshot.clone().unwrap_or_else(|| HomeSnapshot {
-            quick_access: Vec::new(),
-            drives: Vec::new(),
-            tag_previews: Vec::new(),
-            recent: Vec::new(),
-        });
 
         let widget_order = self.prefs.widget_order_normalized();
 
@@ -335,30 +324,42 @@ impl Render for HomePage {
                             page.on_blank_right_click(event, window, cx);
                         }),
                     )
-                    .when(self.loading && self.snapshot.is_none(), |page| {
-                        page.child(div().child(t!("home.loading")))
-                    })
-                    .children(widget_order.iter().filter_map(|widget_id| {
-                        if !self.prefs.is_widget_visible(widget_id) {
-                            return None;
+                    .children({
+                        // Build widgets one-by-one to avoid borrow-checker fights
+                        // between &mut self (render methods) and &self fields.
+                        let mut widgets: Vec<gpui::AnyElement> = Vec::new();
+                        for widget_id in widget_order {
+                            if !self.prefs.is_widget_visible(&widget_id) {
+                                continue;
+                            }
+                            let el = match widget_id.as_str() {
+                                "quick_access" => {
+                                    let data = self.quick_access.clone();
+                                    self.render_quick_access_widget(window, cx, &data)
+                                        .into_any_element()
+                                }
+                                "drives" => {
+                                    let data = self.drives.clone();
+                                    self.render_drives_widget(window, cx, &data)
+                                        .into_any_element()
+                                }
+                                // "network" widget removed per design
+                                "file_tags" => {
+                                    let data = self.tag_previews.clone();
+                                    self.render_file_tags_widget(window, cx, &data)
+                                        .into_any_element()
+                                }
+                                "recent" => {
+                                    let data = self.recent.clone();
+                                    self.render_recent_widget(window, cx, &data)
+                                        .into_any_element()
+                                }
+                                _ => continue,
+                            };
+                            widgets.push(el);
                         }
-                        Some(match widget_id.as_str() {
-                            "quick_access" => self
-                                .render_quick_access_widget(window, cx, &snapshot.quick_access)
-                                .into_any_element(),
-                            "drives" => self
-                                .render_drives_widget(window, cx, &snapshot.drives)
-                                .into_any_element(),
-                            // "network" widget removed per design
-                            "file_tags" => self
-                                .render_file_tags_widget(window, cx, &snapshot.tag_previews)
-                                .into_any_element(),
-                            "recent" => self
-                                .render_recent_widget(window, cx, &snapshot.recent)
-                                .into_any_element(),
-                            _ => return None,
-                        })
-                    }))
+                        widgets
+                    })
                     .child(div().w_full().flex_1().min_h(px(64.))),
             )
     }
