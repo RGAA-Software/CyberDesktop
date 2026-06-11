@@ -403,27 +403,27 @@ impl Render for FileBrowser {
                         }).await;
 
                         let _ = browser.update(cx, |browser, _cx| {
-                            // If the user navigated away while the network load was in
-                            // flight, discard the result so we don't overwrite the
-                            // current page's contents.
-                            if browser.current_dir != task_dir {
-                                browser.network_loading = false;
-                                browser._network_load_task = None;
-                                tracing::info!(target: "network", expected = %task_dir.display(), actual = %browser.current_dir.display(), "network load discarded — user navigated away");
-                                return;
-                            }
                             browser.network_loading = false;
                             browser._network_load_task = None;
                             sort_items(&mut items, browser.sort_preferences);
+                            // Always cache the result, even if the user navigated away
+                            // while the load was in flight. Switching back to this
+                            // network location will then hit the cache instantly.
                             browser.network_items_cache.insert(task_dir.clone(), items.clone());
-                            browser.items = items;
-                            // Automatically group network items by category.
-                            browser.group_option = GroupOption::FileType;
-                            browser.apply_filter();
-                            browser.reconcile_selection();
-                            browser.clamp_focused_index();
-                            browser.list_icon_warm_token = browser.list_icon_warm_token.wrapping_add(1);
-                            tracing::info!(target: "network", display_count = browser.display_items.len(), "network load complete");
+
+                            // Only update the UI if we're still on the same directory.
+                            if browser.current_dir == task_dir {
+                                browser.items = items;
+                                // Automatically group network items by category.
+                                browser.group_option = GroupOption::FileType;
+                                browser.apply_filter();
+                                browser.reconcile_selection();
+                                browser.clamp_focused_index();
+                                browser.list_icon_warm_token = browser.list_icon_warm_token.wrapping_add(1);
+                                tracing::info!(target: "network", display_count = browser.display_items.len(), "network load complete");
+                            } else {
+                                tracing::info!(target: "network", cached_dir = %task_dir.display(), current_dir = %browser.current_dir.display(), "network load cached — user navigated away");
+                            }
                         });
                     }));
                 }
