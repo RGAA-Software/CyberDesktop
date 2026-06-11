@@ -601,7 +601,16 @@ pub(crate) fn config_dir() -> Option<PathBuf> {
 }
 
 pub fn cache_dir() -> Option<PathBuf> {
-    ProjectDirs::from("com", "cyber_desktop", config_app_id()).map(|dirs| dirs.cache_dir().into())
+    // On Windows, put cache alongside config/logs/DB in AppData/Roaming
+    // so all application data lives in one place.
+    #[cfg(windows)]
+    {
+        config_dir()
+    }
+    #[cfg(not(windows))]
+    {
+        ProjectDirs::from("com", "cyber_desktop", config_app_id()).map(|dirs| dirs.cache_dir().into())
+    }
 }
 
 /// Loads settings from the in-memory cache (disk on first access).
