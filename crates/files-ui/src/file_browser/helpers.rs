@@ -72,7 +72,7 @@ impl FileBrowser {
             }
 
             // 2. Network virtual-folder items (Media Devices, Printers, etc.) — colorful Shell icons.
-            if item.network_category.is_some() {
+            if let Some(ref category) = item.network_category {
                 if let Some(png) = network_icon_cache::cached_png(&item.path, size_px)
                     .filter(|p| !p.is_empty())
                 {
@@ -87,6 +87,21 @@ impl FileBrowser {
                         true,
                     );
                 }
+                // Fallback: default Tabler icon per category while Shell icon is warming.
+                let icon_path = match category.as_str() {
+                    "network.category.computer" => crate::tabler_icons::DEVICE_DESKTOP,
+                    "network.category.media_device" => crate::tabler_icons::CAST,
+                    "network.category.printer" => crate::tabler_icons::PRINTER,
+                    "network.category.infrastructure" => crate::tabler_icons::ROUTER,
+                    "network.category.other_device" => crate::tabler_icons::PLUG,
+                    _ => crate::tabler_icons::HELP,
+                };
+                return (
+                    toolbar_tabler(icon_path)
+                        .with_size(gpui_component::Size::Size(logical_size))
+                        .into_any_element(),
+                    false,
+                );
             }
         }
         (
