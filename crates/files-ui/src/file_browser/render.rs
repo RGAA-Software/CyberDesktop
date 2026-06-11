@@ -403,6 +403,15 @@ impl Render for FileBrowser {
                         }).await;
 
                         let _ = browser.update(cx, |browser, _cx| {
+                            // If the user navigated away while the network load was in
+                            // flight, discard the result so we don't overwrite the
+                            // current page's contents.
+                            if browser.current_dir != task_dir {
+                                browser.network_loading = false;
+                                browser._network_load_task = None;
+                                tracing::info!(target: "network", expected = %task_dir.display(), actual = %browser.current_dir.display(), "network load discarded — user navigated away");
+                                return;
+                            }
                             browser.network_loading = false;
                             browser._network_load_task = None;
                             sort_items(&mut items, browser.sort_preferences);
