@@ -199,7 +199,9 @@ pub fn shell_icon_png_batch(
     entries: &[(PathBuf, u32)],
 ) -> Vec<(PathBuf, u32, Option<Vec<u8>>)> {
     let entries = entries.to_vec();
-    run_sta_task(move || unsafe {
+    let count = entries.len();
+    let t0 = std::time::Instant::now();
+    let results = run_sta_task(move || unsafe {
         let mut results = Vec::with_capacity(entries.len());
         for (path, size) in entries {
             let png = shell_icon_png_inner(&path, size, false)
@@ -209,7 +211,14 @@ pub fn shell_icon_png_batch(
             results.push((path, size, png));
         }
         results
-    })
+    });
+    tracing::info!(
+        target: "shell_icon",
+        count,
+        total_ms = %t0.elapsed().as_secs_f64() * 1000.0,
+        "shell_icon_png_batch complete"
+    );
+    results
 }
 
 /// Path string passed to `SHCreateItemFromParsingName` (Files uses `Shell:RecycleBinFolder` for the bin icon).
@@ -230,6 +239,7 @@ unsafe fn shell_icon_png_inner(
     size: u32,
     _is_folder: bool,
 ) -> anyhow::Result<Vec<u8>> {
+    let t0 = std::time::Instant::now();
     let parsing = shell_icon_parsing_path(path);
     let wide = path_to_wide(&parsing);
 
@@ -246,6 +256,7 @@ unsafe fn shell_icon_png_inner(
             ILFree(Some(pidl));
             Ok(item)
         })?;
+    let t1 = t0.elapsed();
 
     let factory: IShellItemImageFactory = item.cast()?;
     let hbitmap = factory.GetImage(
@@ -255,7 +266,22 @@ unsafe fn shell_icon_png_inner(
         },
         SIIGBF_ICONONLY | SIIGBF_SCALEUP,
     )?;
-    hbitmap_to_png(hbitmap)
+    let t2 = t0.elapsed();
+
+    let png = hbitmap_to_png(hbitmap)?;
+    let t3 = t0.elapsed();
+
+    tracing::info!(
+        target: "shell_icon",
+        path = %path.display(),
+        size,
+        create_item_ms = %t1.as_secs_f64() * 1000.0,
+        get_image_ms = %(t2 - t1).as_secs_f64() * 1000.0,
+        encode_png_ms = %(t3 - t2).as_secs_f64() * 1000.0,
+        total_ms = %t3.as_secs_f64() * 1000.0,
+        "shell_icon_png_inner timing"
+    );
+    Ok(png)
 }
 
 /// Fallback when the dummy path does not exist (Files `SHGetFileInfo` + `USEFILEATTRIBUTES`).
