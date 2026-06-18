@@ -58,6 +58,14 @@ pub struct SysDiskInfo {
     pub total: u64,
     #[serde(default)]
     pub total_gb: u64,
+    #[serde(default)]
+    pub read_bytes: u64,
+    #[serde(default)]
+    pub written_bytes: u64,
+    #[serde(default)]
+    pub read_rate: f64,
+    #[serde(default)]
+    pub write_rate: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

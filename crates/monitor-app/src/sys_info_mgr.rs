@@ -132,17 +132,7 @@ impl SysInfoManager {
         let vendor = self.system.cpus()[0].vendor_id();
         let brand = self.system.cpus()[0].brand();
         let base_frequency = self.system.cpus()[0].frequency() as f32 / 1000.0;
-        let current_frequency = if self.system.cpus().is_empty() {
-            0.0
-        } else {
-            let total: f32 = self
-                .system
-                .cpus()
-                .iter()
-                .map(|c| c.frequency() as f32)
-                .sum();
-            total / self.system.cpus().len() as f32 / 1000.0
-        };
+        let current_frequency = self.load_current_frequency(base_frequency);
         if self.max_frequency <= 0.1 {
             self.max_frequency = calcmhz::mhz().unwrap_or(0.0) as f32 / 1000.0;
         }
@@ -176,6 +166,7 @@ impl SysInfoManager {
 
         let mut disks_info = Vec::new();
         for disk in &mut self.disks {
+            let usage = disk.usage();
             disks_info.push(SysDiskInfo {
                 disk_type: disk.kind().to_string(),
                 mount_on: disk.mount_point().to_str().unwrap_or("").to_string(),
@@ -184,6 +175,10 @@ impl SysInfoManager {
                 available_gb: disk.available_space() / gb,
                 total: disk.total_space(),
                 total_gb: disk.total_space() / gb,
+                read_bytes: usage.total_read_bytes,
+                written_bytes: usage.total_written_bytes,
+                read_rate: usage.read_bytes as f64 / 1024.0 / 1024.0,
+                write_rate: usage.written_bytes as f64 / 1024.0 / 1024.0,
             });
         }
 
@@ -398,6 +393,47 @@ impl SysInfoManager {
             services,
             startup_items,
             users,
+        }
+    }
+
+    fn load_current_frequency(&self, fallback: f32) -> f32 {
+        #[cfg(target_os = "windows")]
+        {
+            use windows::Win32::System::Power::{
+                CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
+            };
+
+            let cpu_count = self.system.cpus().len();
+            if cpu_count == 0 {
+                return fallback;
+            }
+
+            let mut buffer = vec![PROCESSOR_POWER_INFORMATION::default(); cpu_count];
+            let status = unsafe {
+                CallNtPowerInformation(
+                    ProcessorInformation,
+                    None,
+                    0,
+                    Some(buffer.as_mut_ptr() as *mut _),
+                    (std::mem::size_of::<PROCESSOR_POWER_INFORMATION>() * cpu_count) as u32,
+                )
+            };
+            if status.is_ok() {
+                let total_mhz: u64 = buffer.iter().map(|info| info.CurrentMhz as u64).sum();
+                return total_mhz as f32 / cpu_count as f32 / 1000.0;
+            }
+        }
+
+        let total: f32 = self
+            .system
+            .cpus()
+            .iter()
+            .map(|c| c.frequency() as f32)
+            .sum();
+        if self.system.cpus().is_empty() {
+            fallback
+        } else {
+            total / self.system.cpus().len() as f32 / 1000.0
         }
     }
 

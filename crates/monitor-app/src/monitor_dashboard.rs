@@ -846,7 +846,9 @@ fn render_disk_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
                     .child(TableHead::new().child("文件系统"))
                     .child(TableHead::new().text_right().child("总量(GB)"))
                     .child(TableHead::new().text_right().child("可用(GB)"))
-                    .child(TableHead::new().text_right().child("已用(%)")),
+                    .child(TableHead::new().text_right().child("已用(%)"))
+                    .child(TableHead::new().text_right().child("读取(MB/s)"))
+                    .child(TableHead::new().text_right().child("写入(MB/s)")),
             ),
         )
         .child(
@@ -869,6 +871,16 @@ fn render_disk_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
                         TableCell::new()
                             .text_right()
                             .child(format!("{:.1}%", disk_usage_percent(disk))),
+                    )
+                    .child(
+                        TableCell::new()
+                            .text_right()
+                            .child(format!("{:.2}", disk.read_rate)),
+                    )
+                    .child(
+                        TableCell::new()
+                            .text_right()
+                            .child(format!("{:.2}", disk.write_rate)),
                     )
             })),
         )
