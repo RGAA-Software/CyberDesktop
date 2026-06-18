@@ -2,25 +2,29 @@ use std::rc::Rc;
 
 use gpui::{
     div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, size, AnyElement,
-    Context, Hsla, InteractiveElement, IntoElement, ParentElement, Render, SharedString, Stateful,
-    Styled, Window,
+    App, Context, Entity, Hsla, InteractiveElement, IntoElement, ParentElement, Pixels, Render,
+    SharedString, Stateful, StatefulInteractiveElement, Styled, Window,
 };
 use gpui_component::{
     chart::AreaChart,
     h_flex,
+    input::{Input, InputState},
     label::Label,
     progress::Progress,
     scroll::{ScrollableElement as _, ScrollbarAxis},
     table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
-    v_flex, v_virtual_list, ActiveTheme, StyledExt, VirtualListScrollHandle,
+    v_flex, v_virtual_list, ActiveTheme, Sizable, StyledExt, VirtualListScrollHandle,
 };
 
+use crate::monitor_actions::{RevealProcessExe, ShowProcessDetails, TerminateProcess};
 use crate::monitor_model::{
     bytes_to_gb, bytes_to_mb, chart_ticks, cpu_color, disk_usage_percent,
     format_optional_frequency, format_tick, gpu_key, gpu_memory_percent, network_ipv4,
-    sensor_status, MachineTelemetry, MonitorTab,
+    sensor_status, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
+    SortDirection,
 };
 use crate::sys_info::SysProcessInfo;
+use app_ui::ContextMenuExt;
 
 /// Shared card container used across the dashboard. Callers should still apply
 /// `.border_color(cx.theme().border)` and `.bg(cx.theme().secondary)` so the
@@ -29,13 +33,19 @@ fn card(id: impl Into<SharedString>) -> Stateful<gpui::Div> {
     div().id(id.into()).gap_3().p_3().rounded_md().border_1()
 }
 
-pub fn render_dashboard<V: Render>(
+pub fn render_dashboard<V: Render, F>(
     telemetry: &MachineTelemetry,
     active_tab: MonitorTab,
     process_scroll_handle: &VirtualListScrollHandle,
+    process_search: &Entity<InputState>,
+    process_sort: ProcessSort,
+    on_cycle_sort: F,
     window: &mut Window,
     cx: &mut Context<V>,
-) -> AnyElement {
+) -> AnyElement
+where
+    F: Fn(ProcessSortColumn, &mut Window, &mut App) + Clone + 'static,
+{
     match active_tab {
         MonitorTab::Overview => render_overview_tab(telemetry, cx).into_any_element(),
         MonitorTab::CpuMemory => render_cpu_memory_tab(telemetry, cx).into_any_element(),
@@ -43,9 +53,16 @@ pub fn render_dashboard<V: Render>(
         MonitorTab::Storage => render_storage_tab(telemetry, cx).into_any_element(),
         MonitorTab::Network => render_network_tab(telemetry, cx).into_any_element(),
         MonitorTab::Sensors => render_sensors_tab(telemetry, cx).into_any_element(),
-        MonitorTab::Processes => {
-            render_processes_tab(telemetry, process_scroll_handle, window, cx).into_any_element()
-        }
+        MonitorTab::Processes => render_processes_tab(
+            telemetry,
+            process_scroll_handle,
+            process_search,
+            process_sort,
+            on_cycle_sort,
+            window,
+            cx,
+        )
+        .into_any_element(),
     }
 }
 
@@ -924,18 +941,38 @@ fn render_sensor_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
         .bg(cx.theme().table)
 }
 
-fn render_processes_tab<V: Render>(
+fn render_processes_tab<V: Render, F>(
     telemetry: &MachineTelemetry,
     scroll_handle: &VirtualListScrollHandle,
+    process_search: &Entity<InputState>,
+    process_sort: ProcessSort,
+    on_cycle_sort: F,
     _window: &mut Window,
     cx: &mut Context<V>,
-) -> impl IntoElement {
-    let top_cpu = telemetry.current.processes.first();
-    let top_mem = telemetry
+) -> impl IntoElement
+where
+    F: Fn(ProcessSortColumn, &mut Window, &mut App) + Clone + 'static,
+{
+    let query = process_search.read(cx).value().to_lowercase();
+    let mut processes: Vec<SysProcessInfo> = telemetry
         .current
         .processes
         .iter()
-        .max_by_key(|process| process.memory);
+        .filter(|process| {
+            if query.is_empty() {
+                return true;
+            }
+            process.name.to_lowercase().contains(&query)
+                || process.command_line.to_lowercase().contains(&query)
+                || process.exe.to_lowercase().contains(&query)
+                || process.pid.to_string().contains(&query)
+        })
+        .cloned()
+        .collect();
+    sort_processes(&mut processes, process_sort);
+
+    let top_cpu = processes.first();
+    let top_mem = processes.iter().max_by_key(|process| process.memory);
 
     v_flex()
         .gap_4()
@@ -948,7 +985,7 @@ fn render_processes_tab<V: Render>(
                 .child(render_metric_card(
                     "process-count",
                     "进程数",
-                    telemetry.current.processes.len().to_string(),
+                    processes.len().to_string(),
                     None,
                     None,
                     cx,
@@ -975,6 +1012,12 @@ fn render_processes_tab<V: Render>(
                 )),
         )
         .child(
+            h_flex()
+                .gap_3()
+                .items_center()
+                .child(Input::new(process_search).small().w(px(220.))),
+        )
+        .child(
             v_flex()
                 .flex_1()
                 .min_h_0()
@@ -982,12 +1025,12 @@ fn render_processes_tab<V: Render>(
                 .border_1()
                 .border_color(cx.theme().border)
                 .overflow_hidden()
-                .child(render_process_table_header(cx))
+                .child(render_process_table_header(process_sort, on_cycle_sort, cx))
                 .child(
                     div()
                         .flex_1()
                         .min_h_0()
-                        .child(render_process_table(telemetry, scroll_handle, cx))
+                        .child(render_process_table(&processes, scroll_handle, cx))
                         .scrollbar(scroll_handle, ScrollbarAxis::Vertical),
                 )
                 .child(
@@ -997,7 +1040,7 @@ fn render_processes_tab<V: Render>(
                         .border_t_1()
                         .border_color(cx.theme().border)
                         .child(
-                            Label::new(format!("共 {} 个进程", telemetry.current.processes.len()))
+                            Label::new(format!("共 {} 个进程", processes.len()))
                                 .text_xs()
                                 .text_color(cx.theme().muted_foreground),
                         ),
@@ -1005,59 +1048,192 @@ fn render_processes_tab<V: Render>(
         )
 }
 
-fn render_process_table_header<V>(cx: &mut Context<V>) -> impl IntoElement {
+fn render_process_table_header<V: Render, F>(
+    sort: ProcessSort,
+    on_cycle_sort: F,
+    cx: &mut Context<V>,
+) -> impl IntoElement
+where
+    F: Fn(ProcessSortColumn, &mut Window, &mut App) + Clone + 'static,
+{
     h_flex()
+        .id("process-table-header")
         .h(px(32.))
         .px(px(12.))
         .gap(px(8.))
         .items_center()
+        .overflow_hidden()
         .bg(cx.theme().background)
         .border_b_1()
         .border_color(cx.theme().border)
+        .child(render_header_cell(
+            "PID",
+            px(80.),
+            false,
+            None,
+            false,
+            None,
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "名称",
+            px(160.),
+            false,
+            None,
+            false,
+            Some(ProcessSortColumn::Name),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "命令行",
+            px(0.),
+            true,
+            Some(px(200.)),
+            false,
+            None,
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "状态",
+            px(80.),
+            false,
+            None,
+            false,
+            None,
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "CPU%",
+            px(80.),
+            false,
+            None,
+            true,
+            Some(ProcessSortColumn::Cpu),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "内存 (MB)",
+            px(100.),
+            false,
+            None,
+            true,
+            Some(ProcessSortColumn::Memory),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "虚拟内存 (MB)",
+            px(120.),
+            false,
+            None,
+            true,
+            None,
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "读取 (MB/s)",
+            px(100.),
+            false,
+            None,
+            true,
+            Some(ProcessSortColumn::DiskRead),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "写入 (MB/s)",
+            px(100.),
+            false,
+            None,
+            true,
+            Some(ProcessSortColumn::DiskWrite),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+}
+
+fn render_header_cell<V: Render, F>(
+    label: &str,
+    width: Pixels,
+    flex: bool,
+    min_w: Option<Pixels>,
+    align_right: bool,
+    column: Option<ProcessSortColumn>,
+    sort: ProcessSort,
+    on_cycle_sort: F,
+    cx: &mut Context<V>,
+) -> Stateful<gpui::Div>
+where
+    F: Fn(ProcessSortColumn, &mut Window, &mut App) + Clone + 'static,
+{
+    let active = column.is_some_and(|column| column == sort.column);
+    let arrow = if active {
+        match sort.direction {
+            SortDirection::Asc => " ↑",
+            SortDirection::Desc => " ↓",
+        }
+    } else {
+        ""
+    };
+    let text = format!("{label}{arrow}");
+    let mut cell = div()
+        .id(format!("process-header-{label}"))
+        .flex_none()
+        .h_full()
+        .items_center()
         .text_xs()
         .font_semibold()
-        .text_color(cx.theme().muted_foreground)
-        .child(div().w(px(80.)).flex_none().child("PID"))
-        .child(div().w(px(160.)).flex_none().child("名称"))
-        .child(div().flex_1().min_w(px(200.)).child("命令行"))
-        .child(div().w(px(80.)).flex_none().child("状态"))
-        .child(div().w(px(80.)).flex_none().text_right().child("CPU%"))
         .child(
-            div()
-                .w(px(100.))
-                .flex_none()
-                .text_right()
-                .child("内存 (MB)"),
-        )
-        .child(
-            div()
-                .w(px(120.))
-                .flex_none()
-                .text_right()
-                .child("虚拟内存 (MB)"),
-        )
-        .child(
-            div()
-                .w(px(100.))
-                .flex_none()
-                .text_right()
-                .child("读取 (MB/s)"),
-        )
-        .child(
-            div()
-                .w(px(100.))
-                .flex_none()
-                .text_right()
-                .child("写入 (MB/s)"),
-        )
+            Label::new(text)
+                .text_xs()
+                .font_semibold()
+                .text_color(if active {
+                    cx.theme().primary
+                } else {
+                    cx.theme().muted_foreground
+                }),
+        );
+    if width > px(0.) {
+        cell = cell.w(width);
+    }
+    if flex {
+        cell = cell.flex_1();
+    }
+    if let Some(min_w) = min_w {
+        cell = cell.min_w(min_w);
+    }
+    if align_right {
+        cell = cell.text_right();
+    }
+    if let Some(column) = column {
+        cell = cell.cursor_pointer().on_click(move |_event, window, cx| {
+            on_cycle_sort(column, window, cx);
+        });
+    }
+    cell
 }
 
 fn render_process_table<V: Render>(
-    telemetry: &MachineTelemetry,
+    processes: &[SysProcessInfo],
     scroll_handle: &VirtualListScrollHandle,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
-    let processes = telemetry.current.processes.clone();
+    let processes = processes.to_vec();
     let item_count = processes.len().max(1);
     let item_sizes = Rc::new(vec![size(px(0.), px(32.)); item_count]);
 
@@ -1079,8 +1255,14 @@ fn render_process_table<V: Render>(
 }
 
 fn render_process_row<V>(process: &SysProcessInfo, cx: &mut Context<V>) -> impl IntoElement {
+    let pid = process.pid;
     h_flex()
         .id(format!("process-row-{}", process.pid))
+        .context_menu(move |menu, _window, _cx| {
+            menu.menu("结束任务", Box::new(TerminateProcess { pid }))
+                .menu("打开文件位置", Box::new(RevealProcessExe { pid }))
+                .menu("属性", Box::new(ShowProcessDetails { pid }))
+        })
         .w_full()
         .h(px(32.))
         .px(px(12.))

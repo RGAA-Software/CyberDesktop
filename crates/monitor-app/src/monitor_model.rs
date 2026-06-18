@@ -2,10 +2,73 @@ use std::collections::{BTreeMap, VecDeque};
 
 use gpui::Hsla;
 use gpui_component::Theme;
+use serde::Deserialize;
 
-use crate::sys_info::{SysComponentInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysNetworkInfo};
+use crate::sys_info::{
+    SysComponentInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysNetworkInfo, SysProcessInfo,
+};
 
 pub const MAX_POINTS: usize = 180;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+pub enum SortDirection {
+    #[default]
+    Desc,
+    Asc,
+}
+
+impl SortDirection {
+    pub fn toggle(self) -> Self {
+        match self {
+            Self::Desc => Self::Asc,
+            Self::Asc => Self::Desc,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+pub enum ProcessSortColumn {
+    #[default]
+    Cpu,
+    Memory,
+    Name,
+    DiskRead,
+    DiskWrite,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+pub struct ProcessSort {
+    pub column: ProcessSortColumn,
+    pub direction: SortDirection,
+}
+
+pub fn sort_processes(processes: &mut [SysProcessInfo], sort: ProcessSort) {
+    let comparator: Box<dyn Fn(&SysProcessInfo, &SysProcessInfo) -> std::cmp::Ordering> = match sort
+        .column
+    {
+        ProcessSortColumn::Cpu => Box::new(|a, b| {
+            a.cpu_usage
+                .partial_cmp(&b.cpu_usage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }),
+        ProcessSortColumn::Memory => Box::new(|a, b| a.memory.cmp(&b.memory)),
+        ProcessSortColumn::Name => {
+            Box::new(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        }
+        ProcessSortColumn::DiskRead => Box::new(|a, b| a.disk_read_bytes.cmp(&b.disk_read_bytes)),
+        ProcessSortColumn::DiskWrite => {
+            Box::new(|a, b| a.disk_written_bytes.cmp(&b.disk_written_bytes))
+        }
+    };
+
+    processes.sort_by(|a, b| {
+        let ord = comparator(a, b);
+        match sort.direction {
+            SortDirection::Desc => ord.reverse(),
+            SortDirection::Asc => ord,
+        }
+    });
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MonitorTab {

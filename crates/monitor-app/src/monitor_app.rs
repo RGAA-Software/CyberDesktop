@@ -1,23 +1,30 @@
 use std::time::Duration;
 
 use gpui::{
-    div, px, size, App, AppContext, Context, InteractiveElement, IntoElement, MouseButton,
+    div, px, size, App, AppContext, Context, Entity, InteractiveElement, IntoElement, MouseButton,
     ParentElement, Render, Styled, Window, WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme, IconName, Root,
-    StyledExt, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme,
+    IconName, Root, StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
+use crate::monitor_actions::{
+    CycleProcessSort, ProcessActionHandler, RevealProcessExe, ShowProcessDetails, TerminateProcess,
+};
 use crate::monitor_dashboard::render_dashboard;
-use crate::monitor_model::{MachineTelemetry, MonitorTab};
+use crate::monitor_model::{
+    MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
+};
+use crate::monitor_process_details::ProcessDetailsView;
 use crate::monitor_sender::MonitorSenderHandle;
 use crate::monitor_settings::{
     build_monitor_settings, init_monitor_connection, load_monitor_connection_config,
 };
+use crate::sys_info::SysProcessInfo;
 use crate::sys_info_mgr::SysInfoManager;
 use crate::tray::{self, TrayCommand};
 
@@ -29,6 +36,33 @@ pub struct SysMonitorApp {
     active_tab: MonitorTab,
     sender: MonitorSenderHandle,
     process_scroll: VirtualListScrollHandle,
+    process_search: Entity<InputState>,
+    process_sort: ProcessSort,
+}
+
+impl ProcessActionHandler for SysMonitorApp {
+    fn terminate_process(&mut self, pid: u32, cx: &mut Context<Self>) {
+        if self.manager.kill_process(pid) {
+            cx.notify();
+        }
+    }
+
+    fn reveal_process_exe(&mut self, pid: u32, _cx: &mut Context<Self>) {
+        if let Some(process) = self
+            .telemetry
+            .current
+            .processes
+            .iter()
+            .find(|p| p.pid == pid)
+        {
+            let path = resolve_process_exe_path(process);
+            if !path.is_empty() {
+                let _ = std::process::Command::new("explorer")
+                    .arg(format!("/select,{path}"))
+                    .spawn();
+            }
+        }
+    }
 }
 
 impl SysMonitorApp {
@@ -41,12 +75,15 @@ impl SysMonitorApp {
         sender.set_latest_json(serde_json::to_string(&current).unwrap_or_default());
         init_monitor_connection(cx, sender.clone(), connection_config);
 
+        let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
         let this = Self {
             manager,
             telemetry,
             active_tab: MonitorTab::Overview,
             sender,
             process_scroll: VirtualListScrollHandle::new(),
+            process_search,
+            process_sort: ProcessSort::default(),
         };
 
         cx.spawn(async move |this, cx| loop {
@@ -87,9 +124,13 @@ impl Render for SysMonitorApp {
         } else {
             IconName::Sun
         };
+        let view = cx.entity().clone();
         v_flex()
             .size_full()
             .bg(cx.theme().background)
+            .on_action(cx.listener(Self::on_terminate_process))
+            .on_action(cx.listener(Self::on_reveal_process_exe))
+            .on_action(cx.listener(Self::on_show_process_details))
             .child(
                 app_ui::TitleBar::new()
                     .h(px(35.))
@@ -188,10 +229,111 @@ impl Render for SysMonitorApp {
                         &self.telemetry,
                         self.active_tab,
                         &self.process_scroll,
+                        &self.process_search,
+                        self.process_sort,
+                        move |column, window, cx| {
+                            view.update(cx, |this, cx| {
+                                this.on_cycle_process_sort(
+                                    &CycleProcessSort { column },
+                                    window,
+                                    cx,
+                                );
+                            });
+                        },
                         _window,
                         cx,
                     )),
             )
+    }
+}
+
+impl SysMonitorApp {
+    fn on_terminate_process(
+        &mut self,
+        action: &TerminateProcess,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.terminate_process(action.pid, cx);
+    }
+
+    fn on_reveal_process_exe(
+        &mut self,
+        action: &RevealProcessExe,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.reveal_process_exe(action.pid, cx);
+    }
+
+    fn on_show_process_details(
+        &mut self,
+        action: &ShowProcessDetails,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(process) = self
+            .telemetry
+            .current
+            .processes
+            .iter()
+            .find(|p| p.pid == action.pid)
+        {
+            ProcessDetailsView::open(process.clone(), cx);
+        }
+    }
+
+    fn on_cycle_process_sort(
+        &mut self,
+        action: &CycleProcessSort,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.process_sort.column == action.column {
+            self.process_sort.direction = self.process_sort.direction.toggle();
+        } else {
+            let default_direction = match action.column {
+                ProcessSortColumn::Name => SortDirection::Asc,
+                _ => SortDirection::Desc,
+            };
+            self.process_sort = ProcessSort {
+                column: action.column,
+                direction: default_direction,
+            };
+        }
+        cx.notify();
+    }
+}
+
+fn resolve_process_exe_path(process: &SysProcessInfo) -> String {
+    use std::path::Path;
+
+    if !process.exe.is_empty() && Path::new(&process.exe).exists() {
+        return process.exe.clone();
+    }
+
+    if let Some(path) = extract_first_path_from_command_line(&process.command_line) {
+        if Path::new(&path).exists() {
+            return path;
+        }
+    }
+
+    String::new()
+}
+
+fn extract_first_path_from_command_line(command_line: &str) -> Option<String> {
+    let trimmed = command_line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed.starts_with('"') {
+        let rest = &trimmed[1..];
+        rest.find('"').map(|index| rest[..index].to_string())
+    } else {
+        trimmed
+            .split_whitespace()
+            .next()
+            .map(|token| token.to_string())
     }
 }
 

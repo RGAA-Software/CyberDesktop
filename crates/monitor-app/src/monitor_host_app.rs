@@ -6,12 +6,13 @@ use std::time::Duration;
 use clap::Parser;
 use futures_util::StreamExt;
 use gpui::{
-    div, prelude::FluentBuilder as _, px, size, App, AppContext, Context, InteractiveElement,
-    IntoElement, MouseButton, ParentElement, Render, Styled, Window, WindowBounds, WindowOptions,
+    div, prelude::FluentBuilder as _, px, size, App, AppContext, Context, Entity,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, Styled, Window,
+    WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, label::Label, list::ListItem, scroll::ScrollableElement, v_flex, ActiveTheme, Icon,
-    IconName, Root, StyledExt, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, label::Label, list::ListItem, scroll::ScrollableElement, v_flex,
+    ActiveTheme, Icon, IconName, Root, StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 use tokio::net::{TcpListener, TcpStream};
@@ -22,8 +23,13 @@ use tokio_tungstenite::tungstenite::Message;
 
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
+use crate::monitor_actions::{
+    CycleProcessSort, ProcessActionHandler, RevealProcessExe, ShowProcessDetails, TerminateProcess,
+};
 use crate::monitor_dashboard::{render_connection_summary, render_dashboard};
-use crate::monitor_model::{MachineTelemetry, MonitorTab, RemoteMachineState};
+use crate::monitor_model::{
+    MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, RemoteMachineState, SortDirection,
+};
 use crate::sys_info::SysInfo;
 use crate::tray::{self, TrayCommand};
 
@@ -247,11 +253,16 @@ pub struct SysMonitorHostApp {
     server_status: HostServerStatus,
     active_tab: MonitorTab,
     process_scroll: VirtualListScrollHandle,
+    process_search: Entity<InputState>,
+    process_sort: ProcessSort,
 }
+
+impl ProcessActionHandler for SysMonitorHostApp {}
 
 impl SysMonitorHostApp {
     fn new(_window: &mut Window, cx: &mut Context<Self>, cli: HostCli) -> Self {
         let server = HostServerHandle::new(cli.host, cli.port);
+        let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
         let mut this = Self {
             server,
             machines: Vec::new(),
@@ -259,6 +270,8 @@ impl SysMonitorHostApp {
             server_status: HostServerStatus::default(),
             active_tab: MonitorTab::Overview,
             process_scroll: VirtualListScrollHandle::new(),
+            process_search,
+            process_sort: ProcessSort::default(),
         };
         this.refresh();
 
@@ -430,6 +443,9 @@ impl Render for SysMonitorHostApp {
         v_flex()
             .size_full()
             .bg(cx.theme().background)
+            .on_action(cx.listener(Self::on_terminate_process))
+            .on_action(cx.listener(Self::on_reveal_process_exe))
+            .on_action(cx.listener(Self::on_show_process_details))
             .child(
                 app_ui::TitleBar::new()
                     .h(px(35.))
@@ -548,23 +564,82 @@ impl Render for SysMonitorHostApp {
                                             .child(app_ui::Tab::new().label("传感器"))
                                             .child(app_ui::Tab::new().label("进程")),
                                     )
-                                    .child(
+                                    .child({
+                                        let view = cx.entity().clone();
                                         div().flex_1().w_full().min_h_0().overflow_hidden().child(
                                             div().size_full().overflow_y_scrollbar().child(
                                                 render_dashboard(
                                                     &machine.telemetry,
                                                     self.active_tab,
                                                     &self.process_scroll,
+                                                    &self.process_search,
+                                                    self.process_sort,
+                                                    move |column, window, cx| {
+                                                        view.update(cx, |this, cx| {
+                                                            this.on_cycle_process_sort(
+                                                                &CycleProcessSort { column },
+                                                                window,
+                                                                cx,
+                                                            );
+                                                        });
+                                                    },
                                                     _window,
                                                     cx,
                                                 ),
                                             ),
-                                        ),
-                                    )
+                                        )
+                                    })
                                 }),
                         ),
                     ),
             )
+    }
+}
+
+impl SysMonitorHostApp {
+    fn on_terminate_process(
+        &mut self,
+        _action: &TerminateProcess,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
+    }
+
+    fn on_reveal_process_exe(
+        &mut self,
+        _action: &RevealProcessExe,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
+    }
+
+    fn on_show_process_details(
+        &mut self,
+        _action: &ShowProcessDetails,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
+    }
+
+    fn on_cycle_process_sort(
+        &mut self,
+        action: &CycleProcessSort,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.process_sort.column == action.column {
+            self.process_sort.direction = self.process_sort.direction.toggle();
+        } else {
+            let default_direction = match action.column {
+                ProcessSortColumn::Name => SortDirection::Asc,
+                _ => SortDirection::Desc,
+            };
+            self.process_sort = ProcessSort {
+                column: action.column,
+                direction: default_direction,
+            };
+        }
+        cx.notify();
     }
 }
 

@@ -4,7 +4,7 @@ use adlx::helper::AdlxHelper;
 use anyhow::Result;
 use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 use nvml_wrapper::Nvml;
-use sysinfo::{Components, Disks, Networks, ProcessStatus, System, Users};
+use sysinfo::{Components, Disks, Networks, Pid, ProcessStatus, System, Users};
 
 use crate::sys_info::{
     SysComponentInfo, SysCpuInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysIpNetwork, SysMemInfo,
@@ -430,5 +430,13 @@ impl SysInfoManager {
 
     pub fn load_system_info_as_encrypt_json(&mut self) -> String {
         self.load_system_info_as_json()
+    }
+
+    pub fn kill_process(&self, pid: u32) -> bool {
+        self.system
+            .processes()
+            .get(&Pid::from_u32(pid))
+            .map(|process| process.kill())
+            .unwrap_or(false)
     }
 }
