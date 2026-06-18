@@ -171,11 +171,11 @@ async fn handle_host_client(
 
     while let Some(message) = source.next().await {
         let message = message.map_err(|err| err.to_string())?;
-        let Message::Text(text) = message else {
+        let Message::Binary(bytes) = message else {
             continue;
         };
 
-        match serde_json::from_str::<SysInfo>(&text) {
+        match bincode::deserialize::<SysInfo>(&bytes) {
             Ok(info) => {
                 let host_name = if info.os.sys_host_name.is_empty() {
                     "UnknownHost".to_string()

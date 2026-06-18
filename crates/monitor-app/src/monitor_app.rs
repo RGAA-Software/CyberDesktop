@@ -185,7 +185,7 @@ impl SysMonitorApp {
         let telemetry = MachineTelemetry::new(current.clone());
         let connection_config = load_monitor_connection_config();
         let sender = MonitorSenderHandle::new();
-        sender.set_latest_json(serde_json::to_string(&current).unwrap_or_default());
+        sender.set_latest_payload(bincode::serialize(&current).unwrap_or_default());
         init_monitor_connection(cx, sender.clone(), connection_config);
 
         let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
@@ -225,9 +225,9 @@ impl SysMonitorApp {
 
     fn refresh(&mut self) {
         let snapshot = self.manager.load_system_info();
-        let json = serde_json::to_string(&snapshot).unwrap_or_default();
+        let payload = bincode::serialize(&snapshot).unwrap_or_default();
         self.telemetry.apply_snapshot(snapshot);
-        self.sender.set_latest_json(json);
+        self.sender.set_latest_payload(payload);
     }
 
     fn set_active_tab(&mut self, index: usize, _window: &mut Window, cx: &mut Context<Self>) {

@@ -22,7 +22,7 @@ async fn test_sender_reconnects_after_server_disconnect() {
 
     let sender = monitor_app::monitor_sender::MonitorSenderHandle::new();
     sender.connect("127.0.0.1".to_string(), port);
-    sender.set_latest_json(r#"{"test":1}"#.to_string());
+    sender.set_latest_payload(r#"{"test":1}"#.as_bytes().to_vec());
 
     let mut connected_once = false;
     for _ in 0..50 {

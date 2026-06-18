@@ -38,6 +38,7 @@ futures-util.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 chrono.workspace = true
+bincode = "1.3"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58", features = [

@@ -38,7 +38,7 @@ pub struct SenderStatus {
 #[derive(Clone)]
 pub struct MonitorSenderHandle {
     desired: Arc<Mutex<SenderDesired>>,
-    latest_payload: Arc<Mutex<String>>,
+    latest_payload: Arc<Mutex<Vec<u8>>>,
     status: Arc<Mutex<SenderStatus>>,
 }
 
@@ -50,7 +50,7 @@ impl MonitorSenderHandle {
             enabled: true,
             revision: 0,
         }));
-        let latest_payload = Arc::new(Mutex::new(String::new()));
+        let latest_payload = Arc::new(Mutex::new(Vec::new()));
         let status = Arc::new(Mutex::new(SenderStatus {
             connected: false,
             target: "ws://127.0.0.1:20379/sys/info".to_string(),
@@ -67,9 +67,9 @@ impl MonitorSenderHandle {
         }
     }
 
-    pub fn set_latest_json(&self, json: String) {
+    pub fn set_latest_payload(&self, payload: Vec<u8>) {
         if let Ok(mut latest) = self.latest_payload.lock() {
-            *latest = json;
+            *latest = payload;
         }
     }
 
@@ -99,7 +99,7 @@ impl MonitorSenderHandle {
 
 fn spawn_sender_thread(
     desired: Arc<Mutex<SenderDesired>>,
-    latest_payload: Arc<Mutex<String>>,
+    latest_payload: Arc<Mutex<Vec<u8>>>,
     status: Arc<Mutex<SenderStatus>>,
 ) {
     thread::spawn(move || {
@@ -182,7 +182,7 @@ fn spawn_sender_thread(
                     continue;
                 }
 
-                if let Err(err) = stream_sink.send(Message::Text(payload.into())).await {
+                if let Err(err) = stream_sink.send(Message::Binary(payload.into())).await {
                     update_status(
                         &status,
                         false,
