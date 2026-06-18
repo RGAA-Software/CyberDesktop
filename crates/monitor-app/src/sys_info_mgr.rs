@@ -9,6 +9,7 @@ use sysinfo::{Components, Disks, Networks, Pid, ProcessStatus, System, Users};
 use crate::sys_info::{
     SysComponentInfo, SysCpuInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysIpNetwork, SysMemInfo,
     SysNetworkInfo, SysOsInfo, SysProcessInfo, SysServiceInfo, SysSingleCpuInfo, SysStartupInfo,
+    SysUserInfo,
 };
 
 fn truncate_string(text: &str, max_len: usize) -> String {
@@ -380,6 +381,7 @@ impl SysInfoManager {
 
         let services = self.load_services();
         let startup_items = self.load_startup_items();
+        let users = self.load_users();
 
         SysInfo {
             timestamp: current_timestamp_ms(),
@@ -395,6 +397,7 @@ impl SysInfoManager {
             processes,
             services,
             startup_items,
+            users,
         }
     }
 
@@ -769,6 +772,24 @@ impl SysInfoManager {
     #[cfg(not(target_os = "windows"))]
     fn load_startup_items(&self) -> Vec<SysStartupInfo> {
         Vec::new()
+    }
+
+    fn load_users(&self) -> Vec<SysUserInfo> {
+        self.users
+            .list()
+            .iter()
+            .map(|user| SysUserInfo {
+                name: user.name().to_string(),
+                uid: user.id().to_string(),
+                gid: user.group_id().to_string(),
+                groups: user
+                    .groups()
+                    .iter()
+                    .map(|group| group.name().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            })
+            .collect()
     }
 
     pub fn start_service(&self, name: &str) -> bool {

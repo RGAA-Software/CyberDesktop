@@ -87,7 +87,16 @@ pub struct SysNetworkInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct SysUserInfo {}
+pub struct SysUserInfo {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub uid: String,
+    #[serde(default)]
+    pub gid: String,
+    #[serde(default)]
+    pub groups: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SysServiceInfo {
@@ -233,4 +242,6 @@ pub struct SysInfo {
     pub services: Vec<SysServiceInfo>,
     #[serde(default)]
     pub startup_items: Vec<SysStartupInfo>,
+    #[serde(default)]
+    pub users: Vec<SysUserInfo>,
 }

@@ -259,6 +259,7 @@ pub struct SysMonitorHostApp {
     service_search: Entity<InputState>,
     startup_scroll: VirtualListScrollHandle,
     startup_search: Entity<InputState>,
+    user_search: Entity<InputState>,
 }
 
 impl ProcessActionHandler for SysMonitorHostApp {}
@@ -269,6 +270,7 @@ impl SysMonitorHostApp {
         let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
         let service_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索服务..."));
         let startup_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索启动项..."));
+        let user_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索用户..."));
         let mut this = Self {
             server,
             machines: Vec::new(),
@@ -281,6 +283,7 @@ impl SysMonitorHostApp {
             service_search,
             startup_scroll: VirtualListScrollHandle::new(),
             startup_search,
+            user_search,
         };
         this.refresh();
 
@@ -574,7 +577,8 @@ impl Render for SysMonitorHostApp {
                                             .child(app_ui::Tab::new().label("传感器"))
                                             .child(app_ui::Tab::new().label("进程"))
                                             .child(app_ui::Tab::new().label("服务"))
-                                            .child(app_ui::Tab::new().label("启动项")),
+                                            .child(app_ui::Tab::new().label("启动项"))
+                                            .child(app_ui::Tab::new().label("用户")),
                                     )
                                     .child({
                                         let view = cx.entity().clone();
@@ -589,6 +593,7 @@ impl Render for SysMonitorHostApp {
                                                     &self.service_search,
                                                     &self.startup_scroll,
                                                     &self.startup_search,
+                                                    &self.user_search,
                                                     move |column, window, cx| {
                                                         view.update(cx, |this, cx| {
                                                             this.on_cycle_process_sort(

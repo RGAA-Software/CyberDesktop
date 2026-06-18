@@ -26,7 +26,7 @@ use crate::monitor_model::{
     sensor_status, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
     SortDirection,
 };
-use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo};
+use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo, SysUserInfo};
 use app_ui::ContextMenuExt;
 
 /// Shared card container used across the dashboard. Callers should still apply
@@ -45,6 +45,7 @@ pub fn render_dashboard<V: Render, F>(
     service_search: &Entity<InputState>,
     startup_scroll_handle: &VirtualListScrollHandle,
     startup_search: &Entity<InputState>,
+    user_search: &Entity<InputState>,
     on_cycle_sort: F,
     window: &mut Window,
     cx: &mut Context<V>,
@@ -76,6 +77,7 @@ where
             render_startup_tab(telemetry, startup_scroll_handle, startup_search, cx)
                 .into_any_element()
         }
+        MonitorTab::Users => render_users_tab(telemetry, user_search, cx).into_any_element(),
     }
 }
 
@@ -1563,6 +1565,71 @@ fn render_service_row<V: Render>(
                 .flex_none()
                 .child(Label::new(service.start_type.clone()).text_sm()),
         )
+}
+
+fn render_users_tab<V: Render>(
+    telemetry: &MachineTelemetry,
+    user_search: &Entity<InputState>,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let query = user_search.read(cx).value().to_lowercase();
+    let users: Vec<SysUserInfo> = telemetry
+        .current
+        .users
+        .iter()
+        .filter(|user| {
+            if query.is_empty() {
+                return true;
+            }
+            user.name.to_lowercase().contains(&query)
+                || user.uid.to_lowercase().contains(&query)
+                || user.gid.to_lowercase().contains(&query)
+                || user.groups.to_lowercase().contains(&query)
+        })
+        .cloned()
+        .collect();
+
+    v_flex()
+        .gap_4()
+        .p_4()
+        .size_full()
+        .child(h_flex().gap_3().flex_wrap().child(render_metric_card(
+            "user-count",
+            "用户数",
+            users.len().to_string(),
+            None,
+            None,
+            cx,
+        )))
+        .child(
+            h_flex()
+                .gap_3()
+                .items_center()
+                .child(Input::new(user_search).small().w(px(220.))),
+        )
+        .child(render_user_table(&users, cx))
+}
+
+fn render_user_table<V: Render>(users: &[SysUserInfo], cx: &mut Context<V>) -> impl IntoElement {
+    Table::new()
+        .child(
+            TableHeader::new().child(
+                TableRow::new()
+                    .child(TableHead::new().child("名称"))
+                    .child(TableHead::new().child("UID"))
+                    .child(TableHead::new().child("GID"))
+                    .child(TableHead::new().child("所属组")),
+            ),
+        )
+        .child(TableBody::new().children(users.iter().map(|user| {
+            TableRow::new()
+                .child(TableCell::new().child(user.name.clone()))
+                .child(TableCell::new().child(user.uid.clone()))
+                .child(TableCell::new().child(user.gid.clone()))
+                .child(TableCell::new().child(user.groups.clone()))
+        })))
+        .child(TableCaption::new().child(format!("共 {} 个用户", users.len())))
+        .bg(cx.theme().table)
 }
 
 fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {

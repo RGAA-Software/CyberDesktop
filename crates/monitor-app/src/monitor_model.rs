@@ -82,6 +82,7 @@ pub enum MonitorTab {
     Processes = 6,
     Services = 7,
     Startup = 8,
+    Users = 9,
 }
 
 impl MonitorTab {
@@ -96,6 +97,7 @@ impl MonitorTab {
             6 => Self::Processes,
             7 => Self::Services,
             8 => Self::Startup,
+            9 => Self::Users,
             _ => Self::Overview,
         }
     }
