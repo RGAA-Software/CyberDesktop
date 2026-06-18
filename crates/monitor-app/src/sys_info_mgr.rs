@@ -4,12 +4,38 @@ use adlx::helper::AdlxHelper;
 use anyhow::Result;
 use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 use nvml_wrapper::Nvml;
-use sysinfo::{Components, Disks, Networks, System, Users};
+use sysinfo::{Components, Disks, Networks, ProcessStatus, System, Users};
 
 use crate::sys_info::{
     SysComponentInfo, SysCpuInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysIpNetwork, SysMemInfo,
-    SysNetworkInfo, SysOsInfo, SysSingleCpuInfo,
+    SysNetworkInfo, SysOsInfo, SysProcessInfo, SysSingleCpuInfo,
 };
+
+fn truncate_string(text: &str, max_len: usize) -> String {
+    if text.chars().count() <= max_len {
+        text.to_string()
+    } else {
+        format!("{}...", text.chars().take(max_len).collect::<String>())
+    }
+}
+
+fn format_process_status(status: ProcessStatus) -> &'static str {
+    match status {
+        ProcessStatus::Run => "运行中",
+        ProcessStatus::Sleep => "休眠",
+        ProcessStatus::Idle => "空闲",
+        ProcessStatus::Stop => "已停止",
+        ProcessStatus::Zombie => "僵尸",
+        ProcessStatus::Dead => "无响应",
+        ProcessStatus::Tracing => "跟踪",
+        ProcessStatus::Wakekill => "唤醒终止",
+        ProcessStatus::Waking => "唤醒中",
+        ProcessStatus::Parked => "已驻留",
+        ProcessStatus::LockBlocked => "锁阻塞",
+        ProcessStatus::UninterruptibleDiskSleep => "不可中断磁盘睡眠",
+        ProcessStatus::Unknown(_) => "未知",
+    }
+}
 
 fn current_timestamp_ms() -> i64 {
     SystemTime::now()
@@ -69,7 +95,17 @@ impl SysInfoManager {
         let vendor = self.system.cpus()[0].vendor_id();
         let brand = self.system.cpus()[0].brand();
         let base_frequency = self.system.cpus()[0].frequency() as f32 / 1000.0;
-        let current_frequency = 0.0;
+        let current_frequency = if self.system.cpus().is_empty() {
+            0.0
+        } else {
+            let total: f32 = self
+                .system
+                .cpus()
+                .iter()
+                .map(|c| c.frequency() as f32)
+                .sum();
+            total / self.system.cpus().len() as f32 / 1000.0
+        };
         if self.max_frequency <= 0.1 {
             self.max_frequency = calcmhz::mhz().unwrap_or(0.0) as f32 / 1000.0;
         }
@@ -141,7 +177,7 @@ impl SysInfoManager {
             let mut max_transmit_speed = 0;
             let mut max_receive_speed = 0;
             let mut nts = Vec::new();
-            let mut found_def_ethernet = false;
+            let mut _found_def_ethernet = false;
             for nt in data.ip_networks() {
                 let addr = nt.addr.to_string();
                 if addr.contains(':') || addr.contains("::") {
@@ -156,12 +192,9 @@ impl SysInfoManager {
                     if addr == def_ethernet.ipv4 {
                         max_transmit_speed = def_ethernet.transmit_speed;
                         max_receive_speed = def_ethernet.receive_speed;
-                        found_def_ethernet = true;
+                        _found_def_ethernet = true;
                     }
                 }
-            }
-            if !found_def_ethernet {
-                continue;
             }
 
             networks.push(SysNetworkInfo {
@@ -257,6 +290,58 @@ impl SysInfoManager {
             }
         }
 
+        let mut processes: Vec<SysProcessInfo> = self
+            .system
+            .processes()
+            .values()
+            .map(|process| {
+                let disk = process.disk_usage();
+                let command_line = process
+                    .cmd()
+                    .iter()
+                    .map(|arg| arg.to_string_lossy())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let exe = process
+                    .exe()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let name = process.name().to_string_lossy().into_owned();
+                let name = if name.is_empty() {
+                    exe.rsplit_once(|c| c == '\\' || c == '/')
+                        .map(|(_, file)| file.to_string())
+                        .unwrap_or_else(|| exe.clone())
+                } else {
+                    name
+                };
+                SysProcessInfo {
+                    pid: process.pid().as_u32(),
+                    name: truncate_string(&name, 128),
+                    command_line: if command_line.is_empty() {
+                        truncate_string(&exe, 256)
+                    } else {
+                        truncate_string(&command_line, 256)
+                    },
+                    exe: truncate_string(&exe, 256),
+                    status: format_process_status(process.status()).to_string(),
+                    cpu_usage: process.cpu_usage(),
+                    memory: process.memory(),
+                    memory_mb: process.memory() / 1024 / 1024,
+                    virtual_memory: process.virtual_memory(),
+                    virtual_memory_mb: process.virtual_memory() / 1024 / 1024,
+                    disk_read_bytes: disk.read_bytes,
+                    disk_written_bytes: disk.written_bytes,
+                    start_time: process.start_time(),
+                    run_time: process.run_time(),
+                }
+            })
+            .collect();
+        processes.sort_by(|a, b| {
+            b.cpu_usage
+                .partial_cmp(&a.cpu_usage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         SysInfo {
             timestamp: current_timestamp_ms(),
             timestamp_readable: current_readable_timestamp(),
@@ -268,6 +353,7 @@ impl SysInfoManager {
             components: cps,
             uptime,
             gpus,
+            processes,
         }
     }
 

@@ -11,7 +11,7 @@ use gpui::{
 };
 use gpui_component::{
     h_flex, label::Label, list::ListItem, scroll::ScrollableElement, v_flex, ActiveTheme, Icon,
-    IconName, Root, StyledExt, ThemeMode,
+    IconName, Root, StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 use tokio::net::{TcpListener, TcpStream};
@@ -246,6 +246,7 @@ pub struct SysMonitorHostApp {
     selected_machine: Option<String>,
     server_status: HostServerStatus,
     active_tab: MonitorTab,
+    process_scroll: VirtualListScrollHandle,
 }
 
 impl SysMonitorHostApp {
@@ -257,6 +258,7 @@ impl SysMonitorHostApp {
             selected_machine: None,
             server_status: HostServerStatus::default(),
             active_tab: MonitorTab::Overview,
+            process_scroll: VirtualListScrollHandle::new(),
         };
         this.refresh();
 
@@ -543,7 +545,8 @@ impl Render for SysMonitorHostApp {
                                             .child(app_ui::Tab::new().label("GPU"))
                                             .child(app_ui::Tab::new().label("存储"))
                                             .child(app_ui::Tab::new().label("网络"))
-                                            .child(app_ui::Tab::new().label("传感器")),
+                                            .child(app_ui::Tab::new().label("传感器"))
+                                            .child(app_ui::Tab::new().label("进程")),
                                     )
                                     .child(
                                         div().flex_1().w_full().min_h_0().overflow_hidden().child(
@@ -551,6 +554,8 @@ impl Render for SysMonitorHostApp {
                                                 render_dashboard(
                                                     &machine.telemetry,
                                                     self.active_tab,
+                                                    &self.process_scroll,
+                                                    _window,
                                                     cx,
                                                 ),
                                             ),

@@ -6,7 +6,7 @@ use gpui::{
 };
 use gpui_component::{
     h_flex, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme, IconName, Root,
-    StyledExt, ThemeMode,
+    StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 
@@ -28,6 +28,7 @@ pub struct SysMonitorApp {
     telemetry: MachineTelemetry,
     active_tab: MonitorTab,
     sender: MonitorSenderHandle,
+    process_scroll: VirtualListScrollHandle,
 }
 
 impl SysMonitorApp {
@@ -45,6 +46,7 @@ impl SysMonitorApp {
             telemetry,
             active_tab: MonitorTab::Overview,
             sender,
+            process_scroll: VirtualListScrollHandle::new(),
         };
 
         cx.spawn(async move |this, cx| loop {
@@ -175,13 +177,20 @@ impl Render for SysMonitorApp {
                     .child(app_ui::Tab::new().label("GPU"))
                     .child(app_ui::Tab::new().label("存储"))
                     .child(app_ui::Tab::new().label("网络"))
-                    .child(app_ui::Tab::new().label("传感器")),
+                    .child(app_ui::Tab::new().label("传感器"))
+                    .child(app_ui::Tab::new().label("进程")),
             )
             .child(
                 div()
                     .flex_1()
                     .overflow_y_scrollbar()
-                    .child(render_dashboard(&self.telemetry, self.active_tab, cx)),
+                    .child(render_dashboard(
+                        &self.telemetry,
+                        self.active_tab,
+                        &self.process_scroll,
+                        _window,
+                        cx,
+                    )),
             )
     }
 }

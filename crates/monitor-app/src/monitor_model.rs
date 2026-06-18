@@ -16,6 +16,7 @@ pub enum MonitorTab {
     Storage = 3,
     Network = 4,
     Sensors = 5,
+    Processes = 6,
 }
 
 impl MonitorTab {
@@ -27,6 +28,7 @@ impl MonitorTab {
             3 => Self::Storage,
             4 => Self::Network,
             5 => Self::Sensors,
+            6 => Self::Processes,
             _ => Self::Overview,
         }
     }
@@ -40,6 +42,8 @@ pub struct HistoryPoint {
     pub mem_usage_percent: f64,
     pub net_send_mb: f64,
     pub net_recv_mb: f64,
+    pub disk_read_mb: f64,
+    pub disk_write_mb: f64,
 }
 
 #[derive(Clone, Default)]
@@ -123,6 +127,20 @@ impl MachineTelemetry {
             .unwrap_or(0.0)
     }
 
+    pub fn latest_disk_read_rate(&self) -> f64 {
+        self.history
+            .back()
+            .map(|point| point.disk_read_mb)
+            .unwrap_or(0.0)
+    }
+
+    pub fn latest_disk_write_rate(&self) -> f64 {
+        self.history
+            .back()
+            .map(|point| point.disk_write_mb)
+            .unwrap_or(0.0)
+    }
+
     fn record_sample(&mut self) {
         let total_mem = self.current.mem.total as f64;
         let used_mem = self.current.mem.used as f64;
@@ -132,19 +150,27 @@ impl MachineTelemetry {
             0.0
         };
 
-        let primary_network = self.current.networks.first();
+        let total_received: u64 = self.current.networks.iter().map(|n| n.received_data).sum();
+        let total_sent: u64 = self.current.networks.iter().map(|n| n.sent_data).sum();
         let (mut net_send_mb, mut net_recv_mb) = (0.0, 0.0);
-        if let Some(network) = primary_network {
-            if self.last_sample_ready {
-                let sent_diff = network.sent_data.saturating_sub(self.last_net_sent);
-                let recv_diff = network.received_data.saturating_sub(self.last_net_received);
-                net_send_mb = bytes_to_mb(sent_diff);
-                net_recv_mb = bytes_to_mb(recv_diff);
-            }
-            self.last_net_sent = network.sent_data;
-            self.last_net_received = network.received_data;
-            self.last_sample_ready = true;
+        if self.last_sample_ready {
+            net_send_mb = bytes_to_mb(total_sent.saturating_sub(self.last_net_sent));
+            net_recv_mb = bytes_to_mb(total_received.saturating_sub(self.last_net_received));
         }
+        self.last_net_sent = total_sent;
+        self.last_net_received = total_received;
+        self.last_sample_ready = true;
+
+        let (disk_read_bytes, disk_write_bytes) =
+            self.current
+                .processes
+                .iter()
+                .fold((0u64, 0u64), |(read, write), process| {
+                    (
+                        read + process.disk_read_bytes,
+                        write + process.disk_written_bytes,
+                    )
+                });
 
         let point = HistoryPoint {
             time: short_time_label(&self.current.timestamp_readable),
@@ -153,6 +179,8 @@ impl MachineTelemetry {
             mem_usage_percent,
             net_send_mb,
             net_recv_mb,
+            disk_read_mb: bytes_to_mb(disk_read_bytes),
+            disk_write_mb: bytes_to_mb(disk_write_bytes),
         };
         push_point(&mut self.history, point);
 

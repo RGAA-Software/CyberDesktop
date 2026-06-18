@@ -33,26 +33,30 @@ pub fn take_commands() -> Vec<TrayCommand> {
 #[cfg(target_os = "windows")]
 mod windows_impl {
     use std::ffi::c_void;
+    use std::fs;
     use std::mem::size_of;
+    use std::path::{Path, PathBuf};
     use std::ptr::null;
     use std::thread;
+
+    use app_ui;
 
     use gpui::Window;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows::core::PCWSTR;
-    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+    use windows::Win32::Foundation::{HINSTANCE, HMODULE, HWND, LPARAM, LRESULT, POINT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::Shell::{
         Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
-        DispatchMessageW, GetCursorPos, GetMessageW, LoadIconW, PostQuitMessage, RegisterClassW,
-        SetForegroundWindow, ShowWindow, TrackPopupMenu, TranslateMessage, HICON, HMENU,
-        IDI_APPLICATION, MF_STRING, MSG, SW_HIDE, SW_RESTORE, SW_SHOW, TPM_BOTTOMALIGN,
-        TPM_LEFTALIGN, TPM_RIGHTBUTTON, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_COMMAND,
-        WM_CONTEXTMENU, WM_DESTROY, WM_LBUTTONDBLCLK, WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSW,
-        WS_OVERLAPPEDWINDOW,
+        DispatchMessageW, GetCursorPos, GetMessageW, LoadIconW, LoadImageW, PostQuitMessage,
+        RegisterClassW, SetForegroundWindow, ShowWindow, TrackPopupMenu, TranslateMessage, HICON,
+        HMENU, IDI_APPLICATION, IMAGE_ICON, LR_LOADFROMFILE, LR_SHARED, MF_STRING, MSG, SW_HIDE,
+        SW_RESTORE, SW_SHOW, TPM_BOTTOMALIGN, TPM_LEFTALIGN, TPM_RIGHTBUTTON, WINDOW_EX_STYLE,
+        WINDOW_STYLE, WM_APP, WM_COMMAND, WM_CONTEXTMENU, WM_DESTROY, WM_LBUTTONDBLCLK,
+        WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSW, WS_OVERLAPPEDWINDOW,
     };
 
     use super::{push_command, TrayCommand};
@@ -98,7 +102,8 @@ mod windows_impl {
                 Err(_) => return,
             };
 
-            if !add_tray_icon(hwnd, &tooltip) {
+            let icon_path = extract_tray_icon();
+            if !add_tray_icon(hwnd, hinstance, icon_path.as_deref(), &tooltip) {
                 return;
             }
 
@@ -138,16 +143,47 @@ mod windows_impl {
         }
     }
 
-    unsafe fn add_tray_icon(hwnd: HWND, tooltip: &str) -> bool {
+    unsafe fn add_tray_icon(
+        hwnd: HWND,
+        hinstance: HMODULE,
+        icon_path: Option<&Path>,
+        tooltip: &str,
+    ) -> bool {
         let mut data = NOTIFYICONDATAW::default();
         data.cbSize = size_of::<NOTIFYICONDATAW>() as u32;
         data.hWnd = hwnd;
         data.uID = 1;
         data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         data.uCallbackMessage = TRAY_CALLBACK_MESSAGE;
-        data.hIcon = load_app_icon();
+        data.hIcon = load_app_icon(hinstance, icon_path);
         copy_tooltip(&mut data, tooltip);
         Shell_NotifyIconW(NIM_ADD, &data).as_bool()
+    }
+
+    fn extract_tray_icon() -> Option<PathBuf> {
+        let path = tray_icon_path();
+        if path.exists() {
+            return Some(path);
+        }
+        if let Some(file) = app_ui::Assets::get("app/logo/ic_cyber_monitor.ico") {
+            if let Some(parent) = path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            if fs::write(&path, file.data.as_ref()).is_ok() {
+                return Some(path);
+            }
+        }
+        None
+    }
+
+    fn tray_icon_path() -> PathBuf {
+        let mut base = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir);
+        base.push("CyberDesktop");
+        base.push("CyberMonitor");
+        base.push("tray_icon.ico");
+        base
     }
 
     unsafe fn remove_tray_icon(hwnd: HWND) {
@@ -158,7 +194,35 @@ mod windows_impl {
         let _ = Shell_NotifyIconW(NIM_DELETE, &data);
     }
 
-    unsafe fn load_app_icon() -> HICON {
+    unsafe fn load_app_icon(hinstance: HMODULE, icon_path: Option<&Path>) -> HICON {
+        // Prefer loading the monitor ICO from a file so we get the exact 16x16 image.
+        if let Some(path) = icon_path {
+            let wide = to_wide(&path.to_string_lossy());
+            if let Ok(handle) = LoadImageW(
+                None,
+                PCWSTR(wide.as_ptr()),
+                IMAGE_ICON,
+                16,
+                16,
+                LR_LOADFROMFILE,
+            ) {
+                return HICON(handle.0 as *mut c_void);
+            }
+        }
+
+        // Fall back to the ICO embedded as a Windows resource with numeric ID 1.
+        let hinst = HINSTANCE(hinstance.0);
+        if let Ok(handle) = LoadImageW(
+            hinst,
+            PCWSTR(1 as *const u16),
+            IMAGE_ICON,
+            16,
+            16,
+            LR_SHARED,
+        ) {
+            return HICON(handle.0 as *mut c_void);
+        }
+
         LoadIconW(None, IDI_APPLICATION).unwrap_or_default()
     }
 

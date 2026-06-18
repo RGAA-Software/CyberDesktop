@@ -1,21 +1,26 @@
+use std::rc::Rc;
+
 use gpui::{
-    div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, AnyElement, Context,
-    Hsla, InteractiveElement, IntoElement, ParentElement, SharedString, Stateful, Styled,
+    div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, size, AnyElement,
+    Context, Hsla, InteractiveElement, IntoElement, ParentElement, Render, SharedString, Stateful,
+    Styled, Window,
 };
 use gpui_component::{
     chart::AreaChart,
     h_flex,
     label::Label,
     progress::Progress,
+    scroll::{ScrollableElement as _, ScrollbarAxis},
     table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
-    v_flex, ActiveTheme, StyledExt,
+    v_flex, v_virtual_list, ActiveTheme, StyledExt, VirtualListScrollHandle,
 };
 
 use crate::monitor_model::{
-    bytes_to_gb, chart_ticks, cpu_color, disk_usage_percent, format_optional_frequency,
-    format_tick, gpu_key, gpu_memory_percent, network_ipv4, sensor_status, MachineTelemetry,
-    MonitorTab,
+    bytes_to_gb, bytes_to_mb, chart_ticks, cpu_color, disk_usage_percent,
+    format_optional_frequency, format_tick, gpu_key, gpu_memory_percent, network_ipv4,
+    sensor_status, MachineTelemetry, MonitorTab,
 };
+use crate::sys_info::SysProcessInfo;
 
 /// Shared card container used across the dashboard. Callers should still apply
 /// `.border_color(cx.theme().border)` and `.bg(cx.theme().secondary)` so the
@@ -24,10 +29,12 @@ fn card(id: impl Into<SharedString>) -> Stateful<gpui::Div> {
     div().id(id.into()).gap_3().p_3().rounded_md().border_1()
 }
 
-pub fn render_dashboard<V>(
+pub fn render_dashboard<V: Render>(
     telemetry: &MachineTelemetry,
     active_tab: MonitorTab,
-    cx: &Context<V>,
+    process_scroll_handle: &VirtualListScrollHandle,
+    window: &mut Window,
+    cx: &mut Context<V>,
 ) -> AnyElement {
     match active_tab {
         MonitorTab::Overview => render_overview_tab(telemetry, cx).into_any_element(),
@@ -36,6 +43,9 @@ pub fn render_dashboard<V>(
         MonitorTab::Storage => render_storage_tab(telemetry, cx).into_any_element(),
         MonitorTab::Network => render_network_tab(telemetry, cx).into_any_element(),
         MonitorTab::Sensors => render_sensors_tab(telemetry, cx).into_any_element(),
+        MonitorTab::Processes => {
+            render_processes_tab(telemetry, process_scroll_handle, window, cx).into_any_element()
+        }
     }
 }
 
@@ -665,6 +675,22 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                     Some(telemetry.highest_disk_percent()),
                     Some(cx.theme().yellow),
                     cx,
+                ))
+                .child(render_metric_card(
+                    "storage-read-rate",
+                    "磁盘读取速率",
+                    format!("{:.2} MB/s", telemetry.latest_disk_read_rate()),
+                    None,
+                    None,
+                    cx,
+                ))
+                .child(render_metric_card(
+                    "storage-write-rate",
+                    "磁盘写入速率",
+                    format!("{:.2} MB/s", telemetry.latest_disk_write_rate()),
+                    None,
+                    None,
+                    cx,
                 )),
         )
         .child(render_disk_table(telemetry, cx))
@@ -853,7 +879,7 @@ fn render_network_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> imp
                     )))
             })),
         )
-        .child(TableCaption::new().child("仅展示当前识别到的主网卡数据"))
+        .child(TableCaption::new().child("展示所有非虚拟网卡数据"))
         .bg(cx.theme().table)
 }
 
@@ -896,6 +922,237 @@ fn render_sensor_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
             telemetry.current.components.len()
         )))
         .bg(cx.theme().table)
+}
+
+fn render_processes_tab<V: Render>(
+    telemetry: &MachineTelemetry,
+    scroll_handle: &VirtualListScrollHandle,
+    _window: &mut Window,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let top_cpu = telemetry.current.processes.first();
+    let top_mem = telemetry
+        .current
+        .processes
+        .iter()
+        .max_by_key(|process| process.memory);
+
+    v_flex()
+        .gap_4()
+        .p_4()
+        .size_full()
+        .child(
+            h_flex()
+                .gap_3()
+                .flex_wrap()
+                .child(render_metric_card(
+                    "process-count",
+                    "进程数",
+                    telemetry.current.processes.len().to_string(),
+                    None,
+                    None,
+                    cx,
+                ))
+                .child(render_metric_card(
+                    "process-top-cpu",
+                    "最高 CPU",
+                    top_cpu
+                        .map(|process| format!("{} {:.1}%", process.name, process.cpu_usage))
+                        .unwrap_or_else(|| "-".to_string()),
+                    None,
+                    None,
+                    cx,
+                ))
+                .child(render_metric_card(
+                    "process-top-mem",
+                    "最高内存",
+                    top_mem
+                        .map(|process| format!("{} {} MB", process.name, process.memory_mb))
+                        .unwrap_or_else(|| "-".to_string()),
+                    None,
+                    None,
+                    cx,
+                )),
+        )
+        .child(
+            v_flex()
+                .flex_1()
+                .min_h_0()
+                .rounded_md()
+                .border_1()
+                .border_color(cx.theme().border)
+                .overflow_hidden()
+                .child(render_process_table_header(cx))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_h_0()
+                        .child(render_process_table(telemetry, scroll_handle, cx))
+                        .scrollbar(scroll_handle, ScrollbarAxis::Vertical),
+                )
+                .child(
+                    div()
+                        .px_3()
+                        .py_2()
+                        .border_t_1()
+                        .border_color(cx.theme().border)
+                        .child(
+                            Label::new(format!("共 {} 个进程", telemetry.current.processes.len()))
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground),
+                        ),
+                ),
+        )
+}
+
+fn render_process_table_header<V>(cx: &mut Context<V>) -> impl IntoElement {
+    h_flex()
+        .h(px(32.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .bg(cx.theme().background)
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .text_xs()
+        .font_semibold()
+        .text_color(cx.theme().muted_foreground)
+        .child(div().w(px(80.)).flex_none().child("PID"))
+        .child(div().w(px(160.)).flex_none().child("名称"))
+        .child(div().flex_1().min_w(px(200.)).child("命令行"))
+        .child(div().w(px(80.)).flex_none().child("状态"))
+        .child(div().w(px(80.)).flex_none().text_right().child("CPU%"))
+        .child(
+            div()
+                .w(px(100.))
+                .flex_none()
+                .text_right()
+                .child("内存 (MB)"),
+        )
+        .child(
+            div()
+                .w(px(120.))
+                .flex_none()
+                .text_right()
+                .child("虚拟内存 (MB)"),
+        )
+        .child(
+            div()
+                .w(px(100.))
+                .flex_none()
+                .text_right()
+                .child("读取 (MB/s)"),
+        )
+        .child(
+            div()
+                .w(px(100.))
+                .flex_none()
+                .text_right()
+                .child("写入 (MB/s)"),
+        )
+}
+
+fn render_process_table<V: Render>(
+    telemetry: &MachineTelemetry,
+    scroll_handle: &VirtualListScrollHandle,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let processes = telemetry.current.processes.clone();
+    let item_count = processes.len().max(1);
+    let item_sizes = Rc::new(vec![size(px(0.), px(32.)); item_count]);
+
+    v_virtual_list(
+        cx.entity().clone(),
+        "process-virtual-list",
+        item_sizes,
+        move |_this, visible_range, _window, cx| {
+            visible_range
+                .filter_map(|index| {
+                    processes
+                        .get(index)
+                        .map(|process| render_process_row(process, cx).into_any_element())
+                })
+                .collect::<Vec<_>>()
+        },
+    )
+    .track_scroll(scroll_handle)
+}
+
+fn render_process_row<V>(process: &SysProcessInfo, cx: &mut Context<V>) -> impl IntoElement {
+    h_flex()
+        .id(format!("process-row-{}", process.pid))
+        .w_full()
+        .h(px(32.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .text_sm()
+        .text_color(cx.theme().foreground)
+        .child(
+            div()
+                .w(px(80.))
+                .flex_none()
+                .child(Label::new(process.pid.to_string()).text_sm()),
+        )
+        .child(
+            div()
+                .w(px(160.))
+                .flex_none()
+                .child(Label::new(truncate_text(&process.name, 24)).text_sm()),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(200.))
+                .child(Label::new(truncate_text(&process.command_line, 48)).text_sm()),
+        )
+        .child(
+            div()
+                .w(px(80.))
+                .flex_none()
+                .child(Label::new(process.status.clone()).text_sm()),
+        )
+        .child(
+            div()
+                .w(px(80.))
+                .flex_none()
+                .text_right()
+                .child(Label::new(format!("{:.1}", process.cpu_usage)).text_sm()),
+        )
+        .child(
+            div()
+                .w(px(100.))
+                .flex_none()
+                .text_right()
+                .child(Label::new(format!("{}", process.memory_mb)).text_sm()),
+        )
+        .child(
+            div()
+                .w(px(120.))
+                .flex_none()
+                .text_right()
+                .child(Label::new(format!("{}", process.virtual_memory_mb)).text_sm()),
+        )
+        .child(
+            div().w(px(100.)).flex_none().text_right().child(
+                Label::new(format!("{:.2}", bytes_to_mb(process.disk_read_bytes))).text_sm(),
+            ),
+        )
+        .child(
+            div().w(px(100.)).flex_none().text_right().child(
+                Label::new(format!("{:.2}", bytes_to_mb(process.disk_written_bytes))).text_sm(),
+            ),
+        )
+}
+
+fn truncate_text(text: &str, max_len: usize) -> String {
+    if text.chars().count() <= max_len {
+        text.to_string()
+    } else {
+        format!("{}...", text.chars().take(max_len).collect::<String>())
+    }
 }
 
 fn section_title<V>(title: &str, cx: &Context<V>) -> impl IntoElement {

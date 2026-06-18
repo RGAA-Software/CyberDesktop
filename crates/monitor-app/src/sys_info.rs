@@ -90,6 +90,38 @@ pub struct SysNetworkInfo {
 pub struct SysUserInfo {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct SysProcessInfo {
+    #[serde(default)]
+    pub pid: u32,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub command_line: String,
+    #[serde(default)]
+    pub exe: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub cpu_usage: f32,
+    #[serde(default)]
+    pub memory: u64,
+    #[serde(default)]
+    pub memory_mb: u64,
+    #[serde(default)]
+    pub virtual_memory: u64,
+    #[serde(default)]
+    pub virtual_memory_mb: u64,
+    #[serde(default)]
+    pub disk_read_bytes: u64,
+    #[serde(default)]
+    pub disk_written_bytes: u64,
+    #[serde(default)]
+    pub start_time: u64,
+    #[serde(default)]
+    pub run_time: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SysOsInfo {
     #[serde(default)]
     pub sys_name: String,
@@ -171,4 +203,6 @@ pub struct SysInfo {
     pub uptime: String,
     #[serde(default)]
     pub gpus: Vec<SysGpuInfo>,
+    #[serde(default)]
+    pub processes: Vec<SysProcessInfo>,
 }
