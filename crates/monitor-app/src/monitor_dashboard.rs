@@ -17,8 +17,9 @@ use gpui_component::{
 };
 
 use crate::monitor_actions::{
-    RestartServiceAction, RevealProcessExe, RevealStartupItem, ShowProcessDetails,
-    StartServiceAction, StopServiceAction, TerminateProcess,
+    RestartServiceAction, ResumeProcess, RevealProcessExe, RevealStartupItem, SetProcessAffinity,
+    SetProcessIoPriority, SetProcessPriority, ShowProcessDetails, StartServiceAction,
+    StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_model::{
     bytes_to_gb, bytes_to_mb, chart_ticks, cpu_color, disk_usage_percent,
@@ -1285,10 +1286,119 @@ fn render_process_row<V>(process: &SysProcessInfo, cx: &mut Context<V>) -> impl 
     let pid = process.pid;
     h_flex()
         .id(format!("process-row-{}", process.pid))
-        .context_menu(move |menu, _window, _cx| {
+        .context_menu(move |menu, window, cx| {
             menu.menu("结束任务", Box::new(TerminateProcess { pid }))
+                .menu("结束进程树", Box::new(TerminateProcessTree { pid }))
                 .menu("打开文件位置", Box::new(RevealProcessExe { pid }))
                 .menu("属性", Box::new(ShowProcessDetails { pid }))
+                .separator()
+                .menu("暂停", Box::new(SuspendProcess { pid }))
+                .menu("恢复", Box::new(ResumeProcess { pid }))
+                .separator()
+                .submenu("优先级", window, cx, move |menu, _window, _cx| {
+                    menu.menu(
+                        "实时",
+                        Box::new(SetProcessPriority {
+                            pid,
+                            priority: "realtime".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "高",
+                        Box::new(SetProcessPriority {
+                            pid,
+                            priority: "high".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "高于标准",
+                        Box::new(SetProcessPriority {
+                            pid,
+                            priority: "above_normal".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "标准",
+                        Box::new(SetProcessPriority {
+                            pid,
+                            priority: "normal".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "低于标准",
+                        Box::new(SetProcessPriority {
+                            pid,
+                            priority: "below_normal".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "低",
+                        Box::new(SetProcessPriority {
+                            pid,
+                            priority: "idle".to_string(),
+                        }),
+                    )
+                })
+                .submenu("I/O 优先级", window, cx, move |menu, _window, _cx| {
+                    menu.menu(
+                        "高",
+                        Box::new(SetProcessIoPriority {
+                            pid,
+                            priority: "high".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "标准",
+                        Box::new(SetProcessIoPriority {
+                            pid,
+                            priority: "normal".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "低",
+                        Box::new(SetProcessIoPriority {
+                            pid,
+                            priority: "low".to_string(),
+                        }),
+                    )
+                    .menu(
+                        "很低",
+                        Box::new(SetProcessIoPriority {
+                            pid,
+                            priority: "very_low".to_string(),
+                        }),
+                    )
+                })
+                .submenu("CPU 亲和性", window, cx, move |menu, _window, _cx| {
+                    menu.menu(
+                        "所有核心",
+                        Box::new(SetProcessAffinity {
+                            pid,
+                            affinity_mask: u64::MAX,
+                        }),
+                    )
+                    .menu(
+                        "仅 CPU 0",
+                        Box::new(SetProcessAffinity {
+                            pid,
+                            affinity_mask: 1,
+                        }),
+                    )
+                    .menu(
+                        "CPU 0-1",
+                        Box::new(SetProcessAffinity {
+                            pid,
+                            affinity_mask: 3,
+                        }),
+                    )
+                    .menu(
+                        "CPU 0-3",
+                        Box::new(SetProcessAffinity {
+                            pid,
+                            affinity_mask: 0xF,
+                        }),
+                    )
+                })
         })
         .w_full()
         .h(px(32.))

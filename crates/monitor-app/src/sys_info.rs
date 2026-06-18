@@ -135,6 +135,8 @@ pub struct SysProcessInfo {
     #[serde(default)]
     pub pid: u32,
     #[serde(default)]
+    pub parent_pid: u32,
+    #[serde(default)]
     pub name: String,
     #[serde(default)]
     pub command_line: String,

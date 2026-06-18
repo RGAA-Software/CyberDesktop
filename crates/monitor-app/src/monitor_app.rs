@@ -13,13 +13,16 @@ use smol::Timer;
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
-    CycleProcessSort, ProcessActionHandler, RestartServiceAction, RevealProcessExe,
-    RevealStartupItem, ShowProcessDetails, StartServiceAction, StopServiceAction, TerminateProcess,
+    CycleProcessSort, ProcessActionHandler, RestartServiceAction, ResumeProcess, RevealProcessExe,
+    RevealStartupItem, SetProcessAffinity, SetProcessIoPriority, SetProcessPriority,
+    ShowProcessDetails, StartServiceAction, StopServiceAction, SuspendProcess, TerminateProcess,
+    TerminateProcessTree,
 };
 use crate::monitor_dashboard::render_dashboard;
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
 };
+use crate::monitor_process_ctrl;
 use crate::monitor_process_details::ProcessDetailsView;
 use crate::monitor_sender::MonitorSenderHandle;
 use crate::monitor_settings::{
@@ -104,6 +107,75 @@ impl ProcessActionHandler for SysMonitorApp {
                 .spawn();
         }
     }
+
+    fn set_process_priority(&mut self, pid: u32, priority: &str, cx: &mut Context<Self>) -> bool {
+        let ok = monitor_process_ctrl::set_process_priority(pid, priority);
+        if ok {
+            cx.notify();
+        }
+        ok
+    }
+
+    fn set_process_io_priority(
+        &mut self,
+        pid: u32,
+        priority: &str,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let ok = monitor_process_ctrl::set_process_io_priority(pid, priority);
+        if ok {
+            cx.notify();
+        }
+        ok
+    }
+
+    fn set_process_affinity(&mut self, pid: u32, mask: u64, cx: &mut Context<Self>) -> bool {
+        let ok = monitor_process_ctrl::set_process_affinity(pid, mask);
+        if ok {
+            cx.notify();
+        }
+        ok
+    }
+
+    fn suspend_process(&mut self, pid: u32, cx: &mut Context<Self>) -> bool {
+        let ok = monitor_process_ctrl::suspend_process(pid);
+        if ok {
+            cx.notify();
+        }
+        ok
+    }
+
+    fn resume_process(&mut self, pid: u32, cx: &mut Context<Self>) -> bool {
+        let ok = monitor_process_ctrl::resume_process(pid);
+        if ok {
+            cx.notify();
+        }
+        ok
+    }
+
+    fn terminate_process_tree(&mut self, pid: u32, cx: &mut Context<Self>) -> bool {
+        let processes: Vec<(u32, Option<u32>)> = self
+            .telemetry
+            .current
+            .processes
+            .iter()
+            .map(|p| {
+                (
+                    p.pid,
+                    if p.parent_pid == 0 {
+                        None
+                    } else {
+                        Some(p.parent_pid)
+                    },
+                )
+            })
+            .collect();
+        let ok = monitor_process_ctrl::terminate_process_tree(pid, &processes);
+        if ok {
+            cx.notify();
+        }
+        ok
+    }
 }
 
 impl SysMonitorApp {
@@ -183,6 +255,12 @@ impl Render for SysMonitorApp {
             .on_action(cx.listener(Self::on_stop_service))
             .on_action(cx.listener(Self::on_restart_service))
             .on_action(cx.listener(Self::on_reveal_startup_item))
+            .on_action(cx.listener(Self::on_set_process_priority))
+            .on_action(cx.listener(Self::on_set_process_io_priority))
+            .on_action(cx.listener(Self::on_set_process_affinity))
+            .on_action(cx.listener(Self::on_suspend_process))
+            .on_action(cx.listener(Self::on_resume_process))
+            .on_action(cx.listener(Self::on_terminate_process_tree))
             .child(
                 app_ui::TitleBar::new()
                     .h(px(35.))
@@ -397,6 +475,60 @@ impl SysMonitorApp {
         cx: &mut Context<Self>,
     ) {
         self.reveal_startup_item(&action.command, cx);
+    }
+
+    fn on_set_process_priority(
+        &mut self,
+        action: &SetProcessPriority,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_process_priority(action.pid, &action.priority, cx);
+    }
+
+    fn on_set_process_io_priority(
+        &mut self,
+        action: &SetProcessIoPriority,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_process_io_priority(action.pid, &action.priority, cx);
+    }
+
+    fn on_set_process_affinity(
+        &mut self,
+        action: &SetProcessAffinity,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_process_affinity(action.pid, action.affinity_mask, cx);
+    }
+
+    fn on_suspend_process(
+        &mut self,
+        action: &SuspendProcess,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.suspend_process(action.pid, cx);
+    }
+
+    fn on_resume_process(
+        &mut self,
+        action: &ResumeProcess,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.resume_process(action.pid, cx);
+    }
+
+    fn on_terminate_process_tree(
+        &mut self,
+        action: &TerminateProcessTree,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.terminate_process_tree(action.pid, cx);
     }
 }
 
