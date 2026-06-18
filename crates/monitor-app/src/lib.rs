@@ -3,6 +3,7 @@ pub mod monitor_dashboard;
 pub mod monitor_host_app;
 pub mod monitor_model;
 pub mod monitor_sender;
+pub mod monitor_settings;
 pub mod single_instance;
 pub mod sys_info;
 pub mod sys_info_mgr;

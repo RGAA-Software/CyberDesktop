@@ -1,9 +1,9 @@
 use gpui::{
     div, prelude::*, px, size, AnyView, App, AppContext, Bounds, Context, FocusHandle, Focusable,
-    Global, IntoElement, ParentElement, Render, SharedString, Size, Styled, Window, WindowBounds,
-    WindowKind, WindowOptions,
+    Global, IntoElement, ParentElement, Pixels, Render, SharedString, Size, Styled, Window,
+    WindowBounds, WindowKind, WindowOptions,
 };
-use gpui_component::{v_flex, Root};
+use gpui_component::{setting::Settings, v_flex, Root};
 use rust_i18n::t;
 
 use crate::cyber_editor::build_editor_settings;
@@ -29,14 +29,18 @@ impl SettingsWindowState {
     }
 
     pub fn open_editor(cx: &mut App) {
-        Self::open_with_title_bar_height(cx, None);
+        Self::open_with(cx, |cx| build_editor_settings(cx), None);
     }
 
     pub fn open_media_player_settings(cx: &mut App) {
-        Self::open_with_title_bar_height(cx, Some(px(35.)));
+        Self::open_with(cx, |cx| build_editor_settings(cx), Some(px(35.)));
     }
 
-    fn open_with_title_bar_height(cx: &mut App, title_bar_height: Option<gpui::Pixels>) {
+    /// Open the settings window with a custom [`Settings`] view builder.
+    pub fn open_with<F>(cx: &mut App, settings_builder: F, title_bar_height: Option<Pixels>)
+    where
+        F: Fn(&App) -> Settings + Send + 'static,
+    {
         Self::init(cx);
 
         if let Some(handle) = cx.global::<Self>().handle {
@@ -51,20 +55,25 @@ impl SettingsWindowState {
             cx.global_mut::<Self>().handle = None;
         }
 
-        open_settings_window(cx, title_bar_height);
+        open_settings_window(cx, Box::new(settings_builder), title_bar_height);
     }
 }
 
 struct SettingsWindow {
     focus_handle: FocusHandle,
-    title_bar_height: Option<gpui::Pixels>,
+    title_bar_height: Option<Pixels>,
+    settings_builder: Box<dyn Fn(&App) -> Settings + 'static>,
 }
 
 impl SettingsWindow {
-    fn new(cx: &mut Context<Self>) -> Self {
+    fn new(
+        cx: &mut Context<Self>,
+        settings_builder: Box<dyn Fn(&App) -> Settings + 'static>,
+    ) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
             title_bar_height: None,
+            settings_builder,
         }
     }
 }
@@ -93,7 +102,7 @@ impl Render for SettingsWindow {
                     .flex_1()
                     .min_h_0()
                     .overflow_hidden()
-                    .child(build_editor_settings(cx)),
+                    .child((self.settings_builder)(cx)),
             )
     }
 }
@@ -129,7 +138,11 @@ impl Render for SettingsShell {
     }
 }
 
-fn open_settings_window(cx: &mut App, title_bar_height: Option<gpui::Pixels>) {
+fn open_settings_window(
+    cx: &mut App,
+    settings_builder: Box<dyn Fn(&App) -> Settings + 'static>,
+    title_bar_height: Option<Pixels>,
+) {
     let mut window_size = size(px(SETTINGS_WINDOW_WIDTH), px(SETTINGS_WINDOW_HEIGHT));
     if let Some(display) = cx.primary_display() {
         let display_size = display.bounds().size;
@@ -162,7 +175,7 @@ fn open_settings_window(cx: &mut App, title_bar_height: Option<gpui::Pixels>) {
                     true
                 });
                 let view = cx.new(|cx| {
-                    let mut w = SettingsWindow::new(cx);
+                    let mut w = SettingsWindow::new(cx, settings_builder);
                     if let Some(h) = title_bar_height {
                         w.title_bar_height = Some(h);
                     }

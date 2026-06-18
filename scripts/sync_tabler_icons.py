@@ -80,6 +80,8 @@ TABLER_ICON_MAP: dict[str, str] = {
     "download": "download",
     "music": "music",
     "network": "network",
+    "plug": "plug",
+    "plug-off": "plug-off",
     "cloud": "cloud",
     "clock": "clock",
     "history": "history",
