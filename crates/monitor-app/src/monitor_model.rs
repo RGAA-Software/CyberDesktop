@@ -43,26 +43,17 @@ pub struct ProcessSort {
 }
 
 pub fn sort_processes(processes: &mut [SysProcessInfo], sort: ProcessSort) {
-    let comparator: Box<dyn Fn(&SysProcessInfo, &SysProcessInfo) -> std::cmp::Ordering> = match sort
-        .column
-    {
-        ProcessSortColumn::Cpu => Box::new(|a, b| {
-            a.cpu_usage
-                .partial_cmp(&b.cpu_usage)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        }),
-        ProcessSortColumn::Memory => Box::new(|a, b| a.memory.cmp(&b.memory)),
-        ProcessSortColumn::Name => {
-            Box::new(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-        }
-        ProcessSortColumn::DiskRead => Box::new(|a, b| a.disk_read_bytes.cmp(&b.disk_read_bytes)),
-        ProcessSortColumn::DiskWrite => {
-            Box::new(|a, b| a.disk_written_bytes.cmp(&b.disk_written_bytes))
-        }
-    };
-
     processes.sort_by(|a, b| {
-        let ord = comparator(a, b);
+        let ord: std::cmp::Ordering = match sort.column {
+            ProcessSortColumn::Cpu => a
+                .cpu_usage
+                .partial_cmp(&b.cpu_usage)
+                .unwrap_or(std::cmp::Ordering::Equal),
+            ProcessSortColumn::Memory => a.memory.cmp(&b.memory),
+            ProcessSortColumn::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+            ProcessSortColumn::DiskRead => a.disk_read_bytes.cmp(&b.disk_read_bytes),
+            ProcessSortColumn::DiskWrite => a.disk_written_bytes.cmp(&b.disk_written_bytes),
+        };
         match sort.direction {
             SortDirection::Desc => ord.reverse(),
             SortDirection::Asc => ord,

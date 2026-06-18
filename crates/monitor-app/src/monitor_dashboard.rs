@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gpui::{
     div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, size, AnyElement,
@@ -999,8 +1000,12 @@ where
         .collect();
     sort_processes(&mut processes, process_sort);
 
-    let top_cpu = processes.first();
-    let top_mem = processes.iter().max_by_key(|process| process.memory);
+    let top_cpu = processes.first().cloned();
+    let top_mem = processes
+        .iter()
+        .max_by_key(|process| process.memory)
+        .cloned();
+    let processes: Arc<[SysProcessInfo]> = processes.into();
 
     v_flex()
         .gap_4()
@@ -1058,7 +1063,7 @@ where
                     div()
                         .flex_1()
                         .min_h_0()
-                        .child(render_process_table(&processes, scroll_handle, cx))
+                        .child(render_process_table(processes.clone(), scroll_handle, cx))
                         .scrollbar(scroll_handle, ScrollbarAxis::Vertical),
                 )
                 .child(
@@ -1257,11 +1262,10 @@ where
 }
 
 fn render_process_table<V: Render>(
-    processes: &[SysProcessInfo],
+    processes: Arc<[SysProcessInfo]>,
     scroll_handle: &VirtualListScrollHandle,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
-    let processes = processes.to_vec();
     let item_count = processes.len().max(1);
     let item_sizes = Rc::new(vec![size(px(0.), px(32.)); item_count]);
 

@@ -29,7 +29,7 @@ use crate::monitor_actions::{
 };
 use crate::monitor_alert::{
     build_host_summary, evaluate_alerts_with_suppression, format_duration,
-    machine_offline_duration, Alert, AlertSuppressor,
+    machine_offline_duration, Alert, AlertSuppressor, HostSummary,
 };
 use crate::monitor_dashboard::{render_connection_summary, render_dashboard};
 use crate::monitor_model::{
@@ -267,6 +267,7 @@ pub struct SysMonitorHostApp {
     user_search: Entity<InputState>,
     alerts: VecDeque<Alert>,
     alert_suppressor: AlertSuppressor,
+    host_summary: HostSummary,
 }
 
 impl ProcessActionHandler for SysMonitorHostApp {}
@@ -293,6 +294,7 @@ impl SysMonitorHostApp {
             user_search,
             alerts: VecDeque::new(),
             alert_suppressor: AlertSuppressor::new(),
+            host_summary: HostSummary::default(),
         };
         this.refresh();
 
@@ -331,6 +333,7 @@ impl SysMonitorHostApp {
                 );
             }
         }
+        self.host_summary = build_host_summary(&self.machines, &self.alerts);
 
         let selected_exists = self.selected_machine.as_ref().is_some_and(|selected| {
             self.machines
@@ -504,7 +507,7 @@ impl SysMonitorHostApp {
     }
 
     fn render_host_summary(&self, cx: &Context<Self>) -> impl IntoElement {
-        let summary = build_host_summary(&self.machines, &self.alerts);
+        let summary = &self.host_summary;
         v_flex()
             .w_full()
             .gap_3()
