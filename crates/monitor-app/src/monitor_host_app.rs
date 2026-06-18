@@ -24,7 +24,8 @@ use tokio_tungstenite::tungstenite::Message;
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
-    CycleProcessSort, ProcessActionHandler, RevealProcessExe, ShowProcessDetails, TerminateProcess,
+    CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem,
+    ShowProcessDetails, TerminateProcess,
 };
 use crate::monitor_dashboard::{render_connection_summary, render_dashboard};
 use crate::monitor_model::{
@@ -256,6 +257,8 @@ pub struct SysMonitorHostApp {
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
     service_search: Entity<InputState>,
+    startup_scroll: VirtualListScrollHandle,
+    startup_search: Entity<InputState>,
 }
 
 impl ProcessActionHandler for SysMonitorHostApp {}
@@ -265,6 +268,7 @@ impl SysMonitorHostApp {
         let server = HostServerHandle::new(cli.host, cli.port);
         let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
         let service_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索服务..."));
+        let startup_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索启动项..."));
         let mut this = Self {
             server,
             machines: Vec::new(),
@@ -275,6 +279,8 @@ impl SysMonitorHostApp {
             process_search,
             process_sort: ProcessSort::default(),
             service_search,
+            startup_scroll: VirtualListScrollHandle::new(),
+            startup_search,
         };
         this.refresh();
 
@@ -449,6 +455,7 @@ impl Render for SysMonitorHostApp {
             .on_action(cx.listener(Self::on_terminate_process))
             .on_action(cx.listener(Self::on_reveal_process_exe))
             .on_action(cx.listener(Self::on_show_process_details))
+            .on_action(cx.listener(Self::on_reveal_startup_item))
             .child(
                 app_ui::TitleBar::new()
                     .h(px(35.))
@@ -566,7 +573,8 @@ impl Render for SysMonitorHostApp {
                                             .child(app_ui::Tab::new().label("网络"))
                                             .child(app_ui::Tab::new().label("传感器"))
                                             .child(app_ui::Tab::new().label("进程"))
-                                            .child(app_ui::Tab::new().label("服务")),
+                                            .child(app_ui::Tab::new().label("服务"))
+                                            .child(app_ui::Tab::new().label("启动项")),
                                     )
                                     .child({
                                         let view = cx.entity().clone();
@@ -579,6 +587,8 @@ impl Render for SysMonitorHostApp {
                                                     &self.process_search,
                                                     self.process_sort,
                                                     &self.service_search,
+                                                    &self.startup_scroll,
+                                                    &self.startup_search,
                                                     move |column, window, cx| {
                                                         view.update(cx, |this, cx| {
                                                             this.on_cycle_process_sort(
@@ -621,6 +631,14 @@ impl SysMonitorHostApp {
     fn on_show_process_details(
         &mut self,
         _action: &ShowProcessDetails,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
+    }
+
+    fn on_reveal_startup_item(
+        &mut self,
+        _action: &RevealStartupItem,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) {

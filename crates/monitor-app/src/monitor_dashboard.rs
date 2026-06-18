@@ -17,8 +17,8 @@ use gpui_component::{
 };
 
 use crate::monitor_actions::{
-    RestartServiceAction, RevealProcessExe, ShowProcessDetails, StartServiceAction,
-    StopServiceAction, TerminateProcess,
+    RestartServiceAction, RevealProcessExe, RevealStartupItem, ShowProcessDetails,
+    StartServiceAction, StopServiceAction, TerminateProcess,
 };
 use crate::monitor_model::{
     bytes_to_gb, bytes_to_mb, chart_ticks, cpu_color, disk_usage_percent,
@@ -26,7 +26,7 @@ use crate::monitor_model::{
     sensor_status, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
     SortDirection,
 };
-use crate::sys_info::{SysProcessInfo, SysServiceInfo};
+use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo};
 use app_ui::ContextMenuExt;
 
 /// Shared card container used across the dashboard. Callers should still apply
@@ -43,6 +43,8 @@ pub fn render_dashboard<V: Render, F>(
     process_search: &Entity<InputState>,
     process_sort: ProcessSort,
     service_search: &Entity<InputState>,
+    startup_scroll_handle: &VirtualListScrollHandle,
+    startup_search: &Entity<InputState>,
     on_cycle_sort: F,
     window: &mut Window,
     cx: &mut Context<V>,
@@ -69,6 +71,10 @@ where
         .into_any_element(),
         MonitorTab::Services => {
             render_services_tab(telemetry, service_search, cx).into_any_element()
+        }
+        MonitorTab::Startup => {
+            render_startup_tab(telemetry, startup_scroll_handle, startup_search, cx)
+                .into_any_element()
         }
     }
 }
@@ -1568,4 +1574,190 @@ fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {
         }
         _ => cx.theme().muted_foreground,
     }
+}
+
+fn render_startup_tab<V: Render>(
+    telemetry: &MachineTelemetry,
+    scroll_handle: &VirtualListScrollHandle,
+    startup_search: &Entity<InputState>,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let query = startup_search.read(cx).value().to_lowercase();
+    let items: Vec<SysStartupInfo> = telemetry
+        .current
+        .startup_items
+        .iter()
+        .filter(|item| {
+            if query.is_empty() {
+                return true;
+            }
+            item.name.to_lowercase().contains(&query)
+                || item.command.to_lowercase().contains(&query)
+                || item.location.to_lowercase().contains(&query)
+        })
+        .cloned()
+        .collect();
+
+    let registry_count = items
+        .iter()
+        .filter(|item| item.location.starts_with("HK"))
+        .count();
+    let folder_count = items.len().saturating_sub(registry_count);
+
+    v_flex()
+        .gap_4()
+        .p_4()
+        .size_full()
+        .child(
+            h_flex()
+                .gap_3()
+                .flex_wrap()
+                .child(render_metric_card(
+                    "startup-count",
+                    "启动项数",
+                    items.len().to_string(),
+                    None,
+                    None,
+                    cx,
+                ))
+                .child(render_metric_card(
+                    "startup-registry",
+                    "注册表项",
+                    registry_count.to_string(),
+                    None,
+                    None,
+                    cx,
+                ))
+                .child(render_metric_card(
+                    "startup-folder",
+                    "启动文件夹项",
+                    folder_count.to_string(),
+                    None,
+                    None,
+                    cx,
+                )),
+        )
+        .child(
+            h_flex()
+                .gap_3()
+                .items_center()
+                .child(Input::new(startup_search).small().w(px(220.))),
+        )
+        .child(
+            v_flex()
+                .flex_1()
+                .min_h_0()
+                .rounded_md()
+                .border_1()
+                .border_color(cx.theme().border)
+                .overflow_hidden()
+                .child(render_startup_table_header(cx))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_h_0()
+                        .child(render_startup_table(&items, scroll_handle, cx))
+                        .scrollbar(scroll_handle, ScrollbarAxis::Vertical),
+                )
+                .child(
+                    div()
+                        .px_3()
+                        .py_2()
+                        .border_t_1()
+                        .border_color(cx.theme().border)
+                        .child(
+                            Label::new(format!("共 {} 个启动项", items.len()))
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground),
+                        ),
+                ),
+        )
+}
+
+fn render_startup_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoElement {
+    h_flex()
+        .id("startup-table-header")
+        .h(px(32.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .overflow_hidden()
+        .bg(cx.theme().background)
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .text_xs()
+        .font_semibold()
+        .text_color(cx.theme().muted_foreground)
+        .child(div().w(px(180.)).flex_none().child("名称"))
+        .child(div().flex_1().min_w(px(200.)).child("命令"))
+        .child(div().w(px(180.)).flex_none().child("位置"))
+}
+
+fn render_startup_table<V: Render>(
+    items: &[SysStartupInfo],
+    scroll_handle: &VirtualListScrollHandle,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let items = items.to_vec();
+    let item_count = items.len().max(1);
+    let item_sizes = Rc::new(vec![size(px(0.), px(40.)); item_count]);
+
+    v_virtual_list(
+        cx.entity().clone(),
+        "startup-virtual-list",
+        item_sizes,
+        move |_this, visible_range, _window, cx| {
+            visible_range
+                .filter_map(|index| {
+                    items
+                        .get(index)
+                        .map(|item| render_startup_row(item, cx).into_any_element())
+                })
+                .collect::<Vec<_>>()
+        },
+    )
+    .track_scroll(scroll_handle)
+}
+
+fn render_startup_row<V: Render>(item: &SysStartupInfo, cx: &mut Context<V>) -> impl IntoElement {
+    let command = item.command.clone();
+    h_flex()
+        .id(format!("startup-row-{}", item.name))
+        .context_menu(move |menu, _window, _cx| {
+            menu.menu(
+                "打开文件位置",
+                Box::new(RevealStartupItem {
+                    command: command.clone(),
+                }),
+            )
+        })
+        .w_full()
+        .h(px(40.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .text_sm()
+        .text_color(cx.theme().foreground)
+        .child(
+            div()
+                .w(px(180.))
+                .flex_none()
+                .child(Label::new(truncate_text(&item.name, 28)).text_sm()),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(200.))
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .child(Label::new(truncate_text(&item.command, 80)).text_sm()),
+        )
+        .child(
+            div()
+                .w(px(180.))
+                .flex_none()
+                .child(Label::new(item.location.clone()).text_sm()),
+        )
 }

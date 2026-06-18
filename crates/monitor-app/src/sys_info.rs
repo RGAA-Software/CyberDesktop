@@ -102,6 +102,18 @@ pub struct SysServiceInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct SysStartupInfo {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub command: String,
+    #[serde(default)]
+    pub location: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SysProcessInfo {
     #[serde(default)]
     pub pid: u32,
@@ -219,4 +231,6 @@ pub struct SysInfo {
     pub processes: Vec<SysProcessInfo>,
     #[serde(default)]
     pub services: Vec<SysServiceInfo>,
+    #[serde(default)]
+    pub startup_items: Vec<SysStartupInfo>,
 }

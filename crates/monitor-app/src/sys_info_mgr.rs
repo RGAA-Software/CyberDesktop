@@ -8,7 +8,7 @@ use sysinfo::{Components, Disks, Networks, Pid, ProcessStatus, System, Users};
 
 use crate::sys_info::{
     SysComponentInfo, SysCpuInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysIpNetwork, SysMemInfo,
-    SysNetworkInfo, SysOsInfo, SysProcessInfo, SysServiceInfo, SysSingleCpuInfo,
+    SysNetworkInfo, SysOsInfo, SysProcessInfo, SysServiceInfo, SysSingleCpuInfo, SysStartupInfo,
 };
 
 fn truncate_string(text: &str, max_len: usize) -> String {
@@ -46,6 +46,29 @@ fn current_timestamp_ms() -> i64 {
 
 fn current_readable_timestamp() -> String {
     chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn expand_environment_strings(input: &str) -> String {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Environment::ExpandEnvironmentStringsW;
+
+    let wide: Vec<u16> = OsString::from(input)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let mut buf = vec![0u16; 4096];
+    let len = ExpandEnvironmentStringsW(PCWSTR(wide.as_ptr()), Some(&mut buf));
+    if len > 0 && (len as usize) <= buf.len() {
+        let len = len as usize;
+        OsString::from_wide(&buf[..len.saturating_sub(1)])
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        input.to_string()
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -356,6 +379,7 @@ impl SysInfoManager {
         });
 
         let services = self.load_services();
+        let startup_items = self.load_startup_items();
 
         SysInfo {
             timestamp: current_timestamp_ms(),
@@ -370,6 +394,7 @@ impl SysInfoManager {
             gpus,
             processes,
             services,
+            startup_items,
         }
     }
 
@@ -595,6 +620,154 @@ impl SysInfoManager {
 
     #[cfg(not(target_os = "windows"))]
     fn load_services(&self) -> Vec<SysServiceInfo> {
+        Vec::new()
+    }
+
+    #[cfg(target_os = "windows")]
+    fn load_startup_items(&self) -> Vec<SysStartupInfo> {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStrExt;
+        use windows::core::{PCWSTR, PWSTR};
+        use windows::Win32::Foundation::{ERROR_NO_MORE_ITEMS, ERROR_SUCCESS};
+        use windows::Win32::System::Registry::{
+            RegCloseKey, RegEnumValueW, RegOpenKeyExW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
+            KEY_READ, REG_EXPAND_SZ, REG_SZ,
+        };
+
+        let mut items = Vec::new();
+
+        let registry_locations = [
+            (
+                HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+                "HKLM\\Run",
+            ),
+            (
+                HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run",
+                "HKLM\\Run (WOW6432Node)",
+            ),
+            (
+                HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+                "HKLM\\RunOnce",
+            ),
+            (
+                HKEY_CURRENT_USER,
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+                "HKCU\\Run",
+            ),
+            (
+                HKEY_CURRENT_USER,
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+                "HKCU\\RunOnce",
+            ),
+        ];
+
+        unsafe {
+            for (root, subkey, location_label) in registry_locations {
+                let subkey_wide: Vec<u16> = OsString::from(subkey)
+                    .encode_wide()
+                    .chain(std::iter::once(0))
+                    .collect();
+                let mut hkey = std::mem::zeroed();
+                if RegOpenKeyExW(root, PCWSTR(subkey_wide.as_ptr()), 0, KEY_READ, &mut hkey).is_ok()
+                {
+                    let mut index = 0u32;
+                    loop {
+                        let mut name_buf = vec![0u16; 512];
+                        let mut name_len = name_buf.len() as u32;
+                        let mut data_buf = vec![0u8; 4096];
+                        let mut data_len = data_buf.len() as u32;
+                        let mut value_type = 0u32;
+
+                        let result = RegEnumValueW(
+                            hkey,
+                            index,
+                            PWSTR(name_buf.as_mut_ptr()),
+                            &mut name_len,
+                            None,
+                            Some(&mut value_type),
+                            Some(data_buf.as_mut_ptr()),
+                            Some(&mut data_len),
+                        );
+
+                        if result == ERROR_NO_MORE_ITEMS {
+                            break;
+                        }
+                        if result != ERROR_SUCCESS {
+                            index += 1;
+                            continue;
+                        }
+
+                        if value_type == REG_SZ.0 || value_type == REG_EXPAND_SZ.0 {
+                            let command = wide_ptr_to_string(data_buf.as_ptr() as *const u16);
+                            let command = if value_type == REG_EXPAND_SZ.0 {
+                                expand_environment_strings(&command)
+                            } else {
+                                command
+                            };
+                            let name = wide_ptr_to_string(name_buf.as_ptr());
+                            if !name.is_empty() && !command.is_empty() {
+                                items.push(SysStartupInfo {
+                                    name,
+                                    command,
+                                    location: location_label.to_string(),
+                                    enabled: true,
+                                });
+                            }
+                        }
+
+                        index += 1;
+                    }
+                    let _ = RegCloseKey(hkey);
+                }
+            }
+        }
+
+        let startup_folders = [
+            (
+                std::env::var("APPDATA").unwrap_or_default()
+                    + "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+                "启动文件夹 (用户)",
+            ),
+            (
+                std::env::var("ProgramData").unwrap_or_default()
+                    + "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+                "启动文件夹 (公共)",
+            ),
+        ];
+        for (folder, location_label) in startup_folders {
+            if let Ok(entries) = std::fs::read_dir(&folder) {
+                for entry in entries.flatten() {
+                    if let Ok(meta) = entry.metadata() {
+                        if !meta.is_file() {
+                            continue;
+                        }
+                        let name = entry.file_name().to_string_lossy().into_owned();
+                        if !name.to_lowercase().ends_with(".lnk") {
+                            continue;
+                        }
+                        let command = entry.path().to_string_lossy().into_owned();
+                        if !command.is_empty() {
+                            items.push(SysStartupInfo {
+                                name,
+                                command,
+                                location: location_label.to_string(),
+                                enabled: true,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        items
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn load_startup_items(&self) -> Vec<SysStartupInfo> {
         Vec::new()
     }
 

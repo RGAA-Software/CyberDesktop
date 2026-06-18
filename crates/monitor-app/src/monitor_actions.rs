@@ -47,6 +47,12 @@ pub struct RestartServiceAction {
     pub name: String,
 }
 
+#[derive(Clone, Action, PartialEq, Eq, Deserialize)]
+#[action(namespace = monitor_process, no_json)]
+pub struct RevealStartupItem {
+    pub command: String,
+}
+
 /// Views that can react to process-list context-menu actions.
 pub trait ProcessActionHandler: Sized {
     fn terminate_process(&mut self, _pid: u32, _cx: &mut gpui::Context<Self>) {}
@@ -61,4 +67,5 @@ pub trait ProcessActionHandler: Sized {
     fn restart_service(&mut self, _name: &str, _cx: &mut gpui::Context<Self>) -> bool {
         false
     }
+    fn reveal_startup_item(&mut self, _command: &str, _cx: &mut gpui::Context<Self>) {}
 }

@@ -14,7 +14,7 @@ use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
     CycleProcessSort, ProcessActionHandler, RestartServiceAction, RevealProcessExe,
-    ShowProcessDetails, StartServiceAction, StopServiceAction, TerminateProcess,
+    RevealStartupItem, ShowProcessDetails, StartServiceAction, StopServiceAction, TerminateProcess,
 };
 use crate::monitor_dashboard::render_dashboard;
 use crate::monitor_model::{
@@ -40,6 +40,8 @@ pub struct SysMonitorApp {
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
     service_search: Entity<InputState>,
+    startup_scroll: VirtualListScrollHandle,
+    startup_search: Entity<InputState>,
 }
 
 impl ProcessActionHandler for SysMonitorApp {
@@ -92,6 +94,15 @@ impl ProcessActionHandler for SysMonitorApp {
         }
         false
     }
+
+    fn reveal_startup_item(&mut self, command: &str, _cx: &mut Context<Self>) {
+        let path = resolve_startup_command_path(command);
+        if !path.is_empty() {
+            let _ = std::process::Command::new("explorer")
+                .arg(format!("/select,{path}"))
+                .spawn();
+        }
+    }
 }
 
 impl SysMonitorApp {
@@ -106,6 +117,7 @@ impl SysMonitorApp {
 
         let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
         let service_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索服务..."));
+        let startup_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索启动项..."));
         let this = Self {
             manager,
             telemetry,
@@ -115,6 +127,8 @@ impl SysMonitorApp {
             process_search,
             process_sort: ProcessSort::default(),
             service_search,
+            startup_scroll: VirtualListScrollHandle::new(),
+            startup_search,
         };
 
         cx.spawn(async move |this, cx| loop {
@@ -165,6 +179,7 @@ impl Render for SysMonitorApp {
             .on_action(cx.listener(Self::on_start_service))
             .on_action(cx.listener(Self::on_stop_service))
             .on_action(cx.listener(Self::on_restart_service))
+            .on_action(cx.listener(Self::on_reveal_startup_item))
             .child(
                 app_ui::TitleBar::new()
                     .h(px(35.))
@@ -254,7 +269,8 @@ impl Render for SysMonitorApp {
                     .child(app_ui::Tab::new().label("网络"))
                     .child(app_ui::Tab::new().label("传感器"))
                     .child(app_ui::Tab::new().label("进程"))
-                    .child(app_ui::Tab::new().label("服务")),
+                    .child(app_ui::Tab::new().label("服务"))
+                    .child(app_ui::Tab::new().label("启动项")),
             )
             .child(
                 div()
@@ -267,6 +283,8 @@ impl Render for SysMonitorApp {
                         &self.process_search,
                         self.process_sort,
                         &self.service_search,
+                        &self.startup_scroll,
+                        &self.startup_search,
                         move |column, window, cx| {
                             view.update(cx, |this, cx| {
                                 this.on_cycle_process_sort(
@@ -366,6 +384,15 @@ impl SysMonitorApp {
     ) {
         self.restart_service(&action.name, cx);
     }
+
+    fn on_reveal_startup_item(
+        &mut self,
+        action: &RevealStartupItem,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.reveal_startup_item(&action.command, cx);
+    }
 }
 
 fn resolve_process_exe_path(process: &SysProcessInfo) -> String {
@@ -398,6 +425,22 @@ fn extract_first_path_from_command_line(command_line: &str) -> Option<String> {
             .next()
             .map(|token| token.to_string())
     }
+}
+
+fn resolve_startup_command_path(command: &str) -> String {
+    use std::path::Path;
+
+    if command.to_lowercase().ends_with(".lnk") && Path::new(command).exists() {
+        return command.to_string();
+    }
+
+    if let Some(path) = extract_first_path_from_command_line(command) {
+        if Path::new(&path).exists() {
+            return path;
+        }
+    }
+
+    String::new()
 }
 
 pub fn run(start_hidden: bool) {
