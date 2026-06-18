@@ -255,6 +255,7 @@ pub struct SysMonitorHostApp {
     process_scroll: VirtualListScrollHandle,
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
+    service_search: Entity<InputState>,
 }
 
 impl ProcessActionHandler for SysMonitorHostApp {}
@@ -263,6 +264,7 @@ impl SysMonitorHostApp {
     fn new(_window: &mut Window, cx: &mut Context<Self>, cli: HostCli) -> Self {
         let server = HostServerHandle::new(cli.host, cli.port);
         let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
+        let service_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索服务..."));
         let mut this = Self {
             server,
             machines: Vec::new(),
@@ -272,6 +274,7 @@ impl SysMonitorHostApp {
             process_scroll: VirtualListScrollHandle::new(),
             process_search,
             process_sort: ProcessSort::default(),
+            service_search,
         };
         this.refresh();
 
@@ -562,7 +565,8 @@ impl Render for SysMonitorHostApp {
                                             .child(app_ui::Tab::new().label("存储"))
                                             .child(app_ui::Tab::new().label("网络"))
                                             .child(app_ui::Tab::new().label("传感器"))
-                                            .child(app_ui::Tab::new().label("进程")),
+                                            .child(app_ui::Tab::new().label("进程"))
+                                            .child(app_ui::Tab::new().label("服务")),
                                     )
                                     .child({
                                         let view = cx.entity().clone();
@@ -574,6 +578,7 @@ impl Render for SysMonitorHostApp {
                                                     &self.process_scroll,
                                                     &self.process_search,
                                                     self.process_sort,
+                                                    &self.service_search,
                                                     move |column, window, cx| {
                                                         view.update(cx, |this, cx| {
                                                             this.on_cycle_process_sort(

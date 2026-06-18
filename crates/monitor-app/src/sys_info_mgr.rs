@@ -8,7 +8,7 @@ use sysinfo::{Components, Disks, Networks, Pid, ProcessStatus, System, Users};
 
 use crate::sys_info::{
     SysComponentInfo, SysCpuInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysIpNetwork, SysMemInfo,
-    SysNetworkInfo, SysOsInfo, SysProcessInfo, SysSingleCpuInfo,
+    SysNetworkInfo, SysOsInfo, SysProcessInfo, SysServiceInfo, SysSingleCpuInfo,
 };
 
 fn truncate_string(text: &str, max_len: usize) -> String {
@@ -46,6 +46,19 @@ fn current_timestamp_ms() -> i64 {
 
 fn current_readable_timestamp() -> String {
     chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn wide_ptr_to_string(ptr: *const u16) -> String {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    if ptr.is_null() {
+        return String::new();
+    }
+    let len = (0..).take_while(|&i| *ptr.add(i) != 0).count();
+    OsString::from_wide(std::slice::from_raw_parts(ptr, len))
+        .to_string_lossy()
+        .into_owned()
 }
 
 #[derive(Debug, Clone)]
@@ -342,6 +355,8 @@ impl SysInfoManager {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
+        let services = self.load_services();
+
         SysInfo {
             timestamp: current_timestamp_ms(),
             timestamp_readable: current_readable_timestamp(),
@@ -354,6 +369,7 @@ impl SysInfoManager {
             uptime,
             gpus,
             processes,
+            services,
         }
     }
 
@@ -426,6 +442,215 @@ impl SysInfoManager {
     pub fn load_system_info_as_json(&mut self) -> String {
         let info = self.load_system_info();
         serde_json::to_string(&info).unwrap_or_default()
+    }
+
+    #[cfg(target_os = "windows")]
+    fn load_services(&self) -> Vec<SysServiceInfo> {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStrExt;
+        use windows::Win32::Foundation::ERROR_MORE_DATA;
+        use windows::Win32::System::Services::{
+            CloseServiceHandle, EnumServicesStatusExW, OpenSCManagerW, OpenServiceW,
+            QueryServiceConfigW, ENUM_SERVICE_STATUS_PROCESSW, QUERY_SERVICE_CONFIGW, SC_ENUM_TYPE,
+            SC_MANAGER_ENUMERATE_SERVICE, SERVICE_QUERY_CONFIG, SERVICE_STATE_ALL, SERVICE_WIN32,
+        };
+
+        let mut services = Vec::new();
+        unsafe {
+            let scm = match OpenSCManagerW(None, None, SC_MANAGER_ENUMERATE_SERVICE) {
+                Ok(h) if !h.is_invalid() => h,
+                _ => return services,
+            };
+
+            let mut resume_handle = 0u32;
+            let mut buffer = vec![0u8; 64 * 1024];
+            let mut bytes_needed = 0u32;
+            let mut services_returned = 0u32;
+
+            loop {
+                let result = EnumServicesStatusExW(
+                    scm,
+                    SC_ENUM_TYPE::default(),
+                    SERVICE_WIN32,
+                    SERVICE_STATE_ALL,
+                    Some(buffer.as_mut_slice()),
+                    &mut bytes_needed,
+                    &mut services_returned,
+                    Some(&mut resume_handle),
+                    None,
+                );
+                let more_data = result
+                    .as_ref()
+                    .err()
+                    .map(|e| e.code() == ERROR_MORE_DATA.into())
+                    .unwrap_or(false);
+
+                if result.is_ok() || more_data {
+                    let slice = std::slice::from_raw_parts(
+                        buffer.as_ptr() as *const ENUM_SERVICE_STATUS_PROCESSW,
+                        services_returned as usize,
+                    );
+                    for entry in slice {
+                        let name = wide_ptr_to_string(entry.lpServiceName.0 as *const u16);
+                        let display_name = wide_ptr_to_string(entry.lpDisplayName.0 as *const u16);
+
+                        let status = match entry.ServiceStatusProcess.dwCurrentState.0 {
+                            4 => "运行中",
+                            1 => "已停止",
+                            7 => "已暂停",
+                            2 => "正在启动",
+                            3 => "正在停止",
+                            6 => "正在暂停",
+                            5 => "正在恢复",
+                            _ => "未知",
+                        };
+
+                        let mut start_type = "未知".to_string();
+                        let wide_name: Vec<u16> = OsString::from(&name)
+                            .encode_wide()
+                            .chain(std::iter::once(0))
+                            .collect();
+                        if let Ok(service) = OpenServiceW(
+                            scm,
+                            windows::core::PCWSTR(wide_name.as_ptr()),
+                            SERVICE_QUERY_CONFIG,
+                        ) {
+                            if !service.is_invalid() {
+                                let mut config_buffer = vec![0u8; 1024];
+                                let mut cfg_bytes_needed = 0u32;
+                                let cfg_result = QueryServiceConfigW(
+                                    service,
+                                    Some(config_buffer.as_mut_ptr() as *mut QUERY_SERVICE_CONFIGW),
+                                    config_buffer.len() as u32,
+                                    &mut cfg_bytes_needed,
+                                );
+                                if cfg_result.is_err()
+                                    && cfg_bytes_needed as usize > config_buffer.len()
+                                {
+                                    config_buffer.resize(cfg_bytes_needed as usize, 0);
+                                    let _ = QueryServiceConfigW(
+                                        service,
+                                        Some(config_buffer.as_mut_ptr()
+                                            as *mut QUERY_SERVICE_CONFIGW),
+                                        config_buffer.len() as u32,
+                                        &mut cfg_bytes_needed,
+                                    );
+                                }
+                                if cfg_result.is_ok()
+                                    || cfg_bytes_needed as usize <= config_buffer.len()
+                                {
+                                    let cfg =
+                                        &*(config_buffer.as_ptr() as *const QUERY_SERVICE_CONFIGW);
+                                    start_type = match cfg.dwStartType {
+                                        windows::Win32::System::Services::SERVICE_AUTO_START => {
+                                            "自动"
+                                        }
+                                        windows::Win32::System::Services::SERVICE_BOOT_START => {
+                                            "引导"
+                                        }
+                                        windows::Win32::System::Services::SERVICE_DEMAND_START => {
+                                            "手动"
+                                        }
+                                        windows::Win32::System::Services::SERVICE_DISABLED => {
+                                            "已禁用"
+                                        }
+                                        windows::Win32::System::Services::SERVICE_SYSTEM_START => {
+                                            "系统"
+                                        }
+                                        _ => "未知",
+                                    }
+                                    .to_string();
+                                }
+                                let _ = CloseServiceHandle(service);
+                            }
+                        }
+
+                        services.push(SysServiceInfo {
+                            name,
+                            display_name,
+                            status: status.to_string(),
+                            start_type,
+                        });
+                    }
+                }
+
+                if !more_data {
+                    break;
+                }
+                if bytes_needed as usize > buffer.len() {
+                    buffer.resize(bytes_needed as usize, 0);
+                }
+            }
+
+            let _ = CloseServiceHandle(scm);
+        }
+
+        services.sort_by(|a, b| {
+            a.display_name
+                .to_lowercase()
+                .cmp(&b.display_name.to_lowercase())
+        });
+        services
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn load_services(&self) -> Vec<SysServiceInfo> {
+        Vec::new()
+    }
+
+    pub fn start_service(&self, name: &str) -> bool {
+        self.control_service(name, true)
+    }
+
+    pub fn stop_service(&self, name: &str) -> bool {
+        self.control_service(name, false)
+    }
+
+    #[cfg(target_os = "windows")]
+    fn control_service(&self, name: &str, start: bool) -> bool {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStrExt;
+        use windows::Win32::System::Services::{
+            CloseServiceHandle, ControlService, OpenSCManagerW, OpenServiceW, StartServiceW,
+            SC_MANAGER_CONNECT, SERVICE_CONTROL_STOP, SERVICE_START, SERVICE_STOP,
+        };
+
+        unsafe {
+            let scm = match OpenSCManagerW(None, None, SC_MANAGER_CONNECT) {
+                Ok(h) if !h.is_invalid() => h,
+                _ => return false,
+            };
+
+            let wide_name: Vec<u16> = OsString::from(name)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            let access = if start { SERVICE_START } else { SERVICE_STOP };
+            let service = match OpenServiceW(scm, windows::core::PCWSTR(wide_name.as_ptr()), access)
+            {
+                Ok(h) if !h.is_invalid() => h,
+                _ => {
+                    let _ = CloseServiceHandle(scm);
+                    return false;
+                }
+            };
+
+            let ok = if start {
+                StartServiceW(service, None).is_ok()
+            } else {
+                let mut status = Default::default();
+                ControlService(service, SERVICE_CONTROL_STOP, &mut status).is_ok()
+            };
+
+            let _ = CloseServiceHandle(service);
+            let _ = CloseServiceHandle(scm);
+            ok
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn control_service(&self, _name: &str, _start: bool) -> bool {
+        false
     }
 
     pub fn load_system_info_as_encrypt_json(&mut self) -> String {

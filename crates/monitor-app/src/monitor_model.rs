@@ -80,6 +80,7 @@ pub enum MonitorTab {
     Network = 4,
     Sensors = 5,
     Processes = 6,
+    Services = 7,
 }
 
 impl MonitorTab {
@@ -92,6 +93,7 @@ impl MonitorTab {
             4 => Self::Network,
             5 => Self::Sensors,
             6 => Self::Processes,
+            7 => Self::Services,
             _ => Self::Overview,
         }
     }

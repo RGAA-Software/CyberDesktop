@@ -90,6 +90,18 @@ pub struct SysNetworkInfo {
 pub struct SysUserInfo {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct SysServiceInfo {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub display_name: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub start_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SysProcessInfo {
     #[serde(default)]
     pub pid: u32,
@@ -205,4 +217,6 @@ pub struct SysInfo {
     pub gpus: Vec<SysGpuInfo>,
     #[serde(default)]
     pub processes: Vec<SysProcessInfo>,
+    #[serde(default)]
+    pub services: Vec<SysServiceInfo>,
 }

@@ -16,14 +16,17 @@ use gpui_component::{
     v_flex, v_virtual_list, ActiveTheme, Sizable, StyledExt, VirtualListScrollHandle,
 };
 
-use crate::monitor_actions::{RevealProcessExe, ShowProcessDetails, TerminateProcess};
+use crate::monitor_actions::{
+    RestartServiceAction, RevealProcessExe, ShowProcessDetails, StartServiceAction,
+    StopServiceAction, TerminateProcess,
+};
 use crate::monitor_model::{
     bytes_to_gb, bytes_to_mb, chart_ticks, cpu_color, disk_usage_percent,
     format_optional_frequency, format_tick, gpu_key, gpu_memory_percent, network_ipv4,
     sensor_status, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
     SortDirection,
 };
-use crate::sys_info::SysProcessInfo;
+use crate::sys_info::{SysProcessInfo, SysServiceInfo};
 use app_ui::ContextMenuExt;
 
 /// Shared card container used across the dashboard. Callers should still apply
@@ -39,6 +42,7 @@ pub fn render_dashboard<V: Render, F>(
     process_scroll_handle: &VirtualListScrollHandle,
     process_search: &Entity<InputState>,
     process_sort: ProcessSort,
+    service_search: &Entity<InputState>,
     on_cycle_sort: F,
     window: &mut Window,
     cx: &mut Context<V>,
@@ -63,6 +67,9 @@ where
             cx,
         )
         .into_any_element(),
+        MonitorTab::Services => {
+            render_services_tab(telemetry, service_search, cx).into_any_element()
+        }
     }
 }
 
@@ -1372,4 +1379,193 @@ fn empty_state<V>(message: &str, cx: &Context<V>) -> impl IntoElement {
                 .text_sm()
                 .text_color(cx.theme().muted_foreground),
         )
+}
+
+fn render_services_tab<V: Render>(
+    telemetry: &MachineTelemetry,
+    service_search: &Entity<InputState>,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let query = service_search.read(cx).value().to_lowercase();
+    let services: Vec<SysServiceInfo> = telemetry
+        .current
+        .services
+        .iter()
+        .filter(|service| {
+            if query.is_empty() {
+                return true;
+            }
+            service.name.to_lowercase().contains(&query)
+                || service.display_name.to_lowercase().contains(&query)
+                || service.status.to_lowercase().contains(&query)
+                || service.start_type.to_lowercase().contains(&query)
+        })
+        .cloned()
+        .collect();
+
+    let running = services.iter().filter(|s| s.status == "运行中").count();
+    let stopped = services.iter().filter(|s| s.status == "已停止").count();
+
+    v_flex()
+        .gap_4()
+        .p_4()
+        .size_full()
+        .child(
+            h_flex()
+                .gap_3()
+                .flex_wrap()
+                .child(render_metric_card(
+                    "service-count",
+                    "服务数",
+                    services.len().to_string(),
+                    None,
+                    None,
+                    cx,
+                ))
+                .child(render_metric_card(
+                    "service-running",
+                    "运行中",
+                    running.to_string(),
+                    None,
+                    None,
+                    cx,
+                ))
+                .child(render_metric_card(
+                    "service-stopped",
+                    "已停止",
+                    stopped.to_string(),
+                    None,
+                    None,
+                    cx,
+                )),
+        )
+        .child(
+            h_flex()
+                .gap_3()
+                .items_center()
+                .child(Input::new(service_search).small().w(px(220.))),
+        )
+        .child(
+            v_flex()
+                .flex_1()
+                .min_h_0()
+                .rounded_md()
+                .border_1()
+                .border_color(cx.theme().border)
+                .overflow_hidden()
+                .child(render_service_table_header(cx))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scrollbar()
+                        .child(render_service_table(&services, cx)),
+                )
+                .child(
+                    div()
+                        .px_3()
+                        .py_2()
+                        .border_t_1()
+                        .border_color(cx.theme().border)
+                        .child(
+                            Label::new(format!("共 {} 个服务", services.len()))
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground),
+                        ),
+                ),
+        )
+}
+
+fn render_service_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoElement {
+    h_flex()
+        .id("service-table-header")
+        .h(px(32.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .overflow_hidden()
+        .bg(cx.theme().background)
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .text_xs()
+        .font_semibold()
+        .text_color(cx.theme().muted_foreground)
+        .child(div().w(px(160.)).flex_none().child("名称"))
+        .child(div().flex_1().min_w(px(200.)).child("显示名称"))
+        .child(div().w(px(100.)).flex_none().child("状态"))
+        .child(div().w(px(100.)).flex_none().child("启动类型"))
+}
+
+fn render_service_table<V: Render>(
+    services: &[SysServiceInfo],
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    v_flex().children(
+        services
+            .iter()
+            .map(|service| render_service_row(service, cx)),
+    )
+}
+
+fn render_service_row<V: Render>(
+    service: &SysServiceInfo,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let name = service.name.clone();
+    let status_color = service_status_color(&service.status, cx);
+    h_flex()
+        .id(format!("service-row-{}", service.name))
+        .context_menu(move |menu, _window, _cx| {
+            menu.menu("启动", Box::new(StartServiceAction { name: name.clone() }))
+                .menu("停止", Box::new(StopServiceAction { name: name.clone() }))
+                .menu(
+                    "重新启动",
+                    Box::new(RestartServiceAction { name: name.clone() }),
+                )
+        })
+        .w_full()
+        .h(px(32.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .text_sm()
+        .text_color(cx.theme().foreground)
+        .child(
+            div()
+                .w(px(160.))
+                .flex_none()
+                .child(Label::new(service.name.clone()).text_sm()),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(200.))
+                .child(Label::new(truncate_text(&service.display_name, 48)).text_sm()),
+        )
+        .child(
+            div().w(px(100.)).flex_none().child(
+                Label::new(service.status.clone())
+                    .text_sm()
+                    .text_color(status_color),
+            ),
+        )
+        .child(
+            div()
+                .w(px(100.))
+                .flex_none()
+                .child(Label::new(service.start_type.clone()).text_sm()),
+        )
+}
+
+fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {
+    match status {
+        "运行中" => cx.theme().green,
+        "已停止" => cx.theme().red,
+        "已暂停" | "正在启动" | "正在停止" | "正在暂停" | "正在恢复" => {
+            cx.theme().yellow
+        }
+        _ => cx.theme().muted_foreground,
+    }
 }
