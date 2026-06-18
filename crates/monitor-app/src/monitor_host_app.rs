@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -26,6 +26,10 @@ use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 use crate::monitor_actions::{
     CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem,
     ShowProcessDetails, TerminateProcess,
+};
+use crate::monitor_alert::{
+    build_host_summary, evaluate_alerts_with_suppression, format_duration,
+    machine_offline_duration, Alert, AlertSuppressor,
 };
 use crate::monitor_dashboard::{render_connection_summary, render_dashboard};
 use crate::monitor_model::{
@@ -261,6 +265,8 @@ pub struct SysMonitorHostApp {
     startup_scroll: VirtualListScrollHandle,
     startup_search: Entity<InputState>,
     user_search: Entity<InputState>,
+    alerts: VecDeque<Alert>,
+    alert_suppressor: AlertSuppressor,
 }
 
 impl ProcessActionHandler for SysMonitorHostApp {}
@@ -285,6 +291,8 @@ impl SysMonitorHostApp {
             startup_scroll: VirtualListScrollHandle::new(),
             startup_search,
             user_search,
+            alerts: VecDeque::new(),
+            alert_suppressor: AlertSuppressor::new(),
         };
         this.refresh();
 
@@ -310,6 +318,19 @@ impl SysMonitorHostApp {
         self.machines = self.server.machines();
         self.machines
             .sort_by(|a, b| a.display_name.cmp(&b.display_name));
+
+        for machine in &self.machines {
+            if machine.connected {
+                evaluate_alerts_with_suppression(
+                    &machine.machine_id,
+                    &machine.display_name,
+                    &machine.telemetry,
+                    &mut self.alerts,
+                    Some(&mut self.alert_suppressor),
+                    std::time::Duration::from_secs(300),
+                );
+            }
+        }
 
         let selected_exists = self.selected_machine.as_ref().is_some_and(|selected| {
             self.machines
@@ -345,6 +366,8 @@ impl SysMonitorHostApp {
     }
 
     fn render_sidebar(&self, cx: &Context<Self>) -> impl IntoElement {
+        let online = self.machines.iter().filter(|m| m.connected).count();
+        let offline = self.machines.len() - online;
         v_flex()
             .w(px(280.))
             .h_full()
@@ -354,9 +377,30 @@ impl SysMonitorHostApp {
             .border_color(cx.theme().border)
             .bg(cx.theme().secondary)
             .child(
-                Label::new("在线机器")
-                    .text_sm()
-                    .text_color(cx.theme().foreground),
+                h_flex()
+                    .w_full()
+                    .justify_between()
+                    .items_center()
+                    .child(
+                        Label::new("在线机器")
+                            .text_sm()
+                            .font_semibold()
+                            .text_color(cx.theme().foreground),
+                    )
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .child(
+                                Label::new(format!("在线 {}", online))
+                                    .text_xs()
+                                    .text_color(cx.theme().green),
+                            )
+                            .child(
+                                Label::new(format!("离线 {}", offline))
+                                    .text_xs()
+                                    .text_color(cx.theme().red),
+                            ),
+                    ),
             )
             .child(
                 div()
@@ -395,19 +439,34 @@ impl SysMonitorHostApp {
                                                         h_flex()
                                                             .gap_2()
                                                             .items_center()
-                                                            .child(
-                                                                Label::new(if machine.connected {
-                                                                    "在线".to_string()
-                                                                } else {
-                                                                    "离线".to_string()
-                                                                })
-                                                                .text_xs()
-                                                                .text_color(if machine.connected {
-                                                                    cx.theme().green
-                                                                } else {
-                                                                    cx.theme().red
-                                                                }),
-                                                            )
+                                                            .child({
+                                                                let status_text =
+                                                                    if machine.connected {
+                                                                        "在线".to_string()
+                                                                    } else {
+                                                                        machine_offline_duration(
+                                                                            &machine.last_seen,
+                                                                        )
+                                                                        .map(|d| {
+                                                                            format!(
+                                                                                "离线 {}",
+                                                                                format_duration(d)
+                                                                            )
+                                                                        })
+                                                                        .unwrap_or_else(|| {
+                                                                            "离线".to_string()
+                                                                        })
+                                                                    };
+                                                                Label::new(status_text)
+                                                                    .text_xs()
+                                                                    .text_color(
+                                                                        if machine.connected {
+                                                                            cx.theme().green
+                                                                        } else {
+                                                                            cx.theme().red
+                                                                        },
+                                                                    )
+                                                            })
                                                             .child(
                                                                 Label::new(
                                                                     machine.display_name.clone(),
@@ -442,6 +501,152 @@ impl SysMonitorHostApp {
                 .text_sm()
                 .text_color(cx.theme().muted_foreground),
         )
+    }
+
+    fn render_host_summary(&self, cx: &Context<Self>) -> impl IntoElement {
+        let summary = build_host_summary(&self.machines, &self.alerts);
+        v_flex()
+            .w_full()
+            .gap_3()
+            .p_4()
+            .border_b_1()
+            .border_color(cx.theme().border)
+            .bg(cx.theme().secondary)
+            .child(
+                Label::new("Host 汇总")
+                    .text_base()
+                    .font_semibold()
+                    .text_color(cx.theme().foreground),
+            )
+            .child(
+                h_flex()
+                    .gap_4()
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .child(
+                                Label::new("在线机器")
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground),
+                            )
+                            .child(
+                                Label::new(summary.online_count.to_string())
+                                    .text_lg()
+                                    .font_semibold()
+                                    .text_color(cx.theme().green),
+                            ),
+                    )
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .child(
+                                Label::new("离线机器")
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground),
+                            )
+                            .child(
+                                Label::new(summary.offline_count.to_string())
+                                    .text_lg()
+                                    .font_semibold()
+                                    .text_color(cx.theme().red),
+                            ),
+                    )
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .child(
+                                Label::new("机器总数")
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground),
+                            )
+                            .child(
+                                Label::new(summary.total_machines.to_string())
+                                    .text_lg()
+                                    .font_semibold()
+                                    .text_color(cx.theme().foreground),
+                            ),
+                    ),
+            )
+            .child(
+                h_flex()
+                    .w_full()
+                    .gap_4()
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .gap_2()
+                            .child(
+                                Label::new("Top 10 进程（按 CPU）")
+                                    .text_sm()
+                                    .font_semibold()
+                                    .text_color(cx.theme().foreground),
+                            )
+                            .children(summary.top_processes.iter().enumerate().map(|(i, p)| {
+                                h_flex()
+                                    .w_full()
+                                    .justify_between()
+                                    .child(
+                                        Label::new(format!(
+                                            "{}. {} [{}]",
+                                            i + 1,
+                                            p.name,
+                                            p.display_name
+                                        ))
+                                        .text_xs()
+                                        .text_color(cx.theme().foreground),
+                                    )
+                                    .child(
+                                        Label::new(format!(
+                                            "CPU {:.1}% | 内存 {} MB",
+                                            p.cpu_usage, p.memory_mb
+                                        ))
+                                        .text_xs()
+                                        .text_color(cx.theme().muted_foreground),
+                                    )
+                            })),
+                    )
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .gap_2()
+                            .child(
+                                Label::new("最近告警")
+                                    .text_sm()
+                                    .font_semibold()
+                                    .text_color(cx.theme().foreground),
+                            )
+                            .children(summary.alerts.iter().map(|alert| {
+                                let color = match alert.level {
+                                    crate::monitor_alert::AlertLevel::Warning => cx.theme().yellow,
+                                    crate::monitor_alert::AlertLevel::Critical => cx.theme().red,
+                                };
+                                h_flex()
+                                    .w_full()
+                                    .gap_2()
+                                    .child(
+                                        Label::new(alert.level.label().to_string())
+                                            .text_xs()
+                                            .font_semibold()
+                                            .text_color(color),
+                                    )
+                                    .child(
+                                        Label::new(alert.message.clone())
+                                            .text_xs()
+                                            .text_color(cx.theme().foreground)
+                                            .line_clamp(1),
+                                    )
+                            }))
+                            .when(summary.alerts.is_empty(), |this| {
+                                this.child(
+                                    Label::new("暂无告警")
+                                        .text_xs()
+                                        .text_color(cx.theme().muted_foreground),
+                                )
+                            }),
+                    ),
+            )
     }
 }
 
@@ -543,6 +748,9 @@ impl Render for SysMonitorHostApp {
                             v_flex()
                                 .size_full()
                                 .items_start()
+                                .when(!self.machines.is_empty(), |this| {
+                                    this.child(self.render_host_summary(cx))
+                                })
                                 .when(self.selected_machine().is_none(), |this| {
                                     this.child(self.render_empty(cx))
                                 })
