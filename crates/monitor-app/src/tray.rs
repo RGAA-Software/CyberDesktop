@@ -17,7 +17,7 @@ fn command_queue() -> Arc<Mutex<VecDeque<TrayCommand>>> {
         .clone()
 }
 
-fn push_command(command: TrayCommand) {
+pub(crate) fn push_command(command: TrayCommand) {
     if let Ok(mut queue) = command_queue().lock() {
         queue.push_back(command);
     }

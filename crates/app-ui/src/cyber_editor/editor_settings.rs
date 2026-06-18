@@ -25,6 +25,7 @@ const THEME_SETS: &[(&str, &str)] = &[
     ("CyberFiles", "CyberFiles"),
     ("CyberEditor", "CyberEditor"),
     ("CyberMediaPlayer", "CyberMediaPlayer"),
+    ("CyberMonitor", "CyberMonitor"),
 ];
 
 pub fn build_editor_settings(cx: &App) -> Settings {

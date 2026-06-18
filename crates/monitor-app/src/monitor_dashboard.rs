@@ -1,21 +1,36 @@
 use gpui::{
     AnyElement, Context, Hsla, InteractiveElement, IntoElement, ParentElement, SharedString,
-    Styled, div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px,
+    Stateful, Styled, div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
     ActiveTheme, StyledExt,
     chart::AreaChart,
     h_flex,
+    label::Label,
+
     progress::Progress,
     table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
     v_flex,
 };
+
 
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, bytes_to_gb, chart_ticks, cpu_color, disk_usage_percent,
     format_optional_frequency, format_tick, gpu_key, gpu_memory_percent, network_ipv4,
     sensor_status,
 };
+
+/// Shared card container used across the dashboard. Callers should still apply
+/// `.border_color(cx.theme().border)` and `.bg(cx.theme().secondary)` so the
+/// theme is resolved at render time.
+fn card(id: impl Into<SharedString>) -> Stateful<gpui::Div> {
+    div()
+        .id(id.into())
+        .gap_3()
+        .p_3()
+        .rounded_md()
+        .border_1()
+}
 
 pub fn render_dashboard<V>(
     telemetry: &MachineTelemetry,
@@ -36,10 +51,14 @@ pub fn render_connection_summary<V>(details: &str, cx: &Context<V>) -> impl Into
     div()
         .px_4()
         .py_2()
-        .text_xs()
-        .text_color(cx.theme().muted_foreground)
-        .bg(cx.theme().tab_bar)
-        .child(details.to_string())
+        .bg(cx.theme().secondary)
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .child(
+            Label::new(details.to_string())
+                .text_xs()
+                .text_color(cx.theme().muted_foreground),
+        )
 }
 
 fn render_metric_card<V>(
@@ -47,35 +66,31 @@ fn render_metric_card<V>(
     title: &str,
     value: String,
     percent: Option<f32>,
+    progress_color: Option<Hsla>,
     cx: &Context<V>,
 ) -> impl IntoElement {
-    v_flex()
-        .id(SharedString::from(id.to_string()))
+    card(id)
         .gap_2()
-        .p_3()
         .flex_1()
         .min_w(px(180.))
-        .rounded_md()
-        .border_1()
         .border_color(cx.theme().border)
         .bg(cx.theme().secondary)
         .child(
-            div()
+            Label::new(title.to_string())
                 .text_xs()
-                .text_color(cx.theme().muted_foreground)
-                .child(title.to_string()),
+                .text_color(cx.theme().muted_foreground),
         )
         .child(
-            div()
+            Label::new(value)
                 .text_lg()
-                .text_color(cx.theme().foreground)
-                .child(value),
+                .text_color(cx.theme().foreground),
         )
         .when_some(percent, |this, percent| {
             this.child(
                 Progress::new(SharedString::from(format!("{id}-progress")))
                     .w_full()
                     .h_2()
+                    .when_some(progress_color, |this, color| this.color(color))
                     .value(percent.clamp(0.0, 100.0)),
             )
         })
@@ -199,6 +214,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "CPU 使用率",
                     format!("{:.1}%", telemetry.latest_cpu_percent()),
                     Some(telemetry.latest_cpu_percent()),
+                    Some(cx.theme().red),
                     cx,
                 ))
                 .child(render_metric_card(
@@ -210,6 +226,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                         bytes_to_gb(telemetry.current.mem.total)
                     ),
                     Some(telemetry.latest_mem_percent()),
+                    Some(cx.theme().blue),
                     cx,
                 ))
                 .child(render_metric_card(
@@ -217,6 +234,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "磁盘最高占用",
                     format!("{:.1}%", telemetry.highest_disk_percent()),
                     Some(telemetry.highest_disk_percent()),
+                    Some(cx.theme().yellow),
                     cx,
                 ))
                 .child(render_metric_card(
@@ -232,6 +250,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     } else {
                         Some(telemetry.primary_gpu_percent())
                     },
+                    Some(cx.theme().green),
                     cx,
                 ))
                 .child(render_metric_card(
@@ -239,12 +258,14 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "主网卡发送速率",
                     format!("{:.2} MB/s", telemetry.latest_send_rate()),
                     None,
+                    None,
                     cx,
                 ))
                 .child(render_metric_card(
                     "overview-recv",
                     "主网卡接收速率",
                     format!("{:.2} MB/s", telemetry.latest_recv_rate()),
+                    None,
                     None,
                     cx,
                 )),
@@ -384,13 +405,9 @@ fn render_cpu_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> im
                 .gap_4()
                 .flex_wrap()
                 .child(
-                    v_flex()
-                        .gap_3()
+                    card("cpu-info")
                         .flex_1()
                         .min_w(px(320.))
-                        .p_3()
-                        .rounded_md()
-                        .border_1()
                         .border_color(cx.theme().border)
                         .bg(cx.theme().secondary)
                         .child(section_title("CPU 概览", cx))
@@ -423,13 +440,9 @@ fn render_cpu_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> im
                         )),
                 )
                 .child(
-                    v_flex()
-                        .gap_3()
+                    card("mem-info")
                         .flex_1()
                         .min_w(px(320.))
-                        .p_3()
-                        .rounded_md()
-                        .border_1()
                         .border_color(cx.theme().border)
                         .bg(cx.theme().secondary)
                         .child(section_title("内存概览", cx))
@@ -457,6 +470,7 @@ fn render_cpu_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> im
                             Progress::new("mem-total-progress")
                                 .w_full()
                                 .h_2()
+                                .color(cx.theme().blue)
                                 .value(telemetry.latest_mem_percent()),
                         ),
                 ),
@@ -495,11 +509,8 @@ fn render_cpu_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> im
                 ),
         )
         .child(
-            v_flex()
+            card("cpu-cores")
                 .gap_2()
-                .p_3()
-                .rounded_md()
-                .border_1()
                 .border_color(cx.theme().border)
                 .bg(cx.theme().secondary)
                 .child(section_title("每核心使用率", cx))
@@ -508,24 +519,23 @@ fn render_cpu_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> im
                         .gap_3()
                         .items_center()
                         .child(
-                            div()
+                            Label::new(format!("Core {index}"))
                                 .min_w(px(120.))
                                 .text_xs()
-                                .text_color(cx.theme().muted_foreground)
-                                .child(format!("Core {index}")),
+                                .text_color(cx.theme().muted_foreground),
                         )
                         .child(
                             Progress::new(SharedString::from(format!("cpu-core-{index}")))
                                 .w_full()
                                 .h_2()
+                                .color(cx.theme().red)
                                 .value(cpu.usage.clamp(0.0, 100.0)),
                         )
                         .child(
-                            div()
+                            Label::new(format!("{:.1}%", cpu.usage))
                                 .min_w(px(64.))
                                 .text_xs()
-                                .text_color(cpu_color(cpu.usage, cx.theme()))
-                                .child(format!("{:.1}%", cpu.usage)),
+                                .text_color(cpu_color(cpu.usage, cx.theme())),
                         )
                 })),
         )
@@ -546,11 +556,8 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                 .map(|items| items.iter().cloned().collect::<Vec<_>>())
                 .unwrap_or_default();
 
-            v_flex()
+            card(format!("gpu-panel-{gpu_id}"))
                 .gap_4()
-                .p_3()
-                .rounded_md()
-                .border_1()
                 .border_color(cx.theme().border)
                 .bg(cx.theme().secondary)
                 .child(section_title(&gpu.brand, cx))
@@ -563,12 +570,14 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             "利用率",
                             format!("{}%", gpu.gpu_utilization),
                             Some(gpu.gpu_utilization as f32),
+                            Some(cx.theme().blue),
                             cx,
                         ))
                         .child(render_metric_card(
                             &format!("gpu-{gpu_id}-temp"),
                             "温度",
                             format!("{} °C", gpu.temperature),
+                            None,
                             None,
                             cx,
                         ))
@@ -577,6 +586,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             "风扇转速",
                             format!("{} RPM", gpu.fan_speed),
                             None,
+                            None,
                             cx,
                         ))
                         .child(render_metric_card(
@@ -584,6 +594,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             "显存",
                             format!("{:.2} / {:.2} GB", gpu.mem_used_gb, gpu.mem_total_gb),
                             Some(gpu_memory_percent(gpu)),
+                            Some(cx.theme().green),
                             cx,
                         ))
                         .child(render_metric_card(
@@ -591,12 +602,14 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             "编码器",
                             format!("{}%", gpu.encoder_utilization),
                             Some(gpu.encoder_utilization as f32),
+                            Some(cx.theme().green),
                             cx,
                         ))
                         .child(render_metric_card(
                             &format!("gpu-{gpu_id}-power"),
                             "功耗上限",
                             format!("{:.1} W", gpu.power_limit as f64 / 1000.0),
+                            None,
                             None,
                             cx,
                         )),
@@ -665,6 +678,7 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                     "磁盘数量",
                     telemetry.current.disks.len().to_string(),
                     None,
+                    None,
                     cx,
                 ))
                 .child(render_metric_card(
@@ -672,6 +686,7 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                     "最高占用",
                     format!("{:.1}%", telemetry.highest_disk_percent()),
                     Some(telemetry.highest_disk_percent()),
+                    Some(cx.theme().yellow),
                     cx,
                 )),
         )
@@ -695,6 +710,7 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                         .map(|item| item.name.clone())
                         .unwrap_or_else(|| "未识别".to_string()),
                     None,
+                    None,
                     cx,
                 ))
                 .child(render_metric_card(
@@ -702,12 +718,14 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                     "发送速率",
                     format!("{:.2} MB/s", telemetry.latest_send_rate()),
                     None,
+                    None,
                     cx,
                 ))
                 .child(render_metric_card(
                     "network-recv-rate",
                     "接收速率",
                     format!("{:.2} MB/s", telemetry.latest_recv_rate()),
+                    None,
                     None,
                     cx,
                 )),
@@ -771,12 +789,14 @@ fn render_sensors_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                         "传感器数量",
                         telemetry.current.components.len().to_string(),
                         None,
+                        None,
                         cx,
                     ))
                     .child(render_metric_card(
                         "sensor-max",
                         "最高当前温度",
                         format!("{max_temp:.1} °C"),
+                        None,
                         None,
                         cx,
                     )),
@@ -895,10 +915,10 @@ fn render_sensor_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
 }
 
 fn section_title<V>(title: &str, cx: &Context<V>) -> impl IntoElement {
-    div()
+    Label::new(title.to_string())
         .text_sm()
+        .font_semibold()
         .text_color(cx.theme().foreground)
-        .child(title.to_string())
 }
 
 fn kv_line<V>(key: &str, value: &str, cx: &Context<V>) -> impl IntoElement {
@@ -906,27 +926,27 @@ fn kv_line<V>(key: &str, value: &str, cx: &Context<V>) -> impl IntoElement {
         .justify_between()
         .gap_3()
         .child(
-            div()
+            Label::new(key.to_string())
                 .text_xs()
-                .text_color(cx.theme().muted_foreground)
-                .child(key.to_string()),
+                .text_color(cx.theme().muted_foreground),
         )
         .child(
-            div()
+            Label::new(value.to_string())
                 .text_xs()
-                .text_color(cx.theme().foreground)
-                .child(value.to_string()),
+                .text_color(cx.theme().foreground),
         )
 }
 
 fn empty_state<V>(message: &str, cx: &Context<V>) -> impl IntoElement {
-    div()
+    card("empty-state")
         .p_4()
-        .rounded_md()
-        .border_1()
+        .justify_center()
+        .items_center()
         .border_color(cx.theme().border)
         .bg(cx.theme().secondary)
-        .text_sm()
-        .text_color(cx.theme().muted_foreground)
-        .child(message.to_string())
+        .child(
+            Label::new(message.to_string())
+                .text_sm()
+                .text_color(cx.theme().muted_foreground),
+        )
 }

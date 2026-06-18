@@ -8,3 +8,6 @@ pub const CYBEREDITOR: &str = include_str!("../themes/cybereditor.json");
 
 /// CyberMediaPlayer design tokens (light + dark), based on CyberFiles with teal accent.
 pub const CYBERMEDIAPLAYER: &str = include_str!("../themes/cybermediaplayer.json");
+
+/// CyberMonitor design tokens (light + dark), based on CyberEditor with purple accent.
+pub const CYBERMONITOR: &str = include_str!("../themes/cybermonitor.json");

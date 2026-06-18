@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
-use app_assets::themes::{CYBEREDITOR, CYBERFILES, CYBERMEDIAPLAYER};
+use app_assets::themes::{CYBEREDITOR, CYBERFILES, CYBERMEDIAPLAYER, CYBERMONITOR};
 use files_core::AppConfig;
 use gpui::{px, App, SharedString};
 use gpui_component::{scroll::ScrollbarShow, Theme, ThemeConfig, ThemeMode, ThemeSet};
@@ -66,13 +66,14 @@ impl ThemeCatalog {
             "Default" | "Default Light" | "Default Dark" => DEFAULT_THEME_SET_ID.into(),
             "CyberFiles Blue" | "CyberFiles Mint" | "CyberFiles Yellow" => "CyberFiles".into(),
             "CyberEditor Blue" | "CyberEditor Dark" => "CyberEditor".into(),
+            "CyberMonitor Light" | "CyberMonitor Dark" => "CyberMonitor".into(),
             other => other.into(),
         }
     }
 
     fn load_embedded() -> Self {
         let mut sets = HashMap::new();
-        for json in [CYBERFILES, CYBEREDITOR, CYBERMEDIAPLAYER] {
+        for json in [CYBERFILES, CYBEREDITOR, CYBERMEDIAPLAYER, CYBERMONITOR] {
             if let Ok(set) = serde_json::from_str::<ThemeSet>(json) {
                 for entry in ThemeSetEntry::entries_from_family(set) {
                     sets.insert(entry.id.clone(), entry);
@@ -254,8 +255,8 @@ mod tests {
     #[test]
     fn embedded_theme_sets_load() {
         let catalog = ThemeCatalog::load_embedded();
-        assert_eq!(catalog.sets.len(), 3);
-        for id in ["CyberFiles", "CyberEditor", "CyberMediaPlayer"] {
+        assert_eq!(catalog.sets.len(), 4);
+        for id in ["CyberFiles", "CyberEditor", "CyberMediaPlayer", "CyberMonitor"] {
             let entry = catalog.get(id).expect(id);
             assert!(entry.light.mode == ThemeMode::Light);
             assert!(entry.dark.mode == ThemeMode::Dark);
@@ -266,5 +267,8 @@ mod tests {
         let editor = catalog.get("CyberEditor").unwrap();
         assert_eq!(editor.light.name.as_ref(), "CyberEditor Light");
         assert_eq!(editor.dark.name.as_ref(), "CyberEditor Dark");
+        let monitor = catalog.get("CyberMonitor").unwrap();
+        assert_eq!(monitor.light.name.as_ref(), "CyberMonitor Light");
+        assert_eq!(monitor.dark.name.as_ref(), "CyberMonitor Dark");
     }
 }

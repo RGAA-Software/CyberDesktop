@@ -6,15 +6,15 @@ use std::time::Duration;
 use clap::Parser;
 use futures_util::StreamExt;
 use gpui::{
-    App, AppContext, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window,
-    WindowBounds, WindowOptions, div, prelude::FluentBuilder as _, px, size,
+    App, AppContext, Context, IntoElement, InteractiveElement, MouseButton, ParentElement, Render,
+    Styled, Window, WindowBounds, WindowOptions, div, prelude::FluentBuilder as _, px, size,
 };
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Root, Selectable, StyledExt, Theme, ThemeMode, TitleBar,
-    button::{Button, ButtonVariants as _},
+    ActiveTheme, Icon, IconName, Root, StyledExt, ThemeMode,
     h_flex,
+    label::Label,
+    list::ListItem,
     scroll::ScrollableElement,
-    tab::{Tab, TabBar},
     v_flex,
 };
 use smol::Timer;
@@ -332,10 +332,9 @@ impl SysMonitorHostApp {
             .border_color(cx.theme().border)
             .bg(cx.theme().secondary)
             .child(
-                div()
+                Label::new("在线机器")
                     .text_sm()
-                    .text_color(cx.theme().foreground)
-                    .child("在线机器"),
+                    .text_color(cx.theme().foreground),
             )
             .child(
                 div()
@@ -348,15 +347,13 @@ impl SysMonitorHostApp {
                                 .as_ref()
                                 .is_some_and(|item| item == &machine.machine_id);
                             let machine_id = machine.machine_id.clone();
-                            Button::new(SharedString::from(format!("machine-{}", machine.machine_id)))
-                                .ghost()
+                            ListItem::new(format!("machine-{}", machine.machine_id))
                                 .selected(selected)
                                 .w_full()
-                                .h(px(50.))
                                 .child(
                                     h_flex()
                                         .w_full()
-                                        .h_full()
+                                        .h(px(50.))
                                         .justify_between()
                                         .items_center()
                                         .child(
@@ -365,35 +362,32 @@ impl SysMonitorHostApp {
                                                 .items_start()
                                                 .gap(px(3.))
                                                 .child(
-                                                    div()
+                                                    Label::new(machine.peer_ip.clone())
                                                         .text_sm()
                                                         .font_semibold()
-                                                        .text_color(cx.theme().foreground)
-                                                        .child(machine.peer_ip.clone()),
+                                                        .text_color(cx.theme().foreground),
                                                 )
                                                 .child(
                                                     h_flex()
                                                         .gap_2()
                                                         .items_center()
                                                         .child(
-                                                            div()
-                                                                .text_xs()
-                                                                .text_color(if machine.connected {
-                                                                    cx.theme().green
-                                                                } else {
-                                                                    cx.theme().red
-                                                                })
-                                                                .child(if machine.connected {
-                                                                    "在线".to_string()
-                                                                } else {
-                                                                    "离线".to_string()
-                                                                }),
+                                                            Label::new(if machine.connected {
+                                                                "在线".to_string()
+                                                            } else {
+                                                                "离线".to_string()
+                                                            })
+                                                            .text_xs()
+                                                            .text_color(if machine.connected {
+                                                                cx.theme().green
+                                                            } else {
+                                                                cx.theme().red
+                                                            }),
                                                         )
                                                         .child(
-                                                            div()
+                                                            Label::new(machine.display_name.clone())
                                                                 .text_xs()
-                                                                .text_color(cx.theme().muted_foreground)
-                                                                .child(machine.display_name.clone()),
+                                                                .text_color(cx.theme().muted_foreground),
                                                         ),
                                                 ),
                                         )
@@ -422,10 +416,9 @@ impl SysMonitorHostApp {
             .items_center()
             .justify_center()
             .child(
-                div()
+                Label::new("当前没有机器连接到 /sys/info")
                     .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child("当前没有机器连接到 /sys/info"),
+                    .text_color(cx.theme().muted_foreground),
             )
     }
 }
@@ -433,29 +426,77 @@ impl SysMonitorHostApp {
 impl Render for SysMonitorHostApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let active_tab_index = self.active_tab as usize;
+        let theme_icon = if cx.theme().mode.is_dark() {
+            IconName::Moon
+        } else {
+            IconName::Sun
+        };
         v_flex()
             .size_full()
             .bg(cx.theme().background)
             .child(
-                TitleBar::new()
+                app_ui::TitleBar::new()
+                    .h(px(35.))
+                    .bg(cx.theme().title_bar)
                     .child(
                         h_flex()
-                            .gap_3()
+                            .id("title-bar-inner")
+                            .h_full()
+                            .w_full()
+                            .min_w_0()
                             .items_center()
-                            .child(div().text_sm().text_color(cx.theme().foreground).child("CyberMonitorHost"))
                             .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
-                                    .child(format!("监听 {}{}", self.server_status.listen_addr, if self.server_status.last_error.is_empty() { String::new() } else { format!(" | {}", self.server_status.last_error) })),
+                                h_flex()
+                                    .id("app-logo")
+                                    .flex_none()
+                                    .items_center()
+                                    .gap(px(8.))
+                                    .pr(px(12.))
+                                    .child(
+                                        Label::new("CyberMonitorHost")
+                                            .text_sm()
+                                            .font_semibold()
+                                            .text_color(cx.theme().foreground),
+                                    ),
+                            )
+                            .child(div().flex_1())
+                            .child(
+                                h_flex()
+                                    .id("title-bar-actions")
+                                    .flex_none()
+                                    .items_center()
+                                    .gap(px(6.))
+                                    .px(px(10.))
+                                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                    .child(
+                                        app_ui::toolbar_icon_button("host-theme-toggle")
+                                            .icon(app_ui::toolbar_icon(theme_icon))
+                                            .on_click(|_, _, cx| {
+                                                let mode = if cx.theme().mode.is_dark() {
+                                                    ThemeMode::Light
+                                                } else {
+                                                    ThemeMode::Dark
+                                                };
+                                                app_ui::apply_theme_mode(mode, cx);
+                                            }),
+                                    )
+                                    .child(
+                                        app_ui::toolbar_icon_button("host-settings")
+                                            .icon(app_ui::toolbar_icon(IconName::Settings2))
+                                            .on_mouse_down(
+                                                MouseButton::Left,
+                                                cx.listener(|_this, _e, _w, cx| {
+                                                    cx.stop_propagation();
+                                                    app_ui::SettingsWindowState::open_editor(cx);
+                                                }),
+                                            ),
+                                    )
+                                    .child(
+                                        app_ui::toolbar_icon_button("host-github")
+                                            .icon(app_ui::toolbar_icon(IconName::Github))
+                                            .on_click(|_, _, cx| cx.open_url(app_ui::GITHUB_REPO_URL)),
+                                    ),
                             ),
-                    )
-                    .child(
-                        div()
-                            .mr_4()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(format!("状态 {}", self.server_status.state)),
                     ),
             )
             .child(render_connection_summary(
@@ -482,20 +523,19 @@ impl Render for SysMonitorHostApp {
                                     })
                                     .when_some(self.selected_machine(), |this, machine| {
                                         this.child(
-                                            div()
-                                                .px_4()
-                                                .py_3()
-                                                .text_xs()
-                                                .text_color(cx.theme().muted_foreground)
-                                                .child(format!(
-                                                    "{} | {} | 最后上报 {}",
-                                                    machine.display_name,
-                                                    machine.peer_addr,
-                                                    machine.last_seen
-                                                )),
+                                            Label::new(format!(
+                                                "{} | {} | 最后上报 {}",
+                                                machine.display_name,
+                                                machine.peer_addr,
+                                                machine.last_seen
+                                            ))
+                                            .px_4()
+                                            .py_3()
+                                            .text_xs()
+                                            .text_color(cx.theme().muted_foreground),
                                         )
                                         .child(
-                                            TabBar::new("host-monitor-tabs")
+                                            app_ui::TabBar::new("host-monitor-tabs")
                                                 .segmented()
                                                 .px_3()
                                                 .py_2()
@@ -505,12 +545,12 @@ impl Render for SysMonitorHostApp {
                                                         this.set_active_tab(*ix, window, cx);
                                                     },
                                                 ))
-                                                .child(Tab::new().label("总览"))
-                                                .child(Tab::new().label("CPU / 内存"))
-                                                .child(Tab::new().label("GPU"))
-                                                .child(Tab::new().label("存储"))
-                                                .child(Tab::new().label("网络"))
-                                                .child(Tab::new().label("传感器")),
+                                                .child(app_ui::Tab::new().label("总览"))
+                                                .child(app_ui::Tab::new().label("CPU / 内存"))
+                                                .child(app_ui::Tab::new().label("GPU"))
+                                                .child(app_ui::Tab::new().label("存储"))
+                                                .child(app_ui::Tab::new().label("网络"))
+                                                .child(app_ui::Tab::new().label("传感器")),
                                         )
                                         .child(
                                             div()
@@ -545,7 +585,7 @@ pub fn run(cli: HostCli) {
         app_ui::init_editor_shell(cx);
 
         let window_options = WindowOptions {
-            titlebar: Some(TitleBar::title_bar_options()),
+            titlebar: Some(app_ui::TitleBar::title_bar_options()),
             window_bounds: Some(WindowBounds::centered(size(px(1600.), px(980.)), cx)),
             ..Default::default()
         };
@@ -556,7 +596,7 @@ pub fn run(cli: HostCli) {
             let window_handle = cx.open_window(window_options, |window, cx| {
                 window.set_window_title("CyberMonitorHost");
 
-                Theme::change(ThemeMode::Dark, Some(window), cx);
+                app_ui::theme::apply_set("CyberMonitor", ThemeMode::Dark, cx);
 
                 window.on_window_should_close(cx, |window, _cx| {
                     tray::hide_window(window);
@@ -576,7 +616,6 @@ pub fn run(cli: HostCli) {
             .expect("failed to open CyberMonitorHost window");
 
             cx.spawn({
-                let window_handle = window_handle;
                 async move |cx| loop {
                     Timer::after(Duration::from_millis(200)).await;
                     for command in tray::take_commands() {
@@ -591,7 +630,7 @@ pub fn run(cli: HostCli) {
                                 let _ = window_handle.update(cx, |_, window, _| {
                                     window.remove_window();
                                 });
-                                let _ = cx.update(|cx| cx.quit());
+                                cx.update(|cx| cx.quit());
                                 return;
                             }
                         }
