@@ -4,7 +4,7 @@
 
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("cyber_files", "cyber_editor", "cyber_media_player")]
+    [ValidateSet("cyber_files", "cyber_editor", "cyber_media_player", "cyber_monitor", "cyber_monitor_host")]
     [string] $Bin,
 
     [ValidateSet("debug", "release")]

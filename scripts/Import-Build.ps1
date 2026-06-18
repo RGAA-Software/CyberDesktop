@@ -8,6 +8,8 @@ function Get-CyberAppTargets {
         cyber_files       = @{ Package = "files-app"; Features = @() }
         cyber_editor      = @{ Package = "editor-app"; Features = @() }
         cyber_media_player = @{ Package = "media-player-app"; Features = @() }
+        cyber_monitor      = @{ Package = "monitor-app"; Features = @() }
+        cyber_monitor_host = @{ Package = "monitor-app"; Features = @() }
     }
     foreach ($key in $ordered.Keys) {
         [PSCustomObject]@{
@@ -21,7 +23,7 @@ function Get-CyberAppTargets {
 function Invoke-CyberAppBuild {
     param(
         [Parameter(Mandatory)]
-        [ValidateSet("cyber_files", "cyber_editor", "cyber_media_player")]
+        [ValidateSet("cyber_files", "cyber_editor", "cyber_media_player", "cyber_monitor", "cyber_monitor_host")]
         [string] $Bin,
 
         [ValidateSet("debug", "release")]
@@ -32,6 +34,8 @@ function Invoke-CyberAppBuild {
         cyber_files        = @{ Package = "files-app"; Features = @() }
         cyber_editor       = @{ Package = "editor-app"; Features = @() }
         cyber_media_player = @{ Package = "media-player-app"; Features = @() }
+        cyber_monitor      = @{ Package = "monitor-app"; Features = @() }
+        cyber_monitor_host = @{ Package = "monitor-app"; Features = @() }
     }
     $target = $targets[$Bin]
     if (-not $target) {

@@ -13,6 +13,8 @@ pub const FILES_CONFIG_APP_ID: &str = "cyber_files";
 /// Config directory / file namespace for the editor binary.
 pub const EDITOR_CONFIG_APP_ID: &str = "cyber_editor";
 pub const MEDIA_PLAYER_CONFIG_APP_ID: &str = "cyber_media_player";
+/// Config directory / file namespace for the monitor binary.
+pub const MONITOR_CONFIG_APP_ID: &str = "cyber_monitor";
 
 pub const WINDOW_WIDTH: f32 = 1630.;
 pub const WINDOW_HEIGHT: f32 = 900.;

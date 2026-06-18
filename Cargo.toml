@@ -3,6 +3,7 @@ members = [
     "crates/files-app",
     "crates/editor-app",
     "crates/media-player-app",
+    "crates/monitor-app",
     "crates/app-examples",
     "crates/app-assets",
     "crates/app-media",
@@ -40,6 +41,7 @@ files-ui = { path = "crates/files-ui", default-features = false }
 editor-ui = { path = "crates/editor-ui" }
 media-player-app = { path = "crates/media-player-app" }
 media-player-ui = { path = "crates/media-player-ui" }
+monitor-app = { path = "crates/monitor-app" }
 
 # zed-industries/zed (GPUI only)
 gpui = { git = "https://github.com/zed-industries/zed" }
@@ -55,6 +57,19 @@ futures = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 chrono = "0.4"
 rolling-file = "0.2"
+sysinfo = "0.37"
+nvml-wrapper = "0.11"
+netdev = "0.37"
+calcmhz = "0.1"
+adlx = { git = "https://github.com/Traverse-Research/adlx-rs.git", branch = "main" }
+tokio = { version = "1.43", features = ["full"] }
+tokio-tungstenite = { version = "0.27", features = ["rustls-tls-webpki-roots", "tokio-rustls"] }
+smol = "2.0"
+raw-window-handle = "0.6"
+clap = { version = "4.5", features = ["derive"] }
+clap_derive = "4.5"
+lazy_static = "1.5"
+futures-util = "0.3"
 rust-i18n = "4"
 rfd = "0.15"
 serde = { version = "1", features = ["derive"] }

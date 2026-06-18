@@ -1,0 +1,54 @@
+[package]
+name = "monitor-app"
+description = "CyberMonitor application entrypoint"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "cyber_monitor"
+path = "src/bin/cyber_monitor.rs"
+
+[[bin]]
+name = "cyber_monitor_host"
+path = "src/bin/cyber_monitor_host.rs"
+
+[dependencies]
+files-core.workspace = true
+app-ui.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+gpui_platform.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sysinfo.workspace = true
+nvml-wrapper.workspace = true
+netdev.workspace = true
+calcmhz.workspace = true
+adlx.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+smol.workspace = true
+raw-window-handle.workspace = true
+clap.workspace = true
+clap_derive.workspace = true
+lazy_static.workspace = true
+futures-util.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Graphics_Gdi",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Threading",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+embed-resource.workspace = true
