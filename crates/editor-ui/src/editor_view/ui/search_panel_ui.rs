@@ -1,9 +1,9 @@
 //! UI fragment: `ui/search_panel_ui.rs`.
 
+use super::super::imports::*;
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
 use super::panel::panel_title_bar;
 use super::widgets::{panel_close_button, panel_input, panel_tool_lead, panel_tool_strip};
-use super::super::imports::*;
 use gpui_component::{progress::Progress, IconName, StyledExt as _};
 
 fn search_progress_value(lines_scanned: usize, searching: bool) -> f32 {
@@ -253,7 +253,10 @@ impl EngineEditor {
                         .bottom_0()
                         .size(resize_hit)
                         .cursor_nwse_resize()
-                        .on_mouse_down(MouseButton::Left, resize_start(PanelResizeEdge::BottomRight)),
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            resize_start(PanelResizeEdge::BottomRight),
+                        ),
                 ),
         )
     }

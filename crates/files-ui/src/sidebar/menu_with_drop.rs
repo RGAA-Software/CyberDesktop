@@ -78,7 +78,8 @@ fn render_item_row(
         .text_sm()
         .when(!active, |this| {
             this.text_color(cx.theme().muted_foreground).hover(|row| {
-                row.bg(cx.theme().list_hover).text_color(cx.theme().foreground)
+                row.bg(cx.theme().list_hover)
+                    .text_color(cx.theme().foreground)
             })
         })
         .when(active, |this| {
@@ -102,7 +103,14 @@ fn render_item_row(
         .when(collapsed, |this| this.justify_center())
         .child(icon_element)
         .when(!collapsed, |this| {
-            this.child(div().flex_1().min_w_0().overflow_hidden().text_ellipsis().child(label))
+            this.child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .child(label),
+            )
         })
         .when_some(
             (!collapsed)
@@ -120,10 +128,7 @@ fn render_item_row(
         item_inner.into_any_element()
     };
 
-    let mut row_el = div()
-        .id(row_id)
-        .w_full()
-        .child(item_any);
+    let mut row_el = div().id(row_id).w_full().child(item_any);
     if let Some(middle) = on_middle_click {
         row_el = row_el.on_mouse_down(MouseButton::Middle, move |_, window, cx| {
             middle(window, cx);
@@ -166,7 +171,15 @@ impl SidebarMenuWithDrop {
         on_middle_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
         context_menu: Option<Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>>,
     ) {
-        self.push_item_with_suffix(label, icon, active, handler, on_middle_click, context_menu, None);
+        self.push_item_with_suffix(
+            label,
+            icon,
+            active,
+            handler,
+            on_middle_click,
+            context_menu,
+            None,
+        );
     }
 
     pub fn push_item_with_suffix(

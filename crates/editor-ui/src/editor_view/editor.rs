@@ -4,9 +4,12 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use app_ui::{ToggleFullMarkdownPreview, ToggleMarkdownPreview};
 use editor_text_engine::{Document, FoldRange, SyntaxState};
-use gpui::{px, App, AppContext, Bounds, Context, Empty, Entity, FocusHandle, IntoElement, Pixels, Point, Render, ScrollHandle, Size, Window};
-use app_ui::{ToggleMarkdownPreview, ToggleFullMarkdownPreview};
+use gpui::{
+    px, App, AppContext, Bounds, Context, Empty, Entity, FocusHandle, IntoElement, Pixels, Point,
+    Render, ScrollHandle, Size, Window,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct PreviewResizeDrag;
@@ -18,11 +21,11 @@ impl Render for PreviewResizeDrag {
 }
 
 use super::language::language_for_path;
+use super::r#impl::{EditorContextMenuState, FOLD_GUTTER_WIDTH};
 use super::state::{
     FileLoadState, FindState, GotoState, InputTarget, LineWidthCache, PanelDrag, PanelResize,
     SearchPanelState, TabSlot, VisibleLine, WrappedVisible,
 };
-use super::r#impl::{EditorContextMenuState, FOLD_GUTTER_WIDTH};
 
 /// A high-performance, engine-backed text editor surface.
 pub struct EngineEditor {
@@ -154,7 +157,6 @@ pub(crate) enum CloseTarget {
     Window,
 }
 
-
 impl EngineEditor {
     pub fn new(language: &str, document: Document, cx: &mut Context<Self>) -> Self {
         let mut editor = Self {
@@ -233,14 +235,16 @@ impl EngineEditor {
         app.on_action(move |_: &ToggleMarkdownPreview, cx| {
             weak.update(cx, |this, cx| {
                 this.toggle_markdown_preview(cx);
-            }).ok();
+            })
+            .ok();
         });
         let weak = cx.weak_entity();
         let app: &mut App = cx;
         app.on_action(move |_: &ToggleFullMarkdownPreview, cx| {
             weak.update(cx, |this, cx| {
                 this.toggle_full_markdown_preview(cx);
-            }).ok();
+            })
+            .ok();
         });
         editor.rebuild_display_lines();
         editor

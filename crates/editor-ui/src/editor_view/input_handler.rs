@@ -64,7 +64,8 @@ impl EntityInputHandler for EngineEditor {
             return;
         }
         let range_char = self.resolve_input_range(range_utf16);
-        self.document.set_selection(range_char.start, range_char.end);
+        self.document
+            .set_selection(range_char.start, range_char.end);
         self.document.insert(new_text);
         self.marked_range = None;
         self.changed(cx);
@@ -79,7 +80,8 @@ impl EntityInputHandler for EngineEditor {
         cx: &mut Context<Self>,
     ) {
         let range_char = self.resolve_input_range(range_utf16);
-        self.document.set_selection(range_char.start, range_char.end);
+        self.document
+            .set_selection(range_char.start, range_char.end);
         self.document.insert(new_text);
         if new_text.is_empty() {
             self.marked_range = None;
@@ -159,7 +161,6 @@ impl EntityInputHandler for EngineEditor {
         Some(self.document.buffer().char_to_utf16(idx))
     }
 }
-
 
 impl EngineEditor {
     /// Resolves the target char range for a text-input edit: explicit range,

@@ -140,10 +140,10 @@ impl AudioPlayer {
         let mut guard = self.state.lock().expect("audio state");
         if guard.active_path.as_deref() == Some(path) && guard.finished {
             guard.finished = false;
-             guard.active_path = None;
-             guard.total = None;
-             guard.position = Duration::ZERO;
-             guard.paused = false;
+            guard.active_path = None;
+            guard.total = None;
+            guard.position = Duration::ZERO;
+            guard.paused = false;
             true
         } else {
             false

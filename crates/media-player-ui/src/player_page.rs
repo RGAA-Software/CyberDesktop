@@ -1,25 +1,30 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use gpui::{
-    div, px, size, App, AppContext, Bounds, Context, Empty, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement, Pixels, Render, SharedString, Size,
-    StatefulInteractiveElement, Styled, Subscription, Window, WindowBounds, WindowKind, WindowOptions,
-};
-use gpui::prelude::FluentBuilder;
-use gpui_component::{
-    button::{Button, ButtonVariants as _}, h_flex, v_flex,
-    ActiveTheme, ElementExt, IconName, Root, Selectable, Sizable, StyledExt as _, ThemeMode,
-};
 use crate::media_slider::{MediaSlider, MediaSliderEvent, MediaSliderState};
+use gpui::prelude::FluentBuilder;
+use gpui::{
+    div, px, size, App, AppContext, Bounds, Context, Empty, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement,
+    Pixels, Render, SharedString, Size, StatefulInteractiveElement, Styled, Subscription, Window,
+    WindowBounds, WindowKind, WindowOptions,
+};
+use gpui_component::{
+    button::{Button, ButtonVariants as _},
+    h_flex, v_flex, ActiveTheme, ElementExt, IconName, Root, Selectable, Sizable, StyledExt as _,
+    ThemeMode,
+};
 
 use app_ui::{
-    apply_theme_mode, color_icon_box, DropdownMenu,
-    title_bar::TitleBar, toolbar_icon, toolbar_icon_button, GITHUB_REPO_URL,
-    SettingsWindowState,
+    apply_theme_mode, color_icon_box, title_bar::TitleBar, toolbar_icon, toolbar_icon_button,
+    DropdownMenu, SettingsWindowState, GITHUB_REPO_URL,
 };
 
-use crate::app_menus::{MpvCycleSubTrack, MpvExitFullscreen, MpvLoadSubtitle, MpvOpenFile, MpvOpenFolder, MpvSetLoopAll, MpvSetLoopNone, MpvSetLoopSingle, MpvSetSpeed05, MpvSetSpeed10, MpvSetSpeed15, MpvSetSpeed20};
+use crate::app_menus::{
+    MpvCycleSubTrack, MpvExitFullscreen, MpvLoadSubtitle, MpvOpenFile, MpvOpenFolder,
+    MpvSetLoopAll, MpvSetLoopNone, MpvSetLoopSingle, MpvSetSpeed05, MpvSetSpeed10, MpvSetSpeed15,
+    MpvSetSpeed20,
+};
 use crate::audio_player::AudioPlayer;
 
 const APP_LOGO_PATH: &str = "app/logo/ic_cyber_media_player.svg";
@@ -43,7 +48,9 @@ const ICON_SPEED: &str = "icons/tabler/gauge.svg";
 
 fn tabler_icon(path: &'static str) -> gpui_component::Icon {
     use gpui_component::{Icon, IconName, Sizable as _};
-    Icon::new(IconName::File).path(path).with_size(gpui_component::Size::Size(gpui::px(18.)))
+    Icon::new(IconName::File)
+        .path(path)
+        .with_size(gpui_component::Size::Size(gpui::px(18.)))
 }
 use crate::audio_visualizer::{AudioVisualizer, SPECTRUM_BANDS};
 use crate::media_player_config::MediaPlayerConfig;
@@ -95,7 +102,8 @@ fn is_media_file(path: &Path) -> bool {
         .to_lowercase();
     matches!(
         ext.as_str(),
-        "mp4" | "mkv"
+        "mp4"
+            | "mkv"
             | "avi"
             | "mov"
             | "wmv"
@@ -162,10 +170,16 @@ pub struct PlayerPage {
 
 impl PlayerPage {
     pub fn new(initial_paths: Vec<PathBuf>, cx: &mut Context<Self>) -> Self {
-        let seek_slider =
-            cx.new(|_| MediaSliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
-        let seek_subscription = cx.subscribe(&seek_slider, |this, _, event: &MediaSliderEvent, cx| {
-            match event {
+        let seek_slider = cx.new(|_| {
+            MediaSliderState::new()
+                .min(0.0)
+                .max(1.0)
+                .step(0.001)
+                .default_value(0.0)
+        });
+        let seek_subscription = cx.subscribe(
+            &seek_slider,
+            |this, _, event: &MediaSliderEvent, cx| match event {
                 MediaSliderEvent::Change(_) => {
                     this.seek_dragging = true;
                 }
@@ -173,22 +187,27 @@ impl PlayerPage {
                     this.seek_dragging = false;
                     this.commit_seek(value.start(), cx);
                 }
-            }
-        });
+            },
+        );
 
         let config = MediaPlayerConfig::load();
         let default_volume = (config.volume.clamp(0.0, 100.0) / 100.0) as f32;
-        let volume_slider =
-            cx.new(|_| MediaSliderState::new().min(0.0).max(1.0).step(0.01).default_value(default_volume));
-        let volume_subscription =
-            cx.subscribe(&volume_slider, |this, _, event: &MediaSliderEvent, cx| {
-                match event {
-                    MediaSliderEvent::Change(value) | MediaSliderEvent::Release(value) => {
-                        this.volume = f64::from(value.start()) * 100.0;
-                        this.apply_volume(cx);
-                    }
+        let volume_slider = cx.new(|_| {
+            MediaSliderState::new()
+                .min(0.0)
+                .max(1.0)
+                .step(0.01)
+                .default_value(default_volume)
+        });
+        let volume_subscription = cx.subscribe(
+            &volume_slider,
+            |this, _, event: &MediaSliderEvent, cx| match event {
+                MediaSliderEvent::Change(value) | MediaSliderEvent::Release(value) => {
+                    this.volume = f64::from(value.start()) * 100.0;
+                    this.apply_volume(cx);
                 }
-            });
+            },
+        );
         Self {
             focus_handle: cx.focus_handle(),
             playlist: Playlist::from_paths(initial_paths),
@@ -235,11 +254,7 @@ impl PlayerPage {
         }
     }
 
-    pub fn view(
-        paths: Vec<PathBuf>,
-        _window: &mut Window,
-        cx: &mut App,
-    ) -> gpui::Entity<Self> {
+    pub fn view(paths: Vec<PathBuf>, _window: &mut Window, cx: &mut App) -> gpui::Entity<Self> {
         cx.new(|cx| Self::new(paths, cx))
     }
 
@@ -279,7 +294,8 @@ impl PlayerPage {
             if let Some(secs) = self.config.get_position(&path.to_path_buf()) {
                 let target = Duration::from_secs_f64(secs);
                 match self.media_type {
-                    Some(MediaType::Video) => {
+                    Some(MediaType::Video) =>
+                    {
                         #[cfg(windows)]
                         if let Some(player) = self.embedded_player.as_mut() {
                             let _ = player.seek_to(target);
@@ -362,81 +378,81 @@ impl PlayerPage {
     fn start_poll(&mut self, cx: &mut Context<Self>) {
         self.poll_generation = self.poll_generation.wrapping_add(1);
         let generation = self.poll_generation;
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_secs(1))
-                    .await;
+        cx.spawn(async move |this, cx| loop {
+            cx.background_executor().timer(Duration::from_secs(1)).await;
 
-                let mut keep_polling = false;
-                let update_ok = this.update(cx, |this, _cx| {
-                    if this.poll_generation != generation {
-                        return;
-                    }
-                    keep_polling = this.is_playing;
-                    if !keep_polling {
-                        return;
-                    }
-
-                    match this.media_type {
-                        Some(MediaType::Video) => {
-                            #[cfg(windows)]
-                            if let Some(player) = this.embedded_player.as_mut() {
-                                player.poll_events();
-                                this.current_position = player.time_pos().unwrap_or(None);
-                                if let (Some(pos), Some(path)) = (this.current_position, this.playlist.current().cloned()) {
-                                    this.config.record_position(&path, pos.as_secs_f64());
-                                }
-                                if let Ok(tracks) = player.subtitle_tracks() {
-                                    this.sub_tracks = tracks;
-                                }
-                                if let Ok(sid) = player.current_sid() {
-                                    this.current_sub_id = sid;
-                                    this.sub_visible = sid.is_some();
-                                }
-                                if player.ended() {
-                                    if this.loop_mode == LoopMode::Single {
-                                        let _ = player.seek_to(Duration::ZERO);
-                                        this.current_position = Some(Duration::ZERO);
-                                    } else {
-                                        this.is_playing = false;
-                                        this.is_paused = false;
-                                        this.pending_next = true;
-                                        keep_polling = false;
-                                    }
-                                }
-                            }
-                            _cx.notify();
-                        }
-                        Some(MediaType::Audio) => {
-                            if let Some(player) = this.audio_player.as_ref() {
-                                let state = player.snapshot();
-                                this.current_position = Some(state.position);
-                                this.total_duration = state.total;
-                                if let (Some(pos), Some(path)) = (this.current_position, this.playlist.current().cloned()) {
-                                    this.config.record_position(&path, pos.as_secs_f64());
-                                }
-                                if state.finished {
-                                    if this.loop_mode == LoopMode::Single {
-                                        if let Some(path) = this.playlist.current().cloned() {
-                                            player.play(path);
-                                        }
-                                    } else {
-                                        this.is_playing = false;
-                                        this.is_paused = false;
-                                        this.pending_next = true;
-                                        keep_polling = false;
-                                    }
-                                }
-                            }
-                            _cx.notify();
-                        }
-                        None => {}
-                    }
-                });
-                if update_ok.is_err() || !keep_polling {
-                    break;
+            let mut keep_polling = false;
+            let update_ok = this.update(cx, |this, _cx| {
+                if this.poll_generation != generation {
+                    return;
                 }
+                keep_polling = this.is_playing;
+                if !keep_polling {
+                    return;
+                }
+
+                match this.media_type {
+                    Some(MediaType::Video) => {
+                        #[cfg(windows)]
+                        if let Some(player) = this.embedded_player.as_mut() {
+                            player.poll_events();
+                            this.current_position = player.time_pos().unwrap_or(None);
+                            if let (Some(pos), Some(path)) =
+                                (this.current_position, this.playlist.current().cloned())
+                            {
+                                this.config.record_position(&path, pos.as_secs_f64());
+                            }
+                            if let Ok(tracks) = player.subtitle_tracks() {
+                                this.sub_tracks = tracks;
+                            }
+                            if let Ok(sid) = player.current_sid() {
+                                this.current_sub_id = sid;
+                                this.sub_visible = sid.is_some();
+                            }
+                            if player.ended() {
+                                if this.loop_mode == LoopMode::Single {
+                                    let _ = player.seek_to(Duration::ZERO);
+                                    this.current_position = Some(Duration::ZERO);
+                                } else {
+                                    this.is_playing = false;
+                                    this.is_paused = false;
+                                    this.pending_next = true;
+                                    keep_polling = false;
+                                }
+                            }
+                        }
+                        _cx.notify();
+                    }
+                    Some(MediaType::Audio) => {
+                        if let Some(player) = this.audio_player.as_ref() {
+                            let state = player.snapshot();
+                            this.current_position = Some(state.position);
+                            this.total_duration = state.total;
+                            if let (Some(pos), Some(path)) =
+                                (this.current_position, this.playlist.current().cloned())
+                            {
+                                this.config.record_position(&path, pos.as_secs_f64());
+                            }
+                            if state.finished {
+                                if this.loop_mode == LoopMode::Single {
+                                    if let Some(path) = this.playlist.current().cloned() {
+                                        player.play(path);
+                                    }
+                                } else {
+                                    this.is_playing = false;
+                                    this.is_paused = false;
+                                    this.pending_next = true;
+                                    keep_polling = false;
+                                }
+                            }
+                        }
+                        _cx.notify();
+                    }
+                    None => {}
+                }
+            });
+            if update_ok.is_err() || !keep_polling {
+                break;
             }
         })
         .detach();
@@ -520,7 +536,8 @@ impl PlayerPage {
 
     fn toggle_pause(&mut self) {
         match self.media_type {
-            Some(MediaType::Video) => {
+            Some(MediaType::Video) =>
+            {
                 #[cfg(windows)]
                 if let Some(player) = self.embedded_player.as_mut() {
                     if self.is_paused {
@@ -544,7 +561,8 @@ impl PlayerPage {
 
     fn stop(&mut self) {
         match self.media_type {
-            Some(MediaType::Video) => {
+            Some(MediaType::Video) =>
+            {
                 #[cfg(windows)]
                 if let Some(player) = self.embedded_player.as_mut() {
                     let _ = player.stop();
@@ -571,34 +589,37 @@ impl PlayerPage {
     fn start_visualizer_poll(&mut self, cx: &mut Context<Self>) {
         self.visualizer_generation = self.visualizer_generation.wrapping_add(1);
         let generation = self.visualizer_generation;
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(Duration::from_millis(33)).await;
-                let ok = this.update(cx, |this, cx| {
-                    if this.visualizer_generation != generation {
-                        return false;
-                    }
-                    if let Some(viz) = this.visualizer.as_ref() {
-                        this.visualizer_spectrum = viz.spectrum();
-                        cx.notify();
-                    }
-                    true
-                });
-                if ok.is_err() || !ok.unwrap_or(false) {
-                    break;
+        cx.spawn(async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(33))
+                .await;
+            let ok = this.update(cx, |this, cx| {
+                if this.visualizer_generation != generation {
+                    return false;
                 }
+                if let Some(viz) = this.visualizer.as_ref() {
+                    this.visualizer_spectrum = viz.spectrum();
+                    cx.notify();
+                }
+                true
+            });
+            if ok.is_err() || !ok.unwrap_or(false) {
+                break;
             }
-        }).detach();
+        })
+        .detach();
     }
 
     fn commit_seek(&mut self, fraction: f32, cx: &mut Context<Self>) {
-        let Some(total) = self.total_duration else { return };
-        let target = Duration::from_secs_f64(
-            total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)),
-        );
+        let Some(total) = self.total_duration else {
+            return;
+        };
+        let target =
+            Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
 
         match self.media_type {
-            Some(MediaType::Video) => {
+            Some(MediaType::Video) =>
+            {
                 #[cfg(windows)]
                 if let Some(player) = self.embedded_player.as_mut() {
                     let _ = player.seek_to(target);
@@ -624,7 +645,8 @@ impl PlayerPage {
     fn apply_volume(&mut self, _cx: &mut Context<Self>) {
         let effective_volume = if self.muted { 0.0 } else { self.volume };
         match self.media_type {
-            Some(MediaType::Video) => {
+            Some(MediaType::Video) =>
+            {
                 #[cfg(windows)]
                 if let Some(player) = self.embedded_player.as_mut() {
                     let _ = player.set_volume(effective_volume);
@@ -642,7 +664,8 @@ impl PlayerPage {
 
     fn apply_speed(&mut self) {
         match self.media_type {
-            Some(MediaType::Video) => {
+            Some(MediaType::Video) =>
+            {
                 #[cfg(windows)]
                 if let Some(player) = self.embedded_player.as_mut() {
                     let _ = player.set_speed(self.speed);
@@ -743,10 +766,16 @@ impl PlayerPage {
     }
 
     fn auto_load_subtitles(&mut self, video_path: &Path) {
-        let Some(dir) = video_path.parent() else { return };
-        let Some(stem) = video_path.file_stem() else { return };
+        let Some(dir) = video_path.parent() else {
+            return;
+        };
+        let Some(stem) = video_path.file_stem() else {
+            return;
+        };
         let stem = stem.to_string_lossy();
-        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
 
         let mut found = Vec::new();
         for entry in entries.flatten() {
@@ -775,7 +804,10 @@ impl PlayerPage {
         cx.spawn(async move |this, cx| {
             let paths = rfd::FileDialog::new()
                 .set_title("Open Subtitle Files")
-                .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt", "sub", "idx", "smi"])
+                .add_filter(
+                    "Subtitles",
+                    &["srt", "ass", "ssa", "vtt", "sub", "idx", "smi"],
+                )
                 .add_filter("All Files", &["*"])
                 .pick_files();
 
@@ -802,8 +834,8 @@ impl PlayerPage {
                 .add_filter(
                     "All Media",
                     &[
-                        "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "mp3", "wav",
-                        "flac", "aac", "ogg", "m4a", "wma",
+                        "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "mp3", "wav", "flac",
+                        "aac", "ogg", "m4a", "wma",
                     ],
                 )
                 .pick_files();
@@ -863,12 +895,15 @@ impl PlayerPage {
 
     #[allow(dead_code)]
     fn seek_relative(&mut self, seconds: f64) {
-        let Some(current) = self.current_position else { return };
+        let Some(current) = self.current_position else {
+            return;
+        };
         let target = current.saturating_add(Duration::from_secs_f64(seconds));
         let target = self.total_duration.map(|t| target.min(t)).unwrap_or(target);
 
         match self.media_type {
-            Some(MediaType::Video) => {
+            Some(MediaType::Video) =>
+            {
                 #[cfg(windows)]
                 if let Some(player) = self.embedded_player.as_mut() {
                     let _ = player.seek_to(target);
@@ -1050,12 +1085,7 @@ impl Render for PlayerPage {
                             .items_end()
                             .justify_center()
                             .overflow_hidden()
-                            .child(
-                                h_flex()
-                                    .items_end()
-                                    .gap(px(gap))
-                                    .children(spectrum_bars),
-                            ),
+                            .child(h_flex().items_end().gap(px(gap)).children(spectrum_bars)),
                     )
                     .child(
                         div()
@@ -1256,24 +1286,26 @@ impl Render for PlayerPage {
             .on_action(cx.listener(|this, _: &MpvSetSpeed20, _window, _cx| {
                 this.set_speed(2.0);
             }))
-            .on_drop(cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
-                let start_index = this.playlist.len();
-                let mut added = false;
-                for path in paths.paths() {
-                    if is_media_file(path) {
-                        this.playlist.add(path.to_path_buf());
-                        this.config.add_recent(path.to_path_buf());
-                        added = true;
+            .on_drop(
+                cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
+                    let start_index = this.playlist.len();
+                    let mut added = false;
+                    for path in paths.paths() {
+                        if is_media_file(path) {
+                            this.playlist.add(path.to_path_buf());
+                            this.config.add_recent(path.to_path_buf());
+                            added = true;
+                        }
                     }
-                }
-                if added {
-                    this.save_config();
-                    if let Some(path) = this.playlist.items().get(start_index).cloned() {
-                        let _ = this.playlist.select(start_index);
-                        let _ = this.load_media(&path, window, cx);
+                    if added {
+                        this.save_config();
+                        if let Some(path) = this.playlist.items().get(start_index).cloned() {
+                            let _ = this.playlist.select(start_index);
+                            let _ = this.load_media(&path, window, cx);
+                        }
                     }
-                }
-            }))
+                }),
+            )
             .child(
                 TitleBar::new()
                     .h(px(35.))
@@ -1306,64 +1338,66 @@ impl Render for PlayerPage {
                             .child(div().flex_none().child(crate::app_menus::menu_bar(cx))),
                     ),
             )
-            .child(
-                {
-                    let content_weak = cx.weak_entity();
-                    h_flex()
-                        .id("video-playlist-container")
-                        .flex_1()
-                        .min_h(px(200.))
-                        .on_prepaint(move |bounds, _, cx| {
-                            let _ = content_weak.update(cx, |this, _| {
-                                this.content_bounds = Some(bounds);
-                            });
-                        })
-                        .child(div().flex_1().h_full().child(video_area))
-                        .when(self.playlist_visible, |this| {
-                            this.child(
-                                div()
-                                    .id("playlist-splitter")
-                                    .w(px(4.))
-                                    .h_full()
-                                    .cursor_col_resize()
-                                    .when(self.resizing_playlist, |this| this.bg(cx.theme().primary))
-                                    .when(!self.resizing_playlist, |this| this.bg(cx.theme().border))
-                                    .hover(|style| style.bg(cx.theme().primary))
-                                    .on_drag(PlaylistResizeDrag, |_, _, _, cx| cx.new(|_| PlaylistResizeDrag))
-                                    .on_drag_move::<PlaylistResizeDrag>(cx.listener(
-                                        |this, event: &gpui::DragMoveEvent<PlaylistResizeDrag>, _, cx| {
-                                            this.resizing_playlist = true;
-                                            if let Some(bounds) = this.content_bounds {
-                                                let new_width = (bounds.right() - event.event.position.x).max(px(160.)).min(px(480.));
-                                                if (this.playlist_width - new_width).abs() > px(1.) {
-                                                    this.playlist_width = new_width;
-                                                    cx.notify();
-                                                }
+            .child({
+                let content_weak = cx.weak_entity();
+                h_flex()
+                    .id("video-playlist-container")
+                    .flex_1()
+                    .min_h(px(200.))
+                    .on_prepaint(move |bounds, _, cx| {
+                        let _ = content_weak.update(cx, |this, _| {
+                            this.content_bounds = Some(bounds);
+                        });
+                    })
+                    .child(div().flex_1().h_full().child(video_area))
+                    .when(self.playlist_visible, |this| {
+                        this.child(
+                            div()
+                                .id("playlist-splitter")
+                                .w(px(4.))
+                                .h_full()
+                                .cursor_col_resize()
+                                .when(self.resizing_playlist, |this| this.bg(cx.theme().primary))
+                                .when(!self.resizing_playlist, |this| this.bg(cx.theme().border))
+                                .hover(|style| style.bg(cx.theme().primary))
+                                .on_drag(PlaylistResizeDrag, |_, _, _, cx| {
+                                    cx.new(|_| PlaylistResizeDrag)
+                                })
+                                .on_drag_move::<PlaylistResizeDrag>(cx.listener(
+                                    |this,
+                                     event: &gpui::DragMoveEvent<PlaylistResizeDrag>,
+                                     _,
+                                     cx| {
+                                        this.resizing_playlist = true;
+                                        if let Some(bounds) = this.content_bounds {
+                                            let new_width = (bounds.right()
+                                                - event.event.position.x)
+                                                .max(px(160.))
+                                                .min(px(480.));
+                                            if (this.playlist_width - new_width).abs() > px(1.) {
+                                                this.playlist_width = new_width;
+                                                cx.notify();
                                             }
-                                        },
-                                    ))
-                                    .on_drop(cx.listener(|this, _: &PlaylistResizeDrag, _, _cx| {
-                                        this.resizing_playlist = false;
-                                    })),
-                            )
-                            .child(playlist_sidebar)
-                        })
-                },
-            )
+                                        }
+                                    },
+                                ))
+                                .on_drop(cx.listener(|this, _: &PlaylistResizeDrag, _, _cx| {
+                                    this.resizing_playlist = false;
+                                })),
+                        )
+                        .child(playlist_sidebar)
+                    })
+            })
             .child(
                 v_flex()
                     .px(px(16.))
                     .child(div().h(px(20.)).w_full())
                     .child(
-                        h_flex()
-                            .items_center()
-                            .gap(px(8.))
-                            .child(time_str)
-                            .child(
-                                MediaSlider::new(&self.seek_slider)
-                                    .disabled(self.total_duration.is_none())
-                                    .w_full(),
-                            ),
+                        h_flex().items_center().gap(px(8.)).child(time_str).child(
+                            MediaSlider::new(&self.seek_slider)
+                                .disabled(self.total_duration.is_none())
+                                .w_full(),
+                        ),
                     )
                     .child(div().h(px(1.)).w_full())
                     .child(
@@ -1424,9 +1458,24 @@ impl Render for PlayerPage {
                                         move |menu, _window, _cx| {
                                             menu.min_w(px(160.))
                                                 .check_side(gpui_component::Side::Right)
-                                                .menu_with_check_icon("Off", tabler_icon(ICON_REPEAT_OFF), current_mode == LoopMode::None, Box::new(crate::app_menus::MpvSetLoopNone))
-                                                .menu_with_check_icon("Loop All", tabler_icon(ICON_REPEAT), current_mode == LoopMode::All, Box::new(crate::app_menus::MpvSetLoopAll))
-                                                .menu_with_check_icon("Loop Single", tabler_icon(ICON_REPEAT_ONCE), current_mode == LoopMode::Single, Box::new(crate::app_menus::MpvSetLoopSingle))
+                                                .menu_with_check_icon(
+                                                    "Off",
+                                                    tabler_icon(ICON_REPEAT_OFF),
+                                                    current_mode == LoopMode::None,
+                                                    Box::new(crate::app_menus::MpvSetLoopNone),
+                                                )
+                                                .menu_with_check_icon(
+                                                    "Loop All",
+                                                    tabler_icon(ICON_REPEAT),
+                                                    current_mode == LoopMode::All,
+                                                    Box::new(crate::app_menus::MpvSetLoopAll),
+                                                )
+                                                .menu_with_check_icon(
+                                                    "Loop Single",
+                                                    tabler_icon(ICON_REPEAT_ONCE),
+                                                    current_mode == LoopMode::Single,
+                                                    Box::new(crate::app_menus::MpvSetLoopSingle),
+                                                )
                                         }
                                     })
                             })
@@ -1442,10 +1491,26 @@ impl Render for PlayerPage {
                                         let current_speed = self.speed;
                                         move |menu, _window, _cx| {
                                             menu.min_w(px(160.))
-                                                .menu_with_check("0.5x", current_speed == 0.5, Box::new(crate::app_menus::MpvSetSpeed05))
-                                                .menu_with_check("1.0x", current_speed == 1.0, Box::new(crate::app_menus::MpvSetSpeed10))
-                                                .menu_with_check("1.5x", current_speed == 1.5, Box::new(crate::app_menus::MpvSetSpeed15))
-                                                .menu_with_check("2.0x", current_speed == 2.0, Box::new(crate::app_menus::MpvSetSpeed20))
+                                                .menu_with_check(
+                                                    "0.5x",
+                                                    current_speed == 0.5,
+                                                    Box::new(crate::app_menus::MpvSetSpeed05),
+                                                )
+                                                .menu_with_check(
+                                                    "1.0x",
+                                                    current_speed == 1.0,
+                                                    Box::new(crate::app_menus::MpvSetSpeed10),
+                                                )
+                                                .menu_with_check(
+                                                    "1.5x",
+                                                    current_speed == 1.5,
+                                                    Box::new(crate::app_menus::MpvSetSpeed15),
+                                                )
+                                                .menu_with_check(
+                                                    "2.0x",
+                                                    current_speed == 2.0,
+                                                    Box::new(crate::app_menus::MpvSetSpeed20),
+                                                )
                                         }
                                     }),
                             )
@@ -1454,30 +1519,33 @@ impl Render for PlayerPage {
                                     .icon(tabler_icon(ICON_MAXIMIZE))
                                     .tooltip("Fullscreen")
                                     .on_click(cx.listener(|this, _, window, cx| {
-                                this.toggle_fullscreen(window, cx);
-                            })),
+                                        this.toggle_fullscreen(window, cx);
+                                    })),
                             )
                             .child(div().w(px(8.)))
                             .child(
                                 toolbar_icon_button("mute-btn")
-                                    .icon(tabler_icon(if self.muted {
-                                        ICON_VOLUME_OFF
-                                    } else {
-                                        ICON_VOLUME
-                                    }).when(self.muted, |icon| icon.text_color(cx.theme().danger)))
+                                    .icon(
+                                        tabler_icon(if self.muted {
+                                            ICON_VOLUME_OFF
+                                        } else {
+                                            ICON_VOLUME
+                                        })
+                                        .when(self.muted, |icon| {
+                                            icon.text_color(cx.theme().danger)
+                                        }),
+                                    )
                                     .tooltip(mute_tooltip)
                                     .on_click(cx.listener(|this, _, _window, cx| {
                                         this.toggle_mute(cx);
                                     })),
                             )
                             .child(
-                                div()
-                                    .w(px(160.))
-                                    .child(
-                                        MediaSlider::new(&self.volume_slider)
-                                            .disabled(false)
-                                            .w_full(),
-                                    ),
+                                div().w(px(160.)).child(
+                                    MediaSlider::new(&self.volume_slider)
+                                        .disabled(false)
+                                        .w_full(),
+                                ),
                             )
                             .child(div().flex_1())
                             .child(
@@ -1488,15 +1556,19 @@ impl Render for PlayerPage {
                                         ICON_PLAYLIST_EXPAND
                                     }))
                                     .when(self.playlist_visible, |btn| btn.selected(true))
-                                    .tooltip(if self.playlist_visible { "Hide Playlist" } else { "Show Playlist" })
+                                    .tooltip(if self.playlist_visible {
+                                        "Hide Playlist"
+                                    } else {
+                                        "Show Playlist"
+                                    })
                                     .on_click(cx.listener(|this, _, _window, _cx| {
                                         this.toggle_playlist_visibility();
                                     })),
                             ),
                     )
-                    .child(div().h(px(1.)).w_full())
+                    .child(div().h(px(1.)).w_full()),
             )
-            .into_any_element()
+            .into_any_element();
     }
 }
 

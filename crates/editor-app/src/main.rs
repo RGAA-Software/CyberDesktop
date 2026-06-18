@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use files_core::{init_tracing, set_config_app_id, EDITOR_CONFIG_APP_ID};
 use editor_ui::{init, open_editor_window, Assets, EngineEditor};
+use files_core::{init_tracing, set_config_app_id, EDITOR_CONFIG_APP_ID};
 
 fn main() {
     set_config_app_id(EDITOR_CONFIG_APP_ID);

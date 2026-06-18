@@ -9,7 +9,6 @@ impl Focusable for EngineEditor {
     }
 }
 
-
 impl Render for EngineEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.external_file_drop_hover && !cx.has_active_drag() {
@@ -83,15 +82,15 @@ impl Render for EngineEditor {
                 this.document.select_all();
                 cx.notify();
             }))
-            .on_action(cx.listener(|this, _: &FindText, window, cx| {
-                this.open_find(false, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &FindInFiles, window, cx| {
-                this.open_search_panel(window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ReplaceText, window, cx| {
-                this.open_find(true, window, cx)
-            }))
+            .on_action(
+                cx.listener(|this, _: &FindText, window, cx| this.open_find(false, window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &FindInFiles, window, cx| this.open_search_panel(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ReplaceText, window, cx| this.open_find(true, window, cx)),
+            )
             .on_action(cx.listener(|this, _: &ReplaceAllText, window, cx| {
                 this.open_find(true, window, cx);
             }))
@@ -100,22 +99,14 @@ impl Render for EngineEditor {
             .on_action(cx.listener(|this, _: &IndentSelection, _w, cx| this.indent(cx)))
             .on_action(cx.listener(|this, _: &OutdentSelection, _w, cx| this.outdent(cx)))
             .on_action(cx.listener(|this, _: &ToggleComment, _w, cx| this.toggle_comment(cx)))
-            .on_action(cx.listener(|this, _: &ToggleLineNumbers, _w, cx| {
-                this.toggle_line_numbers(cx)
-            }))
-            .on_action(cx.listener(|this, _: &ToggleSoftWrap, _w, cx| {
-                this.toggle_soft_wrap(cx)
-            }))
+            .on_action(
+                cx.listener(|this, _: &ToggleLineNumbers, _w, cx| this.toggle_line_numbers(cx)),
+            )
+            .on_action(cx.listener(|this, _: &ToggleSoftWrap, _w, cx| this.toggle_soft_wrap(cx)))
             .on_action(cx.listener(|this, _: &AboutEditor, _w, cx| this.toggle_about(cx)))
-            .on_action(cx.listener(|this, _: &KeyboardShortcuts, _w, cx| {
-                this.toggle_shortcuts(cx)
-            }))
-            .on_action(cx.listener(|this, _: &GoToLine, window, cx| {
-                this.open_goto(window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ToggleFold, _w, cx| {
-                this.toggle_fold_at_caret(cx)
-            }))
+            .on_action(cx.listener(|this, _: &KeyboardShortcuts, _w, cx| this.toggle_shortcuts(cx)))
+            .on_action(cx.listener(|this, _: &GoToLine, window, cx| this.open_goto(window, cx)))
+            .on_action(cx.listener(|this, _: &ToggleFold, _w, cx| this.toggle_fold_at_caret(cx)))
             .on_action(cx.listener(|this, _: &FoldAll, _w, cx| this.fold_all(cx)))
             .on_action(cx.listener(|this, _: &UnfoldAll, _w, cx| this.unfold_all(cx)))
             .on_action(cx.listener(|this, _: &ToggleMarkdownPreview, _w, cx| {
@@ -205,7 +196,11 @@ impl Render for EngineEditor {
                         .on_action(cx.listener(|this, _: &ToggleFullMarkdownPreview, _w, cx| {
                             this.toggle_full_markdown_preview(cx)
                         }))
-                        .child(gpui_component::text::TextView::new(preview_state).scrollable(true).size_full()),
+                        .child(
+                            gpui_component::text::TextView::new(preview_state)
+                                .scrollable(true)
+                                .size_full(),
+                        ),
                 );
             } else {
                 main_area = main_area.child(editor_surface);
@@ -223,7 +218,9 @@ impl Render for EngineEditor {
                             .when(self.resizing_preview, |this| this.bg(cx.theme().primary))
                             .when(!self.resizing_preview, |this| this.bg(cx.theme().border))
                             .hover(|style| style.bg(cx.theme().primary))
-                            .on_drag(PreviewResizeDrag, |_, _, _, cx| cx.new(|_| PreviewResizeDrag))
+                            .on_drag(PreviewResizeDrag, |_, _, _, cx| {
+                                cx.new(|_| PreviewResizeDrag)
+                            })
                             .on_drag_move::<PreviewResizeDrag>(cx.listener(
                                 |this, event: &gpui::DragMoveEvent<PreviewResizeDrag>, _, cx| {
                                     this.resizing_preview = true;
@@ -250,7 +247,11 @@ impl Render for EngineEditor {
                             .border_l_1()
                             .border_color(cx.theme().border)
                             .bg(cx.theme().background)
-                            .child(gpui_component::text::TextView::new(preview_state).scrollable(true).size_full()),
+                            .child(
+                                gpui_component::text::TextView::new(preview_state)
+                                    .scrollable(true)
+                                    .size_full(),
+                            ),
                     );
                 }
             }

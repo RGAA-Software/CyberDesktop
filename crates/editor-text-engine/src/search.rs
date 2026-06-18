@@ -110,10 +110,7 @@ impl Searcher {
     }
 
     fn rope_needle(&self) -> &[u8] {
-        self.literal
-            .as_deref()
-            .map(str::as_bytes)
-            .unwrap_or(&[])
+        self.literal.as_deref().map(str::as_bytes).unwrap_or(&[])
     }
 
     fn find_next_rope(
@@ -327,11 +324,7 @@ impl Searcher {
         if !regex_mode {
             return template.to_string();
         }
-        let matched: String = buffer
-            .rope()
-            .slice(m.start..m.end)
-            .chars()
-            .collect();
+        let matched: String = buffer.rope().slice(m.start..m.end).chars().collect();
         let mut out = String::new();
         if let Some(caps) = self.regex.captures(&matched) {
             caps.expand(template, &mut out);
@@ -449,10 +442,7 @@ mod tests {
         let buf = TextBuffer::from_str(&text);
         let s = Searcher::new("needle", SearchOptions::default()).unwrap();
         let m = s.find_next_no_wrap(&buf, 0).unwrap();
-        assert_eq!(
-            buf.slice_text(m.start..m.end),
-            "needle".to_string()
-        );
+        assert_eq!(buf.slice_text(m.start..m.end), "needle".to_string());
     }
 
     #[test]
@@ -472,8 +462,7 @@ mod tests {
         let lines = vec!["foo bar".into(), "no".into(), "foo".into()];
         let s = Searcher::new("foo", SearchOptions::default()).unwrap();
         let cancel = AtomicBool::new(false);
-        let FindInLinesOutcome::Ok(hits) = s.find_in_lines(&lines, &cancel, None, None, 100)
-        else {
+        let FindInLinesOutcome::Ok(hits) = s.find_in_lines(&lines, &cancel, None, None, 100) else {
             panic!("expected Ok");
         };
         assert_eq!(hits.len(), 2);

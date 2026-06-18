@@ -63,7 +63,8 @@ type MpvSetOptionString =
 type MpvCommand = unsafe extern "C" fn(*mut mpv_handle, *const *const c_char) -> c_int;
 type MpvWaitEvent = unsafe extern "C" fn(*mut mpv_handle, c_double) -> *mut mpv_event;
 type MpvErrorString = unsafe extern "C" fn(c_int) -> *const c_char;
-type MpvGetProperty = unsafe extern "C" fn(*mut mpv_handle, *const c_char, c_int, *mut c_void) -> c_int;
+type MpvGetProperty =
+    unsafe extern "C" fn(*mut mpv_handle, *const c_char, c_int, *mut c_void) -> c_int;
 type MpvGetPropertyString = unsafe extern "C" fn(*mut mpv_handle, *const c_char) -> *mut c_char;
 type MpvFree = unsafe extern "C" fn(*mut c_void);
 type MpvRenderContextCreate = unsafe extern "C" fn(
@@ -272,8 +273,11 @@ impl MpvPlayer {
     }
 
     pub fn time_pos(&self) -> Result<Option<Duration>> {
-        get_property_double(&self.api, self.handle, "time-pos")
-            .map(|value| value.filter(|secs| *secs >= 0.0).map(Duration::from_secs_f64))
+        get_property_double(&self.api, self.handle, "time-pos").map(|value| {
+            value
+                .filter(|secs| *secs >= 0.0)
+                .map(Duration::from_secs_f64)
+        })
     }
 
     pub fn render_frame(&mut self, width: u32, height: u32) -> Result<Option<VideoFrame>> {
@@ -327,7 +331,9 @@ impl MpvPlayer {
             },
         ];
 
-        let status = unsafe { (self.api.mpv_render_context_render)(self.render_context, params.as_mut_ptr()) };
+        let status = unsafe {
+            (self.api.mpv_render_context_render)(self.render_context, params.as_mut_ptr())
+        };
         self.api.status_to_result(status, "render frame")?;
         Ok(Some(VideoFrame {
             width,
@@ -353,12 +359,16 @@ impl MpvPlayer {
     }
 
     fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
-        let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
+        let name =
+            CString::new(name).with_context(|| format!("build C string for option {name}"))?;
         let value = CString::new(value)
             .with_context(|| format!("build C string value for option {name:?}"))?;
-        let status = unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
-        self.api
-            .status_to_result(status, &format!("set libmpv option {}", name.to_string_lossy()))
+        let status =
+            unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
+        self.api.status_to_result(
+            status,
+            &format!("set libmpv option {}", name.to_string_lossy()),
+        )
     }
 
     fn create_render_context(&mut self) -> Result<()> {
@@ -375,7 +385,11 @@ impl MpvPlayer {
         ];
 
         let status = unsafe {
-            (self.api.mpv_render_context_create)(&mut render_context, self.handle, params.as_mut_ptr())
+            (self.api.mpv_render_context_create)(
+                &mut render_context,
+                self.handle,
+                params.as_mut_ptr(),
+            )
         };
         self.api
             .status_to_result(status, "create libmpv software render context")?;
@@ -386,7 +400,9 @@ impl MpvPlayer {
     fn command(&self, items: &[&str]) -> Result<c_int> {
         let owned = items
             .iter()
-            .map(|item| CString::new(*item).with_context(|| format!("build command argument {item:?}")))
+            .map(|item| {
+                CString::new(*item).with_context(|| format!("build command argument {item:?}"))
+            })
             .collect::<Result<Vec<_>>>()?;
         let mut raw = owned.iter().map(|item| item.as_ptr()).collect::<Vec<_>>();
         raw.push(ptr::null());
@@ -488,8 +504,11 @@ impl MpvEmbedPlayer {
     }
 
     pub fn time_pos(&self) -> Result<Option<Duration>> {
-        self.get_property_double("time-pos")
-            .map(|value| value.filter(|secs| *secs >= 0.0).map(Duration::from_secs_f64))
+        self.get_property_double("time-pos").map(|value| {
+            value
+                .filter(|secs| *secs >= 0.0)
+                .map(Duration::from_secs_f64)
+        })
     }
 
     pub fn seek_to(&mut self, position: Duration) -> Result<()> {
@@ -528,18 +547,24 @@ impl MpvEmbedPlayer {
     }
 
     fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
-        let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
+        let name =
+            CString::new(name).with_context(|| format!("build C string for option {name}"))?;
         let value = CString::new(value)
             .with_context(|| format!("build C string value for option {name:?}"))?;
-        let status = unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
-        self.api
-            .status_to_result(status, &format!("set libmpv option {}", name.to_string_lossy()))
+        let status =
+            unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
+        self.api.status_to_result(
+            status,
+            &format!("set libmpv option {}", name.to_string_lossy()),
+        )
     }
 
     fn command(&self, items: &[&str]) -> Result<c_int> {
         let owned = items
             .iter()
-            .map(|item| CString::new(*item).with_context(|| format!("build command argument {item:?}")))
+            .map(|item| {
+                CString::new(*item).with_context(|| format!("build command argument {item:?}"))
+            })
             .collect::<Result<Vec<_>>>()?;
         let mut raw = owned.iter().map(|item| item.as_ptr()).collect::<Vec<_>>();
         raw.push(ptr::null());
@@ -729,13 +754,19 @@ impl MpvAudioPlayer {
     }
 
     pub fn time_pos(&self) -> Result<Option<Duration>> {
-        self.get_property_double("time-pos")
-            .map(|value| value.filter(|secs| *secs >= 0.0).map(Duration::from_secs_f64))
+        self.get_property_double("time-pos").map(|value| {
+            value
+                .filter(|secs| *secs >= 0.0)
+                .map(Duration::from_secs_f64)
+        })
     }
 
     pub fn duration(&self) -> Result<Option<Duration>> {
-        self.get_property_double("duration")
-            .map(|value| value.filter(|secs| *secs > 0.0).map(Duration::from_secs_f64))
+        self.get_property_double("duration").map(|value| {
+            value
+                .filter(|secs| *secs > 0.0)
+                .map(Duration::from_secs_f64)
+        })
     }
 
     pub fn seek_to(&mut self, position: Duration) -> Result<()> {
@@ -774,19 +805,24 @@ impl MpvAudioPlayer {
     }
 
     fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
-        let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
+        let name =
+            CString::new(name).with_context(|| format!("build C string for option {name}"))?;
         let value = CString::new(value)
             .with_context(|| format!("build C string value for option {name:?}"))?;
         let status =
             unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
-        self.api
-            .status_to_result(status, &format!("set libmpv option {}", name.to_string_lossy()))
+        self.api.status_to_result(
+            status,
+            &format!("set libmpv option {}", name.to_string_lossy()),
+        )
     }
 
     fn command(&self, items: &[&str]) -> Result<c_int> {
         let owned = items
             .iter()
-            .map(|item| CString::new(*item).with_context(|| format!("build command argument {item:?}")))
+            .map(|item| {
+                CString::new(*item).with_context(|| format!("build command argument {item:?}"))
+            })
             .collect::<Result<Vec<_>>>()?;
         let mut raw = owned.iter().map(|item| item.as_ptr()).collect::<Vec<_>>();
         raw.push(ptr::null());
@@ -850,7 +886,11 @@ pub fn probe_media(path: &Path) -> Result<MpvMediaInfo> {
     let duration = get_property_double(&probe.api, probe.handle, "duration")?
         .filter(|secs| *secs > 0.0)
         .map(Duration::from_secs_f64);
-    let title = metadata_value(&probe.api, probe.handle, &["metadata/by-key/title", "metadata/by-key/TITLE"])?;
+    let title = metadata_value(
+        &probe.api,
+        probe.handle,
+        &["metadata/by-key/title", "metadata/by-key/TITLE"],
+    )?;
     let artist = metadata_value(
         &probe.api,
         probe.handle,
@@ -861,7 +901,11 @@ pub fn probe_media(path: &Path) -> Result<MpvMediaInfo> {
             "metadata/by-key/ALBUMARTIST",
         ],
     )?;
-    let album = metadata_value(&probe.api, probe.handle, &["metadata/by-key/album", "metadata/by-key/ALBUM"])?;
+    let album = metadata_value(
+        &probe.api,
+        probe.handle,
+        &["metadata/by-key/album", "metadata/by-key/ALBUM"],
+    )?;
     let video_codec = get_property_string(&probe.api, probe.handle, "video-codec")?;
     let audio_codec = match get_property_string(&probe.api, probe.handle, "audio-codec-name")? {
         Some(codec) => Some(codec),
@@ -880,12 +924,24 @@ pub fn probe_media(path: &Path) -> Result<MpvMediaInfo> {
         .filter(|value| *value > 0)
         .map(|value| value as u32);
     let frame_rate_milli = get_property_double(&probe.api, probe.handle, "estimated-vf-fps")?
-        .or_else(|| get_property_double(&probe.api, probe.handle, "container-fps").ok().flatten())
+        .or_else(|| {
+            get_property_double(&probe.api, probe.handle, "container-fps")
+                .ok()
+                .flatten()
+        })
         .filter(|fps| *fps > 0.0)
         .map(|fps| (fps * 1000.0).round() as u32);
     let bitrate_kbps = get_property_i64(&probe.api, probe.handle, "video-bitrate")?
-        .or_else(|| get_property_i64(&probe.api, probe.handle, "audio-bitrate").ok().flatten())
-        .or_else(|| get_property_i64(&probe.api, probe.handle, "video-params/bitrate").ok().flatten())
+        .or_else(|| {
+            get_property_i64(&probe.api, probe.handle, "audio-bitrate")
+                .ok()
+                .flatten()
+        })
+        .or_else(|| {
+            get_property_i64(&probe.api, probe.handle, "video-params/bitrate")
+                .ok()
+                .flatten()
+        })
         .filter(|value| *value > 0)
         .map(|value| (value as u64 / 1000) as u32);
     let file_size = fs::metadata(path).ok().map(|meta| meta.len());
@@ -975,19 +1031,24 @@ struct MpvProbeHandle {
 
 impl MpvProbeHandle {
     fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
-        let name = CString::new(name).with_context(|| format!("build C string for option {name}"))?;
+        let name =
+            CString::new(name).with_context(|| format!("build C string for option {name}"))?;
         let value = CString::new(value)
             .with_context(|| format!("build C string value for option {name:?}"))?;
         let status =
             unsafe { (self.api.mpv_set_option_string)(self.handle, name.as_ptr(), value.as_ptr()) };
-        self.api
-            .status_to_result(status, &format!("set mpv probe option {}", name.to_string_lossy()))
+        self.api.status_to_result(
+            status,
+            &format!("set mpv probe option {}", name.to_string_lossy()),
+        )
     }
 
     fn command(&self, items: &[&str]) -> Result<c_int> {
         let owned = items
             .iter()
-            .map(|item| CString::new(*item).with_context(|| format!("build command argument {item:?}")))
+            .map(|item| {
+                CString::new(*item).with_context(|| format!("build command argument {item:?}"))
+            })
             .collect::<Result<Vec<_>>>()?;
         let mut raw = owned.iter().map(|item| item.as_ptr()).collect::<Vec<_>>();
         raw.push(ptr::null());
@@ -1016,7 +1077,11 @@ impl MpvProbeHandle {
     }
 }
 
-fn metadata_value(api: &Arc<MpvApi>, handle: *mut mpv_handle, names: &[&str]) -> Result<Option<String>> {
+fn metadata_value(
+    api: &Arc<MpvApi>,
+    handle: *mut mpv_handle,
+    names: &[&str],
+) -> Result<Option<String>> {
     for name in names {
         if let Some(value) = get_property_string(api, handle, name)? {
             return Ok(Some(value));
@@ -1052,7 +1117,10 @@ fn get_property_i64(api: &Arc<MpvApi>, handle: *mut mpv_handle, name: &str) -> R
     } else if api.error_text(status).contains("property unavailable") {
         Ok(None)
     } else {
-        Err(anyhow!("read mpv property {name}: {}", api.error_text(status)))
+        Err(anyhow!(
+            "read mpv property {name}: {}",
+            api.error_text(status)
+        ))
     }
 }
 
@@ -1076,7 +1144,10 @@ fn get_property_double(
     } else if api.error_text(status).contains("property unavailable") {
         Ok(None)
     } else {
-        Err(anyhow!("read mpv property {name}: {}", api.error_text(status)))
+        Err(anyhow!(
+            "read mpv property {name}: {}",
+            api.error_text(status)
+        ))
     }
 }
 
@@ -1090,7 +1161,10 @@ fn get_property_string(
     if value.is_null() {
         return Ok(None);
     }
-    let text = unsafe { CStr::from_ptr(value) }.to_string_lossy().trim().to_string();
+    let text = unsafe { CStr::from_ptr(value) }
+        .to_string_lossy()
+        .trim()
+        .to_string();
     unsafe {
         (api.mpv_free)(value.cast());
     }

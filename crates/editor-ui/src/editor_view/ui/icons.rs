@@ -1,7 +1,7 @@
 //! Editor toolbar icons — same helpers as CyberFiles (`toolbar_icon` + `toolbar_icon_button`).
 
-use gpui::{px, AnyElement, App};
 use app_ui::color_icon_box;
+use gpui::{px, AnyElement, App};
 
 pub use app_ui::{toolbar_icon, toolbar_icon_button};
 

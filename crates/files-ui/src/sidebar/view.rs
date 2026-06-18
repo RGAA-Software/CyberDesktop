@@ -1,23 +1,21 @@
 use std::path::Path;
 
-use files_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
 use app_platform_windows::open_item_properties;
+use files_core::{load_config, sidebar_is_compact, sidebar_is_offcanvas};
 use gpui::{prelude::*, ClickEvent, *};
 use gpui_component::{
     sidebar::{Sidebar, SidebarCollapsible, SidebarItem},
-    v_flex,
-    ActiveTheme as _,
-    StyledExt as _,
+    v_flex, ActiveTheme as _, StyledExt as _,
 };
 use rust_i18n::t;
 
 use crate::app_state::AppNavigation;
 use crate::drag::DraggedFilePaths;
 use crate::icons::{chrome_icon_color, drive_tabler_icon, sidebar_tabler_icon};
-use files_fs::parse_tag_color_hex;
 use crate::main_page::MainPage;
-use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
 use crate::shell::navigation::NavigationTarget;
+use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
+use files_fs::parse_tag_color_hex;
 
 use super::disk_ring::disk_usage_ring;
 use super::menu_with_drop::SidebarMenuWithDrop;
@@ -96,11 +94,7 @@ impl SidebarSectionBlock {
     }
 }
 
-fn section_heading(
-    title: impl Into<SharedString>,
-    first: bool,
-    cx: &App,
-) -> impl IntoElement {
+fn section_heading(title: impl Into<SharedString>, first: bool, cx: &App) -> impl IntoElement {
     let title: SharedString = title.into();
     div()
         .w_full()
@@ -149,7 +143,9 @@ impl SidebarItem for SidebarSectionBlock {
     }
 }
 
-fn usage_ring_suffix(fraction: f32) -> std::rc::Rc<dyn Fn(&mut Window, &mut App) -> gpui::AnyElement> {
+fn usage_ring_suffix(
+    fraction: f32,
+) -> std::rc::Rc<dyn Fn(&mut Window, &mut App) -> gpui::AnyElement> {
     std::rc::Rc::new(move |_window, cx| disk_usage_ring(fraction, cx))
 }
 
@@ -161,12 +157,7 @@ fn append_sidebar_entry(
     active: &NavigationTarget,
     best_non_drive_depth: Option<usize>,
 ) {
-    let is_active = navigation_matches(
-        active,
-        &entry.target,
-        section,
-        best_non_drive_depth,
-    );
+    let is_active = navigation_matches(active, &entry.target, section, best_non_drive_depth);
     let page_click = page.clone();
     let page_middle = page.clone();
     let page_menu = page.clone();
@@ -226,12 +217,7 @@ fn append_sidebar_entry(
             move |paths: &ExternalPaths, window, cx| {
                 let path = dest_drop_external.clone();
                 let _ = page_drop_external.update(cx, |page, cx| {
-                    page.drop_external_paths_on_directory(
-                        path,
-                        paths.paths().to_vec(),
-                        window,
-                        cx,
-                    );
+                    page.drop_external_paths_on_directory(path, paths.paths().to_vec(), window, cx);
                 });
             },
             suffix.clone(),
@@ -265,7 +251,9 @@ fn tabler_path_for_sidebar_entry(
         (_, SidebarSectionKind::Cloud) => tabler_icons::CLOUD,
         (NavigationTarget::Path(path), SidebarSectionKind::Network)
             if path.as_os_str() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}" =>
-            tabler_icons::NETWORK,
+        {
+            tabler_icons::NETWORK
+        }
         (_, SidebarSectionKind::Network) => tabler_icons::SERVER,
         (_, SidebarSectionKind::Wsl) => crate::icons::wsl_distro_tabler_icon(&entry.label),
         (_, SidebarSectionKind::Library) => tabler_icons::BOOK,
@@ -442,11 +430,7 @@ fn path_depth(path: &Path) -> usize {
 }
 
 /// Drive rows highlight at the root, or under the drive only when no more specific sidebar path matches.
-fn drive_path_matches(
-    drive: &Path,
-    current: &Path,
-    best_non_drive_depth: Option<usize>,
-) -> bool {
+fn drive_path_matches(drive: &Path, current: &Path, best_non_drive_depth: Option<usize>) -> bool {
     if paths_equal(drive, current) {
         return true;
     }

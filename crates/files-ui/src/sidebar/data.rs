@@ -1,13 +1,12 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use files_core::{AppConfig, FileTagConfig};
-use files_fs::list_drives;
 #[cfg(windows)]
 use app_platform_windows::{
-    list_cloud_drive_roots, list_known_folder_folders, list_wsl_distro_roots,
-    FOLDERID_LIBRARIES,
+    list_cloud_drive_roots, list_known_folder_folders, list_wsl_distro_roots, FOLDERID_LIBRARIES,
 };
+use files_core::{AppConfig, FileTagConfig};
+use files_fs::list_drives;
 
 use crate::shell::navigation::NavigationTarget;
 
@@ -39,9 +38,8 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     });
 
     if config.show_sidebar_section_pinned {
-        let entries = files_core::time_startup_step("sidebar_section_pinned", || {
-            load_pinned_entries(config)
-        });
+        let entries =
+            files_core::time_startup_step("sidebar_section_pinned", || load_pinned_entries(config));
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Pinned,
@@ -52,7 +50,8 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     }
 
     if config.show_sidebar_section_library {
-        let entries = files_core::time_startup_step("sidebar_section_library", load_library_entries);
+        let entries =
+            files_core::time_startup_step("sidebar_section_library", load_library_entries);
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Library,
@@ -85,7 +84,8 @@ pub fn build_sidebar_sections(config: &AppConfig) -> Vec<SidebarSection> {
     }
 
     if config.show_sidebar_section_network {
-        let entries = files_core::time_startup_step("sidebar_section_network", load_network_entries);
+        let entries =
+            files_core::time_startup_step("sidebar_section_network", load_network_entries);
         if !entries.is_empty() {
             sections.push(SidebarSection {
                 kind: SidebarSectionKind::Network,
@@ -208,7 +208,9 @@ fn load_network_entries() -> Vec<SidebarEntry> {
     {
         vec![SidebarEntry {
             label: rust_i18n::t!("sidebar.network_places").to_string(),
-            target: NavigationTarget::Path(PathBuf::from(r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}")),
+            target: NavigationTarget::Path(PathBuf::from(
+                r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}",
+            )),
             pinned_in_settings: false,
             color: None,
             usage_fraction: None,

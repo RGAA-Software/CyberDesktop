@@ -1,6 +1,6 @@
 //! Floating panel drag state.
 
-use gpui::{Pixels, Point, px, point};
+use gpui::{point, px, Pixels, Point};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FloatingPanel {
@@ -51,9 +51,9 @@ pub(crate) fn default_goto_panel_pos(_viewport: gpui::Size<Pixels>) -> Point<Pix
     point(px(16.), px(8.))
 }
 
-pub(crate) fn default_search_panel_pos(viewport: gpui::Size<Pixels>, width: Pixels) -> Point<Pixels> {
-    point(
-        (viewport.width - width - px(8.)).max(px(0.)),
-        px(8.),
-    )
+pub(crate) fn default_search_panel_pos(
+    viewport: gpui::Size<Pixels>,
+    width: Pixels,
+) -> Point<Pixels> {
+    point((viewport.width - width - px(8.)).max(px(0.)), px(8.))
 }

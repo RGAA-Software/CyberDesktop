@@ -2,10 +2,10 @@
 
 mod canvas;
 mod editor;
-mod imports;
-mod language;
 mod r#impl;
+mod imports;
 mod input_handler;
+mod language;
 mod render;
 mod state;
 mod text_util;

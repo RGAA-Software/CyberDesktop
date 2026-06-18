@@ -6,20 +6,19 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use windows::core::{Interface, PCSTR, PCWSTR};
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM, POINT, WPARAM};
-use windows::Win32::UI::Shell::Common::ITEMIDLIST;
 use windows::Win32::System::Registry::{
     RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_CLASSES_ROOT, KEY_READ, REG_VALUE_TYPE,
 };
+use windows::Win32::UI::Shell::Common::ITEMIDLIST;
 use windows::Win32::UI::Shell::{
     IContextMenu, IContextMenu2, ILClone, ILFree, IShellFolder, SHBindToParent, SHParseDisplayName,
-    CMF_EXTENDEDVERBS, CMF_NORMAL, CMINVOKECOMMANDINFO, GCS_HELPTEXTW, GCS_VERBA,
-    GCS_VERBW,
+    CMF_EXTENDEDVERBS, CMF_NORMAL, CMINVOKECOMMANDINFO, GCS_HELPTEXTW, GCS_VERBA, GCS_VERBW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreatePopupMenu, DestroyMenu, GetCursorPos, GetForegroundWindow, GetMenuItemCount,
     GetMenuItemInfoW, GetSubMenu, SetForegroundWindow, TrackPopupMenu, HMENU, MENUITEMINFOW,
-    MFT_SEPARATOR, MIIM_BITMAP, MIIM_FTYPE, MIIM_ID, MIIM_STRING,
-    MIIM_SUBMENU, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON, WM_INITMENUPOPUP,
+    MFT_SEPARATOR, MIIM_BITMAP, MIIM_FTYPE, MIIM_ID, MIIM_STRING, MIIM_SUBMENU, TPM_LEFTALIGN,
+    TPM_RETURNCMD, TPM_RIGHTBUTTON, WM_INITMENUPOPUP,
 };
 
 #[cfg(test)]
@@ -129,15 +128,15 @@ fn looks_like_braced_guid(label: &str) -> bool {
     t.starts_with('{')
         && t.ends_with('}')
         && t.len() > 2
-        && t[1..t.len() - 1].chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+        && t[1..t.len() - 1]
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() || c == '-')
 }
 
 /// Shell sometimes exposes internal verb ids (`edit`, `setdesktopwallpaper`) as menu text.
 fn is_likely_internal_verb_label(label: &str) -> bool {
     let t = label.trim();
-    !t.is_empty()
-        && t.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
-        && !t.contains('&')
+    !t.is_empty() && t.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') && !t.contains('&')
 }
 
 fn hkcr_default_display_name(subkey: &str) -> Option<String> {
@@ -160,7 +159,14 @@ fn hkcr_default_display_name(subkey: &str) -> Option<String> {
         }
         let mut kind = REG_VALUE_TYPE::default();
         let mut len = 0u32;
-        let _ = RegQueryValueExW(hkey, PCWSTR::null(), None, Some(&mut kind), None, Some(&mut len));
+        let _ = RegQueryValueExW(
+            hkey,
+            PCWSTR::null(),
+            None,
+            Some(&mut kind),
+            None,
+            Some(&mut len),
+        );
         if len < 2 {
             let _ = RegCloseKey(hkey);
             return None;
@@ -339,15 +345,7 @@ pub(crate) fn enumerate_prepared_menu_top_level() -> anyhow::Result<Vec<ShellCon
         let Some(handle) = guard.as_ref() else {
             anyhow::bail!("no prepared shell context menu");
         };
-        unsafe {
-            enumerate_popup_menu(
-                handle.popup,
-                &handle.menu,
-                0,
-                false,
-                &handle.primary_path,
-            )
-        }
+        unsafe { enumerate_popup_menu(handle.popup, &handle.menu, 0, false, &handle.primary_path) }
     })
 }
 
@@ -893,7 +891,9 @@ mod tests {
 
     #[test]
     fn looks_like_braced_guid_detects_progid() {
-        assert!(looks_like_braced_guid("{BFF0E2A4-C70C-4AD7-AC3D-10D1ECEBB5B4}"));
+        assert!(looks_like_braced_guid(
+            "{BFF0E2A4-C70C-4AD7-AC3D-10D1ECEBB5B4}"
+        ));
         assert!(!looks_like_braced_guid("Bandizip"));
     }
 
@@ -981,8 +981,7 @@ mod windows_tests {
         for (index, entry) in entries.iter().enumerate() {
             match entry {
                 ShellContextMenuEntry::Separator => {
-                    writeln!(manifest, "{submenu_stack}[{index:03}] --- separator ---")
-                        .ok();
+                    writeln!(manifest, "{submenu_stack}[{index:03}] --- separator ---").ok();
                 }
                 ShellContextMenuEntry::Item {
                     label,
@@ -990,10 +989,7 @@ mod windows_tests {
                     command_string,
                     icon_png,
                 } => {
-                    let base = format!(
-                        "{path_prefix}{index:03}_{}",
-                        sanitize_filename(label)
-                    );
+                    let base = format!("{path_prefix}{index:03}_{}", sanitize_filename(label));
                     writeln!(
                         manifest,
                         "{submenu_stack}[{index:03}] ITEM label={label:?} verb={command_string:?} offset={command_offset}"
@@ -1018,10 +1014,7 @@ mod windows_tests {
                     icon_png,
                     lazy_parent_index,
                 } => {
-                    let base = format!(
-                        "{path_prefix}{index:03}_{}",
-                        sanitize_filename(label)
-                    );
+                    let base = format!("{path_prefix}{index:03}_{}", sanitize_filename(label));
                     let stack = format!("{submenu_stack}/{label}");
                     writeln!(
                         manifest,
@@ -1049,13 +1042,7 @@ mod windows_tests {
                         children.clone()
                     };
                     let child_prefix = format!("{base}/");
-                    export_entries_recursive(
-                        &resolved,
-                        out_dir,
-                        manifest,
-                        &child_prefix,
-                        &stack,
-                    );
+                    export_entries_recursive(&resolved, out_dir, manifest, &child_prefix, &stack);
                 }
             }
         }
@@ -1075,8 +1062,7 @@ mod windows_tests {
         fs::create_dir_all(&out_dir).expect("create export dir");
 
         let manifest_path = out_dir.join("manifest.txt");
-        let mut manifest =
-            fs::File::create(&manifest_path).expect("create manifest");
+        let mut manifest = fs::File::create(&manifest_path).expect("create manifest");
         writeln!(
             manifest,
             "tag={tag}\nextended_verbs={extended_verbs}\nicon_px={icon_px}\npaths={paths:?}\nentry_count={}\n",

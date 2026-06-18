@@ -227,35 +227,33 @@ impl EngineEditor {
             }
         });
 
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(100))
-                    .await;
-                let still = this
-                    .update(cx, |this, cx| {
-                        let Some(panel) = this.search_panel.as_mut() else {
-                            return false;
-                        };
-                        if panel.generation != generation || !panel.searching {
-                            return false;
-                        }
-                        panel.lines_scanned = lines_done.load(Ordering::Relaxed);
-                        panel.matches_so_far = matches_found.load(Ordering::Relaxed);
-                        panel.status = t!(
-                            "editor.search_in_file.progress",
-                            lines = panel.lines_scanned,
-                            matches = panel.matches_so_far
-                        )
-                        .to_string();
-                        cx.notify();
-                        true
-                    })
-                    .ok()
-                    .unwrap_or(false);
-                if !still {
-                    break;
-                }
+        cx.spawn(async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(100))
+                .await;
+            let still = this
+                .update(cx, |this, cx| {
+                    let Some(panel) = this.search_panel.as_mut() else {
+                        return false;
+                    };
+                    if panel.generation != generation || !panel.searching {
+                        return false;
+                    }
+                    panel.lines_scanned = lines_done.load(Ordering::Relaxed);
+                    panel.matches_so_far = matches_found.load(Ordering::Relaxed);
+                    panel.status = t!(
+                        "editor.search_in_file.progress",
+                        lines = panel.lines_scanned,
+                        matches = panel.matches_so_far
+                    )
+                    .to_string();
+                    cx.notify();
+                    true
+                })
+                .ok()
+                .unwrap_or(false);
+            if !still {
+                break;
             }
         })
         .detach();
@@ -295,7 +293,12 @@ impl EngineEditor {
         .detach();
     }
 
-    pub(crate) fn open_search_result(&mut self, path: PathBuf, line_number: u64, cx: &mut Context<Self>) {
+    pub(crate) fn open_search_result(
+        &mut self,
+        path: PathBuf,
+        line_number: u64,
+        cx: &mut Context<Self>,
+    ) {
         let same = self
             .document
             .path()

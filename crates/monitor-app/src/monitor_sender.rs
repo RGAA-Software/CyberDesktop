@@ -79,7 +79,10 @@ impl MonitorSenderHandle {
     }
 
     pub fn status(&self) -> SenderStatus {
-        self.status.lock().map(|status| status.clone()).unwrap_or_default()
+        self.status
+            .lock()
+            .map(|status| status.clone())
+            .unwrap_or_default()
     }
 }
 
@@ -96,9 +99,14 @@ fn spawn_sender_thread(
             let mut ws = None;
 
             loop {
-                let desired_snapshot = desired.lock().map(|value| value.clone()).unwrap_or_default();
-                let current_target =
-                    format!("ws://{}:{}/sys/info", desired_snapshot.host, desired_snapshot.port);
+                let desired_snapshot = desired
+                    .lock()
+                    .map(|value| value.clone())
+                    .unwrap_or_default();
+                let current_target = format!(
+                    "ws://{}:{}/sys/info",
+                    desired_snapshot.host, desired_snapshot.port
+                );
 
                 if !desired_snapshot.enabled {
                     ws = None;

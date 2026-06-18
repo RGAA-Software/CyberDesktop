@@ -1,20 +1,17 @@
 //! Non-wrapped (horizontal scroll) viewport layout.
 
 use editor_text_engine::Position;
-use gpui::{
-    fill, point, px, Bounds, Font, Hsla, PaintQuad, Pixels, SharedString,
-    TextRun, Window,
-};
+use gpui::{fill, point, px, Bounds, Font, Hsla, PaintQuad, Pixels, SharedString, TextRun, Window};
 
+use super::super::editor::EngineEditor;
+use super::super::r#impl::FOLD_GUTTER_WIDTH;
+use super::super::text_util::{expand_tabs, EDITOR_TAB_SIZE};
+use super::super::ui::EditorColors;
 use super::element::CanvasPrepaint;
+use super::element::VisibleRow;
 use super::horizontal_viewport::{
     measure_avg_char_width, viewport_col_range, LONG_LINE_COL_THRESHOLD,
 };
-use super::super::editor::EngineEditor;
-use super::super::r#impl::FOLD_GUTTER_WIDTH;
-use super::super::ui::EditorColors;
-use super::super::text_util::{expand_tabs, EDITOR_TAB_SIZE};
-use super::element::VisibleRow;
 use super::syntax_paint::{build_runs, occurrence_word, word_occurrences};
 
 pub(crate) fn prepaint_normal(
@@ -121,8 +118,7 @@ pub(crate) fn prepaint_normal(
         let Some(line) = display_lines.get(dix).copied() else {
             break;
         };
-        let top = bounds.top()
-            + line_height * (dix - first_display) as f32
+        let top = bounds.top() + line_height * (dix - first_display) as f32
             - (scroll_y - line_height * first_display as f32);
         if top >= content_bottom {
             break;
@@ -206,8 +202,10 @@ pub(crate) fn prepaint_normal(
                 if abs_s == sel_range.start && abs_e == sel_range.end {
                     continue;
                 }
-                let x0 = fragment_left + shaped.x_for_index(expanded.original_char_to_expanded_byte(scol));
-                let x1 = fragment_left + shaped.x_for_index(expanded.original_char_to_expanded_byte(ecol));
+                let x0 = fragment_left
+                    + shaped.x_for_index(expanded.original_char_to_expanded_byte(scol));
+                let x1 = fragment_left
+                    + shaped.x_for_index(expanded.original_char_to_expanded_byte(ecol));
                 selections.push(fill(
                     Bounds::from_corners(point(x0, top), point(x1, top + line_height)),
                     colors.occurrence,
@@ -223,10 +221,10 @@ pub(crate) fn prepaint_normal(
                 if end_col > col_start && start_col < col_end {
                     let local_start = start_col.saturating_sub(col_start);
                     let local_end = (end_col - col_start).min(frag_char_len);
-                    let x0 =
-                        fragment_left + shaped.x_for_index(expanded.original_char_to_expanded_byte(local_start));
-                    let x1 =
-                        fragment_left + shaped.x_for_index(expanded.original_char_to_expanded_byte(local_end));
+                    let x0 = fragment_left
+                        + shaped.x_for_index(expanded.original_char_to_expanded_byte(local_start));
+                    let x1 = fragment_left
+                        + shaped.x_for_index(expanded.original_char_to_expanded_byte(local_end));
                     selections.push(fill(
                         Bounds::from_corners(point(x0, top), point(x1, top + line_height)),
                         colors.selection,
@@ -242,8 +240,8 @@ pub(crate) fn prepaint_normal(
                 let col = cur.head - line_start_char;
                 if col >= col_start && col <= col_end {
                     let local_col = col - col_start;
-                    let cx_pos =
-                        fragment_left + shaped.x_for_index(expanded.original_char_to_expanded_byte(local_col));
+                    let cx_pos = fragment_left
+                        + shaped.x_for_index(expanded.original_char_to_expanded_byte(local_col));
                     carets.push(fill(
                         Bounds::new(point(cx_pos, top), gpui::size(px(2.0), line_height)),
                         colors.caret,

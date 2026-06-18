@@ -1,6 +1,6 @@
 //! Virtual sub-row estimates for soft-wrapped long lines.
 
-use gpui::{Pixels, px};
+use gpui::{px, Pixels};
 
 /// Approximate character columns per visual row at `view_w`.
 pub(crate) fn cols_per_row(char_width: Pixels, view_w: Pixels) -> usize {
@@ -25,7 +25,9 @@ pub(crate) fn char_range_for_wrap_subrows(
     line_len: usize,
 ) -> (usize, usize) {
     let margin = 1usize;
-    let first = first_subrow.saturating_sub(margin).saturating_mul(cols_per_row);
+    let first = first_subrow
+        .saturating_sub(margin)
+        .saturating_mul(cols_per_row);
     let last = (last_subrow + margin + 1)
         .saturating_mul(cols_per_row)
         .min(line_len);

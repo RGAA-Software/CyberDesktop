@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use std::cell::RefCell;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use files_fs::{
@@ -508,11 +508,7 @@ fn popup_menu_path_item(
     PopupMenuItem::element(move |window, cx| {
         breadcrumb_menu_row(
             label.clone(),
-            Some(crate::shell_icon::shell_icon_for_path(
-                &path,
-                px(16.),
-                cx,
-            )),
+            Some(crate::shell_icon::shell_icon_for_path(&path, px(16.), cx)),
             dimmed,
             window,
         )

@@ -1,9 +1,9 @@
-use files_core::{log_startup_step, window_size};
 #[cfg(feature = "full-app")]
 use files_core::APP_NAME;
+use files_core::{log_startup_step, window_size};
 use gpui::{
-    px, size, App, AppContext, Bounds, Focusable, SharedString, Size, Window, WindowBounds, WindowKind,
-    WindowOptions,
+    px, size, App, AppContext, Bounds, Focusable, SharedString, Size, Window, WindowBounds,
+    WindowKind, WindowOptions,
 };
 use gpui_component::Root;
 
@@ -86,10 +86,10 @@ fn open_main_window_with_close_handler<F, E, C>(
             .expect("failed to open window");
         log_startup_step("open_window_done");
 
-            let main_handle = window.into();
-            let _ = cx.update(|cx| {
-                crate::app_state::MainWindowState::set(main_handle, cx);
-            });
+        let main_handle = window.into();
+        let _ = cx.update(|cx| {
+            crate::app_state::MainWindowState::set(main_handle, cx);
+        });
         log_startup_step("main_window_state_set");
 
         window.update(cx, |_, window, _| {

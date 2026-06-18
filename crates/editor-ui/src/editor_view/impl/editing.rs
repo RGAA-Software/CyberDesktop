@@ -18,7 +18,9 @@ impl EngineEditor {
 
     pub(crate) fn select_line(&mut self, cx: &mut Context<Self>) {
         let buf = self.document.buffer();
-        let line = buf.char_to_position(self.document.selections().primary().head).line;
+        let line = buf
+            .char_to_position(self.document.selections().primary().head)
+            .line;
         let start = buf.position_to_char(Position::new(line, 0));
         let line_count = buf.line_count();
         let end = if line + 1 < line_count {
@@ -33,7 +35,10 @@ impl EngineEditor {
     pub(crate) fn indent(&mut self, cx: &mut Context<Self>) {
         let (first, last) = self.selected_line_range();
         for line in (first..=last).rev() {
-            let start = self.document.buffer().position_to_char(Position::new(line, 0));
+            let start = self
+                .document
+                .buffer()
+                .position_to_char(Position::new(line, 0));
             self.document.replace_range(start..start, "    ");
         }
         self.changed(cx);
@@ -45,7 +50,10 @@ impl EngineEditor {
             let text = self.document.buffer().line_text(line);
             let spaces = text.chars().take(4).take_while(|c| *c == ' ').count();
             if spaces > 0 {
-                let start = self.document.buffer().position_to_char(Position::new(line, 0));
+                let start = self
+                    .document
+                    .buffer()
+                    .position_to_char(Position::new(line, 0));
                 self.document.replace_range(start..start + spaces, "");
             }
         }
@@ -70,7 +78,10 @@ impl EngineEditor {
                 continue;
             }
             let indent = text.chars().take_while(|c| c.is_whitespace()).count();
-            let start = self.document.buffer().position_to_char(Position::new(line, 0));
+            let start = self
+                .document
+                .buffer()
+                .position_to_char(Position::new(line, 0));
             let at = start + indent;
             if all_commented {
                 let rest: Vec<char> = text.chars().skip(indent).collect();
@@ -129,9 +140,8 @@ impl EngineEditor {
             self.show_full_preview = false;
         }
         if self.show_preview && self.markdown_preview.is_none() {
-            self.markdown_preview = Some(cx.new(|cx| {
-                gpui_component::text::TextViewState::markdown("", cx)
-            }));
+            self.markdown_preview =
+                Some(cx.new(|cx| gpui_component::text::TextViewState::markdown("", cx)));
         }
         if let Some(preview) = self.markdown_preview.as_ref() {
             let text = self.document.buffer().to_string();
@@ -155,9 +165,8 @@ impl EngineEditor {
             self.show_preview = false;
         }
         if self.show_full_preview && self.markdown_preview.is_none() {
-            self.markdown_preview = Some(cx.new(|cx| {
-                gpui_component::text::TextViewState::markdown("", cx)
-            }));
+            self.markdown_preview =
+                Some(cx.new(|cx| gpui_component::text::TextViewState::markdown("", cx)));
         }
         if let Some(preview) = self.markdown_preview.as_ref() {
             let text = self.document.buffer().to_string();
@@ -176,5 +185,4 @@ impl EngineEditor {
     }
 
     // ---- Go to Line ------------------------------------------------------
-
 }

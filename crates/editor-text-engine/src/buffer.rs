@@ -202,12 +202,14 @@ impl TextBuffer {
 
     /// Converts a character offset to a UTF-16 code-unit offset.
     pub fn char_to_utf16(&self, char_idx: usize) -> usize {
-        self.rope.char_to_utf16_cu(char_idx.min(self.rope.len_chars()))
+        self.rope
+            .char_to_utf16_cu(char_idx.min(self.rope.len_chars()))
     }
 
     /// Converts a UTF-16 code-unit offset to a character offset.
     pub fn utf16_to_char(&self, utf16_idx: usize) -> usize {
-        self.rope.utf16_cu_to_char(utf16_idx.min(self.rope.len_utf16_cu()))
+        self.rope
+            .utf16_cu_to_char(utf16_idx.min(self.rope.len_utf16_cu()))
     }
 
     // ---- Editing ---------------------------------------------------------

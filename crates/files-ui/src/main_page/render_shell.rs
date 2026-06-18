@@ -1,12 +1,6 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    button::Button,
-    h_flex,
-    label::Label,
-    v_flex,
-    ActiveTheme as _,
-    Size,
-    Sizable as _,
+    button::Button, h_flex, label::Label, v_flex, ActiveTheme as _, Sizable as _, Size,
 };
 use rust_i18n::t;
 
@@ -59,7 +53,9 @@ impl MainPage {
                     .bottom(px(36.))
                     .right(px(8.))
                     .on_any_mouse_down(|_, _, cx| cx.stop_propagation())
-                    .child(crate::status_center::render_status_center_panel(cx, on_close)),
+                    .child(crate::status_center::render_status_center_panel(
+                        cx, on_close,
+                    )),
             );
         }
 
@@ -158,7 +154,9 @@ impl MainPage {
         let sidebar_sections = self.sidebar_sections.clone();
 
         h_resizable("main-layout")
-            .with_state(&window.use_keyed_state("main-layout", cx, |_, _| ResizableState::default()))
+            .with_state(
+                &window.use_keyed_state("main-layout", cx, |_, _| ResizableState::default()),
+            )
             .child(
                 resizable_panel()
                     .size(px(214.))
@@ -285,7 +283,9 @@ impl MainPage {
                     })
                     .with_size(Size::Small)
                     .when(active_count > 0, |b| {
-                        b.icon(crate::icons::compact_icon(gpui_component::IconName::ArrowUp))
+                        b.icon(crate::icons::compact_icon(
+                            gpui_component::IconName::ArrowUp,
+                        ))
                     })
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.show_status_center = !this.show_status_center;

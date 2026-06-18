@@ -179,7 +179,8 @@ impl SysInfoManager {
             sys_name: System::name().unwrap_or_else(|| "<unknown>".to_owned()),
             sys_kernel_version: System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
             sys_os_version: System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-            sys_os_long_version: System::long_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
+            sys_os_long_version: System::long_os_version()
+                .unwrap_or_else(|| "<unknown>".to_owned()),
             sys_host_name: System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
             sys_kernel: System::kernel_long_version().to_string(),
         };

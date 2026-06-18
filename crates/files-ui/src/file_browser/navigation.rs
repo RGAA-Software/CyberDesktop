@@ -30,11 +30,8 @@ impl FileBrowser {
                 .map(DisplayRow::Item)
                 .collect()
         };
-        self.item_sizes = item_sizes_for_display_rows(
-            &self.display_rows,
-            self.view_mode,
-            self.view_size_level,
-        );
+        self.item_sizes =
+            item_sizes_for_display_rows(&self.display_rows, self.view_mode, self.view_size_level);
         if self.view_mode == ViewMode::Columns {
             self.refresh_column_listings();
         }
@@ -148,7 +145,8 @@ impl FileBrowser {
             // Force-refresh: clear network cache so the next render re-enumerates.
             #[cfg(windows)]
             {
-                let is_network = self.current_dir.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+                let is_network = self.current_dir.to_string_lossy()
+                    == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
                     || files_fs::is_network_computer_root(&self.current_dir);
                 if is_network {
                     self.network_items_cache.remove(&self.current_dir);
@@ -212,7 +210,8 @@ impl FileBrowser {
             BrowseLocation::Directory => {
                 #[cfg(windows)]
                 {
-                    let is_network = self.current_dir.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+                    let is_network = self.current_dir.to_string_lossy()
+                        == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
                         || files_fs::is_network_computer_root(&self.current_dir);
                     if is_network {
                         // Do NOT clear the cache here — only reload() (F5/refresh button)
@@ -369,11 +368,7 @@ impl FileBrowser {
     }
 
     pub fn select_path_after_load(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        if let Some(index) = self
-            .display_items
-            .iter()
-            .position(|item| item.path == path)
-        {
+        if let Some(index) = self.display_items.iter().position(|item| item.path == path) {
             self.focused_index = Some(index);
             self.selected_paths.clear();
             self.selected_paths.insert(path);

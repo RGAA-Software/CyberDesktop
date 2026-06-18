@@ -1,9 +1,9 @@
 //! UI fragment: `ui/find_bar.rs`.
 
+use super::super::imports::*;
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
 use super::panel::floating_tool_panel;
 use super::widgets::{panel_close_button, panel_input, panel_tool_lead, panel_tool_strip};
-use super::super::imports::*;
 use gpui_component::IconName;
 
 impl EngineEditor {
@@ -121,9 +121,7 @@ impl EngineEditor {
                     toolbar_icon_button("replace-one")
                         .icon(toolbar_icon(IconName::Replace).path(paths::REPLACE))
                         .tooltip(t!("editor.find.replace"))
-                        .on_click(
-                            cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace(cx)),
-                        ),
+                        .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| this.do_replace(cx))),
                 )
                 .child(
                     toolbar_icon_button("replace-all")

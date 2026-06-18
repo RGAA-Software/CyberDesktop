@@ -16,7 +16,7 @@ use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
 use windows::Win32::UI::Controls::{IImageList, ILD_TRANSPARENT};
 use windows::Win32::UI::Shell::{
     ExtractIconExW, ILFree, IShellItem, IShellItemImageFactory, SHCreateItemFromIDList,
-    SHCreateItemFromParsingName, SHParseDisplayName, SHGetFileInfoW, SHGetImageList, SHFILEINFOW,
+    SHCreateItemFromParsingName, SHGetFileInfoW, SHGetImageList, SHParseDisplayName, SHFILEINFOW,
     SHGFI_SYSICONINDEX, SHGFI_USEFILEATTRIBUTES, SHIL_EXTRALARGE, SHIL_JUMBO, SHIL_LARGE,
     SHIL_SMALL, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY, SIIGBF_SCALEUP, SIIGBF_THUMBNAILONLY,
 };
@@ -88,7 +88,9 @@ pub fn shell_icon_png(path: &Path, size: u32) -> anyhow::Result<Vec<u8>> {
     }
     let png = shell_icon_png_uncached(path, size, false)?;
     if let Ok(mut guard) = ICON_CACHE.lock() {
-        guard.get_or_insert_with(HashMap::new).insert(key, png.clone());
+        guard
+            .get_or_insert_with(HashMap::new)
+            .insert(key, png.clone());
     }
     Ok(png)
 }
@@ -107,7 +109,9 @@ pub fn shell_icon_png_for_list_key(cache_key: &str, size: u32) -> anyhow::Result
     let is_folder = cache_key == ":folder:";
     let png = shell_icon_png_uncached(&path, size, is_folder)?;
     if let Ok(mut guard) = LIST_KEY_CACHE.lock() {
-        guard.get_or_insert_with(HashMap::new).insert(key, png.clone());
+        guard
+            .get_or_insert_with(HashMap::new)
+            .insert(key, png.clone());
     }
     Ok(png)
 }
@@ -153,7 +157,9 @@ pub fn shell_thumbnail_png_scaled(
         return Ok(None);
     };
     if let Ok(mut guard) = THUMBNAIL_CACHE.lock() {
-        guard.get_or_insert_with(HashMap::new).insert(key, png.clone());
+        guard
+            .get_or_insert_with(HashMap::new)
+            .insert(key, png.clone());
     }
     Ok(Some(png))
 }
@@ -228,9 +234,7 @@ fn shell_icon_png_timed(path: &Path, size: u32) -> Option<Vec<u8>> {
 /// Batch-extract Shell icons with a **per-device timeout**.
 /// Each device gets its own STA thread so one slow device cannot
 /// block the entire batch (e.g. an SSDP printer hanging for 9s).
-pub fn shell_icon_png_batch(
-    entries: &[(PathBuf, u32)],
-) -> Vec<(PathBuf, u32, Option<Vec<u8>>)> {
+pub fn shell_icon_png_batch(entries: &[(PathBuf, u32)]) -> Vec<(PathBuf, u32, Option<Vec<u8>>)> {
     let t0 = std::time::Instant::now();
     let mut results = Vec::with_capacity(entries.len());
     for (path, size) in entries {
@@ -269,8 +273,8 @@ unsafe fn shell_icon_png_inner(
     let wide = path_to_wide(&parsing);
 
     // Try SHCreateItemFromParsingName first (fastest for filesystem paths).
-    let item: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)
-        .or_else(|_| {
+    let item: IShellItem =
+        SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None).or_else(|_| {
             // Fallback for virtual-folder parsing paths (e.g. `{GUID}\{GUID}`).
             let mut pidl: *mut windows::Win32::UI::Shell::Common::ITEMIDLIST = std::ptr::null_mut();
             SHParseDisplayName(PCWSTR(wide.as_ptr()), None, &mut pidl, 0, None)?;

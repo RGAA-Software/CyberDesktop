@@ -31,5 +31,4 @@ impl EngineEditor {
     }
 
     // ---- Selection / editing helpers -------------------------------------
-
 }

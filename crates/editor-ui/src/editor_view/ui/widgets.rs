@@ -25,4 +25,3 @@ pub(crate) fn panel_tool_lead() -> gpui::Div {
 pub(crate) fn panel_tool_strip() -> gpui::Div {
     h_flex().gap_2().flex_shrink_0()
 }
-

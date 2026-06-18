@@ -385,9 +385,7 @@ impl PopupMenuItem {
                 icon_element,
                 icon_png,
                 ..
-            } => {
-                icon.is_some() || icon_element.is_some() || icon_png.is_some()
-            }
+            } => icon.is_some() || icon_element.is_some() || icon_png.is_some(),
             _ => false,
         }
     }

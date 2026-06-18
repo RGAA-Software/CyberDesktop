@@ -2,8 +2,8 @@
 
 use super::super::canvas::wrapped_block_height;
 use super::super::imports::*;
-use super::super::text_util::{expand_tabs, EDITOR_TAB_SIZE};
 use super::super::text_util::wrap_rows;
+use super::super::text_util::{expand_tabs, EDITOR_TAB_SIZE};
 
 impl EngineEditor {
     pub(crate) fn index_for_position(&self, pos: Point<Pixels>) -> usize {
@@ -39,7 +39,11 @@ impl EngineEditor {
     }
 
     /// Hit-tests a point against the wrapped visible lines (wrap mode).
-    pub(crate) fn wrap_index_for_position(&self, pos: Point<Pixels>, bounds: Bounds<Pixels>) -> usize {
+    pub(crate) fn wrap_index_for_position(
+        &self,
+        pos: Point<Pixels>,
+        bounds: Bounds<Pixels>,
+    ) -> usize {
         if self.wrapped_visible.is_empty() {
             return 0;
         }
@@ -49,11 +53,7 @@ impl EngineEditor {
             .wrapped_visible
             .iter()
             .find(|wl| {
-                let block = wrapped_block_height(
-                    lh,
-                    wl.wrap_row_count,
-                    wrap_rows(&wl.wrapped),
-                );
+                let block = wrapped_block_height(lh, wl.wrap_row_count, wrap_rows(&wl.wrapped));
                 pos.y >= wl.block_top && pos.y < wl.block_top + block
             })
             .unwrap_or_else(|| {
@@ -80,7 +80,12 @@ impl EngineEditor {
         }
     }
 
-    pub(crate) fn on_mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn on_mouse_down(
+        &mut self,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         window.focus(&self.focus_handle, cx);
         self.dismiss_context_menu();
         if let Some(line) = self.fold_gutter_hit(event.position) {
@@ -114,7 +119,12 @@ impl EngineEditor {
         cx.notify();
     }
 
-    pub(crate) fn on_mouse_move(&mut self, event: &MouseMoveEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn on_mouse_move(
+        &mut self,
+        event: &MouseMoveEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         // If the button was released while the cursor was outside the window we
         // never saw a mouse-up; the next move with no button pressed ends any
         // in-progress drag/selection so it doesn't "stick" on re-entry.
@@ -181,7 +191,12 @@ impl EngineEditor {
         }
     }
 
-    pub(crate) fn on_mouse_up(&mut self, _event: &MouseUpEvent, _window: &mut Window, _cx: &mut Context<Self>) {
+    pub(crate) fn on_mouse_up(
+        &mut self,
+        _event: &MouseUpEvent,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
         self.is_selecting = false;
         self.scrollbar_drag = None;
         self.hscrollbar_drag = None;
@@ -189,7 +204,12 @@ impl EngineEditor {
         self.end_panel_resize();
     }
 
-    pub(crate) fn on_scroll(&mut self, event: &ScrollWheelEvent, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn on_scroll(
+        &mut self,
+        event: &ScrollWheelEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let delta = event.delta.pixel_delta(self.line_height);
         if self.soft_wrap {
             // Vertical only; advance the wrapped anchor and re-normalize.
@@ -208,5 +228,4 @@ impl EngineEditor {
         self.scroll_x = (self.scroll_x - dx).max(px(0.0)).min(self.max_scroll_x());
         cx.notify();
     }
-
 }

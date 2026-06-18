@@ -8,8 +8,8 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::System::Com::{CoTaskMemFree, IDataObject};
 use windows::Win32::System::Ole::{
-    DoDragDrop, OleInitialize, OleUninitialize, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_MOVE,
-    DROPEFFECT_NONE, IDropSource, IDropSource_Impl,
+    DoDragDrop, IDropSource, IDropSource_Impl, OleInitialize, OleUninitialize, DROPEFFECT,
+    DROPEFFECT_COPY, DROPEFFECT_MOVE, DROPEFFECT_NONE,
 };
 use windows::Win32::System::SystemServices::MK_LBUTTON;
 use windows::Win32::UI::Shell::Common::ITEMIDLIST;
@@ -17,9 +17,7 @@ use windows::Win32::UI::Shell::{
     ILClone, ILCreateFromPathW, ILFree, IShellFolder, SHBindToParent, SHCreateDataObject,
     SHGetDesktopFolder, SHGetIDListFromObject, SHParseDisplayName,
 };
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetAncestor, GetCursorPos, GetWindowRect, GA_ROOT,
-};
+use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GetCursorPos, GetWindowRect, GA_ROOT};
 
 use crate::com::ensure_com_apartment;
 
@@ -112,7 +110,13 @@ unsafe fn build_shell_data_object(paths: &[PathBuf]) -> anyhow::Result<(IDataObj
             .map(|p| *p as *const ITEMIDLIST)
             .collect();
         let data: IDataObject = parent_sf.GetUIObjectOf(HWND::default(), &apidl, None)?;
-        return Ok((data, DragPidls { child: child_pidls, desktop: None }));
+        return Ok((
+            data,
+            DragPidls {
+                child: child_pidls,
+                desktop: None,
+            },
+        ));
     }
 
     // Mixed-parent selection (ShelfPane-style): desktop PIDL + absolute child PIDLs.
@@ -189,7 +193,11 @@ unsafe fn root_hwnd(hwnd: HWND) -> HWND {
         return hwnd;
     }
     let root = GetAncestor(hwnd, GA_ROOT);
-    if root.0.is_null() { hwnd } else { root }
+    if root.0.is_null() {
+        hwnd
+    } else {
+        root
+    }
 }
 
 unsafe fn cursor_in_window(hwnd: HWND) -> bool {

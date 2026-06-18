@@ -46,7 +46,8 @@ pub fn cached_png(path: &Path, size_px: u32) -> Option<Arc<Vec<u8>>> {
         }
     }
     #[cfg(windows)]
-    if let Some(png) = platform::shell_icon_png_from_cache(path, size_px).filter(|p| !p.is_empty()) {
+    if let Some(png) = platform::shell_icon_png_from_cache(path, size_px).filter(|p| !p.is_empty())
+    {
         store_hit(path, size_px, png);
         return cached_png(path, size_px);
     }

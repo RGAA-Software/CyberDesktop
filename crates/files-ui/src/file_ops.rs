@@ -13,14 +13,19 @@ use files_fs::{
     DeleteCancelled, ExtractCancelled, FileClipboard, FileOperation, TransferCancelled,
     TransferOutcome,
 };
-use gpui::{px, AppContext, Context, Entity, Modifiers, ParentElement, SharedString, Styled, WeakEntity, Window};
+use gpui::{
+    px, AppContext, Context, Entity, Modifiers, ParentElement, SharedString, Styled, WeakEntity,
+    Window,
+};
 use gpui_component::{
     button::Button, dialog::DialogFooter, label::Label, notification::Notification, v_flex,
     WindowExt as _,
 };
 use rust_i18n::t;
 
-use crate::app_state::{AppFileClipboard, AppOperationHistory, TransferJobId, TransferStatusGlobal};
+use crate::app_state::{
+    AppFileClipboard, AppOperationHistory, TransferJobId, TransferStatusGlobal,
+};
 use crate::file_browser::create_shortcuts_in_folder;
 use crate::file_browser::FileBrowser;
 
@@ -299,7 +304,8 @@ pub fn spawn_paste_from_clipboard(
     let weak = browser.downgrade();
     cx.spawn(async move |this, cx| {
         let (job_id, cancel) = begin_transfer_status(progress_status, total, cx);
-        let result = run_transfer_with_conflicts(weak, cx, kind, paths, destination, cancel, job_id).await;
+        let result =
+            run_transfer_with_conflicts(weak, cx, kind, paths, destination, cancel, job_id).await;
 
         // Update status on AsyncApp first — does not depend on window visibility.
         let _ = cx.update(|cx| match &result {
@@ -642,17 +648,9 @@ pub fn spawn_delete(
                 let _ = progress_tx.send(step);
             };
             if permanent_for_task {
-                delete_paths_cancellable(
-                    &paths_for_task,
-                    &cancel_for_task,
-                    &mut on_progress,
-                )
+                delete_paths_cancellable(&paths_for_task, &cancel_for_task, &mut on_progress)
             } else {
-                recycle_paths_cancellable(
-                    &paths_for_task,
-                    &cancel_for_task,
-                    &mut on_progress,
-                )
+                recycle_paths_cancellable(&paths_for_task, &cancel_for_task, &mut on_progress)
             }
         });
 
@@ -835,10 +833,7 @@ async fn prompt_conflict(
         };
         let _ = window.update(cx, |_, window, cx| {
             window.open_dialog(cx, move |dialog, _window, _cx| {
-                dialog
-                    .title(title.clone())
-                    .w(px(600.))
-                    .footer(
+                dialog.title(title.clone()).w(px(600.)).footer(
                     v_flex()
                         .gap_3()
                         .px_4()
@@ -965,7 +960,9 @@ pub fn spawn_empty_recycle_bin(
     );
 
     cx.spawn(async move |this, cx| {
-        let result = cx.background_spawn(async move { empty_recycle_bin() }).await;
+        let result = cx
+            .background_spawn(async move { empty_recycle_bin() })
+            .await;
 
         let _ = this.update(cx, |browser, cx| {
             let Some(window) = cx.active_window() else {

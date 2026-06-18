@@ -3,8 +3,8 @@
 use editor_text_engine::parse_rope;
 
 use super::super::canvas::{cols_per_row, estimated_wrap_rows, measure_avg_char_width};
-use super::super::state::LONG_LINE_COL_THRESHOLD;
 use super::super::imports::*;
+use super::super::state::LONG_LINE_COL_THRESHOLD;
 
 impl EngineEditor {
     pub(crate) fn refresh_syntax(&mut self, cx: &mut Context<Self>) {
@@ -265,7 +265,12 @@ impl EngineEditor {
 
     /// Visual-row count of `line` at `width` (cheap single-run shaping; colours
     /// don't affect wrap boundaries, so this matches the painted layout).
-    pub(crate) fn measure_wrap_rows(&self, line: usize, width: Pixels, window: &mut Window) -> usize {
+    pub(crate) fn measure_wrap_rows(
+        &self,
+        line: usize,
+        width: Pixels,
+        window: &mut Window,
+    ) -> usize {
         if width <= px(0.0) {
             return 1;
         }
@@ -276,8 +281,7 @@ impl EngineEditor {
         }
         if len > LONG_LINE_COL_THRESHOLD {
             let font = window.text_style().font();
-            let char_width =
-                measure_avg_char_width(window, &font, self.font_size);
+            let char_width = measure_avg_char_width(window, &font, self.font_size);
             return estimated_wrap_rows(len, cols_per_row(char_width, width));
         }
         let text = buf.line_text(line);

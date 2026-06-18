@@ -3,9 +3,11 @@
 use std::ops::Range;
 
 use editor_text_engine::{Document, HighlightKind, SyntaxState, TextBuffer};
-use gpui::{Font, Hsla, Pixels, SharedString, TextRun, Window, WrappedLine, rgb};
+use gpui::{rgb, Font, Hsla, Pixels, SharedString, TextRun, Window, WrappedLine};
 
-use super::super::text_util::{ceil_char_boundary, floor_char_boundary, ExpandedTabText, wrap_rows};
+use super::super::text_util::{
+    ceil_char_boundary, floor_char_boundary, wrap_rows, ExpandedTabText,
+};
 
 /// Shapes `text` wrapped to `width`, returning its single logical [`WrappedLine`].
 pub(super) fn shape_one_wrapped(
@@ -63,7 +65,9 @@ pub(super) fn build_runs(
     font: &Font,
     default_color: Hsla,
 ) -> Vec<TextRun> {
-    let display_text = expanded.map(|expanded| expanded.text.as_str()).unwrap_or(line_text);
+    let display_text = expanded
+        .map(|expanded| expanded.text.as_str())
+        .unwrap_or(line_text);
     let len = display_text.len();
     let frag_end_byte = line_start_byte + line_text.len();
     let mut runs: Vec<TextRun> = Vec::new();
@@ -132,7 +136,10 @@ pub(super) fn word_occurrences(line_text: &str, needle: &str) -> Vec<(usize, usi
             .chars()
             .next_back()
             .map_or(true, |c| !is_word(c));
-        let after_ok = line_text[bend..].chars().next().map_or(true, |c| !is_word(c));
+        let after_ok = line_text[bend..]
+            .chars()
+            .next()
+            .map_or(true, |c| !is_word(c));
         if before_ok && after_ok {
             let scol = line_text[..bstart].chars().count();
             let ecol = line_text[..bend].chars().count();

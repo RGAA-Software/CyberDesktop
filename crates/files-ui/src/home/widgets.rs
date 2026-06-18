@@ -3,12 +3,12 @@
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use app_platform_windows::open_item_properties;
 use chrono::{DateTime, Local};
 use files_fs::{
-    eject_drive, open_storage_sense_settings, recent_documents_enabled, DriveInfo,
-    FileTagPreview, QuickAccessEntry, RecentItem,
+    eject_drive, open_storage_sense_settings, recent_documents_enabled, DriveInfo, FileTagPreview,
+    QuickAccessEntry, RecentItem,
 };
-use app_platform_windows::open_item_properties;
 use gpui::{prelude::*, MouseButton, *};
 use gpui_component::{
     alert::Alert,
@@ -23,10 +23,10 @@ use rust_i18n::t;
 use crate::app_state::AppNavigation;
 use crate::home::page::HomePage;
 use crate::home::widget_shell::{
-    block_home_page_context_menu, bordered_home_card, home_card_grid,
-    space_progress_bar, tag_cols_grid, DRIVE_CARD_PADDING_X, DRIVE_CARD_PADDING_Y,
-    DRIVE_ICON_TILE, QA_ICON_INNER, QA_ICON_TILE, QA_ITEM_HEIGHT,
-    QA_ITEM_PADDING_X, QA_ITEM_PADDING_Y, RECENT_HEADER_HEIGHT, RECENT_ROW_HEIGHT,
+    block_home_page_context_menu, bordered_home_card, home_card_grid, space_progress_bar,
+    tag_cols_grid, DRIVE_CARD_PADDING_X, DRIVE_CARD_PADDING_Y, DRIVE_ICON_TILE, QA_ICON_INNER,
+    QA_ICON_TILE, QA_ITEM_HEIGHT, QA_ITEM_PADDING_X, QA_ITEM_PADDING_Y, RECENT_HEADER_HEIGHT,
+    RECENT_ROW_HEIGHT,
 };
 use crate::icons::{
     chrome_icon_color, home_drive_tabler_icon, home_quick_access_palette,
@@ -260,11 +260,7 @@ impl HomePage {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .child(tabler_icon_element(
-                                qa_icon,
-                                QA_ICON_INNER,
-                                icon_color,
-                            )),
+                            .child(tabler_icon_element(qa_icon, QA_ICON_INNER, icon_color)),
                     )
                     .child(
                         v_flex()
@@ -306,10 +302,8 @@ impl HomePage {
             .zip(drive.free_bytes)
             .map(|(total, free)| format_bytes_label(total.saturating_sub(free)));
         let free_label = drive.free_bytes.map(format_bytes_label);
-        let used_stat = used_label
-            .map(|size| t!("home.drive.used", size = size).to_string());
-        let free_stat = free_label
-            .map(|size| t!("home.drive.free", size = size).to_string());
+        let used_stat = used_label.map(|size| t!("home.drive.used", size = size).to_string());
+        let free_stat = free_label.map(|size| t!("home.drive.free", size = size).to_string());
         let frac = drive.used_fraction();
         let drive_icon = home_drive_tabler_icon(drive);
         let drive_icon_color = chrome_icon_color(cx);
@@ -381,24 +375,21 @@ impl HomePage {
                             cx,
                         ))
                     })
-                    .when(
-                        used_stat.is_some() || free_stat.is_some(),
-                        |col| {
-                            col.child(
-                                h_flex()
-                                    .w_full()
-                                    .justify_between()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
-                                    .when_some(used_stat.clone(), |row, used| {
-                                        row.child(Label::new(used))
-                                    })
-                                    .when_some(free_stat.clone(), |row, free| {
-                                        row.child(Label::new(free))
-                                    }),
-                            )
-                        },
-                    ),
+                    .when(used_stat.is_some() || free_stat.is_some(), |col| {
+                        col.child(
+                            h_flex()
+                                .w_full()
+                                .justify_between()
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground)
+                                .when_some(used_stat.clone(), |row, used| {
+                                    row.child(Label::new(used))
+                                })
+                                .when_some(free_stat.clone(), |row, free| {
+                                    row.child(Label::new(free))
+                                }),
+                        )
+                    }),
             )
     }
 
@@ -457,11 +448,12 @@ impl HomePage {
                 let path = path.clone();
                 move |menu, window, cx| file_context_menu(menu, &path, window, cx)
             })
-            .child(div().w(px(28.)).flex_none().child(shell_icon_for_path(
-                &item.path,
-                px(16.),
-                cx,
-            )))
+            .child(
+                div()
+                    .w(px(28.))
+                    .flex_none()
+                    .child(shell_icon_for_path(&item.path, px(16.), cx)),
+            )
             .child(
                 div()
                     .flex_1()
@@ -544,14 +536,11 @@ impl HomePage {
                             .overflow_hidden()
                             .when(preview.preview_items.is_empty(), |col| {
                                 col.child(
-                                    div()
-                                        .px(px(14.))
-                                        .py(px(8.))
-                                        .child(
-                                            Label::new(t!("home.widget.tags.preview.empty"))
-                                                .text_xs()
-                                                .text_color(cx.theme().muted_foreground),
-                                        ),
+                                    div().px(px(14.)).py(px(8.)).child(
+                                        Label::new(t!("home.widget.tags.preview.empty"))
+                                            .text_xs()
+                                            .text_color(cx.theme().muted_foreground),
+                                    ),
                                 )
                             })
                             .children(preview.preview_items.iter().enumerate().map(
@@ -579,15 +568,9 @@ impl HomePage {
                                                     row.border_b_1().border_color(cx.theme().border)
                                                 })
                                                 .hover(|row| row.bg(cx.theme().list_hover))
-                                                .child(
-                                                    div()
-                                                        .flex_none()
-                                                        .child(shell_icon_for_path(
-                                                            file_path,
-                                                            px(14.),
-                                                            cx,
-                                                        )),
-                                                )
+                                                .child(div().flex_none().child(
+                                                    shell_icon_for_path(file_path, px(14.), cx),
+                                                ))
                                                 .child(
                                                     div()
                                                         .flex_1()

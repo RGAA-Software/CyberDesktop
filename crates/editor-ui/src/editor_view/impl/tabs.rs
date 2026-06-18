@@ -191,5 +191,4 @@ impl EngineEditor {
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_else(|| t!("editor.untitled").to_string())
     }
-
 }

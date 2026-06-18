@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use app_mpv_ffi::MpvEmbedPlayer;
 use app_ui::TitleBar;
 use gpui::{
-    div, prelude::*, px, App, Bounds, Context, ParentElement, Pixels, Render, SharedString,
-    Styled, Window,
+    div, prelude::*, px, App, Bounds, Context, ParentElement, Pixels, Render, SharedString, Styled,
+    Window,
 };
 use gpui_component::{
     alert::Alert, button::Button, h_flex, label::Label, v_flex, ActiveTheme as _, ElementExt,
@@ -14,17 +14,16 @@ use rfd::FileDialog;
 use tracing::{error, info, warn};
 
 #[cfg(windows)]
+use windows::core::w;
+#[cfg(windows)]
 use windows::Win32::Foundation::{HWND, POINT};
 #[cfg(windows)]
 use windows::Win32::Graphics::Gdi::ClientToScreen;
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, WS_BORDER, WS_CHILD,
+    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, SW_HIDE, SW_SHOW, WS_BORDER, WS_CHILD,
     WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
-    SW_HIDE, SW_SHOW,
 };
-#[cfg(windows)]
-use windows::core::w;
 
 const VIDEO_MIN_HEIGHT: f32 = 420.0;
 
@@ -171,14 +170,7 @@ impl NativeVideoSurface {
             "move native video host"
         );
         unsafe {
-            let _ = MoveWindow(
-                self.hwnd,
-                left,
-                top,
-                right - left,
-                bottom - top,
-                true,
-            );
+            let _ = MoveWindow(self.hwnd, left, top, right - left, bottom - top, true);
         }
     }
 }
@@ -299,7 +291,11 @@ impl MpvDemo {
         if self.player.is_none() {
             match MpvEmbedPlayer::new(target_wid) {
                 Ok(player) => {
-                    info!(target_wid, mode = self.host_mode.label(), "created embedded mpv player");
+                    info!(
+                        target_wid,
+                        mode = self.host_mode.label(),
+                        "created embedded mpv player"
+                    );
                     self.player = Some(player);
                 }
                 Err(error) => {
@@ -330,12 +326,7 @@ impl MpvDemo {
         cx.notify();
     }
 
-    fn switch_mode(
-        &mut self,
-        mode: HostMode,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn switch_mode(&mut self, mode: HostMode, window: &mut Window, cx: &mut Context<Self>) {
         if self.host_mode == mode {
             return;
         }

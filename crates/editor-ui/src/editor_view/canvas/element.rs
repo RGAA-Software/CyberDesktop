@@ -7,9 +7,9 @@ use gpui::{
 
 use gpui::Entity;
 
+use super::super::r#impl::FOLD_GUTTER_WIDTH;
 use super::super::ui::EditorColors;
 use super::super::EngineEditor;
-use super::super::r#impl::FOLD_GUTTER_WIDTH;
 use super::{paint, prepaint, prepaint_wrapped};
 
 pub(crate) struct EditorCanvas {
@@ -207,6 +207,15 @@ impl Element for EditorCanvas {
         window: &mut Window,
         cx: &mut App,
     ) {
-        paint::paint(self, id, inspector_id, bounds, request_layout, prepaint, window, cx);
+        paint::paint(
+            self,
+            id,
+            inspector_id,
+            bounds,
+            request_layout,
+            prepaint,
+            window,
+            cx,
+        );
     }
 }

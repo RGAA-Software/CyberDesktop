@@ -619,8 +619,8 @@ impl RenderOnce for Tab {
         }
         let titlebar_medium =
             self.medium_titlebar && self.size == Size::Medium && self.variant == TabVariant::Tab;
-        let flat_chip = self.variant == TabVariant::Tab
-            && (self.fixed_height.is_some() || titlebar_medium);
+        let flat_chip =
+            self.variant == TabVariant::Tab && (self.fixed_height.is_some() || titlebar_medium);
         let radius = if titlebar_medium {
             cx.theme().radius
         } else {

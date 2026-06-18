@@ -21,8 +21,6 @@ use crate::home::widget_shell::{HOME_PAGE_PADDING_X, HOME_PAGE_PADDING_Y, HOME_S
 use crate::shell::{append_dual_pane_popup_menu, dual_pane_menu_state, DualPanePopupProfile};
 use app_ui::popup_menu::{PopupMenu, PopupMenuItem};
 
-
-
 struct HomePopupMenuState {
     position: Point<Pixels>,
     menu: Entity<PopupMenu>,
@@ -114,44 +112,64 @@ impl HomePage {
 
         // Quick Access
         cx.spawn(async move |page, cx| {
-            let entries = cx.background_spawn(async move { list_quick_access_entries() }).await;
+            let entries = cx
+                .background_spawn(async move { list_quick_access_entries() })
+                .await;
             let _ = page.update(cx, |page, _cx| {
-                if page.load_generation != generation { return; }
+                if page.load_generation != generation {
+                    return;
+                }
                 page.quick_access = entries;
                 _cx.notify();
             });
-        }).detach();
+        })
+        .detach();
 
         // Drives
         cx.spawn(async move |page, cx| {
             let drives = cx.background_spawn(async move { list_drives() }).await;
             let _ = page.update(cx, |page, _cx| {
-                if page.load_generation != generation { return; }
+                if page.load_generation != generation {
+                    return;
+                }
                 page.drives = drives;
                 _cx.notify();
             });
-        }).detach();
+        })
+        .detach();
 
         // File Tags (depends on tag list + previews)
         cx.spawn(async move |page, cx| {
-            let tags = cx.background_spawn(async move { load_home_file_tags() }).await;
-            let previews = cx.background_spawn(async move { file_tag_previews(&tags) }).await;
+            let tags = cx
+                .background_spawn(async move { load_home_file_tags() })
+                .await;
+            let previews = cx
+                .background_spawn(async move { file_tag_previews(&tags) })
+                .await;
             let _ = page.update(cx, |page, _cx| {
-                if page.load_generation != generation { return; }
+                if page.load_generation != generation {
+                    return;
+                }
                 page.tag_previews = previews;
                 _cx.notify();
             });
-        }).detach();
+        })
+        .detach();
 
         // Recent
         cx.spawn(async move |page, cx| {
-            let recent = cx.background_spawn(async move { list_recent_files() }).await;
+            let recent = cx
+                .background_spawn(async move { list_recent_files() })
+                .await;
             let _ = page.update(cx, |page, _cx| {
-                if page.load_generation != generation { return; }
+                if page.load_generation != generation {
+                    return;
+                }
                 page.recent = recent;
                 _cx.notify();
             });
-        }).detach();
+        })
+        .detach();
     }
 
     fn close_popup_menu(&mut self) {
@@ -256,13 +274,8 @@ fn build_page_context_menu(
     let state = dual_pane_menu_state(cx);
     if state.multi_pane_available || state.dual {
         menu = menu.separator();
-        menu = append_dual_pane_popup_menu(
-            menu,
-            window,
-            cx,
-            state,
-            DualPanePopupProfile::PageSurface,
-        );
+        menu =
+            append_dual_pane_popup_menu(menu, window, cx, state, DualPanePopupProfile::PageSurface);
     }
     menu
 }

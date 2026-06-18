@@ -160,9 +160,7 @@ mod tests {
     #[test]
     fn app_logo_loads() {
         let assets = Assets;
-        let data = assets
-            .load("app/logo/ic_cyber_files.svg")
-            .expect("load");
+        let data = assets.load("app/logo/ic_cyber_files.svg").expect("load");
         assert!(data.is_some(), "missing app/logo/ic_cyber_files");
     }
 

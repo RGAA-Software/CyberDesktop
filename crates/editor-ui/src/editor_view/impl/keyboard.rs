@@ -3,7 +3,12 @@
 use super::super::imports::*;
 
 impl EngineEditor {
-    pub(crate) fn on_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn on_key_down(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let ks = &event.keystroke;
         let shift = ks.modifiers.shift;
         let cmd = ks.modifiers.control || ks.modifiers.platform;
@@ -156,5 +161,4 @@ impl EngineEditor {
     }
 
     // ---- Mouse / scroll --------------------------------------------------
-
 }

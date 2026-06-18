@@ -1,9 +1,9 @@
 //! UI fragment: `ui/goto_bar.rs`.
 
+use super::super::imports::*;
 use super::icons::{paths, toolbar_icon, toolbar_icon_button};
 use super::panel::floating_tool_panel;
 use super::widgets::{panel_close_button, panel_input, panel_tool_strip};
-use super::super::imports::*;
 use gpui_component::IconName;
 
 impl EngineEditor {
@@ -32,9 +32,9 @@ impl EngineEditor {
                             toolbar_icon_button("goto-go")
                                 .icon(toolbar_icon(IconName::Search).path(paths::GOTO))
                                 .tooltip(t!("editor.goto.action"))
-                                .on_click(cx.listener(|this, _: &ClickEvent, _w, cx| {
-                                    this.do_goto(cx)
-                                })),
+                                .on_click(
+                                    cx.listener(|this, _: &ClickEvent, _w, cx| this.do_goto(cx)),
+                                ),
                         ),
                     ),
             );

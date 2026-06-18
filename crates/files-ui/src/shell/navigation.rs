@@ -13,7 +13,9 @@ pub enum NavigationTarget {
     /// Files sidebar file tag: flat list of paths tagged with this name.
     FileTag(String),
     /// Global folder search results for `query`.
-    SearchResults { query: String },
+    SearchResults {
+        query: String,
+    },
 }
 
 impl NavigationTarget {

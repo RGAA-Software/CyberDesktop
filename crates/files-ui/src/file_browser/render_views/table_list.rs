@@ -10,11 +10,7 @@ impl FileBrowser {
             .h_full()
     }
 
-    fn table_list_body(
-        &self,
-        cx: &mut Context<Self>,
-        details: bool,
-    ) -> impl IntoElement {
+    fn table_list_body(&self, cx: &mut Context<Self>, details: bool) -> impl IntoElement {
         h_flex()
             .id("files-virtual-list-wrap")
             .flex_1()
@@ -29,25 +25,21 @@ impl FileBrowser {
                 }
             })
             .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .h_full()
-                    .child(
-                        v_virtual_list(
-                            cx.entity().clone(),
-                            "files-virtual-list",
-                            self.item_sizes.clone(),
-                            move |this, visible_range, window, cx| {
-                                visible_range
-                                    .filter_map(|row_index| {
-                                        this.render_display_row(row_index, window, cx, details)
-                                    })
-                                    .collect()
-                            },
-                        )
-                        .track_scroll(&self.scroll_handle),
-                    ),
+                v_flex().flex_1().min_w_0().h_full().child(
+                    v_virtual_list(
+                        cx.entity().clone(),
+                        "files-virtual-list",
+                        self.item_sizes.clone(),
+                        move |this, visible_range, window, cx| {
+                            visible_range
+                                .filter_map(|row_index| {
+                                    this.render_display_row(row_index, window, cx, details)
+                                })
+                                .collect()
+                        },
+                    )
+                    .track_scroll(&self.scroll_handle),
+                ),
             )
             .child(Self::sweep_gutter())
             .scrollbar(&self.scroll_handle, ScrollbarAxis::Vertical)
@@ -90,12 +82,7 @@ impl FileBrowser {
                             .child(div().w(FILE_LIST_ICON_TILE).flex_none())
                             .child(div().flex_1().min_w_0().child(t!("files.column.name")))
                             .when(show_path_column, |row| {
-                                row.child(
-                                    div()
-                                        .flex_1()
-                                        .min_w_0()
-                                        .child(t!("files.column.path")),
-                                )
+                                row.child(div().flex_1().min_w_0().child(t!("files.column.path")))
                             })
                             .child(div().w(px(120.)).child(t!("files.column.type")))
                             .child(div().w(px(100.)).child(t!("files.column.size")))
@@ -153,12 +140,7 @@ impl FileBrowser {
                             .child(div().w(FILE_LIST_ICON_TILE).flex_none())
                             .child(div().flex_1().min_w_0().child(t!("files.column.name")))
                             .when(show_path_column, |row| {
-                                row.child(
-                                    div()
-                                        .flex_1()
-                                        .min_w_0()
-                                        .child(t!("files.column.path")),
-                                )
+                                row.child(div().flex_1().min_w_0().child(t!("files.column.path")))
                             })
                             .child(div().w(px(64.)).flex_none()),
                     )
@@ -293,7 +275,9 @@ impl FileBrowser {
             .items_center()
             .border_b_1()
             .border_color(cx.theme().border.opacity(0.45))
-            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
+            .when(!selected, |this| {
+                this.hover(|this| this.bg(cx.theme().list_hover))
+            })
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
@@ -330,25 +314,18 @@ impl FileBrowser {
                 }),
             )
             .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
-                this.update_sweep_pointer(
-                    SweepSelectionSurface::Main,
-                    window.mouse_position(),
-                    cx,
-                );
+                this.update_sweep_pointer(SweepSelectionSurface::Main, window.mouse_position(), cx);
             }))
-            .on_drag(
-                DraggedFilePaths(drag_paths),
-                {
-                    let browser = browser.clone();
-                    move |paths, grab_offset, window, cx| {
-                        let _ = browser.update(cx, |this, cx| {
-                            this.start_native_drag_session(paths.0.clone(), window, cx);
-                            this.finish_sweep_selection();
-                        });
-                        DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
-                    }
-                },
-            )
+            .on_drag(DraggedFilePaths(drag_paths), {
+                let browser = browser.clone();
+                move |paths, grab_offset, window, cx| {
+                    let _ = browser.update(cx, |this, cx| {
+                        this.start_native_drag_session(paths.0.clone(), window, cx);
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
+                }
+            })
             .on_drag_move::<DraggedFilePaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
@@ -358,7 +335,9 @@ impl FileBrowser {
             .on_drag_move::<ExternalPaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
-                    this.update_external_drag_hover_over_item_if_hovered(event, &target, window, cx);
+                    this.update_external_drag_hover_over_item_if_hovered(
+                        event, &target, window, cx,
+                    );
                 }
             }))
             .drag_over::<DraggedFilePaths>(|row, _, _, cx| {
@@ -443,7 +422,9 @@ impl FileBrowser {
             .items_center()
             .border_b_1()
             .border_color(cx.theme().border.opacity(0.45))
-            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
+            .when(!selected, |this| {
+                this.hover(|this| this.bg(cx.theme().list_hover))
+            })
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
@@ -480,25 +461,18 @@ impl FileBrowser {
                 }),
             )
             .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
-                this.update_sweep_pointer(
-                    SweepSelectionSurface::Main,
-                    window.mouse_position(),
-                    cx,
-                );
+                this.update_sweep_pointer(SweepSelectionSurface::Main, window.mouse_position(), cx);
             }))
-            .on_drag(
-                DraggedFilePaths(drag_paths),
-                {
-                    let browser = browser.clone();
-                    move |paths, grab_offset, window, cx| {
-                        let _ = browser.update(cx, |this, cx| {
-                            this.start_native_drag_session(paths.0.clone(), window, cx);
-                            this.finish_sweep_selection();
-                        });
-                        DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
-                    }
-                },
-            )
+            .on_drag(DraggedFilePaths(drag_paths), {
+                let browser = browser.clone();
+                move |paths, grab_offset, window, cx| {
+                    let _ = browser.update(cx, |this, cx| {
+                        this.start_native_drag_session(paths.0.clone(), window, cx);
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
+                }
+            })
             .on_drag_move::<DraggedFilePaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
@@ -508,7 +482,9 @@ impl FileBrowser {
             .on_drag_move::<ExternalPaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
-                    this.update_external_drag_hover_over_item_if_hovered(event, &target, window, cx);
+                    this.update_external_drag_hover_over_item_if_hovered(
+                        event, &target, window, cx,
+                    );
                 }
             }))
             .drag_over::<DraggedFilePaths>(|row, _, _, cx| {
@@ -593,13 +569,15 @@ impl FileBrowser {
                             .rounded(px(7.))
                             .icon(match kind {
                                 FileItemKind::Folder => compact_icon(IconName::ChevronRight),
-                                FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
-                                    compact_icon(IconName::ExternalLink)
-                                }
+                                FileItemKind::File
+                                | FileItemKind::Symlink
+                                | FileItemKind::Other => compact_icon(IconName::ExternalLink),
                             })
                             .tooltip(match kind {
                                 FileItemKind::Folder => t!("files.open.folder"),
-                                FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
+                                FileItemKind::File
+                                | FileItemKind::Symlink
+                                | FileItemKind::Other => {
                                     t!("files.open.file")
                                 }
                             })

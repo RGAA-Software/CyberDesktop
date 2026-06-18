@@ -7,8 +7,8 @@ use windows::core::w;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, SW_HIDE, SW_SHOW, WM_MOUSEACTIVATE,
-    MA_NOACTIVATE, WS_BORDER, WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_VISIBLE,
+    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, MA_NOACTIVATE, SW_HIDE, SW_SHOW,
+    WM_MOUSEACTIVATE, WS_BORDER, WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_VISIBLE,
 };
 
 #[cfg(windows)]
@@ -94,12 +94,10 @@ impl NativeVideoSurface {
             let scale = window.scale_factor();
             let left = (f32::from(bounds.origin.x) * scale).round() as i32;
             let top = (f32::from(bounds.origin.y) * scale).round() as i32;
-            let right =
-                ((f32::from(bounds.origin.x) + f32::from(bounds.size.width)) * scale).round()
-                    as i32;
-            let bottom =
-                ((f32::from(bounds.origin.y) + f32::from(bounds.size.height)) * scale).round()
-                    as i32;
+            let right = ((f32::from(bounds.origin.x) + f32::from(bounds.size.width)) * scale)
+                .round() as i32;
+            let bottom = ((f32::from(bounds.origin.y) + f32::from(bounds.size.height)) * scale)
+                .round() as i32;
 
             if right <= left || bottom <= top {
                 self.set_visible(false);

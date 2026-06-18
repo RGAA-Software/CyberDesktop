@@ -9,7 +9,9 @@ use std::ops::Range;
 
 use ropey::Rope;
 use streaming_iterator::StreamingIterator;
-use tree_sitter::{InputEdit, Language, Node, Parser, Point, Query, QueryCursor, TextProvider, Tree};
+use tree_sitter::{
+    InputEdit, Language, Node, Parser, Point, Query, QueryCursor, TextProvider, Tree,
+};
 
 use crate::buffer::EditSummary;
 use crate::syntax_languages::{language_config, SUPPORTED_LANGUAGE_IDS};

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use editor_text_engine::{EditSummary, TextBuffer};
-use gpui::{Font, Hsla, Pixels, SharedString, TextRun, Window, px};
+use gpui::{px, Font, Hsla, Pixels, SharedString, TextRun, Window};
 
 use crate::editor_view::text_util::{expand_tabs, EDITOR_TAB_SIZE};
 
@@ -81,7 +81,13 @@ impl LineWidthCache {
         } else {
             let text = buf.line_text(line);
             let expanded = expand_tabs(&text, EDITOR_TAB_SIZE);
-            f32::from(shape_plain_width(window, font, font_size, &expanded.text, default_color))
+            f32::from(shape_plain_width(
+                window,
+                font,
+                font_size,
+                &expanded.text,
+                default_color,
+            ))
         };
         self.line_width.insert(line, (revision, w));
         px(w)
@@ -120,9 +126,7 @@ impl LineWidthCache {
             default_color,
             char_width,
         );
-        let base_x = self
-            .checkpoint_x(line, base_col, revision)
-            .unwrap_or(0.0);
+        let base_x = self.checkpoint_x(line, base_col, revision).unwrap_or(0.0);
         if col <= base_col {
             return px(base_x);
         }

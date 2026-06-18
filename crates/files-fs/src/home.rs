@@ -5,8 +5,8 @@ use files_core::{load_config, pinned_folder_paths, FileTagConfig};
 
 #[cfg(windows)]
 use app_platform_windows::{
-    list_default_user_folders, DefaultUserFolderKind, shell_pin_to_quick_access,
-    shell_unpin_from_quick_access,
+    list_default_user_folders, shell_pin_to_quick_access, shell_unpin_from_quick_access,
+    DefaultUserFolderKind,
 };
 
 /// Which Tabler icon / semantics apply to a Home quick-access row.

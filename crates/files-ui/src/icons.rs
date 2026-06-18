@@ -4,9 +4,9 @@ use files_fs::{parse_tag_color_hex, DriveInfo, QuickAccessFolderKind};
 use gpui::{div, prelude::*, px, AnyElement, App, Hsla, Pixels};
 use gpui_component::{ActiveTheme as _, Icon, IconName, Sizable as _, Size};
 
-use app_ui::color_icon_box;
 use crate::list_icon_cache;
 use crate::tabler_icons;
+use app_ui::color_icon_box;
 
 /// Full-color title bar logo (`app-assets/assets/app/logo/ic_cyber_files.svg`).
 pub const APP_LOGO_PATH: &str = "app/logo/ic_cyber_files.svg";
@@ -29,10 +29,7 @@ pub fn chrome_icon_color(cx: &App) -> Hsla {
 /// Tile background + icon tint for chrome-style list icons (folders, drives).
 pub fn chrome_icon_tile_colors(cx: &App) -> (Hsla, Hsla) {
     if cx.theme().mode.is_dark() {
-        (
-            cx.theme().muted.opacity(0.32),
-            chrome_icon_color(cx),
-        )
+        (cx.theme().muted.opacity(0.32), chrome_icon_color(cx))
     } else {
         (cx.theme().secondary, chrome_icon_color(cx))
     }
@@ -67,9 +64,7 @@ pub fn sidebar_tabler_icon(path: &'static str, color: Hsla) -> AnyElement {
     div()
         .flex_none()
         .text_color(color)
-        .child(
-            tabler_icons::icon(path).with_size(Size::Size(SIDEBAR_ICON_PX)),
-        )
+        .child(tabler_icons::icon(path).with_size(Size::Size(SIDEBAR_ICON_PX)))
         .into_any_element()
 }
 
@@ -103,7 +98,11 @@ pub fn home_icon() -> Icon {
 
 #[allow(dead_code)]
 pub fn folder_icon_element(cx: &App) -> AnyElement {
-    chrome_icon_box(tabler_icons::FOLDER, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
+    chrome_icon_box(
+        tabler_icons::FOLDER,
+        chrome_icon_color(cx),
+        APP_ICON_IMAGE_PX,
+    )
 }
 
 #[allow(dead_code)]
@@ -113,12 +112,20 @@ pub fn home_icon_element(cx: &App) -> AnyElement {
 
 #[allow(dead_code)]
 pub fn inbox_icon_element(cx: &App) -> AnyElement {
-    chrome_icon_box(tabler_icons::INBOX, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
+    chrome_icon_box(
+        tabler_icons::INBOX,
+        chrome_icon_color(cx),
+        APP_ICON_IMAGE_PX,
+    )
 }
 
 #[allow(dead_code)]
 pub fn delete_icon_element(cx: &App) -> AnyElement {
-    chrome_icon_box(tabler_icons::TRASH, chrome_icon_color(cx), APP_ICON_IMAGE_PX)
+    chrome_icon_box(
+        tabler_icons::TRASH,
+        chrome_icon_color(cx),
+        APP_ICON_IMAGE_PX,
+    )
 }
 
 /// Empty file-tag list placeholder.
@@ -194,10 +201,8 @@ pub fn wsl_distro_tabler_icon(_distro_name: &str) -> &'static str {
 
 /// Foreground tint from the light/dark icon palette (`file_type_icon_colors`).
 pub fn palette_icon_fg(svg_path: &'static str, cx: &App) -> Hsla {
-    let (_, fg) = crate::file_type_icon_colors::tile_colors_for_svg_path(
-        svg_path,
-        cx.theme().mode.is_dark(),
-    );
+    let (_, fg) =
+        crate::file_type_icon_colors::tile_colors_for_svg_path(svg_path, cx.theme().mode.is_dark());
     fg
 }
 

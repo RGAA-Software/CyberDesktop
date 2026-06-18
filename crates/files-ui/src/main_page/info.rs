@@ -35,10 +35,7 @@ impl MainPage {
         cx.notify();
     }
 
-    pub(super) fn info_pane_update(
-        &self,
-        cx: &App,
-    ) -> (InfoPaneSelection, DirectoryReadOptions) {
+    pub(super) fn info_pane_update(&self, cx: &App) -> (InfoPaneSelection, DirectoryReadOptions) {
         let pane = self.active_pane(cx);
         if !matches!(
             pane.read(cx).target(),

@@ -1,8 +1,8 @@
 use gpui::{
     anchored, deferred, div, prelude::*, px, size, Anchor, AnyView, App, AppContext, Bounds,
     Context, DismissEvent, Entity, FocusHandle, Focusable, Global, IntoElement, MouseButton,
-    MouseDownEvent, ParentElement, Point, Render, SharedString, Size, Styled, Subscription,
-    Window, WindowBounds, WindowKind, WindowOptions,
+    MouseDownEvent, ParentElement, Point, Render, SharedString, Size, Styled, Subscription, Window,
+    WindowBounds, WindowKind, WindowOptions,
 };
 use gpui_component::{v_flex, Root};
 use rust_i18n::t;

@@ -5,26 +5,29 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use windows::core::Interface;
 use windows::Win32::Foundation::HANDLE;
-use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
-use windows::Win32::System::Com::StructuredStorage::PropVariantToBSTR;
 use windows::Win32::Storage::EnhancedStorage::PKEY_Size;
+use windows::Win32::System::Com::StructuredStorage::PropVariantToBSTR;
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::Win32::System::SystemServices::SFGAO_FOLDER;
 use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
 use windows::Win32::UI::Shell::{
-    FileOperation, IFileOperation, IEnumShellItems, IShellItem, IShellItem2,
-    FOLDERID_RecycleBinFolder, FOFX_EARLYFAILURE, FOF_NO_UI, KF_FLAG_DEFAULT,
-    PID_DISPLACED_DATE, PID_DISPLACED_FROM, PSGUID_DISPLACED, SHCreateItemFromParsingName,
-    SHEmptyRecycleBinW, SHGetKnownFolderItem, SIGDN, SIGDN_DESKTOPABSOLUTEPARSING,
-    SIGDN_PARENTRELATIVE, SHERB_NOCONFIRMATION, SHERB_NOPROGRESSUI, SHERB_NOSOUND,
-    BHID_EnumItems,
+    BHID_EnumItems, FOLDERID_RecycleBinFolder, FileOperation, IEnumShellItems, IFileOperation,
+    IShellItem, IShellItem2, SHCreateItemFromParsingName, SHEmptyRecycleBinW, SHGetKnownFolderItem,
+    FOFX_EARLYFAILURE, FOF_NO_UI, KF_FLAG_DEFAULT, PID_DISPLACED_DATE, PID_DISPLACED_FROM,
+    PSGUID_DISPLACED, SHERB_NOCONFIRMATION, SHERB_NOPROGRESSUI, SHERB_NOSOUND, SIGDN,
+    SIGDN_DESKTOPABSOLUTEPARSING, SIGDN_PARENTRELATIVE,
 };
 
 use crate::com::ensure_com_apartment;
 
-const SCID_ORIGINAL_LOCATION: PROPERTYKEY =
-    PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM };
-const SCID_DATE_DELETED: PROPERTYKEY =
-    PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };
+const SCID_ORIGINAL_LOCATION: PROPERTYKEY = PROPERTYKEY {
+    fmtid: PSGUID_DISPLACED,
+    pid: PID_DISPLACED_FROM,
+};
+const SCID_DATE_DELETED: PROPERTYKEY = PROPERTYKEY {
+    fmtid: PSGUID_DISPLACED,
+    pid: PID_DISPLACED_DATE,
+};
 
 /// One item in the virtual recycle bin (not a direct filesystem path).
 #[derive(Debug, Clone)]
@@ -85,8 +88,11 @@ pub fn list_recycle_bin_entries() -> anyhow::Result<Vec<RecycleBinEntry>> {
 }
 
 unsafe fn list_recycle_bin_entries_inner() -> anyhow::Result<Vec<RecycleBinEntry>> {
-    let recycle_bin: IShellItem =
-        SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, HANDLE::default())?;
+    let recycle_bin: IShellItem = SHGetKnownFolderItem(
+        &FOLDERID_RecycleBinFolder,
+        KF_FLAG_DEFAULT,
+        HANDLE::default(),
+    )?;
     let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
 
     let mut items = Vec::new();
@@ -144,7 +150,9 @@ unsafe fn original_path_for_item(item: &IShellItem2) -> anyhow::Result<PathBuf> 
 }
 
 /// Resolve recycle-bin shell paths for files that were deleted from `original_paths`.
-pub fn recycle_shell_paths_for_originals(original_paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
+pub fn recycle_shell_paths_for_originals(
+    original_paths: &[PathBuf],
+) -> anyhow::Result<Vec<PathBuf>> {
     if original_paths.is_empty() {
         return Ok(Vec::new());
     }
@@ -155,8 +163,11 @@ pub fn recycle_shell_paths_for_originals(original_paths: &[PathBuf]) -> anyhow::
 unsafe fn recycle_shell_paths_for_originals_inner(
     original_paths: &[PathBuf],
 ) -> anyhow::Result<Vec<PathBuf>> {
-    let recycle_bin: IShellItem =
-        SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, HANDLE::default())?;
+    let recycle_bin: IShellItem = SHGetKnownFolderItem(
+        &FOLDERID_RecycleBinFolder,
+        KF_FLAG_DEFAULT,
+        HANDLE::default(),
+    )?;
     let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
 
     let mut requested: std::collections::HashSet<PathBuf> = original_paths
@@ -232,10 +243,8 @@ unsafe fn restore_recycle_bin_items_inner(paths: &[PathBuf]) -> anyhow::Result<(
 
 unsafe fn restore_one_item(pfo: &IFileOperation, path: &Path) -> anyhow::Result<()> {
     let wide = path_to_wide(path);
-    let trash_item: IShellItem = SHCreateItemFromParsingName(
-        windows::core::PCWSTR(wide.as_ptr()),
-        None,
-    )?;
+    let trash_item: IShellItem =
+        SHCreateItemFromParsingName(windows::core::PCWSTR(wide.as_ptr()), None)?;
     let item2: IShellItem2 = trash_item.cast()?;
 
     let original_location = PropVariantToBSTR(&item2.GetProperty(&SCID_ORIGINAL_LOCATION)?)?;

@@ -1,13 +1,19 @@
-use std::{cell::Cell, ops::Deref, panic::Location, rc::Rc, time::{Duration, Instant}};
-
-use gpui_component::{scroll::ScrollbarShow, ActiveTheme, AxisExt};
-use gpui::{
-    Anchor, App, Axis, BorderStyle, Bounds, ContentMask, CursorStyle, Edges, Element, ElementId,
-    GlobalElementId, Hitbox, HitboxBehavior, Hsla, InspectorElementId, IntoElement, IsZero,
-    LayoutId, ListState, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
-    Position, ScrollHandle, ScrollWheelEvent, Size, Style, UniformListScrollHandle, Window, fill,
-    point, px, relative, size,
+use std::{
+    cell::Cell,
+    ops::Deref,
+    panic::Location,
+    rc::Rc,
+    time::{Duration, Instant},
 };
+
+use gpui::{
+    fill, point, px, relative, size, Anchor, App, Axis, BorderStyle, Bounds, ContentMask,
+    CursorStyle, Edges, Element, ElementId, GlobalElementId, Hitbox, HitboxBehavior, Hsla,
+    InspectorElementId, IntoElement, IsZero, LayoutId, ListState, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, PaintQuad, Pixels, Point, Position, ScrollHandle, ScrollWheelEvent, Size, Style,
+    UniformListScrollHandle, Window,
+};
+use gpui_component::{scroll::ScrollbarShow, ActiveTheme, AxisExt};
 /// Popup menu scrollbar track width (THUMB_ACTIVE_INSET * 2 + THUMB_ACTIVE_WIDTH).
 pub const MENU_SCROLLBAR_WIDTH: Pixels = px(10.);
 /// Gap between menu item rows and the scrollbar track.
@@ -724,8 +730,8 @@ impl Element for MenuScrollbar {
         let scrollbar_show = self.scrollbar_show.unwrap_or(cx.theme().scrollbar_show);
         let view_id = window.current_view();
         let hitbox_bounds = prepaint.hitbox.bounds;
-        let is_visible =
-            scrollbar_state.get().is_scrollbar_visible() || scrollbar_show_is_always(scrollbar_show);
+        let is_visible = scrollbar_state.get().is_scrollbar_visible()
+            || scrollbar_show_is_always(scrollbar_show);
         let is_hover_to_show = scrollbar_show_is_hover(scrollbar_show);
 
         // Update last_scroll_time when offset is changed.

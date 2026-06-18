@@ -37,12 +37,7 @@ pub fn is_image_path(path: &Path) -> bool {
 pub fn is_text_preview_path(path: &Path) -> bool {
     matches!(
         preview_kind(path),
-        Some(
-            PreviewKind::Markdown
-                | PreviewKind::Html
-                | PreviewKind::Code
-                | PreviewKind::Text
-        )
+        Some(PreviewKind::Markdown | PreviewKind::Html | PreviewKind::Code | PreviewKind::Text)
     )
 }
 
@@ -67,9 +62,9 @@ pub fn preview_kind(path: &Path) -> Option<PreviewKind> {
         Some("md") => Some(PreviewKind::Markdown),
         Some("html" | "htm") => Some(PreviewKind::Html),
         Some(
-            "json" | "xml" | "yaml" | "yml" | "toml" | "rs" | "css" | "js" | "ts" | "tsx"
-            | "jsx" | "py" | "c" | "cpp" | "h" | "hpp" | "cs" | "java" | "gradle" | "go" | "sql"
-            | "sh" | "bat" | "ps1",
+            "json" | "xml" | "yaml" | "yml" | "toml" | "rs" | "css" | "js" | "ts" | "tsx" | "jsx"
+            | "py" | "c" | "cpp" | "h" | "hpp" | "cs" | "java" | "gradle" | "go" | "sql" | "sh"
+            | "bat" | "ps1",
         ) => Some(PreviewKind::Code),
         Some("txt" | "log" | "csv" | "ini" | "cfg") => Some(PreviewKind::Text),
         Some("pdf") => Some(PreviewKind::Pdf),

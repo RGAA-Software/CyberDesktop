@@ -2,18 +2,18 @@
 
 mod clipboard;
 mod close_confirm;
+mod context_menu;
 mod core;
 mod disk_watch;
 mod editing;
-mod context_menu;
-mod fold;
 mod file_io;
 mod find;
+mod fold;
 mod goto;
 mod keyboard;
-mod panel_drag;
 mod mouse_scroll;
 mod movement;
+mod panel_drag;
 mod recent;
 mod search_panel;
 mod selection;

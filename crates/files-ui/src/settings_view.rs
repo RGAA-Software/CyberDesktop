@@ -4,6 +4,7 @@ use gpui::{
     div, prelude::FluentBuilder, px, rgb, Anchor, App, AppContext, Entity, InteractiveElement,
     IntoElement, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window,
 };
+use gpui_component::popover::Popover;
 use gpui_component::{
     button::Button,
     group_box::GroupBoxVariant,
@@ -11,10 +12,9 @@ use gpui_component::{
     input::{Input, InputEvent, InputState},
     label::Label,
     setting::{RenderOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
-    v_flex, ActiveTheme as _, AxisExt as _, IconName, Sizable as _, Size, ThemeMode,
-    StyledExt as _,
+    v_flex, ActiveTheme as _, AxisExt as _, IconName, Sizable as _, Size, StyledExt as _,
+    ThemeMode,
 };
-use gpui_component::popover::Popover;
 use rust_i18n::t;
 
 fn ts(text: impl AsRef<str>) -> SharedString {
@@ -24,28 +24,26 @@ fn ts(text: impl AsRef<str>) -> SharedString {
 use crate::app_state::AppNavigation;
 use crate::icons::{folder_icon, home_icon, sidebar_icon, tabs_icon};
 use crate::shell::preferences::{
-    add_file_tag, apply_border_radius, apply_context_menu_shell_submenu,
+    add_file_tag, always_open_dual_pane_in_new_tab, apply_always_open_dual_pane_in_new_tab,
+    apply_auto_restore_tabs, apply_border_radius, apply_context_menu_shell_submenu,
     apply_context_menu_show_compress, apply_context_menu_show_create_shortcut,
-    apply_context_menu_show_extract, apply_context_menu_show_file_tags, apply_context_menu_show_open_in_terminal,
-    apply_context_menu_show_pin, apply_context_menu_show_send_to, apply_font_size,
+    apply_context_menu_show_extract, apply_context_menu_show_file_tags,
+    apply_context_menu_show_open_in_terminal, apply_context_menu_show_pin,
+    apply_context_menu_show_send_to, apply_disable_direct_composition, apply_font_size,
     apply_home_widget_drives, apply_home_widget_file_tags, apply_home_widget_network,
     apply_home_widget_quick_access, apply_home_widget_recent, apply_locale,
-    apply_always_open_dual_pane_in_new_tab, apply_auto_restore_tabs, apply_shell_pane_arrangement,
-    apply_show_open_in_new_pane, always_open_dual_pane_in_new_tab, shell_pane_arrangement,
-    show_open_in_new_pane,
-    apply_disable_direct_composition,
-    apply_open_media_with_cybermediaplayer,
-    apply_open_text_with_cybereditor, apply_scrollbar_show,
-    apply_sidebar_display_mode, apply_sidebar_section_cloud, apply_sidebar_section_drives,
-    apply_sidebar_section_file_tags, apply_sidebar_section_library, apply_sidebar_section_network,
-    apply_sidebar_section_pinned, apply_sidebar_section_wsl, apply_theme_mode, apply_theme_name,
+    apply_open_media_with_cybermediaplayer, apply_open_text_with_cybereditor, apply_scrollbar_show,
+    apply_shell_pane_arrangement, apply_show_open_in_new_pane, apply_sidebar_display_mode,
+    apply_sidebar_section_cloud, apply_sidebar_section_drives, apply_sidebar_section_file_tags,
+    apply_sidebar_section_library, apply_sidebar_section_network, apply_sidebar_section_pinned,
+    apply_sidebar_section_wsl, apply_theme_mode, apply_theme_name, auto_restore_tabs,
     context_menu_shell_submenu, context_menu_show_compress, context_menu_show_create_shortcut,
-    context_menu_show_extract, context_menu_show_file_tags, context_menu_show_open_in_terminal, context_menu_show_pin,
-    context_menu_show_send_to, current_locale, home_widget_drives, home_widget_file_tags,
-    disable_direct_composition, home_widget_network, home_widget_quick_access, home_widget_recent, open_media_with_cybermediaplayer, open_text_with_cybereditor,
-    auto_restore_tabs,
-    remove_file_tag, set_file_tag_color,
-    scrollbar_show_from_key, scrollbar_show_key, set_list_active_highlight, sidebar_display_mode,
+    context_menu_show_extract, context_menu_show_file_tags, context_menu_show_open_in_terminal,
+    context_menu_show_pin, context_menu_show_send_to, current_locale, disable_direct_composition,
+    home_widget_drives, home_widget_file_tags, home_widget_network, home_widget_quick_access,
+    home_widget_recent, open_media_with_cybermediaplayer, open_text_with_cybereditor,
+    remove_file_tag, scrollbar_show_from_key, scrollbar_show_key, set_file_tag_color,
+    set_list_active_highlight, shell_pane_arrangement, show_open_in_new_pane, sidebar_display_mode,
     sidebar_section_cloud, sidebar_section_drives, sidebar_section_file_tags,
     sidebar_section_library, sidebar_section_network, sidebar_section_pinned, sidebar_section_wsl,
 };
@@ -267,10 +265,7 @@ fn dual_pane_shortcuts_settings_item() -> SettingItem {
 }
 
 fn search_reference_line(label: SharedString) -> impl IntoElement {
-    div()
-        .w_full()
-        .py_1()
-        .child(Label::new(label).text_sm())
+    div().w_full().py_1().child(Label::new(label).text_sm())
 }
 
 fn search_reference_section(title: SharedString) -> impl IntoElement {
@@ -293,92 +288,87 @@ fn search_settings_group() -> SettingGroup {
                         .text_sm()
                         .text_color(cx.theme().muted_foreground),
                 )
-                .child(search_reference_section(ts(t!("settings.search.section.shortcuts"))))
-                .child(search_reference_line(
-                    ts(t!(
-                        "settings.search.item.global_mode",
-                        key = ctrl_f.as_str()
-                    )),
-                ))
-                .child(search_reference_line(
-                    ts(t!(
-                        "settings.search.item.path_mode",
-                        key = ctrl_l.as_str()
-                    )),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.submit")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.history_up_down")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.history_tab")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.esc_mode")),
-                ))
-                .child(search_reference_line(
-                    ts(t!(
-                        "settings.search.item.esc_back",
-                        key = back.as_str()
-                    )),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.refresh", key = f5.as_str())),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.list_filter")),
-                ))
-                .child(search_reference_section(ts(t!("settings.search.section.syntax"))))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.plain")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.tag")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.aqs")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.aqs_fallback")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.aqs_examples")),
-                ))
-                .child(search_reference_section(ts(t!("settings.search.section.scope"))))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.scope_folder")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.scope_home")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.scope_repeat")),
-                ))
-                .child(search_reference_section(ts(t!("settings.search.section.results"))))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.results_sort")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.results_open")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.results_breadcrumb")),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.results_status")),
-                ))
-                .child(search_reference_section(ts(t!("settings.search.section.history"))))
-                .child(search_reference_line(
-                    ts(t!(
-                        "settings.search.item.history_panel",
-                        key = ctrl_f.as_str()
-                    )),
-                ))
-                .child(search_reference_line(
-                    ts(t!("settings.search.item.history_save")),
-                ))
+                .child(search_reference_section(ts(t!(
+                    "settings.search.section.shortcuts"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.global_mode",
+                    key = ctrl_f.as_str()
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.path_mode",
+                    key = ctrl_l.as_str()
+                ))))
+                .child(search_reference_line(ts(t!("settings.search.item.submit"))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.history_up_down"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.history_tab"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.esc_mode"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.esc_back",
+                    key = back.as_str()
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.refresh",
+                    key = f5.as_str()
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.list_filter"
+                ))))
+                .child(search_reference_section(ts(t!(
+                    "settings.search.section.syntax"
+                ))))
+                .child(search_reference_line(ts(t!("settings.search.item.plain"))))
+                .child(search_reference_line(ts(t!("settings.search.item.tag"))))
+                .child(search_reference_line(ts(t!("settings.search.item.aqs"))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.aqs_fallback"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.aqs_examples"
+                ))))
+                .child(search_reference_section(ts(t!(
+                    "settings.search.section.scope"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.scope_folder"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.scope_home"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.scope_repeat"
+                ))))
+                .child(search_reference_section(ts(t!(
+                    "settings.search.section.results"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.results_sort"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.results_open"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.results_breadcrumb"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.results_status"
+                ))))
+                .child(search_reference_section(ts(t!(
+                    "settings.search.section.history"
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.history_panel",
+                    key = ctrl_f.as_str()
+                ))))
+                .child(search_reference_line(ts(t!(
+                    "settings.search.item.history_save"
+                ))))
         }))
 }
 
@@ -487,11 +477,7 @@ fn tag_color_dot(color: Option<&str>) -> impl IntoElement {
         .and_then(parse_tag_color_hex)
         .map(rgb)
         .unwrap_or(rgb(0x54_6E_7A));
-    div()
-        .size(px(10.))
-        .rounded_full()
-        .flex_none()
-        .bg(fill)
+    div().size(px(10.)).rounded_full().flex_none().bg(fill)
 }
 
 const TAG_COLOR_SWATCH: f32 = 20.;
@@ -517,38 +503,41 @@ fn render_tag_color_picker_button(
                     .label(ts(t!("settings.tags.change_color"))),
             )
             .content(move |_, _, cx| {
-            let tag_name = name_for_grid.clone();
-            let current_for_grid = current_for_grid.clone();
-            h_flex()
-                .gap(px(TAG_COLOR_GAP))
-                .flex_wrap()
-                .w(px(TAG_COLOR_PANEL_WIDTH))
-                .children(TAG_COLOR_PRESETS.iter().enumerate().map(
-                    |(color_ix, preset)| {
-                        let tag_name = tag_name.clone();
-                        let preset = (*preset).to_string();
-                        let selected = current_for_grid.as_deref() == Some(preset.as_str());
-                        let swatch = parse_tag_color_hex(&preset)
-                            .map(rgb)
-                            .unwrap_or(rgb(0x54_6E_7A));
-                        div()
-                            .id(("tag-color-pick", index * 100 + color_ix))
-                            .size(px(TAG_COLOR_SWATCH))
-                            .rounded_full()
-                            .bg(swatch)
-                            .cursor_pointer()
-                            .border_2()
-                            .border_color(if selected {
-                                cx.theme().primary
-                            } else {
-                                cx.theme().border
-                            })
-                            .on_click(move |_, _, cx| {
-                                set_file_tag_color(&tag_name, Some(preset.clone()), cx);
-                            })
-                    },
-                ))
-        }),
+                let tag_name = name_for_grid.clone();
+                let current_for_grid = current_for_grid.clone();
+                h_flex()
+                    .gap(px(TAG_COLOR_GAP))
+                    .flex_wrap()
+                    .w(px(TAG_COLOR_PANEL_WIDTH))
+                    .children(
+                        TAG_COLOR_PRESETS
+                            .iter()
+                            .enumerate()
+                            .map(|(color_ix, preset)| {
+                                let tag_name = tag_name.clone();
+                                let preset = (*preset).to_string();
+                                let selected = current_for_grid.as_deref() == Some(preset.as_str());
+                                let swatch = parse_tag_color_hex(&preset)
+                                    .map(rgb)
+                                    .unwrap_or(rgb(0x54_6E_7A));
+                                div()
+                                    .id(("tag-color-pick", index * 100 + color_ix))
+                                    .size(px(TAG_COLOR_SWATCH))
+                                    .rounded_full()
+                                    .bg(swatch)
+                                    .cursor_pointer()
+                                    .border_2()
+                                    .border_color(if selected {
+                                        cx.theme().primary
+                                    } else {
+                                        cx.theme().border
+                                    })
+                                    .on_click(move |_, _, cx| {
+                                        set_file_tag_color(&tag_name, Some(preset.clone()), cx);
+                                    })
+                            }),
+                    )
+            }),
     )
 }
 
@@ -945,12 +934,15 @@ pub fn build_settings(cx: &App) -> Settings {
                             .description(ts(t!("settings.dual_pane.arrangement.description"))),
                             SettingItem::new(
                                 ts(t!("settings.dual_pane.show_open_in_new_pane")),
-                                SettingField::switch(show_open_in_new_pane, apply_show_open_in_new_pane)
-                                    .default_value(show_open_in_new_pane(cx)),
+                                SettingField::switch(
+                                    show_open_in_new_pane,
+                                    apply_show_open_in_new_pane,
+                                )
+                                .default_value(show_open_in_new_pane(cx)),
                             )
-                            .description(ts(
-                                t!("settings.dual_pane.show_open_in_new_pane.description"),
-                            )),
+                            .description(ts(t!(
+                                "settings.dual_pane.show_open_in_new_pane.description"
+                            ))),
                             dual_pane_shortcuts_settings_item(),
                         ]),
                 ]),

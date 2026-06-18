@@ -8,8 +8,8 @@ use super::{
     AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo, EditorUndo, ExitEditor,
     FindInFiles, FindNext, FindPrevious, FindText, GoToLine, IndentSelection, KeyboardShortcuts,
     NewFile, OpenFile, OutdentSelection, ReplaceAllText, ReplaceText, SaveFile, SaveFileAs,
-    SelectAll, ToggleComment, ToggleLineNumbers, ToggleSoftWrap, ToggleMarkdownPreview,
-    ToggleFullMarkdownPreview,
+    SelectAll, ToggleComment, ToggleFullMarkdownPreview, ToggleLineNumbers, ToggleMarkdownPreview,
+    ToggleSoftWrap,
 };
 
 struct EditorMenuState {
@@ -66,7 +66,8 @@ pub fn reload(cx: &mut App) {
     let line_numbers_checked = cx.global::<EditorMenuState>().line_numbers_checked;
     let soft_wrap_checked = cx.global::<EditorMenuState>().soft_wrap_checked;
     let markdown_preview_checked = cx.global::<EditorMenuState>().markdown_preview_checked;
-    let full_markdown_preview_checked = cx.global::<EditorMenuState>().full_markdown_preview_checked;
+    let full_markdown_preview_checked =
+        cx.global::<EditorMenuState>().full_markdown_preview_checked;
     cx.set_menus(build_menus(
         line_numbers_checked,
         soft_wrap_checked,
@@ -117,31 +118,73 @@ fn build_menus(
         Menu {
             name: menu_title(SharedString::from(t!("editor.menu.edit")), 'E'),
             items: vec![
-                MenuItem::os_action(SharedString::from(t!("editor.menu.undo")), EditorUndo, OsAction::Undo),
-                MenuItem::os_action(SharedString::from(t!("editor.menu.redo")), EditorRedo, OsAction::Redo),
+                MenuItem::os_action(
+                    SharedString::from(t!("editor.menu.undo")),
+                    EditorUndo,
+                    OsAction::Undo,
+                ),
+                MenuItem::os_action(
+                    SharedString::from(t!("editor.menu.redo")),
+                    EditorRedo,
+                    OsAction::Redo,
+                ),
                 MenuItem::separator(),
-                MenuItem::os_action(SharedString::from(t!("editor.menu.cut")), EditorCut, OsAction::Cut),
-                MenuItem::os_action(SharedString::from(t!("editor.menu.copy")), EditorCopy, OsAction::Copy),
-                MenuItem::os_action(SharedString::from(t!("editor.menu.paste")), EditorPaste, OsAction::Paste),
+                MenuItem::os_action(
+                    SharedString::from(t!("editor.menu.cut")),
+                    EditorCut,
+                    OsAction::Cut,
+                ),
+                MenuItem::os_action(
+                    SharedString::from(t!("editor.menu.copy")),
+                    EditorCopy,
+                    OsAction::Copy,
+                ),
+                MenuItem::os_action(
+                    SharedString::from(t!("editor.menu.paste")),
+                    EditorPaste,
+                    OsAction::Paste,
+                ),
                 MenuItem::separator(),
                 MenuItem::action(SharedString::from(t!("editor.menu.find")), FindText),
-                MenuItem::action(SharedString::from(t!("editor.menu.find_in_file")), FindInFiles),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.find_in_file")),
+                    FindInFiles,
+                ),
                 MenuItem::action(SharedString::from(t!("editor.menu.replace")), ReplaceText),
-                MenuItem::action(SharedString::from(t!("editor.menu.replace_all")), ReplaceAllText),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.replace_all")),
+                    ReplaceAllText,
+                ),
                 MenuItem::separator(),
                 MenuItem::action(SharedString::from(t!("editor.menu.find_next")), FindNext),
-                MenuItem::action(SharedString::from(t!("editor.menu.find_previous")), FindPrevious),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.find_previous")),
+                    FindPrevious,
+                ),
             ],
             disabled: false,
         },
         Menu {
             name: menu_title(SharedString::from(t!("editor.menu.selection")), 'S'),
             items: vec![
-                MenuItem::os_action(SharedString::from(t!("editor.menu.select_all")), SelectAll, OsAction::SelectAll),
+                MenuItem::os_action(
+                    SharedString::from(t!("editor.menu.select_all")),
+                    SelectAll,
+                    OsAction::SelectAll,
+                ),
                 MenuItem::separator(),
-                MenuItem::action(SharedString::from(t!("editor.menu.toggle_comment")), ToggleComment),
-                MenuItem::action(SharedString::from(t!("editor.menu.indent")), IndentSelection),
-                MenuItem::action(SharedString::from(t!("editor.menu.outdent")), OutdentSelection),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.toggle_comment")),
+                    ToggleComment,
+                ),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.indent")),
+                    IndentSelection,
+                ),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.outdent")),
+                    OutdentSelection,
+                ),
             ],
             disabled: false,
         },
@@ -150,21 +193,36 @@ fn build_menus(
             items: vec![
                 MenuItem::action(SharedString::from(t!("editor.menu.go_to_line")), GoToLine),
                 MenuItem::separator(),
-                MenuItem::action(SharedString::from(t!("editor.menu.line_numbers")), ToggleLineNumbers)
-                    .checked(line_numbers_checked),
-                MenuItem::action(SharedString::from(t!("editor.menu.word_wrap")), ToggleSoftWrap)
-                    .checked(soft_wrap_checked),
-                MenuItem::action(SharedString::from(t!("editor.menu.markdown_preview")), ToggleMarkdownPreview)
-                    .checked(markdown_preview_checked),
-                MenuItem::action(SharedString::from(t!("editor.menu.full_markdown_preview")), ToggleFullMarkdownPreview)
-                    .checked(full_markdown_preview_checked),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.line_numbers")),
+                    ToggleLineNumbers,
+                )
+                .checked(line_numbers_checked),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.word_wrap")),
+                    ToggleSoftWrap,
+                )
+                .checked(soft_wrap_checked),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.markdown_preview")),
+                    ToggleMarkdownPreview,
+                )
+                .checked(markdown_preview_checked),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.full_markdown_preview")),
+                    ToggleFullMarkdownPreview,
+                )
+                .checked(full_markdown_preview_checked),
             ],
             disabled: false,
         },
         Menu {
             name: menu_title(SharedString::from(t!("editor.menu.help")), 'H'),
             items: vec![
-                MenuItem::action(SharedString::from(t!("editor.menu.keyboard_shortcuts")), KeyboardShortcuts),
+                MenuItem::action(
+                    SharedString::from(t!("editor.menu.keyboard_shortcuts")),
+                    KeyboardShortcuts,
+                ),
                 MenuItem::separator(),
                 MenuItem::action(SharedString::from(t!("editor.menu.about")), AboutEditor),
             ],

@@ -1,12 +1,17 @@
 use files_fs::{parse_tag_color_hex, TagRef};
-use gpui::{div, px, prelude::*, AnyElement, App, Hsla, Styled};
+use gpui::{div, prelude::*, px, AnyElement, App, Hsla, Styled};
 use gpui_component::{h_flex, ActiveTheme as _};
 
 const MAX_VISIBLE_TAGS: usize = 3;
 const DEFAULT_TAG_COLOR: u32 = 0x54_6E_7A;
 
 pub(super) fn tag_color(color: Option<&str>) -> Hsla {
-    gpui::rgb(color.and_then(parse_tag_color_hex).unwrap_or(DEFAULT_TAG_COLOR)).into()
+    gpui::rgb(
+        color
+            .and_then(parse_tag_color_hex)
+            .unwrap_or(DEFAULT_TAG_COLOR),
+    )
+    .into()
 }
 
 pub(super) fn render_tag_badges(tags: &[TagRef], cx: &App) -> AnyElement {

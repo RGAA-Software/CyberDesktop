@@ -26,12 +26,8 @@ impl EditorColors {
                 .editor_background
                 .unwrap_or_else(|| theme.input_background()),
             foreground: style.editor_foreground.unwrap_or(theme.foreground),
-            line_number: style
-                .editor_line_number
-                .unwrap_or(theme.muted_foreground),
-            active_line_number: style
-                .editor_active_line_number
-                .unwrap_or(theme.foreground),
+            line_number: style.editor_line_number.unwrap_or(theme.muted_foreground),
+            active_line_number: style.editor_active_line_number.unwrap_or(theme.foreground),
             gutter_hover: theme.list_hover,
             selection,
             occurrence: selection.alpha((selection.a * 0.45).min(0.35)),

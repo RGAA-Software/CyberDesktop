@@ -48,7 +48,10 @@ fn bench_large_sparse() {
 }
 
 fn make_dense(needle: &str, spacing: usize, target_bytes: usize) -> String {
-    let unit = format!("{needle}{}", "x".repeat(spacing.saturating_sub(needle.len())));
+    let unit = format!(
+        "{needle}{}",
+        "x".repeat(spacing.saturating_sub(needle.len()))
+    );
     let reps = target_bytes / unit.len().max(1);
     unit.repeat(reps)
 }

@@ -5,12 +5,10 @@ use std::sync::Mutex;
 
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Controls::WM_MOUSELEAVE;
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT,
-};
+use windows::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetAncestor, SetWindowsHookExW, UnhookWindowsHookEx, GA_ROOT, HC_ACTION,
-    HHOOK, MSG, WH_CALLWNDPROC,
+    CallNextHookEx, GetAncestor, SetWindowsHookExW, UnhookWindowsHookEx, GA_ROOT, HC_ACTION, HHOOK,
+    MSG, WH_CALLWNDPROC,
 };
 
 use crate::drag_out::root_window_hwnd;

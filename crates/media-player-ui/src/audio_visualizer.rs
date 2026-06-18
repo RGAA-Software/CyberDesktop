@@ -1,4 +1,7 @@
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -8,9 +11,8 @@ use tracing::{error, info};
 
 #[cfg(windows)]
 use windows::Win32::Media::Audio::{
-    eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator,
-    AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, MMDeviceEnumerator,
-    WAVEFORMATEXTENSIBLE, WAVE_FORMAT_PCM,
+    eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator, MMDeviceEnumerator,
+    AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, WAVEFORMATEXTENSIBLE, WAVE_FORMAT_PCM,
 };
 #[cfg(windows)]
 use windows::Win32::Media::Multimedia::WAVE_FORMAT_IEEE_FLOAT as MM_WAVE_FORMAT_IEEE_FLOAT;
@@ -75,8 +77,9 @@ fn run_loopback_capture(
             .ok()
             .map_err(|e| anyhow::anyhow!("CoInitializeEx failed: {e}"))?;
 
-        let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
-            .map_err(|e| anyhow::anyhow!("CoCreateInstance MMDeviceEnumerator failed: {e}"))?;
+        let enumerator: IMMDeviceEnumerator =
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+                .map_err(|e| anyhow::anyhow!("CoCreateInstance MMDeviceEnumerator failed: {e}"))?;
 
         let device = enumerator
             .GetDefaultAudioEndpoint(eRender, eConsole)
@@ -132,8 +135,18 @@ fn run_loopback_capture(
         let block_align = mix_format.nBlockAlign;
         let n_channels_val = mix_format.nChannels;
         const WAVE_FORMAT_EXTENSIBLE: u16 = 0xFFFE;
-        let subtype_ieee_float = windows::core::GUID::from_values(0x00000003, 0x0000, 0x0010, [0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71]);
-        let subtype_pcm = windows::core::GUID::from_values(0x00000001, 0x0000, 0x0010, [0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71]);
+        let subtype_ieee_float = windows::core::GUID::from_values(
+            0x00000003,
+            0x0000,
+            0x0010,
+            [0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71],
+        );
+        let subtype_pcm = windows::core::GUID::from_values(
+            0x00000001,
+            0x0000,
+            0x0010,
+            [0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71],
+        );
         let (mut is_float, mut is_16bit) = if format_tag == WAVE_FORMAT_PCM as u16 {
             (false, true)
         } else if format_tag == MM_WAVE_FORMAT_IEEE_FLOAT as u16 {
@@ -196,7 +209,8 @@ fn run_loopback_capture(
                 if !data_ptr.is_null() && frames_available > 0 {
                     let sample_count = frames_available as usize * channels;
                     if is_float {
-                        let samples = std::slice::from_raw_parts(data_ptr as *const f32, sample_count);
+                        let samples =
+                            std::slice::from_raw_parts(data_ptr as *const f32, sample_count);
                         for frame in 0..frames_available as usize {
                             let mut sum = 0.0f32;
                             for ch in 0..channels {
@@ -205,7 +219,8 @@ fn run_loopback_capture(
                             sample_buffer.push(sum / channels as f32);
                         }
                     } else if is_16bit {
-                        let samples = std::slice::from_raw_parts(data_ptr as *const i16, sample_count);
+                        let samples =
+                            std::slice::from_raw_parts(data_ptr as *const i16, sample_count);
                         for frame in 0..frames_available as usize {
                             let mut sum = 0.0f32;
                             for ch in 0..channels {

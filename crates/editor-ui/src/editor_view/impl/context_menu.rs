@@ -1,8 +1,8 @@
 //! Editor right-click context menu.
 
 use gpui::{
-    Anchor, App, Context, DismissEvent, Entity, MouseDownEvent, Point, Subscription, WeakEntity,
-    Window, anchored, deferred, px,
+    anchored, deferred, px, Anchor, App, Context, DismissEvent, Entity, MouseDownEvent, Point,
+    Subscription, WeakEntity, Window,
 };
 
 use app_ui::{PopupMenu, PopupMenuItem};
@@ -27,9 +27,8 @@ impl EngineEditor {
         let idx = self.index_for_position(event.position);
         let primary = self.document.selections().primary();
         // Preserve the selection when right-clicking inside it (VS Code-style).
-        let inside_selection = !primary.is_empty()
-            && idx >= primary.start()
-            && idx <= primary.end();
+        let inside_selection =
+            !primary.is_empty() && idx >= primary.start() && idx <= primary.end();
         if !inside_selection {
             self.document.set_caret(idx);
         }
@@ -53,11 +52,7 @@ impl EngineEditor {
     }
 
     /// Build `PopupMenu` outside any `EngineEditor::update` (avoids `double_lease_panic`).
-    fn install_context_menu(
-        editor_handle: &WeakEntity<Self>,
-        window: &mut Window,
-        cx: &mut App,
-    ) {
+    fn install_context_menu(editor_handle: &WeakEntity<Self>, window: &mut Window, cx: &mut App) {
         let Some(editor_entity) = editor_handle.upgrade() else {
             return;
         };
@@ -148,8 +143,8 @@ fn build_editor_context_menu(
         .buffer()
         .char_to_position(snapshot.document.selections().primary().head)
         .line;
-    let can_fold = snapshot.crease_at(caret_line).is_some()
-        || snapshot.is_folded_header(caret_line);
+    let can_fold =
+        snapshot.crease_at(caret_line).is_some() || snapshot.is_folded_header(caret_line);
     let has_folds = !snapshot.active_folds.is_empty();
 
     menu = menu
@@ -217,44 +212,36 @@ fn build_editor_context_menu(
                 }),
         )
         .separator()
-        .item(
-            PopupMenuItem::new(t!("editor.menu.select_all")).on_click({
-                let editor = editor.clone();
-                move |_, _, cx| {
-                    editor.update(cx, |this, cx| {
-                        this.document.select_all();
-                        this.changed(cx);
-                    });
-                }
-            }),
-        )
-        .item(
-            PopupMenuItem::new(t!("editor.menu.select_line")).on_click({
-                let editor = editor.clone();
-                move |_, _, cx| {
-                    editor.update(cx, |this, cx| {
-                        this.select_line(cx);
-                    });
-                }
-            }),
-        )
+        .item(PopupMenuItem::new(t!("editor.menu.select_all")).on_click({
+            let editor = editor.clone();
+            move |_, _, cx| {
+                editor.update(cx, |this, cx| {
+                    this.document.select_all();
+                    this.changed(cx);
+                });
+            }
+        }))
+        .item(PopupMenuItem::new(t!("editor.menu.select_line")).on_click({
+            let editor = editor.clone();
+            move |_, _, cx| {
+                editor.update(cx, |this, cx| {
+                    this.select_line(cx);
+                });
+            }
+        }))
         .separator()
-        .item(
-            PopupMenuItem::new(t!("editor.menu.find")).on_click({
-                let editor = editor.clone();
-                move |_, window, cx| {
-                    editor.update(cx, |this, cx| this.open_find(false, window, cx));
-                }
-            }),
-        )
-        .item(
-            PopupMenuItem::new(t!("editor.menu.go_to_line")).on_click({
-                let editor = editor.clone();
-                move |_, window, cx| {
-                    editor.update(cx, |this, cx| this.open_goto(window, cx));
-                }
-            }),
-        )
+        .item(PopupMenuItem::new(t!("editor.menu.find")).on_click({
+            let editor = editor.clone();
+            move |_, window, cx| {
+                editor.update(cx, |this, cx| this.open_find(false, window, cx));
+            }
+        }))
+        .item(PopupMenuItem::new(t!("editor.menu.go_to_line")).on_click({
+            let editor = editor.clone();
+            move |_, window, cx| {
+                editor.update(cx, |this, cx| this.open_goto(window, cx));
+            }
+        }))
         .item(
             PopupMenuItem::new(t!("editor.menu.toggle_comment")).on_click({
                 let editor = editor.clone();
@@ -276,16 +263,14 @@ fn build_editor_context_menu(
                     }
                 }),
         )
-        .item(
-            PopupMenuItem::new(t!("editor.menu.fold_all")).on_click({
-                let editor = editor.clone();
-                move |_, _, cx| {
-                    editor.update(cx, |this, cx| {
-                        this.fold_all(cx);
-                    });
-                }
-            }),
-        )
+        .item(PopupMenuItem::new(t!("editor.menu.fold_all")).on_click({
+            let editor = editor.clone();
+            move |_, _, cx| {
+                editor.update(cx, |this, cx| {
+                    this.fold_all(cx);
+                });
+            }
+        }))
         .item(
             PopupMenuItem::new(t!("editor.menu.unfold_all"))
                 .disabled(!has_folds)

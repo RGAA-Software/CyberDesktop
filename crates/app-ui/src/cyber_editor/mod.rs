@@ -3,10 +3,10 @@ mod editor_settings;
 mod file_dialog;
 mod preferences;
 
-pub use preferences::apply_theme_mode;
 pub use app_menus::{init_editor_menus, menu_bar as editor_menu_bar, set_view_toggles};
 pub use editor_settings::build_editor_settings;
 pub use file_dialog::{pick_open_file_path, pick_save_file_path};
+pub use preferences::apply_theme_mode;
 
 use gpui::{actions, App, KeyBinding};
 
@@ -103,7 +103,11 @@ pub fn init(cx: &mut App) {
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-m", ToggleMarkdownPreview, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
-        KeyBinding::new("alt-shift-m", ToggleFullMarkdownPreview, Some(EDITOR_CONTEXT)),
+        KeyBinding::new(
+            "alt-shift-m",
+            ToggleFullMarkdownPreview,
+            Some(EDITOR_CONTEXT),
+        ),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-shift-f", ToggleFold, Some(EDITOR_CONTEXT)),
         #[cfg(not(target_os = "macos"))]
@@ -163,7 +167,11 @@ pub fn init(cx: &mut App) {
         #[cfg(target_os = "macos")]
         KeyBinding::new("alt-m", ToggleMarkdownPreview, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]
-        KeyBinding::new("alt-shift-m", ToggleFullMarkdownPreview, Some(EDITOR_CONTEXT)),
+        KeyBinding::new(
+            "alt-shift-m",
+            ToggleFullMarkdownPreview,
+            Some(EDITOR_CONTEXT),
+        ),
         #[cfg(target_os = "macos")]
         KeyBinding::new("alt-shift-f", ToggleFold, Some(EDITOR_CONTEXT)),
         #[cfg(target_os = "macos")]

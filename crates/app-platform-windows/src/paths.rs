@@ -52,7 +52,11 @@ pub fn list_default_user_folders() -> Vec<DefaultUserFolder> {
         ),
         (DefaultUserFolderKind::Music, FOLDERID_MUSIC, "Music"),
         (DefaultUserFolderKind::Videos, FOLDERID_VIDEOS, "Videos"),
-        (DefaultUserFolderKind::Pictures, FOLDERID_PICTURES, "Pictures"),
+        (
+            DefaultUserFolderKind::Pictures,
+            FOLDERID_PICTURES,
+            "Pictures",
+        ),
     ];
     SPECS
         .iter()

@@ -11,10 +11,7 @@ fn open_filters() -> Vec<(String, Vec<&'static str>)> {
             t!("editor.file_filter.text_code").to_string(),
             cybereditor_dialog_extensions().to_vec(),
         ),
-        (
-            t!("editor.file_filter.all").to_string(),
-            vec!["*"],
-        ),
+        (t!("editor.file_filter.all").to_string(), vec!["*"]),
     ]
 }
 

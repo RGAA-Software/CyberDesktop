@@ -1,15 +1,12 @@
-use files_core::{
-    load_config, load_session_tabs, APP_NAME,
-};
+use files_core::{load_config, load_session_tabs, APP_NAME};
 use files_fs::OmnibarPathSuggestion;
 
 const MAX_CLOSED_TABS: usize = 12;
 use files_commands::{
-    CloseActivePane, CopyItems, CutItems, FocusOmnibar, FocusOtherPane, FocusSearch, NavigateBack,
-    NavigateForward, NavigateUp, PasteItems, ReopenClosedTab, RefreshDirectory, RedoOperation,
-    ArrangePanesHorizontally, ArrangePanesVertically, SelectAll, SplitPaneHorizontally,
-    SplitPaneVertically, ToggleDualPane, UndoOperation,
-    FILE_BROWSER,
+    ArrangePanesHorizontally, ArrangePanesVertically, CloseActivePane, CopyItems, CutItems,
+    FocusOmnibar, FocusOtherPane, FocusSearch, NavigateBack, NavigateForward, NavigateUp,
+    PasteItems, RedoOperation, RefreshDirectory, ReopenClosedTab, SelectAll, SplitPaneHorizontally,
+    SplitPaneVertically, ToggleDualPane, UndoOperation, FILE_BROWSER,
 };
 use gpui::{prelude::*, *};
 use gpui_component::{input::InputState, v_flex};
@@ -23,9 +20,9 @@ use crate::shell::ReopenClosedTabAt;
 use crate::shell::ShellPanes;
 use crate::sidebar::SidebarSection;
 
-mod omnibar;
 mod info;
 mod navigation;
+mod omnibar;
 mod render;
 mod render_shell;
 mod session;
@@ -101,35 +98,36 @@ impl MainPage {
         files_core::log_startup_step("main_page_load_session_tabs_begin");
         let session_tabs = load_session_tabs();
         files_core::log_startup_step("main_page_load_session_tabs_done");
-        let (tabs, active_tab, next_tab_id) = if !config.auto_restore_tabs || session_tabs.is_empty() {
-            files_core::log_startup_step("main_page_shell_panes_new_default_tab_begin");
-            let shell = cx.new(|cx| ShellPanes::new(cx, NavigationTarget::Home));
-            files_core::log_startup_step("main_page_shell_panes_new_default_tab_done");
-            (vec![TabEntry { id: 0, shell }], 0, 1)
-        } else {
-            let mut restored = Vec::with_capacity(session_tabs.len());
-            for (id, encoded) in session_tabs.iter().enumerate() {
-                let layout = config.session_pane_layouts.get(id).cloned();
-                let primary_target = layout
-                    .as_ref()
-                    .filter(|l| !l.primary_tab.is_empty())
-                    .map(|l| Self::decode_session_target(l.primary_tab.as_str()))
-                    .unwrap_or_else(|| Self::decode_session_target(encoded));
-                let shell = cx.new(|cx| {
-                    let mut shell = ShellPanes::new(cx, primary_target);
-                    if let Some(ref layout) = layout {
-                        shell.restore_layout(layout, Self::decode_session_target, cx);
-                    }
-                    shell
-                });
-                restored.push(TabEntry {
-                    id: id as u64,
-                    shell,
-                });
-            }
-            let next_id = restored.len() as u64;
-            (restored, 0, next_id)
-        };
+        let (tabs, active_tab, next_tab_id) =
+            if !config.auto_restore_tabs || session_tabs.is_empty() {
+                files_core::log_startup_step("main_page_shell_panes_new_default_tab_begin");
+                let shell = cx.new(|cx| ShellPanes::new(cx, NavigationTarget::Home));
+                files_core::log_startup_step("main_page_shell_panes_new_default_tab_done");
+                (vec![TabEntry { id: 0, shell }], 0, 1)
+            } else {
+                let mut restored = Vec::with_capacity(session_tabs.len());
+                for (id, encoded) in session_tabs.iter().enumerate() {
+                    let layout = config.session_pane_layouts.get(id).cloned();
+                    let primary_target = layout
+                        .as_ref()
+                        .filter(|l| !l.primary_tab.is_empty())
+                        .map(|l| Self::decode_session_target(l.primary_tab.as_str()))
+                        .unwrap_or_else(|| Self::decode_session_target(encoded));
+                    let shell = cx.new(|cx| {
+                        let mut shell = ShellPanes::new(cx, primary_target);
+                        if let Some(ref layout) = layout {
+                            shell.restore_layout(layout, Self::decode_session_target, cx);
+                        }
+                        shell
+                    });
+                    restored.push(TabEntry {
+                        id: id as u64,
+                        shell,
+                    });
+                }
+                let next_id = restored.len() as u64;
+                (restored, 0, next_id)
+            };
         let mut this = Self {
             focus_handle: cx.focus_handle(),
             tabs,
@@ -197,15 +195,24 @@ impl MainPage {
 
                 let mut last_drives: HashSet<PathBuf> = HashSet::new();
                 loop {
-                    cx.background_executor().timer(Duration::from_millis(1500)).await;
-                    let drives = cx.background_spawn(async move {
-                        files_fs::list_drives().into_iter().map(|d| d.path).collect::<HashSet<_>>()
-                    }).await;
+                    cx.background_executor()
+                        .timer(Duration::from_millis(1500))
+                        .await;
+                    let drives = cx
+                        .background_spawn(async move {
+                            files_fs::list_drives()
+                                .into_iter()
+                                .map(|d| d.path)
+                                .collect::<HashSet<_>>()
+                        })
+                        .await;
 
                     if !last_drives.is_empty() && drives != last_drives {
-                        let ok = page.update(cx, |page, cx| {
-                            page.on_drives_changed(cx);
-                        }).is_ok();
+                        let ok = page
+                            .update(cx, |page, cx| {
+                                page.on_drives_changed(cx);
+                            })
+                            .is_ok();
                         if !ok {
                             break;
                         }
@@ -232,7 +239,6 @@ impl MainPage {
         files_core::log_startup_step("main_page_view_done");
         page
     }
-
 }
 
 impl Focusable for MainPage {
@@ -315,7 +321,11 @@ impl Render for MainPage {
                 if this.omnibar_path_edit_active() || this.omnibar_search_mode_active() {
                     return;
                 }
-                if window.context_stack().iter().any(|ctx| ctx.contains("Input")) {
+                if window
+                    .context_stack()
+                    .iter()
+                    .any(|ctx| ctx.contains("Input"))
+                {
                     return;
                 }
                 this.refresh_active_view(cx);
@@ -327,7 +337,12 @@ impl Render for MainPage {
                 }
                 let browser = this.active_file_browser(cx);
                 let in_rename = browser.read(cx).is_renaming();
-                if !in_rename && window.context_stack().iter().any(|ctx| ctx.contains("Input")) {
+                if !in_rename
+                    && window
+                        .context_stack()
+                        .iter()
+                        .any(|ctx| ctx.contains("Input"))
+                {
                     return;
                 }
                 if !AppOperationHistory::can_undo(cx) || !this.file_navigation_active(cx) {
@@ -344,7 +359,12 @@ impl Render for MainPage {
                 }
                 let browser = this.active_file_browser(cx);
                 let in_rename = browser.read(cx).is_renaming();
-                if !in_rename && window.context_stack().iter().any(|ctx| ctx.contains("Input")) {
+                if !in_rename
+                    && window
+                        .context_stack()
+                        .iter()
+                        .any(|ctx| ctx.contains("Input"))
+                {
                     return;
                 }
                 if !AppOperationHistory::can_redo(cx) || !this.file_navigation_active(cx) {
@@ -362,7 +382,11 @@ impl Render for MainPage {
                 {
                     return;
                 }
-                if window.context_stack().iter().any(|ctx| ctx.contains("Input")) {
+                if window
+                    .context_stack()
+                    .iter()
+                    .any(|ctx| ctx.contains("Input"))
+                {
                     return;
                 }
                 let active_browser = this.active_file_browser(cx);
@@ -379,7 +403,11 @@ impl Render for MainPage {
                 {
                     return;
                 }
-                if window.context_stack().iter().any(|ctx| ctx.contains("Input")) {
+                if window
+                    .context_stack()
+                    .iter()
+                    .any(|ctx| ctx.contains("Input"))
+                {
                     return;
                 }
                 let active_browser = this.active_file_browser(cx);
@@ -396,7 +424,11 @@ impl Render for MainPage {
                 {
                     return;
                 }
-                if window.context_stack().iter().any(|ctx| ctx.contains("Input")) {
+                if window
+                    .context_stack()
+                    .iter()
+                    .any(|ctx| ctx.contains("Input"))
+                {
                     return;
                 }
                 let active_browser = this.active_file_browser(cx);
@@ -413,7 +445,11 @@ impl Render for MainPage {
                 {
                     return;
                 }
-                if window.context_stack().iter().any(|ctx| ctx.contains("Input")) {
+                if window
+                    .context_stack()
+                    .iter()
+                    .any(|ctx| ctx.contains("Input"))
+                {
                     return;
                 }
                 let active_browser = this.active_file_browser(cx);
@@ -449,7 +485,9 @@ impl Render for MainPage {
             .on_action(cx.listener(|this, _: &ArrangePanesHorizontally, _, cx| {
                 this.arrange_panes_horizontally(cx);
             }))
-            .when_some(self.tab_bar_popup_overlay(), |page, overlay| page.child(overlay))
+            .when_some(self.tab_bar_popup_overlay(), |page, overlay| {
+                page.child(overlay)
+            })
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 if this.omnibar_search_mode_active() {
                     this.on_omnibar_search_key_down(event, window, cx);

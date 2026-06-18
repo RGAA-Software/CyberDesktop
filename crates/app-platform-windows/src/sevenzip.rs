@@ -118,7 +118,10 @@ pub fn extract_in_process(
         .unwrap_or(1)
         .max(1);
 
-    let mut context = CallbackContext { cancel, on_progress };
+    let mut context = CallbackContext {
+        cancel,
+        on_progress,
+    };
     let mut error_buf = [0u16; 512];
 
     let code = unsafe {
@@ -142,7 +145,10 @@ pub fn extract_in_process(
     }
 
     let message = String::from_utf16_lossy(
-        &error_buf[..error_buf.iter().position(|&c| c == 0).unwrap_or(error_buf.len())],
+        &error_buf[..error_buf
+            .iter()
+            .position(|&c| c == 0)
+            .unwrap_or(error_buf.len())],
     );
     Err(match code {
         1 => SevenZipExtractError::Cancelled,

@@ -26,9 +26,7 @@ pub(super) fn localized_group_title(key: &str, fallback: &str) -> String {
         "type:other" => t!("files.group.type.other").into_owned(),
         "type:file" => t!("files.group.type.file").into_owned(),
         _ if key.starts_with("date:year:") => key["date:year:".len()..].to_string(),
-        _ if key.starts_with("date:month:") => {
-            format_month_year_key(&key["date:month:".len()..])
-        }
+        _ if key.starts_with("date:month:") => format_month_year_key(&key["date:month:".len()..]),
         _ if key.starts_with("date:day:") => format_long_date_key(&key["date:day:".len()..]),
         _ if key.starts_with("type:ext:") => key["type:ext:".len()..].to_ascii_uppercase(),
         "tag:none" => t!("files.group.tag.untagged").into_owned(),

@@ -234,9 +234,11 @@ impl FileBrowser {
             &self.search_query,
         );
         while self.column_scroll_handles.len() < self.column_listings.len() {
-            self.column_scroll_handles.push(VirtualListScrollHandle::new());
+            self.column_scroll_handles
+                .push(VirtualListScrollHandle::new());
         }
-        self.column_scroll_handles.truncate(self.column_listings.len());
+        self.column_scroll_handles
+            .truncate(self.column_listings.len());
 
         location_changed
     }
@@ -246,9 +248,7 @@ pub(super) fn renamed_path(path: &Path, from: &Path, to: &Path) -> Option<PathBu
     if path == from {
         return Some(to.to_path_buf());
     }
-    path.strip_prefix(from)
-        .ok()
-        .map(|suffix| to.join(suffix))
+    path.strip_prefix(from).ok().map(|suffix| to.join(suffix))
 }
 
 pub(super) fn rewrite_path_list(paths: &mut Vec<PathBuf>, from: &Path, to: &Path) {
@@ -266,7 +266,9 @@ fn rename_basename_selection_end(path: &Path, default_name: &str) -> Option<usiz
     }
 
     let stem = path.file_stem()?.to_string_lossy();
-    let stem_with_dot = default_name.strip_suffix(extension.to_str()?)?.strip_suffix('.')?;
+    let stem_with_dot = default_name
+        .strip_suffix(extension.to_str()?)?
+        .strip_suffix('.')?;
     if stem_with_dot != stem {
         return None;
     }

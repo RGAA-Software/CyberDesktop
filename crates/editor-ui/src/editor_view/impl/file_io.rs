@@ -53,13 +53,15 @@ impl EngineEditor {
     ) {
         self.begin_file_load(path.clone(), target, cx);
         let generation = self.file_load_gen;
-        let total_bytes = std::fs::metadata(&path).map(|m| m.len() as usize).unwrap_or(0);
+        let total_bytes = std::fs::metadata(&path)
+            .map(|m| m.len() as usize)
+            .unwrap_or(0);
         let progress = Arc::new(LoadProgress::new(total_bytes));
         let progress_bg = progress.clone();
         let read_path = path.clone();
-        let read = cx.background_executor().spawn(async move {
-            load_file_with_progress(&read_path, Some(&progress_bg)).ok()
-        });
+        let read = cx
+            .background_executor()
+            .spawn(async move { load_file_with_progress(&read_path, Some(&progress_bg)).ok() });
 
         cx.spawn(async move |this, cx| loop {
             cx.background_executor()
@@ -157,9 +159,7 @@ impl EngineEditor {
         let start = self.document.path().map(Path::to_path_buf);
         cx.spawn(async move |this, cx| {
             let path = cx
-                .background_spawn(async move {
-                    crate::pick_open_file_path(start.as_deref())
-                })
+                .background_spawn(async move { crate::pick_open_file_path(start.as_deref()) })
                 .await;
             let Some(path) = path else {
                 return;
@@ -256,12 +256,8 @@ impl EngineEditor {
 
     /// Like [`spawn_save`](Self::spawn_save), then runs `after` on the UI thread with
     /// whether the write succeeded.
-    pub(crate) fn spawn_save_with<F>(
-        &mut self,
-        path: PathBuf,
-        cx: &mut Context<Self>,
-        after: F,
-    ) where
+    pub(crate) fn spawn_save_with<F>(&mut self, path: PathBuf, cx: &mut Context<Self>, after: F)
+    where
         F: FnOnce(&mut Self, bool, &mut Context<Self>) + Send + 'static,
     {
         let target = self.active;
@@ -318,85 +314,81 @@ impl EngineEditor {
     pub(crate) fn save_all_dirty_for_close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let window_handle = window.window_handle();
         let weak = cx.weak_entity();
-        cx.spawn(async move |_, cx| {
-            loop {
-                let prep = match weak.update(cx, |this, cx| {
-                    let dirty = this.dirty_tabs();
-                    if dirty.is_empty() {
-                        return None;
-                    }
-                    let i = dirty[0];
-                    if i != this.active {
-                        this.switch_to_tab(i, cx);
-                    }
-                    let path = this.document.path().map(Path::to_path_buf);
-                    let default = PathBuf::from("untitled.txt");
-                    let target = this.active;
-                    let snapshot = this.document.save_snapshot();
-                    let snap_rev = snapshot.revision;
-                    Some((path, default, target, snapshot, snap_rev))
-                }) {
-                    Ok(None) => {
-                        let _ = weak.update(cx, |this, cx| {
-                            this.pending_close = None;
-                            this.allow_window_close = true;
-                            cx.notify();
-                        });
-                        let _ = window_handle.update(cx, |_, window, _| {
-                            window.remove_window();
-                        });
-                        return;
-                    }
-                    Ok(Some(t)) => t,
-                    Err(_) => return,
-                };
-                let (path_opt, default, target, snapshot, snap_rev) = prep;
-                let picked_new_path = path_opt.is_none();
-
-                let path = match path_opt {
-                    Some(p) => Some(p),
-                    None => {
-                        cx.background_spawn(async move {
-                            crate::pick_save_file_path(&default)
-                        })
-                        .await
-                    }
-                };
-                let Some(path) = path else {
+        cx.spawn(async move |_, cx| loop {
+            let prep = match weak.update(cx, |this, cx| {
+                let dirty = this.dirty_tabs();
+                if dirty.is_empty() {
+                    return None;
+                }
+                let i = dirty[0];
+                if i != this.active {
+                    this.switch_to_tab(i, cx);
+                }
+                let path = this.document.path().map(Path::to_path_buf);
+                let default = PathBuf::from("untitled.txt");
+                let target = this.active;
+                let snapshot = this.document.save_snapshot();
+                let snap_rev = snapshot.revision;
+                Some((path, default, target, snapshot, snap_rev))
+            }) {
+                Ok(None) => {
                     let _ = weak.update(cx, |this, cx| {
-                        this.pending_close = Some(CloseTarget::Window);
+                        this.pending_close = None;
+                        this.allow_window_close = true;
                         cx.notify();
                     });
-                    return;
-                };
-
-                let write_path = path.clone();
-                let bytes = snapshot.encode();
-                let ok = cx
-                    .background_executor()
-                    .spawn(async move { std::fs::write(&write_path, &bytes).is_ok() })
-                    .await;
-
-                if !ok {
-                    let _ = weak.update(cx, |this, cx| {
-                        this.pending_close = Some(CloseTarget::Window);
-                        cx.notify();
+                    let _ = window_handle.update(cx, |_, window, _| {
+                        window.remove_window();
                     });
                     return;
                 }
+                Ok(Some(t)) => t,
+                Err(_) => return,
+            };
+            let (path_opt, default, target, snapshot, snap_rev) = prep;
+            let picked_new_path = path_opt.is_none();
 
+            let path = match path_opt {
+                Some(p) => Some(p),
+                None => {
+                    cx.background_spawn(async move { crate::pick_save_file_path(&default) })
+                        .await
+                }
+            };
+            let Some(path) = path else {
                 let _ = weak.update(cx, |this, cx| {
-                    if picked_new_path {
-                        let language = language_for_path(Some(&path));
-                        this.document.set_language(language);
-                        this.syntax = SyntaxState::new(language);
-                        this.parsed_revision = None;
-                        this.push_recent(path.clone());
-                    }
-                    this.mark_tab_saved(target, path, snap_rev, cx);
+                    this.pending_close = Some(CloseTarget::Window);
                     cx.notify();
                 });
+                return;
+            };
+
+            let write_path = path.clone();
+            let bytes = snapshot.encode();
+            let ok = cx
+                .background_executor()
+                .spawn(async move { std::fs::write(&write_path, &bytes).is_ok() })
+                .await;
+
+            if !ok {
+                let _ = weak.update(cx, |this, cx| {
+                    this.pending_close = Some(CloseTarget::Window);
+                    cx.notify();
+                });
+                return;
             }
+
+            let _ = weak.update(cx, |this, cx| {
+                if picked_new_path {
+                    let language = language_for_path(Some(&path));
+                    this.document.set_language(language);
+                    this.syntax = SyntaxState::new(language);
+                    this.parsed_revision = None;
+                    this.push_recent(path.clone());
+                }
+                this.mark_tab_saved(target, path, snap_rev, cx);
+                cx.notify();
+            });
         })
         .detach();
     }
@@ -423,7 +415,6 @@ impl EngineEditor {
     }
 
     // ---- Clipboard -------------------------------------------------------
-
 }
 
 pub(crate) fn is_droppable_editor_path(path: &Path) -> bool {

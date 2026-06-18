@@ -19,15 +19,18 @@ const FOLD_COLLAPSED: &str = "icons/chevron-right.svg";
 /// Square hover / hit target and icon size, centered in the fold gutter cell.
 pub const FOLD_HIT_PX: Pixels = px(14.);
 
-pub(crate) fn fold_hit_bounds(fold_left: Pixels, top: Pixels, line_height: Pixels) -> Bounds<Pixels> {
+pub(crate) fn fold_hit_bounds(
+    fold_left: Pixels,
+    top: Pixels,
+    line_height: Pixels,
+) -> Bounds<Pixels> {
     let x = fold_left + (FOLD_GUTTER_WIDTH - FOLD_HIT_PX) * 0.5;
     let y = top + (line_height - FOLD_HIT_PX) * 0.5;
     Bounds::from_corners(point(x, y), point(x + FOLD_HIT_PX, y + FOLD_HIT_PX))
 }
 
 fn render_cache() -> &'static RwLock<HashMap<(String, u32, u32), Arc<RenderImage>>> {
-    static CACHE: OnceLock<RwLock<HashMap<(String, u32, u32), Arc<RenderImage>>>> =
-        OnceLock::new();
+    static CACHE: OnceLock<RwLock<HashMap<(String, u32, u32), Arc<RenderImage>>>> = OnceLock::new();
     CACHE.get_or_init(|| RwLock::new(HashMap::new()))
 }
 

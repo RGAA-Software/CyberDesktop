@@ -23,9 +23,9 @@ mod recent_policy;
 #[cfg(windows)]
 mod recycle;
 #[cfg(windows)]
-mod sevenzip;
-#[cfg(windows)]
 mod search;
+#[cfg(windows)]
+mod sevenzip;
 #[cfg(windows)]
 mod shell;
 #[cfg(windows)]
@@ -42,9 +42,9 @@ mod storage;
 mod volume;
 
 #[cfg(windows)]
-pub use com::ensure_com_multithreaded;
-#[cfg(windows)]
 pub use clipboard::read_clipboard_file_paths;
+#[cfg(windows)]
+pub use com::ensure_com_multithreaded;
 #[cfg(windows)]
 pub use drag_leave::{
     arm_native_drag_leave, disarm_native_drag_leave, take_native_drag_leave_pending,
@@ -67,27 +67,27 @@ pub use quick_access::{
 };
 pub use recent_policy::recent_documents_tracking_enabled;
 #[cfg(windows)]
-pub use search::search_indexed_aqs;
-#[cfg(windows)]
 pub use recycle::{
-    empty_recycle_bin, list_recycle_bin_entries, restore_recycle_bin_items,
-    recycle_shell_paths_for_originals, RecycleBinEntry, RecycleBinItemKind,
+    empty_recycle_bin, list_recycle_bin_entries, recycle_shell_paths_for_originals,
+    restore_recycle_bin_items, RecycleBinEntry, RecycleBinItemKind,
 };
+#[cfg(windows)]
+pub use search::search_indexed_aqs;
 #[cfg(windows)]
 pub use sevenzip::{bundled_dll_path, extract_in_process, SevenZipExtractError};
 #[cfg(windows)]
 pub use shell::{
     clear_shell_menu_session, format_shell_menu_label, invoke_shell_context_menu_item,
     invoke_shell_properties, load_lazy_submenu, open_in_new_explorer_window, open_item_properties,
-    query_shell_context_menu_items, shell_execute_open, show_open_with_dialog, show_open_with_dialog_blocking,
-    show_shell_context_menu,
-    warm_up_query_context_menu, ShellContextMenuEntry,
+    query_shell_context_menu_items, shell_execute_open, show_open_with_dialog,
+    show_open_with_dialog_blocking, show_shell_context_menu, warm_up_query_context_menu,
+    ShellContextMenuEntry,
 };
 #[cfg(windows)]
 #[cfg(windows)]
 pub use shell_folder::{
-    list_cloud_drive_roots, list_known_folder_folders, list_network_computers,
-    list_network_shares, list_wsl_distro_roots, wsl_installed, NetworkItemCategory, ShellFolderEntry,
+    list_cloud_drive_roots, list_known_folder_folders, list_network_computers, list_network_shares,
+    list_wsl_distro_roots, wsl_installed, NetworkItemCategory, ShellFolderEntry,
     FOLDERID_LIBRARIES, FOLDERID_NETWORK,
 };
 #[cfg(windows)]
@@ -257,7 +257,9 @@ mod stubs {
         Ok(())
     }
 
-    pub fn recycle_shell_paths_for_originals(_original_paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
+    pub fn recycle_shell_paths_for_originals(
+        _original_paths: &[PathBuf],
+    ) -> anyhow::Result<Vec<PathBuf>> {
         Ok(Vec::new())
     }
 

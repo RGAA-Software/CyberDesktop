@@ -37,8 +37,7 @@ impl FileBrowser {
     }
 
     pub(super) fn operation_directory(&self) -> PathBuf {
-        if self.view_mode == ViewMode::Columns
-            && self.browse_location == BrowseLocation::Directory
+        if self.view_mode == ViewMode::Columns && self.browse_location == BrowseLocation::Directory
         {
             if let Some((col_index, _)) = self.column_selected_path.as_ref() {
                 if let Some(path) = self.column_trail.get(*col_index) {
@@ -61,7 +60,8 @@ impl FileBrowser {
     fn selected_paths_common_parent(&self) -> Option<PathBuf> {
         let mut paths = self.selected_paths.iter();
         let first_parent = paths.next()?.parent()?.to_path_buf();
-        paths.all(|path| path.parent() == Some(first_parent.as_path()))
+        paths
+            .all(|path| path.parent() == Some(first_parent.as_path()))
             .then_some(first_parent)
     }
 
@@ -144,7 +144,8 @@ impl FileBrowser {
                     self.anchor_index = self.focused_index;
                     self.begin_rename(window, cx);
                 } else {
-                    window.push_notification(Notification::success(t!("files.new_file.success")), cx);
+                    window
+                        .push_notification(Notification::success(t!("files.new_file.success")), cx);
                 }
             }
             Err(error) => self.error = Some(error.to_string()),
@@ -348,19 +349,11 @@ impl FileBrowser {
         self.confirm_delete(window, cx);
     }
 
-    pub(super) fn perform_delete_permanent(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn perform_delete_permanent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.confirm_delete_permanent(window, cx);
     }
 
-    pub(super) fn perform_restore_recycle(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn perform_restore_recycle(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.browse_location != BrowseLocation::RecycleBin {
             return;
         }

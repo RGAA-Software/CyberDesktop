@@ -6,9 +6,8 @@ impl EngineEditor {
     pub(crate) fn open_goto(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.find = None;
         self.search_panel = None;
-        let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(t!("editor.goto.placeholder"))
-        });
+        let input =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t!("editor.goto.placeholder")));
         let mut subs = Vec::new();
         subs.push(cx.subscribe(&input, |this, _, ev: &InputEvent, cx| {
             if let InputEvent::PressEnter { .. } = ev {
@@ -46,5 +45,4 @@ impl EngineEditor {
     }
 
     // ---- Find in Files (global search) -----------------------------------
-
 }

@@ -1,6 +1,6 @@
 //! Horizontal viewport slicing for very long single lines.
 
-use gpui::{Font, Pixels, SharedString, TextRun, Window, px};
+use gpui::{px, Font, Pixels, SharedString, TextRun, Window};
 
 pub(crate) use crate::editor_view::state::LONG_LINE_COL_THRESHOLD;
 
@@ -44,4 +44,3 @@ pub(crate) fn viewport_col_range(
     let col_end = (scroll_cols + visible_cols + VIEWPORT_MARGIN_CHARS).min(line_len_chars);
     (col_start, col_end.max(col_start))
 }
-

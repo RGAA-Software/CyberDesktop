@@ -12,8 +12,7 @@ pub const SEVENZIP_FORMAT_XZ: i32 = 0x0C;
 pub const SEVENZIP_FORMAT_TAR: i32 = 0xEE;
 pub const SEVENZIP_FORMAT_GZIP: i32 = 0xEF;
 
-pub type SevenZipProgressFn =
-    Option<extern "C" fn(ctx: *mut c_void, completed: u32, total: u32)>;
+pub type SevenZipProgressFn = Option<extern "C" fn(ctx: *mut c_void, completed: u32, total: u32)>;
 pub type SevenZipCancelFn = Option<extern "C" fn(ctx: *mut c_void) -> i32>;
 
 extern "C" {

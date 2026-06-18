@@ -16,21 +16,25 @@ use gpui::App;
 
 pub use app_assets::Assets;
 pub use color_icon::{color_icon, color_icon_box};
-pub use files_core::GITHUB_REPO_URL;
 pub use cyber_editor::{
-    apply_theme_mode, build_editor_settings, editor_menu_bar, pick_open_file_path, pick_save_file_path,
-    set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste, EditorRedo,
-    EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, FoldAll, GoToLine,
-    IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection, ReplaceAllText,
-    ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment, ToggleFold, ToggleLineNumbers,
-    ToggleMarkdownPreview, ToggleFullMarkdownPreview, ToggleSoftWrap, UnfoldAll, EDITOR_CONTEXT,
+    apply_theme_mode, build_editor_settings, editor_menu_bar, pick_open_file_path,
+    pick_save_file_path, set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste,
+    EditorRedo, EditorUndo, ExitEditor, FindInFiles, FindNext, FindPrevious, FindText, FoldAll,
+    GoToLine, IndentSelection, KeyboardShortcuts, NewFile, OpenFile, OutdentSelection,
+    ReplaceAllText, ReplaceText, SaveFile, SaveFileAs, SelectAll, ToggleComment, ToggleFold,
+    ToggleFullMarkdownPreview, ToggleLineNumbers, ToggleMarkdownPreview, ToggleSoftWrap, UnfoldAll,
+    EDITOR_CONTEXT,
 };
+pub use files_core::GITHUB_REPO_URL;
 pub use i18n::{init_locale, locale, set_locale};
 pub use popup_menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem};
-pub use settings_window::{SettingsWindowState};
+pub use settings_window::SettingsWindowState;
 pub use tab::{Tab, TabBar};
 pub use title_bar::{title_bar_bottom_rule, TitleBar, TITLE_BAR_HEIGHT};
-pub use toolbar_button::{toolbar_icon, toolbar_icon_button, toolbar_labeled_button, TOOLBAR_BUTTON_PX, TOOLBAR_ICON_BUTTON_SIZE};
+pub use toolbar_button::{
+    toolbar_icon, toolbar_icon_button, toolbar_labeled_button, TOOLBAR_BUTTON_PX,
+    TOOLBAR_ICON_BUTTON_SIZE,
+};
 pub use window::{open_editor_window, open_window, open_window_with_close_handler};
 
 pub fn init_editor_shell(cx: &mut App) {

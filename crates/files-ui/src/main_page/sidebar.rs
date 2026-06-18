@@ -66,10 +66,10 @@ impl MainPage {
         }
         if self.sidebar_sections.is_empty() {
             files_core::log_startup_step("sidebar_cache_build_sync_begin");
-            self.sidebar_sections = files_core::time_startup_step(
-                "sidebar_cache_build_sync",
-                || crate::sidebar::build_sidebar_sections_cached(&config),
-            );
+            self.sidebar_sections =
+                files_core::time_startup_step("sidebar_cache_build_sync", || {
+                    crate::sidebar::build_sidebar_sections_cached(&config)
+                });
             self.sidebar_cache_key = key;
             files_core::log_startup_step("sidebar_cache_build_sync_done");
             return;
@@ -123,7 +123,9 @@ impl MainPage {
             cx.spawn(async move |page, cx| {
                 let path_for_log = path.display().to_string();
                 let result = cx
-                    .background_spawn(async move { files_fs::sync_pin_to_shell_quick_access(&path) })
+                    .background_spawn(
+                        async move { files_fs::sync_pin_to_shell_quick_access(&path) },
+                    )
                     .await;
                 if let Err(error) = result {
                     tracing::warn!(

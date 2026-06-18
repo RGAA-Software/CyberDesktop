@@ -3,17 +3,16 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use gpui::{
-    App, AppContext, Context, IntoElement, InteractiveElement, MouseButton, ParentElement, Render,
-    Styled, Window, WindowBounds, WindowOptions, div, px, size,
+    div, px, size, App, AppContext, Context, InteractiveElement, IntoElement, MouseButton,
+    ParentElement, Render, Styled, Window, WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    ActiveTheme, IconName, Root, StyledExt, ThemeMode,
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputState},
     label::Label,
     scroll::ScrollableElement,
-    v_flex,
+    v_flex, ActiveTheme, IconName, Root, StyledExt, ThemeMode,
 };
 use serde::{Deserialize, Serialize};
 use smol::Timer;
@@ -121,18 +120,16 @@ impl SysMonitorApp {
         };
         this.sender_status = this.sender.status();
 
-        cx.spawn(async move |this, cx| {
-            loop {
-                Timer::after(INTERVAL).await;
-                if this
-                    .update(cx, |this, cx| {
-                        this.refresh();
-                        cx.notify();
-                    })
-                    .is_err()
-                {
-                    break;
-                }
+        cx.spawn(async move |this, cx| loop {
+            Timer::after(INTERVAL).await;
+            if this
+                .update(cx, |this, cx| {
+                    this.refresh();
+                    cx.notify();
+                })
+                .is_err()
+            {
+                break;
             }
         })
         .detach();
@@ -170,7 +167,12 @@ impl SysMonitorApp {
         cx.notify();
     }
 
-    fn connect_sender(&mut self, _event: &gpui::ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn connect_sender(
+        &mut self,
+        _event: &gpui::ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let config = self.current_connection_config(cx, true);
         self.sender.connect(config.host.clone(), config.port);
         save_monitor_connection_config(&config);
@@ -282,7 +284,9 @@ impl Render for SysMonitorApp {
                                     .items_center()
                                     .gap(px(6.))
                                     .px(px(10.))
-                                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                    .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
                                     .child(
                                         app_ui::toolbar_icon_button("monitor-theme-toggle")
                                             .icon(app_ui::toolbar_icon(theme_icon))
@@ -309,7 +313,9 @@ impl Render for SysMonitorApp {
                                     .child(
                                         app_ui::toolbar_icon_button("monitor-github")
                                             .icon(app_ui::toolbar_icon(IconName::Github))
-                                            .on_click(|_, _, cx| cx.open_url(app_ui::GITHUB_REPO_URL)),
+                                            .on_click(|_, _, cx| {
+                                                cx.open_url(app_ui::GITHUB_REPO_URL)
+                                            }),
                                     ),
                             ),
                     ),
@@ -355,26 +361,28 @@ pub fn run(start_hidden: bool) {
         };
 
         cx.spawn(async move |cx| {
-            let window_handle = cx.open_window(window_options, |window, cx| {
-                window.set_window_title("CyberMonitor");
+            let window_handle = cx
+                .open_window(window_options, |window, cx| {
+                    window.set_window_title("CyberMonitor");
 
-                app_ui::theme::apply_set("CyberMonitor", ThemeMode::Dark, cx);
+                    let mode = cx.theme().mode;
+                    app_ui::theme::apply_set("CyberMonitor", mode, cx);
 
-                window.on_window_should_close(cx, |window, _cx| {
-                    tray::hide_window(window);
-                    false
-                });
+                    window.on_window_should_close(cx, |window, _cx| {
+                        tray::hide_window(window);
+                        false
+                    });
 
-                if start_hidden {
-                    tray::hide_window(window);
-                } else {
-                    window.activate_window();
-                }
+                    if start_hidden {
+                        tray::hide_window(window);
+                    } else {
+                        window.activate_window();
+                    }
 
-                let view = cx.new(|cx| SysMonitorApp::new(window, cx));
-                cx.new(|cx| Root::new(view, window, cx))
-            })
-            .expect("failed to open CyberMonitor window");
+                    let view = cx.new(|cx| SysMonitorApp::new(window, cx));
+                    cx.new(|cx| Root::new(view, window, cx))
+                })
+                .expect("failed to open CyberMonitor window");
 
             cx.spawn({
                 async move |cx| loop {

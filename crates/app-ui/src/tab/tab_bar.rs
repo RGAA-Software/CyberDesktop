@@ -452,27 +452,27 @@ impl RenderOnce for TabBar {
         let fixed_tab_height = self.fixed_tab_height;
         let show_bottom_border = self.bottom_border
             && (self.variant == TabVariant::Underline || self.variant == TabVariant::Tab);
-        let show_inactive_separators =
-            self.inactive_separators && self.variant == TabVariant::Tab;
+        let show_inactive_separators = self.inactive_separators && self.variant == TabVariant::Tab;
         // When tabs overflow, pin "+" outside the scroll strip; otherwise it follows the last tab.
-        let tabs_overflow = self.scroll_handle.as_ref().is_some_and(|handle| {
-            handle.max_offset().x > px(0.)
-        }) || bounds_rc.as_ref().is_some_and(|rc| {
-            let bounds = rc.borrow();
-            let container = bounds.container;
-            if container.size.width <= px(0.) {
-                return false;
-            }
-            let Some(last_tab) = bounds.tabs.last() else {
-                return false;
-            };
-            if last_tab.size.width <= px(0.) {
-                return false;
-            }
-            let last_right =
-                last_tab.origin.x - container.origin.x + last_tab.size.width;
-            last_right > container.size.width
-        });
+        let tabs_overflow = self
+            .scroll_handle
+            .as_ref()
+            .is_some_and(|handle| handle.max_offset().x > px(0.))
+            || bounds_rc.as_ref().is_some_and(|rc| {
+                let bounds = rc.borrow();
+                let container = bounds.container;
+                if container.size.width <= px(0.) {
+                    return false;
+                }
+                let Some(last_tab) = bounds.tabs.last() else {
+                    return false;
+                };
+                if last_tab.size.width <= px(0.) {
+                    return false;
+                }
+                let last_right = last_tab.origin.x - container.origin.x + last_tab.size.width;
+                last_right > container.size.width
+            });
         let last_empty_space = self.last_empty_space;
         let plus_trailing = div()
             .flex_none()
@@ -498,56 +498,52 @@ impl RenderOnce for TabBar {
             .refine_style(&self.style)
             .when_some(self.prefix, |this, prefix| this.child(prefix))
             .child({
-                let tab_items = self.children.into_iter().enumerate().flat_map(|(ix, child)| {
-                    let mut elements: smallvec::SmallVec<[AnyElement; 2]> = SmallVec::new();
-                    if show_inactive_separators && ix > 0 {
-                        let visible =
-                            selected_index != Some(ix) && selected_index != Some(ix - 1);
-                        elements.push(
-                            tab_inactive_separator(cx, visible).into_any_element(),
-                        );
-                    }
-                    item_metas.push((
-                        child.label.clone(),
-                        child.icon.clone(),
-                        child.disabled,
-                    ));
-                    let tab_bar_prefix = child.tab_bar_prefix.unwrap_or(true);
-                    let mut tab = child
-                        .ix(ix)
-                        .tab_bar_prefix(tab_bar_prefix)
-                        .medium_titlebar(self.medium_titlebar)
-                        .with_variant(self.variant)
-                        .with_size(self.size);
-                    if let Some(height) = fixed_tab_height {
-                        tab = tab.fixed_height(height);
-                    }
-                    tab.indicator_active = has_indicator;
-                    let tab = tab
-                        .when_some(self.selected_index, |this, selected_ix| {
-                            this.selected(selected_ix == ix)
-                        })
-                        .when_some(self.on_click.clone(), move |this, on_click| {
-                            this.on_click(move |_, window, cx| {
-                                on_click(&ix, window, cx)
+                let tab_items = self
+                    .children
+                    .into_iter()
+                    .enumerate()
+                    .flat_map(|(ix, child)| {
+                        let mut elements: smallvec::SmallVec<[AnyElement; 2]> = SmallVec::new();
+                        if show_inactive_separators && ix > 0 {
+                            let visible =
+                                selected_index != Some(ix) && selected_index != Some(ix - 1);
+                            elements.push(tab_inactive_separator(cx, visible).into_any_element());
+                        }
+                        item_metas.push((child.label.clone(), child.icon.clone(), child.disabled));
+                        let tab_bar_prefix = child.tab_bar_prefix.unwrap_or(true);
+                        let mut tab = child
+                            .ix(ix)
+                            .tab_bar_prefix(tab_bar_prefix)
+                            .medium_titlebar(self.medium_titlebar)
+                            .with_variant(self.variant)
+                            .with_size(self.size);
+                        if let Some(height) = fixed_tab_height {
+                            tab = tab.fixed_height(height);
+                        }
+                        tab.indicator_active = has_indicator;
+                        let tab = tab
+                            .when_some(self.selected_index, |this, selected_ix| {
+                                this.selected(selected_ix == ix)
                             })
-                        });
+                            .when_some(self.on_click.clone(), move |this, on_click| {
+                                this.on_click(move |_, window, cx| on_click(&ix, window, cx))
+                            });
 
-                    elements.push(if let Some(ref rc) = bounds_rc {
-                        let rc = rc.clone();
-                        div()
-                            .on_prepaint(move |bounds, _, _| {
-                                if let Some(slot) = rc.borrow_mut().tabs.get_mut(ix) {
-                                    *slot = bounds;
-                                }
-                            })
-                            .child(tab)
-                            .into_any_element()
-                    } else {
-                        tab.into_any_element()
+                        elements.push(if let Some(ref rc) = bounds_rc {
+                            let rc = rc.clone();
+                            div()
+                                .on_prepaint(move |bounds, _, _| {
+                                    if let Some(slot) = rc.borrow_mut().tabs.get_mut(ix) {
+                                        *slot = bounds;
+                                    }
+                                })
+                                .child(tab)
+                                .into_any_element()
+                        } else {
+                            tab.into_any_element()
+                        });
+                        elements
                     });
-                    elements
-                });
 
                 let tabs_inner = h_flex()
                     .id("tabs-inner")
@@ -574,13 +570,7 @@ impl RenderOnce for TabBar {
                         .min_w_0()
                         .items_center()
                         .overflow_hidden()
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .overflow_hidden()
-                                .child(tabs_inner),
-                        )
+                        .child(div().flex_1().min_w_0().overflow_hidden().child(tabs_inner))
                         .child(plus_trailing)
                 } else {
                     h_flex()

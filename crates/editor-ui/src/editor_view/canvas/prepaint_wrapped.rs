@@ -2,16 +2,18 @@
 
 use editor_text_engine::Position;
 use gpui::{
-    fill, point, px, Bounds, Font, Hsla, PaintQuad, Pixels, SharedString, ShapedLine,
-    TextRun, Window,
+    fill, point, px, Bounds, Font, Hsla, PaintQuad, Pixels, ShapedLine, SharedString, TextRun,
+    Window,
 };
 
+use super::super::state::LONG_LINE_COL_THRESHOLD;
+use super::super::text_util::{expand_tabs, wrap_rows, EDITOR_TAB_SIZE};
+use super::super::ui::EditorColors;
 use super::element::{CanvasPrepaint, EditorCanvas, WrappedRow};
 use super::horizontal_viewport::measure_avg_char_width;
-use super::super::state::LONG_LINE_COL_THRESHOLD;
-use super::super::ui::EditorColors;
-use super::super::text_util::{expand_tabs, wrap_rows, EDITOR_TAB_SIZE};
-use super::syntax_paint::{build_runs, measure_rows, occurrence_word, shape_one_wrapped, word_occurrences};
+use super::syntax_paint::{
+    build_runs, measure_rows, occurrence_word, shape_one_wrapped, word_occurrences,
+};
 use super::wrap_virtual::{
     char_range_for_wrap_subrows, cols_per_row, estimated_wrap_rows, visible_subrow_range,
 };
@@ -57,7 +59,8 @@ pub(crate) fn prepaint_wrapped(
                 break;
             }
             top_line -= 1;
-            let rows = wrap_rows_for_line(buf, top_line, window, font, font_size, view_w, char_width);
+            let rows =
+                wrap_rows_for_line(buf, top_line, window, font, font_size, view_w, char_width);
             off += lh * rows as f32;
             continue;
         }
@@ -113,27 +116,39 @@ pub(crate) fn prepaint_wrapped(
             let fragment = buf.line_chars_slice(line, col_start, col_end);
             let frag_byte = buf.char_to_byte(line_start_char + col_start);
             let expanded = expand_tabs(&fragment, EDITOR_TAB_SIZE);
-            let runs = build_runs(syntax, buf, &fragment, Some(&expanded), frag_byte, font, default_color);
-            let Some(wrapped) = shape_one_wrapped(window, &expanded.text, &runs, font_size, view_w) else {
+            let runs = build_runs(
+                syntax,
+                buf,
+                &fragment,
+                Some(&expanded),
+                frag_byte,
+                font,
+                default_color,
+            );
+            let Some(wrapped) = shape_one_wrapped(window, &expanded.text, &runs, font_size, view_w)
+            else {
                 bottom_line = line;
                 y += block;
                 line += 1;
                 continue;
             };
             let paint_top = y + lh * first_sub as f32;
-            (
-                fragment,
-                wrapped,
-                paint_top,
-                col_start,
-                rows,
-            )
+            (fragment, wrapped, paint_top, col_start, rows)
         } else {
             let line_text = buf.line_text(line);
             let line_start_byte = buf.char_to_byte(line_start_char);
             let expanded = expand_tabs(&line_text, EDITOR_TAB_SIZE);
-            let runs = build_runs(syntax, buf, &line_text, Some(&expanded), line_start_byte, font, default_color);
-            let Some(wrapped) = shape_one_wrapped(window, &expanded.text, &runs, font_size, view_w) else {
+            let runs = build_runs(
+                syntax,
+                buf,
+                &line_text,
+                Some(&expanded),
+                line_start_byte,
+                font,
+                default_color,
+            );
+            let Some(wrapped) = shape_one_wrapped(window, &expanded.text, &runs, font_size, view_w)
+            else {
                 bottom_line = line;
                 y += block;
                 line += 1;
@@ -182,7 +197,11 @@ pub(crate) fn prepaint_wrapped(
                 {
                     continue;
                 }
-                let local_s = if is_long { s_col.saturating_sub(start_col) } else { s_col };
+                let local_s = if is_long {
+                    s_col.saturating_sub(start_col)
+                } else {
+                    s_col
+                };
                 let local_e = if is_long {
                     (e_col - start_col).min(line_text.chars().count())
                 } else {
@@ -215,11 +234,7 @@ pub(crate) fn prepaint_wrapped(
                     for r in (row0 + 1)..row1 {
                         selections.push(band(content_left, right, text_base + lh * r as f32));
                     }
-                    selections.push(band(
-                        content_left,
-                        content_left + p1.x,
-                        text_base + p1.y,
-                    ));
+                    selections.push(band(content_left, content_left + p1.x, text_base + p1.y));
                 }
             }
             if focused
@@ -274,7 +289,11 @@ pub(crate) fn prepaint_wrapped(
             block_top: y,
             top: paint_top,
             start_col,
-            fragment_text: if is_long { line_text.clone() } else { String::new() },
+            fragment_text: if is_long {
+                line_text.clone()
+            } else {
+                String::new()
+            },
             wrap_row_count,
             wrapped,
         });

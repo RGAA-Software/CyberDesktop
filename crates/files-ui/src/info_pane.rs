@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use app_media::{AudioFileMetadata, MediaSessionState, VideoFileMetadata};
 #[cfg(windows)]
 use app_mpv_ffi::{probe_media as probe_mpv_media, MpvEmbedPlayer};
-use app_media::{AudioFileMetadata, MediaSessionState, VideoFileMetadata};
 use files_fs::{
     count_directory_entries, directory_tree_size, extension_type_counts, multi_select_summary,
     parse_tag_color_hex, preview_kind, read_audio_metadata, read_text_preview,
@@ -24,14 +24,14 @@ use gpui_component::{
 use raw_window_handle::RawWindowHandle;
 use rust_i18n::t;
 #[cfg(windows)]
+use windows::core::w;
+#[cfg(windows)]
 use windows::Win32::Foundation::HWND;
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, SW_HIDE, SW_SHOW, WS_BORDER,
-    WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_VISIBLE,
+    CreateWindowExW, DestroyWindow, MoveWindow, ShowWindow, SW_HIDE, SW_SHOW, WS_BORDER, WS_CHILD,
+    WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_VISIBLE,
 };
-#[cfg(windows)]
-use windows::core::w;
 
 use crate::audio_log::audio_log;
 use crate::audio_player::AudioPlayer;
@@ -131,9 +131,7 @@ impl NativeVideoSurface {
             let _ = ShowWindow(hwnd, SW_SHOW);
         }
 
-        Ok(Self {
-            hwnd,
-        })
+        Ok(Self { hwnd })
     }
 
     fn hwnd(&self) -> isize {
@@ -225,8 +223,13 @@ pub struct InfoPane {
 
 impl InfoPane {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let audio_seek_slider =
-            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
+        let audio_seek_slider = cx.new(|_| {
+            SliderState::new()
+                .min(0.0)
+                .max(1.0)
+                .step(0.001)
+                .default_value(0.0)
+        });
         let audio_seek_slider_subscriptions = vec![cx.subscribe(
             &audio_seek_slider,
             |this, _, event: &SliderEvent, cx| match event {
@@ -240,8 +243,13 @@ impl InfoPane {
                 }
             },
         )];
-        let video_seek_slider =
-            cx.new(|_| SliderState::new().min(0.0).max(1.0).step(0.001).default_value(0.0));
+        let video_seek_slider = cx.new(|_| {
+            SliderState::new()
+                .min(0.0)
+                .max(1.0)
+                .step(0.001)
+                .default_value(0.0)
+        });
         let video_seek_slider_subscriptions = vec![cx.subscribe(
             &video_seek_slider,
             |this, _, event: &SliderEvent, cx| match event {
@@ -293,8 +301,16 @@ impl InfoPane {
             .audio_player
             .snapshot()
             .active_path
-            .or_else(|| self.audio_preview.as_ref().map(|preview| preview.path.clone()))
-            .or_else(|| self.video_preview.as_ref().map(|preview| preview.path.clone()));
+            .or_else(|| {
+                self.audio_preview
+                    .as_ref()
+                    .map(|preview| preview.path.clone())
+            })
+            .or_else(|| {
+                self.video_preview
+                    .as_ref()
+                    .map(|preview| preview.path.clone())
+            });
 
         let Some(active_path) = current_media else {
             return false;
@@ -323,7 +339,9 @@ impl InfoPane {
             }
         }
         match &self.selection {
-            InfoPaneSelection::Single(item) if preview_kind(&item.path) == Some(PreviewKind::Audio) => {
+            InfoPaneSelection::Single(item)
+                if preview_kind(&item.path) == Some(PreviewKind::Audio) =>
+            {
                 Some(item.path.clone())
             }
             _ => None,
@@ -485,10 +503,10 @@ impl InfoPane {
             audio_log!(
                 "set_selection: ignore {:?} while active {:?}",
                 key,
-                self.audio_player
-                    .snapshot()
-                    .active_path
-                    .or_else(|| self.video_preview.as_ref().map(|preview| preview.path.clone()))
+                self.audio_player.snapshot().active_path.or_else(|| self
+                    .video_preview
+                    .as_ref()
+                    .map(|preview| preview.path.clone()))
             );
             return;
         }
@@ -650,7 +668,9 @@ impl InfoPane {
         if let Some(preview) = self.video_preview.as_mut() {
             if matches!(
                 preview.playback,
-                VideoPlaybackState::Starting | VideoPlaybackState::Playing | VideoPlaybackState::Paused
+                VideoPlaybackState::Starting
+                    | VideoPlaybackState::Playing
+                    | VideoPlaybackState::Paused
             ) {
                 if let Ok(Some(position)) = player.time_pos() {
                     if preview.current_position != position {
@@ -664,7 +684,9 @@ impl InfoPane {
             if let Some(preview) = self.video_preview.as_mut() {
                 if matches!(
                     preview.playback,
-                    VideoPlaybackState::Starting | VideoPlaybackState::Playing | VideoPlaybackState::Paused
+                    VideoPlaybackState::Starting
+                        | VideoPlaybackState::Playing
+                        | VideoPlaybackState::Paused
                 ) {
                     preview.playback = VideoPlaybackState::Finished;
                     self.video_status = Some(t!("info_pane.video.ended").to_string());
@@ -686,35 +708,33 @@ impl InfoPane {
         self.video_poll_generation = self.video_poll_generation.wrapping_add(1);
         let generation = self.video_poll_generation;
         let path = path.to_path_buf();
-        cx.spawn(async move |pane, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(200))
-                    .await;
+        cx.spawn(async move |pane, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(200))
+                .await;
 
-                let mut keep_polling = false;
-                let update_ok = pane.update(cx, |pane, cx| {
-                    if pane.video_poll_generation != generation {
-                        return;
-                    }
-                    keep_polling = pane.video_preview.as_ref().is_some_and(|preview| {
-                        preview.path == path
-                            && matches!(
-                                preview.playback,
-                                VideoPlaybackState::Starting
-                                    | VideoPlaybackState::Playing
-                                    | VideoPlaybackState::Paused
-                            )
-                    });
-                    if !keep_polling {
-                        return;
-                    }
-                    #[cfg(windows)]
-                    pane.sync_embedded_video_state(cx);
-                });
-                if update_ok.is_err() || !keep_polling {
-                    break;
+            let mut keep_polling = false;
+            let update_ok = pane.update(cx, |pane, cx| {
+                if pane.video_poll_generation != generation {
+                    return;
                 }
+                keep_polling = pane.video_preview.as_ref().is_some_and(|preview| {
+                    preview.path == path
+                        && matches!(
+                            preview.playback,
+                            VideoPlaybackState::Starting
+                                | VideoPlaybackState::Playing
+                                | VideoPlaybackState::Paused
+                        )
+                });
+                if !keep_polling {
+                    return;
+                }
+                #[cfg(windows)]
+                pane.sync_embedded_video_state(cx);
+            });
+            if update_ok.is_err() || !keep_polling {
+                break;
             }
         })
         .detach();
@@ -727,7 +747,9 @@ impl InfoPane {
             }
         }
         match &self.selection {
-            InfoPaneSelection::Single(item) if preview_kind(&item.path) == Some(PreviewKind::Video) => {
+            InfoPaneSelection::Single(item)
+                if preview_kind(&item.path) == Some(PreviewKind::Video) =>
+            {
                 Some(item.path.clone())
             }
             _ => None,
@@ -785,18 +807,14 @@ impl InfoPane {
                     if let Some(preview) = self.video_preview.as_mut() {
                         preview.playback = VideoPlaybackState::Playing;
                     }
-                    self.video_status = Some(format!(
-                        "mpv embedded playback: {}",
-                        path.display()
-                    ));
+                    self.video_status = Some(format!("mpv embedded playback: {}", path.display()));
                     self.start_video_poll_for_current(cx);
                     return;
                 }
                 Err(error) => {
                     if let Some(preview) = self.video_preview.as_mut() {
                         preview.playback = VideoPlaybackState::Idle;
-                        preview.preview_error =
-                            Some(format!("mpv embed failed: {error:#}"));
+                        preview.preview_error = Some(format!("mpv embed failed: {error:#}"));
                     }
                     self.embedded_video_player = None;
                     self.native_video_surface = None;
@@ -904,9 +922,8 @@ impl InfoPane {
         let Some(total) = self.video_preview_total_duration() else {
             return;
         };
-        let target = Duration::from_secs_f64(
-            total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)),
-        );
+        let target =
+            Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
         #[cfg(windows)]
         {
             if let Some(player) = self.embedded_video_player.as_mut() {
@@ -934,7 +951,11 @@ impl InfoPane {
     }
 
     fn start_video_poll_for_current(&mut self, cx: &mut Context<Self>) {
-        if let Some(path) = self.video_preview.as_ref().map(|preview| preview.path.clone()) {
+        if let Some(path) = self
+            .video_preview
+            .as_ref()
+            .map(|preview| preview.path.clone())
+        {
             self.start_video_poll(&path, cx);
         }
     }
@@ -954,9 +975,8 @@ impl InfoPane {
             .video_preview
             .as_ref()
             .and_then(|preview| {
-                video_preview_metadata(preview).map(|metadata| {
-                    video_progress_fraction(preview, Some(metadata))
-                })
+                video_preview_metadata(preview)
+                    .map(|metadata| video_progress_fraction(preview, Some(metadata)))
             })
             .unwrap_or(0.0);
         let current = self.video_seek_slider.read(cx).value().start();
@@ -1069,92 +1089,90 @@ impl InfoPane {
         self.audio_poll_generation = self.audio_poll_generation.wrapping_add(1);
         let generation = self.audio_poll_generation;
         let path = path.to_path_buf();
-        audio_log!(
-            "start_audio_poll gen={generation} path={}",
-            path.display()
-        );
-        cx.spawn(async move |pane, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(200))
-                    .await;
+        audio_log!("start_audio_poll gen={generation} path={}", path.display());
+        cx.spawn(async move |pane, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(200))
+                .await;
 
-                let mut keep_polling = false;
-                let mut needs_notify = false;
-                let update_ok = pane.update(cx, |pane, _cx| {
-                    if pane.audio_poll_generation != generation {
-                        audio_log!("poll gen={generation} stale, stop");
-                        return;
-                    }
-                    keep_polling = true;
-                    let player = &pane.audio_player;
-                    let state = player.snapshot();
+            let mut keep_polling = false;
+            let mut needs_notify = false;
+            let update_ok = pane.update(cx, |pane, _cx| {
+                if pane.audio_poll_generation != generation {
+                    audio_log!("poll gen={generation} stale, stop");
+                    return;
+                }
+                keep_polling = true;
+                let player = &pane.audio_player;
+                let state = player.snapshot();
 
-                        if player.is_active_path(&path) {
-                            pane.audio_status = None;
-                        if let Some(target) = pane.audio_seek_preview_position {
-                            if state.position.abs_diff(target) <= Duration::from_millis(250) {
-                                pane.audio_seek_preview_position = None;
-                            }
+                if player.is_active_path(&path) {
+                    pane.audio_status = None;
+                    if let Some(target) = pane.audio_seek_preview_position {
+                        if state.position.abs_diff(target) <= Duration::from_millis(250) {
+                            pane.audio_seek_preview_position = None;
                         }
-                        if let Some(total) = state.total {
-                            if let Some(preview) = pane.audio_preview.as_mut() {
-                                if preview.path == path {
-                                    match &mut preview.metadata {
-                                        AudioMetadataState::Loading => {
-                                            preview.metadata = AudioMetadataState::Ready(AudioFileMetadata {
+                    }
+                    if let Some(total) = state.total {
+                        if let Some(preview) = pane.audio_preview.as_mut() {
+                            if preview.path == path {
+                                match &mut preview.metadata {
+                                    AudioMetadataState::Loading => {
+                                        preview.metadata =
+                                            AudioMetadataState::Ready(AudioFileMetadata {
                                                 duration: Some(total),
                                                 ..AudioFileMetadata::default()
                                             });
-                                        }
-                                        AudioMetadataState::Ready(metadata) if metadata.duration.is_none() => {
-                                            metadata.duration = Some(total);
-                                        }
-                                        _ => {}
                                     }
+                                    AudioMetadataState::Ready(metadata)
+                                        if metadata.duration.is_none() =>
+                                    {
+                                        metadata.duration = Some(total);
+                                    }
+                                    _ => {}
                                 }
                             }
                         }
-                        if player.take_finished(&path) {
-                            audio_log!("poll gen={generation} track finished");
-                            pane.audio_seek_preview_position = None;
-                            pane.audio_status = Some(t!("info_pane.audio.ended").to_string());
-                            pane.stop_audio_poll();
-                            keep_polling = false;
-                        }
-                    } else if let Some(error) = state.play_error.clone() {
-                        audio_log!("poll gen={generation} play_error: {error}");
-                        if let Some(preview) = pane.audio_preview.as_mut() {
-                            if preview.path == path {
-                                preview.play_error = Some(error);
-                            }
-                        }
-                        pane.audio_status = None;
+                    }
+                    if player.take_finished(&path) {
+                        audio_log!("poll gen={generation} track finished");
+                        pane.audio_seek_preview_position = None;
+                        pane.audio_status = Some(t!("info_pane.audio.ended").to_string());
                         pane.stop_audio_poll();
                         keep_polling = false;
-                    } else if pane.audio_status.is_none() {
-                        audio_log!("poll gen={generation} idle stop");
-                        keep_polling = false;
                     }
+                } else if let Some(error) = state.play_error.clone() {
+                    audio_log!("poll gen={generation} play_error: {error}");
+                    if let Some(preview) = pane.audio_preview.as_mut() {
+                        if preview.path == path {
+                            preview.play_error = Some(error);
+                        }
+                    }
+                    pane.audio_status = None;
+                    pane.stop_audio_poll();
+                    keep_polling = false;
+                } else if pane.audio_status.is_none() {
+                    audio_log!("poll gen={generation} idle stop");
+                    keep_polling = false;
+                }
 
-                    needs_notify = true;
-                });
-                if update_ok.is_err() {
-                    audio_log!("poll gen={generation} pane gone");
-                    break;
-                }
-                if needs_notify {
-                    let pane_notify = pane.clone();
-                    let _ = pane.update(cx, |_, cx| {
-                        cx.defer(move |cx| {
-                            let _ = pane_notify.update(cx, |_, cx| cx.notify());
-                        });
+                needs_notify = true;
+            });
+            if update_ok.is_err() {
+                audio_log!("poll gen={generation} pane gone");
+                break;
+            }
+            if needs_notify {
+                let pane_notify = pane.clone();
+                let _ = pane.update(cx, |_, cx| {
+                    cx.defer(move |cx| {
+                        let _ = pane_notify.update(cx, |_, cx| cx.notify());
                     });
-                }
-                if !keep_polling {
-                    audio_log!("poll gen={generation} loop exit");
-                    break;
-                }
+                });
+            }
+            if !keep_polling {
+                audio_log!("poll gen={generation} loop exit");
+                break;
             }
         })
         .detach();
@@ -1191,11 +1209,7 @@ impl InfoPane {
             .audio_total_duration(path)
             .map(format_audio_duration)
             .unwrap_or_else(|| "--:--".to_string());
-        format!(
-            "{} / {}",
-            format_audio_duration(position),
-            total
-        )
+        format!("{} / {}", format_audio_duration(position), total)
     }
 
     fn audio_current_position(&self, path: &Path) -> Duration {
@@ -1226,10 +1240,12 @@ impl InfoPane {
 
     fn audio_is_finished(&self, path: &Path) -> bool {
         let state = self.audio_player.snapshot();
-        state.active_path.is_none() && state.media_state == MediaSessionState::Ended && self
-            .audio_preview
-            .as_ref()
-            .is_some_and(|preview| preview.path == path)
+        state.active_path.is_none()
+            && state.media_state == MediaSessionState::Ended
+            && self
+                .audio_preview
+                .as_ref()
+                .is_some_and(|preview| preview.path == path)
     }
 
     fn preview_audio_seek_fraction(&mut self, fraction: f32, cx: &mut Context<Self>) {
@@ -1239,7 +1255,8 @@ impl InfoPane {
         let Some(total) = self.audio_total_duration(&path) else {
             return;
         };
-        let position = Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
+        let position =
+            Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
         self.audio_seek_preview_position = Some(position);
         cx.notify();
     }
@@ -1254,7 +1271,8 @@ impl InfoPane {
         if !self.audio_player.is_active_path(&path) {
             return;
         }
-        let target = Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
+        let target =
+            Duration::from_secs_f64(total.as_secs_f64() * f64::from(fraction.clamp(0.0, 1.0)));
         self.audio_seek_preview_position = Some(target);
         self.audio_player.seek_to(target);
         self.start_audio_poll(&path, cx);
@@ -1291,7 +1309,12 @@ impl InfoPane {
         });
     }
 
-    fn start_folder_counts(&mut self, path: PathBuf, read_options: DirectoryReadOptions, cx: &mut Context<Self>) {
+    fn start_folder_counts(
+        &mut self,
+        path: PathBuf,
+        read_options: DirectoryReadOptions,
+        cx: &mut Context<Self>,
+    ) {
         self.folder_generation = self.folder_generation.wrapping_add(1);
         let generation = self.folder_generation;
         self.folder_stats = Some(FolderStats {
@@ -1378,10 +1401,7 @@ impl InfoPane {
 
     fn show_calculate_size_button(&self) -> bool {
         self.folder_stats.as_ref().is_some_and(|stats| {
-            matches!(
-                stats.size,
-                FolderSizeState::Idle | FolderSizeState::Failed
-            )
+            matches!(stats.size, FolderSizeState::Idle | FolderSizeState::Failed)
         })
     }
 }
@@ -1472,7 +1492,14 @@ impl Render for InfoPane {
                     .px(px(14.))
                     .py(px(12.))
                     .gap(px(12.))
-                    .child(tab_content(selected_tab, &selection, show_calc_size, self, window, cx)),
+                    .child(tab_content(
+                        selected_tab,
+                        &selection,
+                        show_calc_size,
+                        self,
+                        window,
+                        cx,
+                    )),
             )
     }
 }
@@ -1605,7 +1632,9 @@ fn single_details_panel(
         .w_full()
         .gap_3()
         .child(details_header_and_list(name, lines, Some(item), cx))
-        .when(show_calc_size, |panel| panel.child(calculate_size_button(window, cx)))
+        .when(show_calc_size, |panel| {
+            panel.child(calculate_size_button(window, cx))
+        })
 }
 
 fn details_header_and_list(
@@ -1631,11 +1660,16 @@ fn details_header_and_list(
                 .items_center()
                 .text_color(cx.theme().foreground)
                 .child(icon_foreground(IconName::Info, cx))
-                .child(Label::new(title).text_sm().text_color(cx.theme().foreground)),
+                .child(
+                    Label::new(title)
+                        .text_sm()
+                        .text_color(cx.theme().foreground),
+                ),
         )
-        .when_some(tag_item.filter(|item| !item.tags.is_empty()), |panel, item| {
-            panel.child(tag_chips_row(item, cx))
-        })
+        .when_some(
+            tag_item.filter(|item| !item.tags.is_empty()),
+            |panel, item| panel.child(tag_chips_row(item, cx)),
+        )
         .child(
             DescriptionList::vertical()
                 .bordered(false)
@@ -1679,11 +1713,7 @@ fn tag_color_dot(color: Option<&str>) -> impl IntoElement {
         .and_then(parse_tag_color_hex)
         .map(rgb)
         .unwrap_or(rgb(0x54_6E_7A));
-    div()
-        .size(px(10.))
-        .rounded_full()
-        .flex_none()
-        .bg(fill)
+    div().size(px(10.)).rounded_full().flex_none().bg(fill)
 }
 
 fn preview_panel(
@@ -1730,14 +1760,14 @@ fn file_preview_content(
     cx: &mut Context<InfoPane>,
 ) -> AnyElement {
     match preview_kind(path) {
-        Some(PreviewKind::Image | PreviewKind::Svg) => preview_image_content(path).into_any_element(),
+        Some(PreviewKind::Image | PreviewKind::Svg) => {
+            preview_image_content(path).into_any_element()
+        }
         Some(
-            kind @ (
-                PreviewKind::Markdown
-                | PreviewKind::Html
-                | PreviewKind::Code
-                | PreviewKind::Text
-            ),
+            kind @ (PreviewKind::Markdown
+            | PreviewKind::Html
+            | PreviewKind::Code
+            | PreviewKind::Text),
         ) => preview_text_content(path, kind, cx),
         Some(PreviewKind::Pdf) => Alert::info(
             "info-pane-preview-pdf",
@@ -1891,7 +1921,10 @@ fn audio_preview_panel(
         })
 }
 
-fn audio_metadata_lines(path: &Path, metadata: Option<&AudioFileMetadata>) -> Vec<(String, String)> {
+fn audio_metadata_lines(
+    path: &Path,
+    metadata: Option<&AudioFileMetadata>,
+) -> Vec<(String, String)> {
     let mut lines = Vec::new();
 
     if let Some(metadata) = metadata {
@@ -1948,10 +1981,17 @@ fn video_preview_panel(
         .as_ref()
         .filter(|preview| preview.path == path);
     let metadata = preview.and_then(video_preview_metadata);
-    let metadata_loading = preview.is_some_and(|preview| preview.metadata == VideoMetadataState::Loading);
+    let metadata_loading =
+        preview.is_some_and(|preview| preview.metadata == VideoMetadataState::Loading);
     let preview_error = preview.and_then(|preview| preview.preview_error.clone());
-    let is_playing = preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Starting | VideoPlaybackState::Playing));
-    let is_paused = preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Paused));
+    let is_playing = preview.is_some_and(|preview| {
+        matches!(
+            preview.playback,
+            VideoPlaybackState::Starting | VideoPlaybackState::Playing
+        )
+    });
+    let is_paused =
+        preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Paused));
     #[cfg(windows)]
     let embed_active = pane.embedded_video_active_for_path(path);
     #[cfg(not(windows))]
@@ -1964,14 +2004,17 @@ fn video_preview_panel(
         t!("info_pane.video.pause").to_string()
     } else if is_paused {
         t!("info_pane.video.resume").to_string()
-    } else if preview.is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Finished)) {
+    } else if preview
+        .is_some_and(|preview| matches!(preview.playback, VideoPlaybackState::Finished))
+    {
         t!("info_pane.video.replay").to_string()
     } else {
         t!("info_pane.video.play").to_string()
     };
-    let status = pane.video_status.clone().or_else(|| {
-        preview.map(|preview| video_time_line(preview, metadata))
-    });
+    let status = pane
+        .video_status
+        .clone()
+        .or_else(|| preview.map(|preview| video_time_line(preview, metadata)));
     let detail_lines = video_metadata_lines(path, metadata);
     #[cfg(windows)]
     let entity = cx.entity().downgrade();
@@ -2010,7 +2053,8 @@ fn video_preview_panel(
                                         (prev.origin.x - bounds.origin.x).abs() > px(0.5)
                                             || (prev.origin.y - bounds.origin.y).abs() > px(0.5)
                                             || (prev.size.width - bounds.size.width).abs() > px(0.5)
-                                            || (prev.size.height - bounds.size.height).abs() > px(0.5)
+                                            || (prev.size.height - bounds.size.height).abs()
+                                                > px(0.5)
                                     })
                                     .unwrap_or(true);
                                 if changed {
@@ -2053,27 +2097,21 @@ fn video_preview_panel(
             )
         })
         .child(
-            v_flex()
-                .w_full()
-                .gap_1()
-                .child(
-                    Slider::new(&pane.video_seek_slider)
-                        .disabled(!can_seek)
-                        .w_full(),
-                ),
+            v_flex().w_full().gap_1().child(
+                Slider::new(&pane.video_seek_slider)
+                    .disabled(!can_seek)
+                    .w_full(),
+            ),
         )
         .child(
-            h_flex()
-                .gap_2()
-                .flex_wrap()
-                .child(
-                    Button::new("info-pane-video-play")
-                        .label(playback_label)
-                        .on_click(cx.listener(|this, _, window, cx| {
-                            cx.stop_propagation();
-                            this.toggle_video_playback(window, cx);
-                        })),
-                ),
+            h_flex().gap_2().flex_wrap().child(
+                Button::new("info-pane-video-play")
+                    .label(playback_label)
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.toggle_video_playback(window, cx);
+                    })),
+            ),
         )
         .child(
             h_flex()
@@ -2187,7 +2225,10 @@ fn video_progress_fraction(preview: &VideoPreview, metadata: Option<&VideoFileMe
     (preview.current_position.as_secs_f32() / total.as_secs_f32()).clamp(0., 1.)
 }
 
-fn video_metadata_lines(path: &Path, metadata: Option<&VideoFileMetadata>) -> Vec<(String, String)> {
+fn video_metadata_lines(
+    path: &Path,
+    metadata: Option<&VideoFileMetadata>,
+) -> Vec<(String, String)> {
     let mut lines = Vec::new();
 
     if let Some(metadata) = metadata {
@@ -2314,7 +2355,9 @@ fn folder_preview_panel(
                 .text_sm()
                 .text_color(cx.theme().foreground)
         }))
-        .when(show_calc_size, |panel| panel.child(calculate_size_button(window, cx)))
+        .when(show_calc_size, |panel| {
+            panel.child(calculate_size_button(window, cx))
+        })
         .when(lines_empty && !show_calc_size, |panel| {
             panel.child(Alert::info(
                 "info-pane-preview-folder-loading",
@@ -2418,9 +2461,7 @@ fn preview_kind_title(kind: PreviewKind) -> String {
     }
 }
 
-fn format_multi_type_summary(
-    summary: &files_fs::MultiSelectSummary,
-) -> String {
+fn format_multi_type_summary(summary: &files_fs::MultiSelectSummary) -> String {
     let mut parts = Vec::new();
     if summary.files > 0 {
         parts.push(t!("info_pane.multi.files", count = summary.files).to_string());

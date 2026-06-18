@@ -54,7 +54,11 @@ impl Document {
     }
 
     /// Builds a document from a [`LoadedFile`].
-    pub fn from_loaded(loaded: LoadedFile, path: Option<PathBuf>, language: impl Into<String>) -> Self {
+    pub fn from_loaded(
+        loaded: LoadedFile,
+        path: Option<PathBuf>,
+        language: impl Into<String>,
+    ) -> Self {
         let saved_revision = loaded.buffer.revision();
         Self {
             buffer: loaded.buffer,
@@ -589,7 +593,6 @@ mod tests {
         assert!(d.dirty());
     }
 
-
     #[test]
     fn crlf_normalization() {
         let mut d = doc("a\nb");
@@ -600,7 +603,8 @@ mod tests {
     #[test]
     fn replace_all_literal() {
         let mut d = doc("foo bar foo baz foo");
-        let s = crate::search::Searcher::new("foo", crate::search::SearchOptions::default()).unwrap();
+        let s =
+            crate::search::Searcher::new("foo", crate::search::SearchOptions::default()).unwrap();
         assert_eq!(d.replace_all(&s, "qux", false), 3);
         assert_eq!(d.buffer.to_string(), "qux bar qux baz qux");
     }
@@ -609,11 +613,8 @@ mod tests {
     fn multi_cursor_insert() {
         let mut d = doc("a\na\na");
         // carets after each 'a': offsets 1, 3, 5
-        let sels = SelectionSet::from_cursors(vec![
-            Cursor::caret(1),
-            Cursor::caret(3),
-            Cursor::caret(5),
-        ]);
+        let sels =
+            SelectionSet::from_cursors(vec![Cursor::caret(1), Cursor::caret(3), Cursor::caret(5)]);
         d.set_selections(sels);
         d.insert("!");
         assert_eq!(d.buffer.to_string(), "a!\na!\na!");

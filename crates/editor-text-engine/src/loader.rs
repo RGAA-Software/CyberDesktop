@@ -61,10 +61,7 @@ pub fn load_file(path: &Path) -> Result<LoadedFile> {
 }
 
 /// Like [`load_file`], optionally updating `progress` after each decode chunk.
-pub fn load_file_with_progress(
-    path: &Path,
-    progress: Option<&LoadProgress>,
-) -> Result<LoadedFile> {
+pub fn load_file_with_progress(path: &Path, progress: Option<&LoadProgress>) -> Result<LoadedFile> {
     let file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
     let len = file
         .metadata()

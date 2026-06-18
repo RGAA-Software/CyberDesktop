@@ -43,5 +43,9 @@ pub fn init(cx: &mut App) {
     app_menus::init_media_player_menus(cx);
 
     // Bind Escape key to exit fullscreen
-    cx.bind_keys([KeyBinding::new("escape", app_menus::MpvExitFullscreen, None)]);
+    cx.bind_keys([KeyBinding::new(
+        "escape",
+        app_menus::MpvExitFullscreen,
+        None,
+    )]);
 }

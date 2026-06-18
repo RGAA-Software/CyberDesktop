@@ -9,23 +9,11 @@ const MAX_HISTORY: usize = 50;
 /// A reversible file operation recorded for undo/redo.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FileOperation {
-    Move {
-        moves: Vec<(PathBuf, PathBuf)>,
-    },
-    Copy {
-        copies: Vec<(PathBuf, PathBuf)>,
-    },
-    Rename {
-        from: PathBuf,
-        to: PathBuf,
-    },
-    Create {
-        path: PathBuf,
-        is_dir: bool,
-    },
-    Recycle {
-        originals: Vec<PathBuf>,
-    },
+    Move { moves: Vec<(PathBuf, PathBuf)> },
+    Copy { copies: Vec<(PathBuf, PathBuf)> },
+    Rename { from: PathBuf, to: PathBuf },
+    Create { path: PathBuf, is_dir: bool },
+    Recycle { originals: Vec<PathBuf> },
 }
 
 #[derive(Debug, Clone, Default)]

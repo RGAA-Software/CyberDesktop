@@ -7,14 +7,26 @@ impl FileBrowser {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let (cell_w, cell_h, icon_size) = match self.view_size_level {
-            1 => (GRID_CELL_SIZE_SMALL.width, GRID_CELL_SIZE_SMALL.height, px(16.)),
-            3 => (GRID_CELL_SIZE_LARGE.width, GRID_CELL_SIZE_LARGE.height, px(24.)),
+            1 => (
+                GRID_CELL_SIZE_SMALL.width,
+                GRID_CELL_SIZE_SMALL.height,
+                px(16.),
+            ),
+            3 => (
+                GRID_CELL_SIZE_LARGE.width,
+                GRID_CELL_SIZE_LARGE.height,
+                px(24.),
+            ),
             _ => (GRID_CELL_SIZE.width, GRID_CELL_SIZE.height, px(20.)),
         };
 
         let estimated_available_width = {
             let sidebar_w = px(214.);
-            let info_pane_w = if self.show_info_pane { px(300.) } else { px(0.) };
+            let info_pane_w = if self.show_info_pane {
+                px(300.)
+            } else {
+                px(0.)
+            };
             let padding_border = px(18.);
             (window.viewport_size().width - sidebar_w - info_pane_w - padding_border).max(px(200.))
         };
@@ -49,8 +61,7 @@ impl FileBrowser {
                 let entity = cx.entity().clone();
                 move |bounds, window, cx| {
                     let measured_width = bounds.size.width - px(18.);
-                    let measured_cells =
-                        ((measured_width + gap) / (cell_w + gap)).max(1.) as usize;
+                    let measured_cells = ((measured_width + gap) / (cell_w + gap)).max(1.) as usize;
                     let changed = entity.update(cx, |this, _cx| {
                         let changed = this.grid_cells_per_row != Some(measured_cells);
                         this.grid_cells_per_row = Some(measured_cells);
@@ -77,7 +88,8 @@ impl FileBrowser {
                                 visible_range
                                     .filter_map(|row_ix| {
                                         let start = row_ix * cells_per_row;
-                                        let end = (start + cells_per_row).min(this.display_items.len());
+                                        let end =
+                                            (start + cells_per_row).min(this.display_items.len());
                                         if start >= this.display_items.len() {
                                             return None;
                                         }
@@ -85,26 +97,27 @@ impl FileBrowser {
                                             h_flex()
                                                 .w_full()
                                                 .gap_2()
-                                                .children(
-                                                    (start..end).map(|index| {
-                                                        let item = this.display_items[index].clone();
-                                                        let selected = this.selected_paths.contains(&item.path);
-                                                        let drag_paths = this.drag_paths_for_item(index, &item.path);
-                                                        let rename_input = this.renaming_input_for(&item.path);
-                                                        Self::grid_cell(
-                                                            window,
-                                                            index,
-                                                            item,
-                                                            selected,
-                                                            drag_paths,
-                                                            rename_input,
-                                                            cell_w,
-                                                            cell_h,
-                                                            icon_size,
-                                                            cx,
-                                                        )
-                                                    })
-                                                )
+                                                .children((start..end).map(|index| {
+                                                    let item = this.display_items[index].clone();
+                                                    let selected =
+                                                        this.selected_paths.contains(&item.path);
+                                                    let drag_paths =
+                                                        this.drag_paths_for_item(index, &item.path);
+                                                    let rename_input =
+                                                        this.renaming_input_for(&item.path);
+                                                    Self::grid_cell(
+                                                        window,
+                                                        index,
+                                                        item,
+                                                        selected,
+                                                        drag_paths,
+                                                        rename_input,
+                                                        cell_w,
+                                                        cell_h,
+                                                        icon_size,
+                                                        cx,
+                                                    )
+                                                }))
                                                 .into_any_element(),
                                         )
                                     })
@@ -128,7 +141,11 @@ impl FileBrowser {
 
         let estimated_available_width = {
             let sidebar_w = px(214.);
-            let info_pane_w = if self.show_info_pane { px(300.) } else { px(0.) };
+            let info_pane_w = if self.show_info_pane {
+                px(300.)
+            } else {
+                px(0.)
+            };
             let padding_border = px(18.);
             (window.viewport_size().width - sidebar_w - info_pane_w - padding_border).max(px(200.))
         };
@@ -163,8 +180,7 @@ impl FileBrowser {
                 let entity = cx.entity().clone();
                 move |bounds, window, cx| {
                     let measured_width = bounds.size.width - px(18.);
-                    let measured_cells =
-                        ((measured_width + gap) / (cell_w + gap)).max(1.) as usize;
+                    let measured_cells = ((measured_width + gap) / (cell_w + gap)).max(1.) as usize;
                     let changed = entity.update(cx, |this, _cx| {
                         let changed = this.cards_cells_per_row != Some(measured_cells);
                         this.cards_cells_per_row = Some(measured_cells);
@@ -191,7 +207,8 @@ impl FileBrowser {
                                 visible_range
                                     .filter_map(|row_ix| {
                                         let start = row_ix * cells_per_row;
-                                        let end = (start + cells_per_row).min(this.display_items.len());
+                                        let end =
+                                            (start + cells_per_row).min(this.display_items.len());
                                         if start >= this.display_items.len() {
                                             return None;
                                         }
@@ -199,23 +216,24 @@ impl FileBrowser {
                                             h_flex()
                                                 .w_full()
                                                 .gap_2()
-                                                .children(
-                                                    (start..end).map(|index| {
-                                                        let item = this.display_items[index].clone();
-                                                        let selected = this.selected_paths.contains(&item.path);
-                                                        let drag_paths = this.drag_paths_for_item(index, &item.path);
-                                                        let rename_input = this.renaming_input_for(&item.path);
-                                                        Self::card_cell(
-                                                            window,
-                                                            index,
-                                                            item,
-                                                            selected,
-                                                            drag_paths,
-                                                            rename_input,
-                                                            cx,
-                                                        )
-                                                    })
-                                                )
+                                                .children((start..end).map(|index| {
+                                                    let item = this.display_items[index].clone();
+                                                    let selected =
+                                                        this.selected_paths.contains(&item.path);
+                                                    let drag_paths =
+                                                        this.drag_paths_for_item(index, &item.path);
+                                                    let rename_input =
+                                                        this.renaming_input_for(&item.path);
+                                                    Self::card_cell(
+                                                        window,
+                                                        index,
+                                                        item,
+                                                        selected,
+                                                        drag_paths,
+                                                        rename_input,
+                                                        cx,
+                                                    )
+                                                }))
                                                 .into_any_element(),
                                         )
                                     })
@@ -261,7 +279,9 @@ impl FileBrowser {
             .rounded(cx.theme().radius)
             .border_1()
             .border_color(cx.theme().border)
-            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
+            .when(!selected, |this| {
+                this.hover(|this| this.bg(cx.theme().list_hover))
+            })
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .border_color(cx.theme().primary)
@@ -299,25 +319,18 @@ impl FileBrowser {
                 }),
             )
             .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
-                this.update_sweep_pointer(
-                    SweepSelectionSurface::Main,
-                    window.mouse_position(),
-                    cx,
-                );
+                this.update_sweep_pointer(SweepSelectionSurface::Main, window.mouse_position(), cx);
             }))
-            .on_drag(
-                DraggedFilePaths(drag_paths),
-                {
-                    let browser = browser.clone();
-                    move |paths, grab_offset, window, cx| {
-                        let _ = browser.update(cx, |this, cx| {
-                            this.start_native_drag_session(paths.0.clone(), window, cx);
-                            this.finish_sweep_selection();
-                        });
-                        DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
-                    }
-                },
-            )
+            .on_drag(DraggedFilePaths(drag_paths), {
+                let browser = browser.clone();
+                move |paths, grab_offset, window, cx| {
+                    let _ = browser.update(cx, |this, cx| {
+                        this.start_native_drag_session(paths.0.clone(), window, cx);
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
+                }
+            })
             .on_drag_move::<DraggedFilePaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
@@ -327,7 +340,9 @@ impl FileBrowser {
             .on_drag_move::<ExternalPaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
-                    this.update_external_drag_hover_over_item_if_hovered(event, &target, window, cx);
+                    this.update_external_drag_hover_over_item_if_hovered(
+                        event, &target, window, cx,
+                    );
                 }
             }))
             .drag_over::<DraggedFilePaths>(|cell, _, _, cx| {
@@ -366,12 +381,10 @@ impl FileBrowser {
                     .text_xs()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .child(
-                        rename_input.map_or_else(
-                            || div().w_full().child(name).into_any_element(),
-                            |input| Self::inline_name_editor(input, true, cx),
-                        ),
-                    ),
+                    .child(rename_input.map_or_else(
+                        || div().w_full().child(name).into_any_element(),
+                        |input| Self::inline_name_editor(input, true, cx),
+                    )),
             )
             .into_any_element()
     }
@@ -405,7 +418,9 @@ impl FileBrowser {
             .rounded(cx.theme().radius)
             .border_1()
             .border_color(cx.theme().border)
-            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
+            .when(!selected, |this| {
+                this.hover(|this| this.bg(cx.theme().list_hover))
+            })
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .border_color(cx.theme().primary)
@@ -443,25 +458,18 @@ impl FileBrowser {
                 }),
             )
             .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, window, cx| {
-                this.update_sweep_pointer(
-                    SweepSelectionSurface::Main,
-                    window.mouse_position(),
-                    cx,
-                );
+                this.update_sweep_pointer(SweepSelectionSurface::Main, window.mouse_position(), cx);
             }))
-            .on_drag(
-                DraggedFilePaths(drag_paths),
-                {
-                    let browser = browser.clone();
-                    move |paths, grab_offset, window, cx| {
-                        let _ = browser.update(cx, |this, cx| {
-                            this.start_native_drag_session(paths.0.clone(), window, cx);
-                            this.finish_sweep_selection();
-                        });
-                        DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
-                    }
-                },
-            )
+            .on_drag(DraggedFilePaths(drag_paths), {
+                let browser = browser.clone();
+                move |paths, grab_offset, window, cx| {
+                    let _ = browser.update(cx, |this, cx| {
+                        this.start_native_drag_session(paths.0.clone(), window, cx);
+                        this.finish_sweep_selection();
+                    });
+                    DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
+                }
+            })
             .on_drag_move::<DraggedFilePaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
@@ -471,7 +479,9 @@ impl FileBrowser {
             .on_drag_move::<ExternalPaths>(cx.listener({
                 let target = drop_target.clone();
                 move |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
-                    this.update_external_drag_hover_over_item_if_hovered(event, &target, window, cx);
+                    this.update_external_drag_hover_over_item_if_hovered(
+                        event, &target, window, cx,
+                    );
                 }
             }))
             .drag_over::<DraggedFilePaths>(|cell, _, _, cx| {
@@ -510,12 +520,10 @@ impl FileBrowser {
                     .text_sm()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .child(
-                        rename_input.map_or_else(
-                            || div().w_full().child(name).into_any_element(),
-                            |input| Self::inline_name_editor(input, true, cx),
-                        ),
-                    ),
+                    .child(rename_input.map_or_else(
+                        || div().w_full().child(name).into_any_element(),
+                        |input| Self::inline_name_editor(input, true, cx),
+                    )),
             )
             .when(item.size.is_some(), |this| {
                 this.child(

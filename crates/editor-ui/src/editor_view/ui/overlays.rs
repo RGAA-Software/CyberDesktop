@@ -225,11 +225,7 @@ impl EngineEditor {
     pub(crate) fn render_close_confirm(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let target = self.pending_close?;
         let message = match target {
-            CloseTarget::Tab(i) => t!(
-                "editor.unsaved.tab",
-                name = self.tab_name(i)
-            )
-            .to_string(),
+            CloseTarget::Tab(i) => t!("editor.unsaved.tab", name = self.tab_name(i)).to_string(),
             CloseTarget::Window => {
                 let n = self.dirty_tabs().len();
                 if n <= 1 {

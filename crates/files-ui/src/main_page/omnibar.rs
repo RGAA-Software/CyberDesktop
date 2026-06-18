@@ -4,23 +4,18 @@ use files_core::{path_history_list, record_search_history, search_history_list};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+#[cfg(windows)]
+use app_platform_windows::list_shell_quick_access_folders;
 use files_fs::{
     breadcrumb_root_menu_sections, list_drives, omnibar_path_suggestions,
     omnibar_search_suggestions, path_breadcrumbs, search_scope_path, OmnibarPathSuggestion,
     PathBreadcrumb,
 };
-#[cfg(windows)]
-use app_platform_windows::list_shell_quick_access_folders;
 use gpui::{prelude::*, *};
 use gpui_component::{
     h_flex,
     input::{Input, InputEvent, InputState},
-    ActiveTheme as _,
-    ElementExt as _,
-    IconName,
-    Size,
-    Sizable as _,
-    StyledExt as _,
+    ActiveTheme as _, ElementExt as _, IconName, Sizable as _, Size, StyledExt as _,
 };
 use rust_i18n::t;
 
@@ -82,13 +77,19 @@ impl MainPage {
         let page_hover = cx.entity();
         let on_drag_hover = Rc::new(
             move |path: PathBuf, dragged_paths: Vec<PathBuf>, window: &mut Window, cx: &mut App| {
-            let _ = page_hover.update(cx, |page, cx| {
-                page.schedule_breadcrumb_drag_preview(path.clone(), cx);
-                page.active_file_browser(cx).update(cx, |browser, cx| {
-                    browser.set_breadcrumb_drag_hover_feedback(path, &dragged_paths, window, cx);
+                let _ = page_hover.update(cx, |page, cx| {
+                    page.schedule_breadcrumb_drag_preview(path.clone(), cx);
+                    page.active_file_browser(cx).update(cx, |browser, cx| {
+                        browser.set_breadcrumb_drag_hover_feedback(
+                            path,
+                            &dragged_paths,
+                            window,
+                            cx,
+                        );
+                    });
                 });
-            });
-        });
+            },
+        );
         let page_hover_external = cx.entity();
         let on_drag_hover_external = Rc::new(
             move |path: PathBuf, dragged_paths: Vec<PathBuf>, window: &mut Window, cx: &mut App| {
@@ -321,9 +322,8 @@ impl MainPage {
             return input;
         }
 
-        let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(t!("search.global.placeholder"))
-        });
+        let input =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t!("search.global.placeholder")));
         self._omnibar_search_subscription = Some(cx.subscribe(
             &input,
             move |page, _, event: &InputEvent, cx| match event {
@@ -422,7 +422,8 @@ impl MainPage {
                 }
                 page.omnibar_search_suggestions = suggestions;
                 page.omnibar_search_suggestions_open = true;
-                page.omnibar_search_suggestion_index = if page.omnibar_search_suggestions.is_empty() {
+                page.omnibar_search_suggestion_index = if page.omnibar_search_suggestions.is_empty()
+                {
                     None
                 } else {
                     Some(0)
@@ -855,10 +856,8 @@ impl MainPage {
                         .on_prepaint({
                             let page = page.clone();
                             move |bounds, _, cx| {
-                                let anchor = point(
-                                    bounds.origin.x,
-                                    bounds.origin.y + bounds.size.height,
-                                );
+                                let anchor =
+                                    point(bounds.origin.x, bounds.origin.y + bounds.size.height);
                                 let _ = page.update(cx, |page, cx| {
                                     let changed = page
                                         .omnibar_path_input_anchor
@@ -903,10 +902,8 @@ impl MainPage {
                         .on_prepaint({
                             let page = page.clone();
                             move |bounds, _, cx| {
-                                let anchor = point(
-                                    bounds.origin.x,
-                                    bounds.origin.y + bounds.size.height,
-                                );
+                                let anchor =
+                                    point(bounds.origin.x, bounds.origin.y + bounds.size.height);
                                 let _ = page.update(cx, |page, cx| {
                                     let changed = page
                                         .omnibar_search_input_anchor
@@ -926,8 +923,7 @@ impl MainPage {
                             page.on_omnibar_search_key_down(event, window, cx);
                         }))
                         .child(
-                            toolbar_icon(IconName::Search)
-                                .text_color(cx.theme().muted_foreground),
+                            toolbar_icon(IconName::Search).text_color(cx.theme().muted_foreground),
                         )
                         .when_some(search_input.as_ref(), |row, input| {
                             row.child(
@@ -944,11 +940,14 @@ impl MainPage {
                     bar.child(self.render_omnibar_search_panel(anchor, cx))
                 })
             })
-            .when(self.omnibar_show_full_path && self.omnibar_suggestions_open, |bar| {
-                bar.when_some(self.omnibar_path_input_anchor, |bar, anchor| {
-                    bar.child(self.render_omnibar_suggestions(anchor, window, cx))
-                })
-            })
+            .when(
+                self.omnibar_show_full_path && self.omnibar_suggestions_open,
+                |bar| {
+                    bar.when_some(self.omnibar_path_input_anchor, |bar, anchor| {
+                        bar.child(self.render_omnibar_suggestions(anchor, window, cx))
+                    })
+                },
+            )
     }
 
     fn render_omnibar_suggestion_row(
@@ -971,7 +970,9 @@ impl MainPage {
                 row.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
             })
-            .when(!selected, |row| row.hover(|this| this.bg(cx.theme().accent.opacity(0.35))))
+            .when(!selected, |row| {
+                row.hover(|this| this.bg(cx.theme().accent.opacity(0.35)))
+            })
             .child(shell_icon_for_path(&entry.path, px(16.), cx))
             .child(
                 div()
@@ -1017,17 +1018,14 @@ impl MainPage {
                             let entry = entry.clone();
                             div()
                                 .id(("omnibar-suggestion", ix))
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    move |_, _, cx| {
-                                        let _ = page.update(cx, |page, cx| {
-                                            page.omnibar_path_blur_generation =
-                                                page.omnibar_path_blur_generation.wrapping_add(1);
-                                            page.navigate_to_omnibar_suggestion(ix, cx);
-                                        });
-                                        cx.stop_propagation();
-                                    },
-                                )
+                                .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                                    let _ = page.update(cx, |page, cx| {
+                                        page.omnibar_path_blur_generation =
+                                            page.omnibar_path_blur_generation.wrapping_add(1);
+                                        page.navigate_to_omnibar_suggestion(ix, cx);
+                                    });
+                                    cx.stop_propagation();
+                                })
                                 .child(Self::render_omnibar_suggestion_row(
                                     &entry,
                                     selected_row,
@@ -1058,7 +1056,9 @@ impl MainPage {
                 row.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
             })
-            .when(!selected, |row| row.hover(|this| this.bg(cx.theme().accent.opacity(0.35))))
+            .when(!selected, |row| {
+                row.hover(|this| this.bg(cx.theme().accent.opacity(0.35)))
+            })
             .child(
                 div()
                     .flex_1()
@@ -1178,15 +1178,12 @@ impl MainPage {
                             let entry = entry.clone();
                             div()
                                 .id(("omnibar-search-suggestion", ix))
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    move |_, _, cx| {
-                                        let _ = page.update(cx, |page, cx| {
-                                            page.submit_global_search_query(ix, cx);
-                                        });
-                                        cx.stop_propagation();
-                                    },
-                                )
+                                .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                                    let _ = page.update(cx, |page, cx| {
+                                        page.submit_global_search_query(ix, cx);
+                                    });
+                                    cx.stop_propagation();
+                                })
                                 .child(Self::render_omnibar_search_suggestion_row(
                                     &entry,
                                     selected_row,

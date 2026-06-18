@@ -5,7 +5,20 @@ use gpui_component::{menu::AppMenuBar, GlobalState};
 
 actions!(
     mediaplayer,
-    [MpvOpenFile, MpvOpenFolder, MpvLoadSubtitle, MpvCycleSubTrack, MpvSetLoopNone, MpvSetLoopAll, MpvSetLoopSingle, MpvSetSpeed05, MpvSetSpeed10, MpvSetSpeed15, MpvSetSpeed20, MpvExitFullscreen]
+    [
+        MpvOpenFile,
+        MpvOpenFolder,
+        MpvLoadSubtitle,
+        MpvCycleSubTrack,
+        MpvSetLoopNone,
+        MpvSetLoopAll,
+        MpvSetLoopSingle,
+        MpvSetSpeed05,
+        MpvSetSpeed10,
+        MpvSetSpeed15,
+        MpvSetSpeed20,
+        MpvExitFullscreen
+    ]
 );
 
 struct MediaPlayerMenuState {
@@ -33,10 +46,7 @@ pub fn reload(cx: &mut App) {
     }
     let menu_bar = cx.global::<MediaPlayerMenuState>().menu_bar.clone();
     cx.set_menus(build_menus());
-    let owned = build_menus()
-        .into_iter()
-        .map(|menu| menu.owned())
-        .collect();
+    let owned = build_menus().into_iter().map(|menu| menu.owned()).collect();
     if cx.has_global::<GlobalState>() {
         GlobalState::global_mut(cx).set_app_menus(owned);
     }

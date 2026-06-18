@@ -37,7 +37,10 @@ pub(crate) fn record(kind: HistoryKind, value: &str, limit: usize) -> anyhow::Re
     let conn = open_history_db()?;
     let tx = conn.unchecked_transaction()?;
     let table = kind.table_name();
-    tx.execute(&format!("DELETE FROM {table} WHERE value = ?1"), params![trimmed])?;
+    tx.execute(
+        &format!("DELETE FROM {table} WHERE value = ?1"),
+        params![trimmed],
+    )?;
     tx.execute(
         &format!("INSERT INTO {table} (value, updated_at) VALUES (?1, ?2)"),
         params![trimmed, now_unix_ts()],

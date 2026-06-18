@@ -6,7 +6,10 @@ fn copy_bundled_mpv() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
     let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".into());
     let root = std::path::Path::new(&manifest_dir).join("..").join("..");
-    let src = root.join("third_party").join("mpv-dev").join("libmpv-2.dll");
+    let src = root
+        .join("third_party")
+        .join("mpv-dev")
+        .join("libmpv-2.dll");
     let dest_dir = root.join("target").join(&profile);
 
     if !src.is_file() {
@@ -21,4 +24,3 @@ fn copy_bundled_mpv() {
         println!("cargo:warning=failed to copy libmpv-2.dll: {error}");
     }
 }
-

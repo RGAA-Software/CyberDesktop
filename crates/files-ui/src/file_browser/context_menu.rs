@@ -3,17 +3,17 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-use files_commands::{
-    CompressItems, CopyItems, CopyPath, CutItems, DeleteItems, DeleteItemsPermanent, EmptyRecycleBin,
-    ExtractHere, ExtractToFolder, NewFile, NewFolder, OpenInNewPane, OpenItem, PasteItems,
-    RefreshDirectory, RenameItem, RestoreAllRecycleItems, RestoreRecycleItems, ShellProperties,
-    ViewCards, ViewColumns, ViewDetails, ViewGrid,
-};
-use files_core::{context_menu_item_prefs, load_config};
 use super::compress_label::compress_context_menu_label;
 use super::helpers::{build_sort_prefs_menu, view_supports_grouping};
-use files_fs::is_archive_path;
 use app_platform_windows::{self as platform, ShellContextMenuEntry};
+use files_commands::{
+    CompressItems, CopyItems, CopyPath, CutItems, DeleteItems, DeleteItemsPermanent,
+    EmptyRecycleBin, ExtractHere, ExtractToFolder, NewFile, NewFolder, OpenInNewPane, OpenItem,
+    PasteItems, RefreshDirectory, RenameItem, RestoreAllRecycleItems, RestoreRecycleItems,
+    ShellProperties, ViewCards, ViewColumns, ViewDetails, ViewGrid,
+};
+use files_core::{context_menu_item_prefs, load_config};
+use files_fs::is_archive_path;
 use gpui::{Context, Entity, SharedString, Window};
 use gpui_component::{notification::Notification, Icon, IconName, WindowExt as _};
 
@@ -22,8 +22,8 @@ use rust_i18n::t;
 
 use super::{
     normalize_paths_for_shell_cache, shell_submenu_snapshot, BrowseLocation,
-    CreateFolderFromSelection, CreateShortcut, FileBrowser, OpenInNewWindow,
-    OpenInTerminal, OpenWithDialog, ShellMenuCache, ShellSubmenuSnapshot, ViewMode,
+    CreateFolderFromSelection, CreateShortcut, FileBrowser, OpenInNewWindow, OpenInTerminal,
+    OpenWithDialog, ShellMenuCache, ShellSubmenuSnapshot, ViewMode,
 };
 use crate::app_state::{AppFileClipboard, AppNavigation};
 
@@ -649,13 +649,14 @@ fn build_background_menu(
     }
 
     if !in_recycle && !in_file_tag {
-        menu = menu.menu_with_icon_and_disabled(
-            t!("files.menu.paste"),
-            crate::tabler_icons::icon(crate::tabler_icons::CLIPBOARD),
-            Box::new(PasteItems),
-            !can_paste,
-        )
-        .separator();
+        menu = menu
+            .menu_with_icon_and_disabled(
+                t!("files.menu.paste"),
+                crate::tabler_icons::icon(crate::tabler_icons::CLIPBOARD),
+                Box::new(PasteItems),
+                !can_paste,
+            )
+            .separator();
     }
 
     menu = menu.submenu_with_icon(

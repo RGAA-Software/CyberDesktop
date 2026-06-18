@@ -67,8 +67,6 @@ impl SettingsWindow {
             title_bar_height: None,
         }
     }
-
-
 }
 
 impl Focusable for SettingsWindow {

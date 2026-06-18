@@ -11,9 +11,7 @@ impl EngineEditor {
         if self.soft_wrap {
             return false;
         }
-        self.reserve_hscrollbar_lane
-            || self.scroll_x > px(0.0)
-            || self.content_width > view_w
+        self.reserve_hscrollbar_lane || self.scroll_x > px(0.0) || self.content_width > view_w
     }
 
     /// Bottom padding so the last line is not covered by the horizontal scrollbar.

@@ -7,8 +7,8 @@ use gpui_component::{
 use crate::app_state::AppNavigation;
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::pane_split::{
-    ratio_from_pointer, secondary_too_narrow, PaneSplitDrag, PANE_MIN_SIZE,
-    MULTI_PANE_WIDTH_THRESHOLD, SPLIT_HANDLE_SIZE, SPLIT_RATIO_MAX, SPLIT_RATIO_MIN,
+    ratio_from_pointer, secondary_too_narrow, PaneSplitDrag, MULTI_PANE_WIDTH_THRESHOLD,
+    PANE_MIN_SIZE, SPLIT_HANDLE_SIZE, SPLIT_RATIO_MAX, SPLIT_RATIO_MIN,
 };
 use crate::shell::PaneShell;
 use files_core::{load_config, SessionPaneLayout};
@@ -156,10 +156,7 @@ impl ShellPanes {
 
     /// Show the secondary pane with the same navigation target as the active pane.
     pub fn open_secondary_at_active(&mut self, cx: &mut Context<Self>) {
-        let target = self
-            .active_pane()
-            .read(cx)
-            .current_navigation_target(cx);
+        let target = self.active_pane().read(cx).current_navigation_target(cx);
         self.dual_pane = true;
         self.compact_suppressed_dual = false;
         self.active = PaneSide::Primary;
@@ -230,10 +227,7 @@ impl ShellPanes {
                 self.dual_pane = true;
                 let tab = self.compact_secondary_tab.clone();
                 self.secondary.update(cx, |pane, cx| {
-                    pane.navigate(
-                        NavigationTarget::decode_session_tab(tab.as_str()),
-                        cx,
-                    );
+                    pane.navigate(NavigationTarget::decode_session_tab(tab.as_str()), cx);
                 });
                 self.compact_secondary_tab.clear();
                 cx.notify();
@@ -254,7 +248,8 @@ impl ShellPanes {
             self.close_other_pane(cx);
         }
         if let Some(nav) = cx.try_global::<AppNavigation>() {
-            nav.main_page().update(cx, |page, cx| page.persist_session(cx));
+            nav.main_page()
+                .update(cx, |page, cx| page.persist_session(cx));
         }
     }
 
@@ -262,7 +257,8 @@ impl ShellPanes {
         self.split_ratio = 0.5;
         cx.notify();
         if let Some(nav) = cx.try_global::<AppNavigation>() {
-            nav.main_page().update(cx, |page, cx| page.persist_session(cx));
+            nav.main_page()
+                .update(cx, |page, cx| page.persist_session(cx));
         }
     }
 
@@ -376,14 +372,10 @@ impl ShellPanes {
             .flex_none()
             .flex_shrink_0()
             .when(arrangement == PaneArrangement::Vertical, |this| {
-                this.w(SPLIT_HANDLE_SIZE)
-                    .h_full()
-                    .cursor_col_resize()
+                this.w(SPLIT_HANDLE_SIZE).h_full().cursor_col_resize()
             })
             .when(arrangement == PaneArrangement::Horizontal, |this| {
-                this.h(SPLIT_HANDLE_SIZE)
-                    .w_full()
-                    .cursor_row_resize()
+                this.h(SPLIT_HANDLE_SIZE).w_full().cursor_row_resize()
             })
             .bg(cx.theme().border)
             .rounded_full()
@@ -421,7 +413,10 @@ impl ShellPanes {
             .child(pane)
     }
 
-    fn pane_split_trailing(pane: impl IntoElement, arrangement: PaneArrangement) -> impl IntoElement {
+    fn pane_split_trailing(
+        pane: impl IntoElement,
+        arrangement: PaneArrangement,
+    ) -> impl IntoElement {
         div()
             .flex_1()
             .overflow_hidden()
@@ -450,8 +445,16 @@ impl Render for ShellPanes {
         let arrangement = self.arrangement;
         let primary = self.primary.clone();
         let secondary = self.secondary.clone();
-        let primary_title = self.primary.read(cx).current_navigation_target(cx).tab_title();
-        let secondary_title = self.secondary.read(cx).current_navigation_target(cx).tab_title();
+        let primary_title = self
+            .primary
+            .read(cx)
+            .current_navigation_target(cx)
+            .tab_title();
+        let secondary_title = self
+            .secondary
+            .read(cx)
+            .current_navigation_target(cx)
+            .tab_title();
         let primary_share = self.split_ratio;
 
         let pane_title = |title: SharedString, is_active: bool| {
@@ -485,10 +488,7 @@ impl Render for ShellPanes {
         };
 
         let pane_wrapper =
-            |pane: Entity<PaneShell>,
-             title: SharedString,
-             side: PaneSide,
-             is_active: bool| {
+            |pane: Entity<PaneShell>, title: SharedString, side: PaneSide, is_active: bool| {
                 v_flex()
                     .size_full()
                     .min_h_0()
@@ -506,13 +506,7 @@ impl Render for ShellPanes {
                         this.activate_pane(side, window, cx);
                     }))
                     .child(pane_title(title, is_active))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_h_0()
-                            .overflow_hidden()
-                            .child(pane),
-                    )
+                    .child(div().flex_1().min_h_0().overflow_hidden().child(pane))
             };
 
         let primary_body = pane_wrapper(

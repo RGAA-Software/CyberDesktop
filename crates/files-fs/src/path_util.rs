@@ -53,7 +53,10 @@ pub fn path_drive_root(path: &Path) -> Option<String> {
         }
         if text.starts_with(r"\\") {
             let trimmed = text.trim_start_matches('\\');
-            let parts: Vec<&str> = trimmed.split('\\').filter(|part| !part.is_empty()).collect();
+            let parts: Vec<&str> = trimmed
+                .split('\\')
+                .filter(|part| !part.is_empty())
+                .collect();
             if parts.len() >= 2 {
                 return Some(format!(r"\\{}\{}", parts[0], parts[1]));
             }
@@ -166,10 +169,7 @@ mod tests {
     #[cfg(windows)]
     fn same_drive_detection() {
         let sources = vec![PathBuf::from(r"D:\a\file.txt")];
-        assert!(are_paths_on_same_drive(
-            &sources,
-            Path::new(r"D:\b\folder"),
-        ));
+        assert!(are_paths_on_same_drive(&sources, Path::new(r"D:\b\folder"),));
         assert!(!are_paths_on_same_drive(
             &sources,
             Path::new(r"E:\b\folder"),

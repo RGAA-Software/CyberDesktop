@@ -55,12 +55,7 @@ pub fn extension_type_counts(items: &[FileItem]) -> Vec<(String, usize)> {
         *counts.entry(key).or_default() += 1;
     }
     let mut rows: Vec<(String, usize)> = counts.into_iter().collect();
-    rows.sort_by(|left, right| {
-        right
-            .1
-            .cmp(&left.1)
-            .then_with(|| left.0.cmp(&right.0))
-    });
+    rows.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
     rows
 }
 

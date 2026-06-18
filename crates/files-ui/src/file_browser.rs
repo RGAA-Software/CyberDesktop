@@ -10,43 +10,43 @@ use std::{
 use crate::app_state::AppFileClipboard;
 use crate::app_state::AppNavigation;
 use crate::app_state::AppOperationHistory;
-use crate::file_ops::{
-    spawn_compress, spawn_delete, spawn_extract, spawn_paste_from_clipboard,
-};
-use crate::icons::{
-    compact_icon, file_tag_empty_icon_element, toolbar_icon, toolbar_tabler,
-};
-use crate::tabler_icons;
-use app_ui::popup_menu::PopupMenu;
+use crate::file_ops::{spawn_compress, spawn_delete, spawn_extract, spawn_paste_from_clipboard};
+use crate::icons::{compact_icon, file_tag_empty_icon_element, toolbar_icon, toolbar_tabler};
 use crate::shell::navigation::NavigationTarget;
+use crate::tabler_icons;
+use app_platform_windows::{self as platform, ShellContextMenuEntry};
+#[cfg(windows)]
+use app_platform_windows::{list_network_computers, list_network_shares};
+use app_ui::popup_menu::PopupMenu;
 use app_ui::toolbar_button::TOOLBAR_BUTTON_PX;
-use app_ui::toolbar_button::{toolbar_dropdown_button, toolbar_icon_button, toolbar_labeled_button};
+use app_ui::toolbar_button::{
+    toolbar_dropdown_button, toolbar_icon_button, toolbar_labeled_button,
+};
 use chrono::{DateTime, Local};
 use files_commands::{
-    CancelRename, CompressItems, CopyItems, CopyPath, CutItems, DeleteItems,
-    DeleteItemsPermanent, ExtractHere, ExtractToFolder, EmptyRecycleBin, FocusSearch,
-    NavigateLeft, NavigateNext, NavigatePrevious, NavigateRight, NewFile, NewFolder, OpenInNewPane,
-    OpenItem, PasteItems,
+    CancelRename, CompressItems, CopyItems, CopyPath, CutItems, DeleteItems, DeleteItemsPermanent,
+    EmptyRecycleBin, ExtractHere, ExtractToFolder, FocusSearch, NavigateLeft, NavigateNext,
+    NavigatePrevious, NavigateRight, NewFile, NewFolder, OpenInNewPane, OpenItem, PasteItems,
     RedoOperation, RefreshDirectory, RenameItem, RestoreAllRecycleItems, RestoreRecycleItems,
     SelectAll, ShellProperties, UndoOperation, ViewCards, ViewColumns, ViewDetails, ViewGrid,
     ViewList, FILE_BROWSER,
 };
 use files_core::{
-    file_group_from_config, file_group_date_unit_from_config, file_sort_prefs_from_config, file_view_mode_from_config,
-    save_file_browser_prefs, GROUP_CREATED, GROUP_MODIFIED, GROUP_NAME, GROUP_NONE, GROUP_SIZE,
-    GROUP_TYPE, VIEW_CARDS, VIEW_COLUMNS, VIEW_DETAILS, VIEW_GRID, VIEW_LIST, GROUP_TAG,
+    file_group_date_unit_from_config, file_group_from_config, file_sort_prefs_from_config,
+    file_view_mode_from_config, save_file_browser_prefs, GROUP_CREATED, GROUP_MODIFIED, GROUP_NAME,
+    GROUP_NONE, GROUP_SIZE, GROUP_TAG, GROUP_TYPE, VIEW_CARDS, VIEW_COLUMNS, VIEW_DETAILS,
+    VIEW_GRID, VIEW_LIST,
 };
 use files_fs::{
-    all_direct_children_of, apply_tags_to_items, build_path_tag_index_from_config, build_display_rows, column_trail_for, create_directory, create_file, extract_to_child_dir,
-    file_items_for_tag_paths, filter_items_by_query, home_navigation_path, detect_archive_format,
-    item_index_at_row, move_items, read_directory, read_recycle_bin, rename_path,
-    row_for_item_index, temp_zip_output_path, unique_new_file_name, unique_zip_output_path,
-    unique_new_folder_name, sort_items, ClipboardOperation, DirectoryReadOptions, DirectoryWatcher, DisplayRow,
-    FileClipboard, FileItem, FileItemKind, FileOperation, GroupByDateUnit, GroupOption, SortDirection, SortOption, SortPreferences,
+    all_direct_children_of, apply_tags_to_items, build_display_rows,
+    build_path_tag_index_from_config, column_trail_for, create_directory, create_file,
+    detect_archive_format, extract_to_child_dir, file_items_for_tag_paths, filter_items_by_query,
+    home_navigation_path, item_index_at_row, move_items, read_directory, read_recycle_bin,
+    rename_path, row_for_item_index, sort_items, temp_zip_output_path, unique_new_file_name,
+    unique_new_folder_name, unique_zip_output_path, ClipboardOperation, DirectoryReadOptions,
+    DirectoryWatcher, DisplayRow, FileClipboard, FileItem, FileItemKind, FileOperation,
+    GroupByDateUnit, GroupOption, SortDirection, SortOption, SortPreferences,
 };
-#[cfg(windows)]
-use app_platform_windows::{list_network_computers, list_network_shares};
-use app_platform_windows::{self as platform, ShellContextMenuEntry};
 use gpui::{
     actions, anchored, deferred, prelude::*, ClickEvent, ClipboardItem, DismissEvent, Entity,
     FocusHandle, Focusable, ParentElement, ScrollStrategy, Subscription, Window, *,
@@ -58,48 +58,47 @@ use gpui_component::{
         Input, InputEvent, InputState, Position, SelectAll as InputSelectAll,
         SelectToStartOfLine as InputSelectToStartOfLine,
     },
+    label::Label,
     notification::Notification,
     scroll::{ScrollableElement as _, Scrollbar, ScrollbarAxis, ScrollbarShow},
-    label::Label,
     v_flex, v_virtual_list, ActiveTheme as _, Disableable as _, ElementExt as _, IconName,
-    StyledExt as _,
-    Sizable as _, VirtualListScrollHandle, WindowExt as _,
+    Sizable as _, StyledExt as _, VirtualListScrollHandle, WindowExt as _,
 };
 use rust_i18n::t;
 
-#[path = "file_browser/context_menu.rs"]
-mod context_menu;
 #[path = "file_browser/actions.rs"]
 mod actions;
-#[path = "file_browser/render.rs"]
-mod render;
-#[path = "file_browser/render_views.rs"]
-mod render_views;
-#[path = "file_browser/rename.rs"]
-mod rename;
-#[path = "file_browser/selection.rs"]
-mod selection;
-#[path = "file_browser/ops.rs"]
-mod ops;
-#[path = "file_browser/navigation.rs"]
-mod navigation;
-#[path = "file_browser/search.rs"]
-mod search;
-#[path = "file_browser/sweep.rs"]
-pub(crate) mod sweep;
+#[path = "file_browser/compress_label.rs"]
+mod compress_label;
+#[path = "file_browser/context_menu.rs"]
+mod context_menu;
 #[path = "file_browser/context_menu_state.rs"]
 mod context_menu_state;
 #[path = "file_browser/group_labels.rs"]
 mod group_labels;
-#[path = "file_browser/compress_label.rs"]
-mod compress_label;
 #[path = "file_browser/helpers.rs"]
 mod helpers;
+#[path = "file_browser/navigation.rs"]
+mod navigation;
+#[path = "file_browser/ops.rs"]
+mod ops;
+#[path = "file_browser/rename.rs"]
+mod rename;
+#[path = "file_browser/render.rs"]
+mod render;
+#[path = "file_browser/render_views.rs"]
+mod render_views;
+#[path = "file_browser/search.rs"]
+mod search;
+#[path = "file_browser/selection.rs"]
+mod selection;
+#[path = "file_browser/sweep.rs"]
+pub(crate) mod sweep;
 pub(crate) use helpers::create_shortcuts_in_folder;
-#[path = "file_browser/tag_badges.rs"]
-mod tag_badges;
 #[path = "file_browser/core.rs"]
 mod core;
+#[path = "file_browser/tag_badges.rs"]
+mod tag_badges;
 
 use helpers::*;
 
@@ -333,7 +332,9 @@ pub(crate) fn shell_submenu_snapshot(
 pub enum BrowseLocation {
     Directory,
     RecycleBin,
-    FileTag { tag_name: String },
+    FileTag {
+        tag_name: String,
+    },
     SearchResults {
         raw_query: String,
         parsed_query: files_fs::SearchQuery,
@@ -474,8 +475,7 @@ impl FileBrowser {
         let (sort_option, sort_direction, show_hidden, show_file_extensions) =
             file_sort_prefs_from_config();
         let group_option = group_option_from_config(&file_group_from_config());
-        let group_date_unit =
-            group_date_unit_from_config(&file_group_date_unit_from_config());
+        let group_date_unit = group_date_unit_from_config(&file_group_date_unit_from_config());
         {
             if let Some(option) = sort_option {
                 sort_preferences.option = sort_option_from_config(&option);
@@ -516,11 +516,7 @@ impl FileBrowser {
             current_dir,
             back_stack: Vec::new(),
             forward_stack: Vec::new(),
-            item_sizes: item_sizes_for_display_rows(
-                &display_rows,
-                view_mode,
-                2,
-            ),
+            item_sizes: item_sizes_for_display_rows(&display_rows, view_mode, 2),
             scroll_handle: VirtualListScrollHandle::new(),
             grid_scroll_handle: VirtualListScrollHandle::new(),
             cards_scroll_handle: VirtualListScrollHandle::new(),
@@ -594,7 +590,6 @@ impl FileBrowser {
             _search_status_job: None,
         }
     }
-
 }
 
 impl Focusable for FileBrowser {

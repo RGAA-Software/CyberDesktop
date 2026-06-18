@@ -1,12 +1,22 @@
 use super::*;
 
 impl FileBrowser {
-    pub(super) fn on_refresh(&mut self, _: &RefreshDirectory, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_refresh(
+        &mut self,
+        _: &RefreshDirectory,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.reload(cx);
         cx.notify();
     }
 
-    pub(super) fn on_open_item(&mut self, _: &OpenItem, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_open_item(
+        &mut self,
+        _: &OpenItem,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.renaming.is_some() {
             cx.stop_propagation();
             return;
@@ -30,12 +40,22 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_rename(&mut self, _: &RenameItem, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_rename(
+        &mut self,
+        _: &RenameItem,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.begin_rename(window, cx);
         cx.notify();
     }
 
-    pub(super) fn on_cancel_rename(&mut self, _: &CancelRename, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_cancel_rename(
+        &mut self,
+        _: &CancelRename,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.renaming.is_some() {
             self.cancel_rename(cx);
             cx.stop_propagation();
@@ -59,7 +79,12 @@ impl FileBrowser {
         crate::file_ops_history::spawn_history_redo_from_browser(cx.entity(), cx);
     }
 
-    pub(super) fn on_delete(&mut self, _: &DeleteItems, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_delete(
+        &mut self,
+        _: &DeleteItems,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.perform_delete(window, cx);
         cx.notify();
     }
@@ -141,11 +166,21 @@ impl FileBrowser {
         self.extract_selection(true, window, cx);
     }
 
-    pub(super) fn on_paste_items(&mut self, _: &PasteItems, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_paste_items(
+        &mut self,
+        _: &PasteItems,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.paste_items(window, cx);
     }
 
-    pub(super) fn on_new_folder(&mut self, _: &NewFolder, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_new_folder(
+        &mut self,
+        _: &NewFolder,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.create_new_folder(window, cx);
         cx.notify();
     }
@@ -168,7 +203,12 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_navigate_next(&mut self, _: &NavigateNext, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_navigate_next(
+        &mut self,
+        _: &NavigateNext,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         match self.view_mode {
             ViewMode::Grid | ViewMode::Cards => self.move_focus_2d(0, 1),
             ViewMode::Columns => self.move_focus_column(1),
@@ -177,7 +217,12 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_navigate_left(&mut self, _: &NavigateLeft, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_navigate_left(
+        &mut self,
+        _: &NavigateLeft,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         match self.view_mode {
             ViewMode::Grid | ViewMode::Cards => self.move_focus_2d(-1, 0),
             ViewMode::Columns => self.move_focus_column(-1),
@@ -186,7 +231,12 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_navigate_right(&mut self, _: &NavigateRight, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_navigate_right(
+        &mut self,
+        _: &NavigateRight,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         match self.view_mode {
             ViewMode::Grid | ViewMode::Cards => self.move_focus_2d(1, 0),
             ViewMode::Columns => self.move_focus_column(1),
@@ -200,12 +250,22 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_sort_modified(&mut self, _: &SortByModified, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_sort_modified(
+        &mut self,
+        _: &SortByModified,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_sort_option(SortOption::DateModified);
         cx.notify();
     }
 
-    pub(super) fn on_sort_created(&mut self, _: &SortByCreated, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_sort_created(
+        &mut self,
+        _: &SortByCreated,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_sort_option(SortOption::DateCreated);
         cx.notify();
     }
@@ -230,11 +290,21 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_group_none(&mut self, _: &GroupByNone, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_group_none(
+        &mut self,
+        _: &GroupByNone,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_group_option(GroupOption::None, cx);
     }
 
-    pub(super) fn on_group_name(&mut self, _: &GroupByName, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_group_name(
+        &mut self,
+        _: &GroupByName,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_group_option(GroupOption::Name, cx);
     }
 
@@ -292,11 +362,21 @@ impl FileBrowser {
         self.set_group_by_date(GroupOption::DateCreated, GroupByDateUnit::Day, cx);
     }
 
-    pub(super) fn on_group_size(&mut self, _: &GroupBySize, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_group_size(
+        &mut self,
+        _: &GroupBySize,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_group_option(GroupOption::Size, cx);
     }
 
-    pub(super) fn on_group_type(&mut self, _: &GroupByType, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_group_type(
+        &mut self,
+        _: &GroupByType,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_group_option(GroupOption::FileType, cx);
     }
 
@@ -356,7 +436,12 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_open_in_new_pane(&mut self, _: &OpenInNewPane, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_open_in_new_pane(
+        &mut self,
+        _: &OpenInNewPane,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(path) = self.primary_path() else {
             return;
         };
@@ -485,7 +570,12 @@ impl FileBrowser {
         cx.notify();
     }
 
-    pub(super) fn on_view_details(&mut self, _: &ViewDetails, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_view_details(
+        &mut self,
+        _: &ViewDetails,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_view_mode(ViewMode::Details, cx);
     }
 
@@ -501,7 +591,12 @@ impl FileBrowser {
         self.set_view_mode(ViewMode::List, cx);
     }
 
-    pub(super) fn on_view_columns(&mut self, _: &ViewColumns, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_view_columns(
+        &mut self,
+        _: &ViewColumns,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_view_mode(ViewMode::Columns, cx);
     }
 

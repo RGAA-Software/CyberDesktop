@@ -73,8 +73,8 @@ impl FileBrowser {
 
             // 2. Network virtual-folder items (Media Devices, Printers, etc.) — colorful Shell icons.
             if let Some(ref category) = item.network_category {
-                if let Some(png) = network_icon_cache::cached_png(&item.path, size_px)
-                    .filter(|p| !p.is_empty())
+                if let Some(png) =
+                    network_icon_cache::cached_png(&item.path, size_px).filter(|p| !p.is_empty())
                 {
                     return (
                         img(std::sync::Arc::new(Image::from_bytes(

@@ -256,7 +256,12 @@ mod tests {
     fn embedded_theme_sets_load() {
         let catalog = ThemeCatalog::load_embedded();
         assert_eq!(catalog.sets.len(), 4);
-        for id in ["CyberFiles", "CyberEditor", "CyberMediaPlayer", "CyberMonitor"] {
+        for id in [
+            "CyberFiles",
+            "CyberEditor",
+            "CyberMediaPlayer",
+            "CyberMonitor",
+        ] {
             let entry = catalog.get(id).expect(id);
             assert!(entry.light.mode == ThemeMode::Light);
             assert!(entry.dark.mode == ThemeMode::Dark);
@@ -270,5 +275,32 @@ mod tests {
         let monitor = catalog.get("CyberMonitor").unwrap();
         assert_eq!(monitor.light.name.as_ref(), "CyberMonitor Light");
         assert_eq!(monitor.dark.name.as_ref(), "CyberMonitor Dark");
+
+        let light = &monitor.light.colors;
+        let dark = &monitor.dark.colors;
+        assert_eq!(light.primary.as_ref().unwrap(), "#7548d8ff");
+        assert_eq!(dark.primary.as_ref().unwrap(), "#7548d8ff");
+        // Title bar and card backgrounds must be visibly distinct from the page
+        // background in both light and dark modes.
+        assert_ne!(
+            light.title_bar.as_ref().unwrap(),
+            light.background.as_ref().unwrap(),
+            "light title_bar should differ from background"
+        );
+        assert_ne!(
+            light.secondary.as_ref().unwrap(),
+            light.background.as_ref().unwrap(),
+            "light secondary should differ from background"
+        );
+        assert_ne!(
+            dark.title_bar.as_ref().unwrap(),
+            dark.background.as_ref().unwrap(),
+            "dark title_bar should differ from background"
+        );
+        assert_ne!(
+            dark.secondary.as_ref().unwrap(),
+            dark.background.as_ref().unwrap(),
+            "dark secondary should differ from background"
+        );
     }
 }

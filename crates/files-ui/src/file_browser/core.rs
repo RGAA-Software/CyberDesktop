@@ -1,5 +1,7 @@
 use super::*;
-use crate::file_ops::{drop_operation_hint, file_transfer_kind_for_drop, spawn_file_transfer, DropOperationHint};
+use crate::file_ops::{
+    drop_operation_hint, file_transfer_kind_for_drop, spawn_file_transfer, DropOperationHint,
+};
 use files_fs::paths_equal;
 use gpui::ExternalPaths;
 
@@ -50,8 +52,7 @@ impl FileBrowser {
             || window_hwnd(window)
                 .map(platform::is_cursor_outside_window)
                 .unwrap_or_else(|| {
-                    let window_bounds =
-                        Bounds::new(point(px(0.), px(0.)), window.viewport_size());
+                    let window_bounds = Bounds::new(point(px(0.), px(0.)), window.viewport_size());
                     !crate::file_browser::sweep::point_in_bounds(position, window_bounds)
                 });
         if !outside {
@@ -137,13 +138,14 @@ impl FileBrowser {
         }
 
         let target = match self.view_mode {
-            ViewMode::Columns => self.column_item_at_position(position).and_then(
-                |(col_index, row_index)| {
-                    self.column_listings
-                        .get(col_index)
-                        .and_then(|listing| listing.get(row_index).cloned())
-                },
-            ),
+            ViewMode::Columns => {
+                self.column_item_at_position(position)
+                    .and_then(|(col_index, row_index)| {
+                        self.column_listings
+                            .get(col_index)
+                            .and_then(|listing| listing.get(row_index).cloned())
+                    })
+            }
             _ => self
                 .display_item_index_at_position(position, Some(list_bounds))
                 .and_then(|index| self.display_items.get(index).cloned()),
@@ -182,13 +184,14 @@ impl FileBrowser {
         }
 
         let target = match self.view_mode {
-            ViewMode::Columns => self.column_item_at_position(position).and_then(
-                |(col_index, row_index)| {
-                    self.column_listings
-                        .get(col_index)
-                        .and_then(|listing| listing.get(row_index).cloned())
-                },
-            ),
+            ViewMode::Columns => {
+                self.column_item_at_position(position)
+                    .and_then(|(col_index, row_index)| {
+                        self.column_listings
+                            .get(col_index)
+                            .and_then(|listing| listing.get(row_index).cloned())
+                    })
+            }
             _ => self
                 .display_item_index_at_position(position, Some(list_bounds))
                 .and_then(|index| self.display_items.get(index).cloned()),
@@ -238,26 +241,32 @@ impl FileBrowser {
         let (hint, invalid, primary) = match target.kind {
             FileItemKind::Folder => {
                 let hint = match drop_operation_hint(window.modifiers(), paths, &target.path) {
-                    DropOperationHint::Copy => {
-                        t!("files.drag.copy_to_folder", name = target.display_name.clone())
-                            .to_string()
-                    }
-                    DropOperationHint::Move => {
-                        t!("files.drag.move_to_folder", name = target.display_name.clone())
-                            .to_string()
-                    }
-                    DropOperationHint::Link => {
-                        t!("files.drag.link_to_folder", name = target.display_name.clone())
-                            .to_string()
-                    }
+                    DropOperationHint::Copy => t!(
+                        "files.drag.copy_to_folder",
+                        name = target.display_name.clone()
+                    )
+                    .to_string(),
+                    DropOperationHint::Move => t!(
+                        "files.drag.move_to_folder",
+                        name = target.display_name.clone()
+                    )
+                    .to_string(),
+                    DropOperationHint::Link => t!(
+                        "files.drag.link_to_folder",
+                        name = target.display_name.clone()
+                    )
+                    .to_string(),
                 };
                 (hint, false, true)
             }
             FileItemKind::File | FileItemKind::Symlink | FileItemKind::Other => {
                 if is_executable_or_script_path(&target.path) {
                     (
-                        t!("files.drag.open_with_target", name = target.display_name.clone())
-                            .to_string(),
+                        t!(
+                            "files.drag.open_with_target",
+                            name = target.display_name.clone()
+                        )
+                        .to_string(),
                         false,
                         false,
                     )

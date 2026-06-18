@@ -609,7 +609,8 @@ pub fn cache_dir() -> Option<PathBuf> {
     }
     #[cfg(not(windows))]
     {
-        ProjectDirs::from("com", "cyber_desktop", config_app_id()).map(|dirs| dirs.cache_dir().into())
+        ProjectDirs::from("com", "cyber_desktop", config_app_id())
+            .map(|dirs| dirs.cache_dir().into())
     }
 }
 
@@ -669,8 +670,7 @@ fn read_config_from_disk() -> Option<AppConfig> {
 fn read_config_file(path: &PathBuf) -> Option<AppConfig> {
     let data = fs::read_to_string(path).ok()?;
     let mut config: AppConfig = serde_json::from_str(&data).ok()?;
-    let (width, height) =
-        normalize_main_window_size(config.window_width, config.window_height);
+    let (width, height) = normalize_main_window_size(config.window_width, config.window_height);
     config.window_width = width;
     config.window_height = height;
     Some(config)
@@ -740,9 +740,7 @@ pub fn window_size() -> (f32, f32) {
 }
 
 pub fn keybinding_overrides() -> BTreeMap<String, String> {
-    load_config()
-        .map(|c| c.keybindings)
-        .unwrap_or_default()
+    load_config().map(|c| c.keybindings).unwrap_or_default()
 }
 
 pub fn save_keybinding_override(action_id: &str, keystroke: &str) -> anyhow::Result<()> {

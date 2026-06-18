@@ -116,13 +116,15 @@ impl FileBrowser {
                                     cx.stop_propagation();
                                 }),
                             )
-                            .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
-                                this.update_sweep_pointer(
-                                    SweepSelectionSurface::Column(col_index),
-                                    event.position,
-                                    cx,
-                                );
-                            }))
+                            .on_mouse_move(cx.listener(
+                                move |this, event: &MouseMoveEvent, _, cx| {
+                                    this.update_sweep_pointer(
+                                        SweepSelectionSurface::Column(col_index),
+                                        event.position,
+                                        cx,
+                                    );
+                                },
+                            ))
                             .on_prepaint({
                                 let entity = cx.entity().clone();
                                 move |bounds, _window, cx| {
@@ -173,30 +175,32 @@ impl FileBrowser {
                                     format!("files-column-virtual-list-{col_index}"),
                                     item_sizes,
                                     move |this, visible_range, window, cx| {
-                                        let has_explicit_column_selection = this
-                                            .column_listings
-                                            .get(col_index)
-                                            .is_some_and(|items| {
-                                                items.iter().any(|item| {
-                                                    this.selected_paths.contains(&item.path)
-                                                })
-                                            })
-                                            || this
-                                                .column_selected_path
-                                                .as_ref()
-                                                .is_some_and(|(selected_col, _)| {
-                                                    *selected_col == col_index
-                                                });
+                                        let has_explicit_column_selection =
+                                            this.column_listings.get(col_index).is_some_and(
+                                                |items| {
+                                                    items.iter().any(|item| {
+                                                        this.selected_paths.contains(&item.path)
+                                                    })
+                                                },
+                                            ) || this.column_selected_path.as_ref().is_some_and(
+                                                |(selected_col, _)| *selected_col == col_index,
+                                            );
                                         visible_range
                                             .filter_map(|index| {
-                                                let item = this.column_listings.get(col_index)?.get(index)?.clone();
+                                                let item = this
+                                                    .column_listings
+                                                    .get(col_index)?
+                                                    .get(index)?
+                                                    .clone();
                                                 let is_selected = if has_explicit_column_selection {
                                                     if item.kind == FileItemKind::Folder {
                                                         this.selected_paths.contains(&item.path)
                                                     } else {
                                                         this.column_selected_path
                                                             == Some((col_index, item.path.clone()))
-                                                            || this.selected_paths.contains(&item.path)
+                                                            || this
+                                                                .selected_paths
+                                                                .contains(&item.path)
                                                     }
                                                 } else if item.kind == FileItemKind::Folder {
                                                     selected_name.as_deref()
@@ -209,7 +213,8 @@ impl FileBrowser {
                                                 };
                                                 let drag_paths =
                                                     this.drag_paths_for_item(index, &item.path);
-                                                let rename_input = this.renaming_input_for(&item.path);
+                                                let rename_input =
+                                                    this.renaming_input_for(&item.path);
                                                 Some(Self::column_cell(
                                                     window,
                                                     col_index,
@@ -226,9 +231,10 @@ impl FileBrowser {
                                 )
                                 .track_scroll(scroll_handle),
                             )
-                            .when_some(self.render_column_sweep_overlay(col_index, cx), |this, overlay| {
-                                this.child(overlay)
-                            }),
+                            .when_some(
+                                self.render_column_sweep_overlay(col_index, cx),
+                                |this, overlay| this.child(overlay),
+                            ),
                     )
                     .scrollbar(scroll_handle, ScrollbarAxis::Vertical)
             })
@@ -321,7 +327,9 @@ impl FileBrowser {
             .items_center()
             .text_sm()
             .text_color(cx.theme().foreground)
-            .when(!selected, |this| this.hover(|this| this.bg(cx.theme().list_hover)))
+            .when(!selected, |this| {
+                this.hover(|this| this.bg(cx.theme().list_hover))
+            })
             .when(selected, |this| {
                 this.bg(cx.theme().accent)
                     .text_color(cx.theme().accent_foreground)
@@ -383,25 +391,18 @@ impl FileBrowser {
                 }),
             )
             .on_mouse_move(cx.listener(move |this, _, _, cx| {
-                this.update_sweep_selection(
-                    SweepSelectionSurface::Column(col_index),
-                    index,
-                    cx,
-                );
+                this.update_sweep_selection(SweepSelectionSurface::Column(col_index), index, cx);
             }))
-            .on_drag(
-                DraggedFilePaths(drag_paths),
-                {
-                    let browser = browser.clone();
+            .on_drag(DraggedFilePaths(drag_paths), {
+                let browser = browser.clone();
                 move |paths, grab_offset, window, cx| {
                     let _ = browser.update(cx, |this, cx| {
                         this.start_native_drag_session(paths.0.clone(), window, cx);
                         this.finish_sweep_selection();
                     });
-                        DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
-                    }
-                },
-            )
+                    DragPathPreview::new_entity(paths, grab_offset, browser.clone(), cx)
+                }
+            })
             .on_drag_move::<DraggedFilePaths>(cx.listener({
                 let target = item.clone();
                 move |this, event: &DragMoveEvent<DraggedFilePaths>, window, cx| {
@@ -411,7 +412,9 @@ impl FileBrowser {
             .on_drag_move::<ExternalPaths>(cx.listener({
                 let target = item.clone();
                 move |this, event: &DragMoveEvent<ExternalPaths>, window, cx| {
-                    this.update_external_drag_hover_over_item_if_hovered(event, &target, window, cx);
+                    this.update_external_drag_hover_over_item_if_hovered(
+                        event, &target, window, cx,
+                    );
                 }
             }))
             .drag_over::<DraggedFilePaths>(|row, _, _, cx| {
@@ -447,12 +450,10 @@ impl FileBrowser {
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_sm()
-                    .child(
-                        rename_input.map_or_else(
-                            || div().w_full().child(name).into_any_element(),
-                            |input| Self::inline_name_editor(input, false, cx),
-                        ),
-                    ),
+                    .child(rename_input.map_or_else(
+                        || div().w_full().child(name).into_any_element(),
+                        |input| Self::inline_name_editor(input, false, cx),
+                    )),
             )
             .into_any_element()
     }

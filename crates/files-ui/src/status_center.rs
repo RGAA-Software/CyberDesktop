@@ -3,9 +3,11 @@
 use gpui::{div, prelude::*, px, App, Hsla, IntoElement, SharedString, Styled, Window};
 use gpui_component::{
     button::{Button, ButtonVariants as _},
-    h_flex, progress::Progress,
+    h_flex,
+    progress::Progress,
     scroll::ScrollableElement as _,
-    spinner::Spinner, v_flex, ActiveTheme as _, Disableable as _, Sizable as _, Size,
+    spinner::Spinner,
+    v_flex, ActiveTheme as _, Disableable as _, Sizable as _, Size,
 };
 use rust_i18n::t;
 
@@ -114,9 +116,12 @@ fn render_job_card(job: TransferJob, cx: &mut App) -> impl IntoElement {
         TransferJobStatus::Completed => t!("files.status.completed").to_string(),
         TransferJobStatus::Failed => t!("files.status.failed").to_string(),
         TransferJobStatus::Cancelled => t!("files.status.cancelled").to_string(),
-        TransferJobStatus::Running => {
-            t!("files.transfer.progress", completed = job.completed(), total = job.total).to_string()
-        }
+        TransferJobStatus::Running => t!(
+            "files.transfer.progress",
+            completed = job.completed(),
+            total = job.total
+        )
+        .to_string(),
     };
 
     v_flex()
@@ -144,20 +149,16 @@ fn render_job_card(job: TransferJob, cx: &mut App) -> impl IntoElement {
                         .child(render_status_icon(status, icon_color)),
                 )
                 .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .overflow_hidden()
-                        .child(
-                            gpui_component::label::Label::new(job.message.clone())
-                                .text_xs()
-                                .text_color(if is_active {
-                                    cx.theme().accent_foreground
-                                } else {
-                                    cx.theme().muted_foreground
-                                })
-                                .truncate(),
-                        ),
+                    div().flex_1().min_w_0().overflow_hidden().child(
+                        gpui_component::label::Label::new(job.message.clone())
+                            .text_xs()
+                            .text_color(if is_active {
+                                cx.theme().accent_foreground
+                            } else {
+                                cx.theme().muted_foreground
+                            })
+                            .truncate(),
+                    ),
                 )
                 .child(
                     h_flex()

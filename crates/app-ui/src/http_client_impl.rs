@@ -56,7 +56,9 @@ impl HttpClient for SimpleHttpClient {
             let body = AsyncBody::from_bytes(bytes);
             let mut builder = http::Response::builder().status(status.as_u16());
             *builder.headers_mut().unwrap() = headers;
-            builder.body(body).map_err(|e: http::Error| anyhow::anyhow!(e))
+            builder
+                .body(body)
+                .map_err(|e: http::Error| anyhow::anyhow!(e))
         })
     }
 }

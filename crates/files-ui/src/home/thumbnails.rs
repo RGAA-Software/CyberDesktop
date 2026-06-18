@@ -3,7 +3,9 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{img, prelude::*, AnyElement, App, Context, Image, ImageFormat, ObjectFit, Pixels, Window};
+use gpui::{
+    img, prelude::*, AnyElement, App, Context, Image, ImageFormat, ObjectFit, Pixels, Window,
+};
 
 use super::page::HomePage;
 
@@ -21,7 +23,7 @@ pub fn thumbnail_cache_key(path: &Path) -> String {
 }
 
 impl HomePage {
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub(super) fn ensure_home_thumbnail(
         &mut self,
         path: &Path,
@@ -66,7 +68,7 @@ impl HomePage {
         }
     }
 
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub(super) fn home_card_image(
         &self,
         path: &Path,

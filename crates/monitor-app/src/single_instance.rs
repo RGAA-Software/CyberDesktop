@@ -1,11 +1,11 @@
 use std::thread;
 
+use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, HANDLE};
 use windows::Win32::System::Threading::{
     CreateEventW, CreateMutexW, OpenEventW, SetEvent, WaitForSingleObject, EVENT_MODIFY_STATE,
     SYNCHRONIZATION_SYNCHRONIZE,
 };
-use windows::core::PCWSTR;
 
 use crate::tray::{self, TrayCommand};
 
@@ -29,7 +29,11 @@ impl SingleInstanceGuard {
         let event_name = self.event_name.clone();
         thread::spawn(move || unsafe {
             let name_wide = to_wide(&event_name);
-            let Ok(event) = OpenEventW(SYNCHRONIZATION_SYNCHRONIZE, false, PCWSTR(name_wide.as_ptr())) else {
+            let Ok(event) = OpenEventW(
+                SYNCHRONIZATION_SYNCHRONIZE,
+                false,
+                PCWSTR(name_wide.as_ptr()),
+            ) else {
                 return;
             };
             while WaitForSingleObject(event, windows::Win32::System::Threading::INFINITE)
@@ -55,11 +59,9 @@ pub fn ensure_single_instance(mutex_name: &str, event_name: &str) -> Option<Sing
         if windows::Win32::Foundation::GetLastError() == ERROR_ALREADY_EXISTS {
             let _ = CloseHandle(mutex);
             // Try to signal the existing instance to raise its window.
-            if let Ok(event) = OpenEventW(
-                EVENT_MODIFY_STATE,
-                false,
-                PCWSTR(event_name_wide.as_ptr()),
-            ) {
+            if let Ok(event) =
+                OpenEventW(EVENT_MODIFY_STATE, false, PCWSTR(event_name_wide.as_ptr()))
+            {
                 let _ = SetEvent(event);
                 let _ = CloseHandle(event);
             }

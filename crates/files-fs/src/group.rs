@@ -410,9 +410,8 @@ pub fn item_index_at_row(rows: &[DisplayRow], row: usize) -> Option<usize> {
 }
 
 pub fn row_for_item_index(rows: &[DisplayRow], item_index: usize) -> Option<usize> {
-    rows.iter().position(|row| {
-        matches!(row, DisplayRow::Item(index) if *index == item_index)
-    })
+    rows.iter()
+        .position(|row| matches!(row, DisplayRow::Item(index) if *index == item_index))
 }
 
 #[cfg(test)]

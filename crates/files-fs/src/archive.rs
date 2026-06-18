@@ -111,9 +111,7 @@ pub fn archive_progress_total(path: &Path) -> u32 {
             .map(|archive| archive.len() as u32)
             .unwrap_or(1)
             .max(1),
-        Some(ArchiveFormat::SevenZip) => {
-            count_7z_entries(path).unwrap_or(1).max(1)
-        }
+        Some(ArchiveFormat::SevenZip) => count_7z_entries(path).unwrap_or(1).max(1),
         Some(ArchiveFormat::Rar) => 1,
         Some(ArchiveFormat::Tar)
         | Some(ArchiveFormat::TarGz)
@@ -364,19 +362,12 @@ fn extract_via_7zip_dll(
         archive.display(),
         dest_dir.display()
     ));
-    app_platform_windows::extract_in_process(
-        dll,
-        archive,
-        dest_dir,
-        cancel,
-        on_progress,
-    )
-    .map_err(|error| match error {
-        app_platform_windows::SevenZipExtractError::Cancelled => {
-            ExtractCancelled.into()
-        }
-        other => anyhow::anyhow!("{other}"),
-    })?;
+    app_platform_windows::extract_in_process(dll, archive, dest_dir, cancel, on_progress).map_err(
+        |error| match error {
+            app_platform_windows::SevenZipExtractError::Cancelled => ExtractCancelled.into(),
+            other => anyhow::anyhow!("{other}"),
+        },
+    )?;
     extract_log(format!(
         "7-Zip in-process finished elapsed={:?}",
         started.elapsed()
@@ -409,8 +400,7 @@ fn extract_sevenz_rust(
             if let Some(parent) = dest_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            let mut file = std::fs::File::create(dest_path)
-                .map_err(sevenz_rust::Error::io)?;
+            let mut file = std::fs::File::create(dest_path).map_err(sevenz_rust::Error::io)?;
             if entry.size() > 0 {
                 std::io::copy(reader, &mut file).map_err(sevenz_rust::Error::io)?;
             }
@@ -613,7 +603,10 @@ pub fn zip_output_path(sources: &[PathBuf], destination_dir: &Path) -> anyhow::R
 }
 
 /// Resolves a non-conflicting final zip path for `sources`.
-pub fn unique_zip_output_path(sources: &[PathBuf], destination_dir: &Path) -> anyhow::Result<PathBuf> {
+pub fn unique_zip_output_path(
+    sources: &[PathBuf],
+    destination_dir: &Path,
+) -> anyhow::Result<PathBuf> {
     let base_path = zip_output_path(sources, destination_dir)?;
     Ok(unique_zip_path(base_path))
 }
@@ -923,13 +916,7 @@ mod extract_tests {
 
         let dest = root.join("out");
         std::fs::create_dir_all(&dest).unwrap();
-        extract_archive_cancellable(
-            &zip_path,
-            &dest,
-            &AtomicBool::new(false),
-            |_, _| {},
-        )
-        .unwrap();
+        extract_archive_cancellable(&zip_path, &dest, &AtomicBool::new(false), |_, _| {}).unwrap();
 
         assert!(dest.join("source").join("hello.txt").is_file());
         let _ = std::fs::remove_dir_all(&root);
@@ -951,12 +938,8 @@ mod extract_tests {
         }
         let dest = root.join("out");
         std::fs::create_dir_all(&dest).unwrap();
-        let result = extract_archive_cancellable(
-            &zip_path,
-            &dest,
-            &AtomicBool::new(false),
-            |_, _| {},
-        );
+        let result =
+            extract_archive_cancellable(&zip_path, &dest, &AtomicBool::new(false), |_, _| {});
         assert!(result.is_err(), "zip slip paths must fail extraction");
         assert!(!dest.parent().unwrap().join("evil.txt").exists());
         let _ = std::fs::remove_dir_all(&root);
@@ -978,13 +961,7 @@ mod extract_tests {
         }
         let dest = root.join("out");
         std::fs::create_dir_all(&dest).unwrap();
-        extract_archive_cancellable(
-            &zip_path,
-            &dest,
-            &AtomicBool::new(false),
-            |_, _| {},
-        )
-        .unwrap();
+        extract_archive_cancellable(&zip_path, &dest, &AtomicBool::new(false), |_, _| {}).unwrap();
         assert!(dest.join("folder").join("hello.txt").is_file());
         assert_eq!(
             std::fs::read_to_string(dest.join("folder").join("hello.txt")).unwrap(),

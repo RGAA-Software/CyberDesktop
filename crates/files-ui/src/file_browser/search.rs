@@ -89,8 +89,7 @@ impl FileBrowser {
     ) {
         let status_message =
             SharedString::from(format!("{}: {raw_query}", t!("search.status.running")));
-        let (job_id, cancel) =
-            TransferStatusGlobal::begin(status_message, 1, cx.borrow_mut());
+        let (job_id, cancel) = TransferStatusGlobal::begin(status_message, 1, cx.borrow_mut());
         self._search_cancel = Some(cancel.clone());
         self._search_status_job = Some(job_id);
         let read_options = self.read_options;

@@ -1,5 +1,6 @@
 //! UI fragment: `ui/chrome.rs`.
 
+use super::super::imports::*;
 use super::icons::{app_logo_element, paths, toolbar_icon, toolbar_icon_button};
 use app_ui::{apply_theme_mode, Tab, TabBar, GITHUB_REPO_URL};
 use gpui_component::{
@@ -8,7 +9,6 @@ use gpui_component::{
     label::Label,
     ActiveTheme as _, IconName, StyledExt as _, ThemeMode,
 };
-use super::super::imports::*;
 
 const EDITOR_TAB_BAR_HEIGHT: Pixels = px(30.);
 /// Fixed width per document tab (label truncates inside).
@@ -261,9 +261,7 @@ impl EngineEditor {
             .tooltip(t!("nav.github"))
             .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL));
 
-        TitleBar::new()
-            .h(px(35.))
-            .child(
+        TitleBar::new().h(px(35.)).child(
             h_flex()
                 .id("title-bar-inner")
                 .h_full()

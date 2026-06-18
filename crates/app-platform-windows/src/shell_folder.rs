@@ -136,8 +136,6 @@ unsafe fn item_attributes(folder: &IShellFolder, pidl: *const ITEMIDLIST) -> u32
     attrs
 }
 
-
-
 const PKEY_ITEMTYPETEXT: PROPERTYKEY = PROPERTYKEY {
     fmtid: GUID::from_u128(0xB725F130_47EF_101A_A5F1_02608C9EEBAC),
     pid: 4,
@@ -699,22 +697,34 @@ mod tests {
             .collect();
         let mut parent_pidl: *mut ITEMIDLIST = std::ptr::null_mut();
         unsafe {
-            SHParseDisplayName(PCWSTR(guid_wide.as_ptr()), None, &mut parent_pidl, 0, None).unwrap();
+            SHParseDisplayName(PCWSTR(guid_wide.as_ptr()), None, &mut parent_pidl, 0, None)
+                .unwrap();
         }
         let desktop = unsafe { SHGetDesktopFolder().unwrap() };
-        let shell_folder: IShellFolder = unsafe { desktop.BindToObject(parent_pidl, None).unwrap() };
-        let folder2: IShellFolder2 = shell_folder.cast().ok().expect("IShellFolder2 not supported");
+        let shell_folder: IShellFolder =
+            unsafe { desktop.BindToObject(parent_pidl, None).unwrap() };
+        let folder2: IShellFolder2 = shell_folder
+            .cast()
+            .ok()
+            .expect("IShellFolder2 not supported");
 
-        let pidls = unsafe { enum_folder_pidls(&shell_folder, false, SHCONTF_NONFOLDERS.0 as u32).unwrap() };
+        let pidls = unsafe {
+            enum_folder_pidls(&shell_folder, false, SHCONTF_NONFOLDERS.0 as u32).unwrap()
+        };
         println!("=== Network Devices Diag ({}) ===\n", pidls.len());
 
         for (i, child_pidl) in pidls.iter().enumerate() {
-            let display_name = unsafe { display_name_of(&shell_folder, *child_pidl, SHGDN_INFOLDER).unwrap_or_default() };
-            let parsing = unsafe { display_name_of(&shell_folder, *child_pidl, SHGDN_FORPARSING).unwrap_or_default() };
+            let display_name = unsafe {
+                display_name_of(&shell_folder, *child_pidl, SHGDN_INFOLDER).unwrap_or_default()
+            };
+            let parsing = unsafe {
+                display_name_of(&shell_folder, *child_pidl, SHGDN_FORPARSING).unwrap_or_default()
+            };
 
             // Get Category column (col 1)
             let mut sd: SHELLDETAILS = unsafe { std::mem::zeroed() };
-            let category_text = if unsafe { folder2.GetDetailsOf(*child_pidl, 1, &mut sd).is_ok() } {
+            let category_text = if unsafe { folder2.GetDetailsOf(*child_pidl, 1, &mut sd).is_ok() }
+            {
                 let mut strret = sd.str;
                 let mut psz: windows::core::PWSTR = windows::core::PWSTR::null();
                 unsafe {
@@ -733,7 +743,13 @@ mod tests {
             println!();
         }
 
-        for pidl in pidls { unsafe { ILFree(Some(pidl)); } }
-        unsafe { ILFree(Some(parent_pidl)); }
+        for pidl in pidls {
+            unsafe {
+                ILFree(Some(pidl));
+            }
+        }
+        unsafe {
+            ILFree(Some(parent_pidl));
+        }
     }
 }

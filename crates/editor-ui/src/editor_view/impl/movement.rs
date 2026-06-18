@@ -107,5 +107,4 @@ impl EngineEditor {
             buf.position_to_char(Position::new(target_line, pos.column))
         });
     }
-
 }

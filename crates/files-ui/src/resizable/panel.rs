@@ -1,18 +1,16 @@
-use std::{
-    ops::{Deref, Range},
-};
+use std::ops::{Deref, Range};
 
 use gpui::{
-    Along, AnyElement, App, AppContext, Axis, Bounds, Context, Element, ElementId, Empty, Entity,
-    EventEmitter, InteractiveElement as _, IntoElement, IsZero as _, MouseMoveEvent, MouseUpEvent,
-    ParentElement, Pixels, Render, RenderOnce, Style, StyleRefinement, Styled, Window, div,
-    prelude::FluentBuilder,
+    div, prelude::FluentBuilder, Along, AnyElement, App, AppContext, Axis, Bounds, Context,
+    Element, ElementId, Empty, Entity, EventEmitter, InteractiveElement as _, IntoElement,
+    IsZero as _, MouseMoveEvent, MouseUpEvent, ParentElement, Pixels, Render, RenderOnce, Style,
+    StyleRefinement, Styled, Window,
 };
 
-use gpui_component::{AxisExt, ElementExt, h_flex, v_flex, StyledExt as _};
 use crate::resizable::PANEL_MIN_SIZE;
+use gpui_component::{h_flex, v_flex, AxisExt, ElementExt, StyledExt as _};
 
-use super::{ResizableState, resizable_panel, resize_handle};
+use super::{resizable_panel, resize_handle, ResizableState};
 
 pub enum ResizablePanelEvent {
     Resized,
@@ -69,7 +67,6 @@ impl ResizablePanelGroup {
         self.children.push(panel.into());
         self
     }
-
 }
 
 impl<T> From<T> for ResizablePanel

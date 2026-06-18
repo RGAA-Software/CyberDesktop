@@ -38,7 +38,9 @@ pub fn multi_pane_available(cx: &mut (impl AppContext + BorrowMut<gpui::App>)) -
     width > MULTI_PANE_WIDTH_THRESHOLD.as_f32()
 }
 
-pub fn dual_pane_menu_state(cx: &mut (impl AppContext + BorrowMut<gpui::App>)) -> DualPaneMenuState {
+pub fn dual_pane_menu_state(
+    cx: &mut (impl AppContext + BorrowMut<gpui::App>),
+) -> DualPaneMenuState {
     let multi_pane_available = multi_pane_available(cx);
     let app = cx.borrow_mut();
     let (dual, arrangement) = app
@@ -146,14 +148,12 @@ pub fn append_dual_pane_popup_menu(
                     window,
                     cx,
                     move |sub, _window, _cx| {
-                        sub.item(
-                            PopupMenuItem::new(t!("menu.split_pane_vertical")).on_click(
-                                |_, _, cx| {
-                                    AppNavigation::run_split_pane_vertically(cx);
-                                    cx.stop_propagation();
-                                },
-                            ),
-                        )
+                        sub.item(PopupMenuItem::new(t!("menu.split_pane_vertical")).on_click(
+                            |_, _, cx| {
+                                AppNavigation::run_split_pane_vertically(cx);
+                                cx.stop_propagation();
+                            },
+                        ))
                         .item(
                             PopupMenuItem::new(t!("menu.split_pane_horizontal")).on_click(
                                 |_, _, cx| {

@@ -27,8 +27,12 @@ pub struct SearchHit {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SearchQuery {
-    Plain { text: String },
-    Aqs { query: String },
+    Plain {
+        text: String,
+    },
+    Aqs {
+        query: String,
+    },
     Tag {
         tag_name: String,
         filter: Option<String>,
@@ -76,9 +80,7 @@ pub fn search_folder(
             let root = scope_directory(&scope)?;
             #[cfg(windows)]
             {
-                if let Ok(paths) =
-                    search_indexed_aqs(&root, text, cancel, DEFAULT_MAX_RESULTS)
-                {
+                if let Ok(paths) = search_indexed_aqs(&root, text, cancel, DEFAULT_MAX_RESULTS) {
                     let mut hits: Vec<SearchHit> = paths
                         .into_iter()
                         .filter_map(|path| path_to_hit(&path).ok())
@@ -99,9 +101,7 @@ pub fn search_folder(
 
 fn scope_directory(scope: &SearchScope) -> anyhow::Result<PathBuf> {
     match scope {
-        SearchScope::CurrentFolder(path)
-        | SearchScope::Home(path)
-        | SearchScope::Library(path) => {
+        SearchScope::CurrentFolder(path) | SearchScope::Home(path) | SearchScope::Library(path) => {
             if path.is_dir() {
                 Ok(path.clone())
             } else {

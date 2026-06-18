@@ -118,32 +118,202 @@ pub fn is_cybereditor_openable(path: &Path) -> bool {
 fn is_binary_extension(ext: &str) -> bool {
     matches!(
         ext,
-        "png" | "jpg" | "jpeg" | "gif" | "webp" | "ico" | "bmp" | "tif" | "tiff" | "psd" | "heic"
-            | "avif" | "raw" | "cr2" | "nef"
-            | "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" | "xz" | "zst" | "cab" | "iso" | "img"
-            | "mp3" | "mp4" | "m4a" | "avi" | "mkv" | "mov" | "wmv" | "flv" | "wav" | "flac"
-            | "ogg" | "aac" | "wma" | "webm"
-            | "pdf" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "odt" | "ods" | "odp"
-            | "exe" | "dll" | "sys" | "ocx" | "scr" | "msi" | "com" | "apk" | "dmg" | "pkg"
-            | "deb" | "rpm" | "appimage"
-            | "woff" | "woff2" | "ttf" | "otf" | "eot"
-            | "db" | "sqlite" | "sqlite3" | "mdb" | "accdb"
-            | "class" | "jar" | "pyc" | "pyo" | "so" | "dylib" | "obj" | "o" | "a" | "lib"
-            | "pdb" | "bin" | "dat" | "vhd" | "vmdk" | "wasm"
+        "png"
+            | "jpg"
+            | "jpeg"
+            | "gif"
+            | "webp"
+            | "ico"
+            | "bmp"
+            | "tif"
+            | "tiff"
+            | "psd"
+            | "heic"
+            | "avif"
+            | "raw"
+            | "cr2"
+            | "nef"
+            | "zip"
+            | "rar"
+            | "7z"
+            | "tar"
+            | "gz"
+            | "bz2"
+            | "xz"
+            | "zst"
+            | "cab"
+            | "iso"
+            | "img"
+            | "mp3"
+            | "mp4"
+            | "m4a"
+            | "avi"
+            | "mkv"
+            | "mov"
+            | "wmv"
+            | "flv"
+            | "wav"
+            | "flac"
+            | "ogg"
+            | "aac"
+            | "wma"
+            | "webm"
+            | "pdf"
+            | "doc"
+            | "docx"
+            | "xls"
+            | "xlsx"
+            | "ppt"
+            | "pptx"
+            | "odt"
+            | "ods"
+            | "odp"
+            | "exe"
+            | "dll"
+            | "sys"
+            | "ocx"
+            | "scr"
+            | "msi"
+            | "com"
+            | "apk"
+            | "dmg"
+            | "pkg"
+            | "deb"
+            | "rpm"
+            | "appimage"
+            | "woff"
+            | "woff2"
+            | "ttf"
+            | "otf"
+            | "eot"
+            | "db"
+            | "sqlite"
+            | "sqlite3"
+            | "mdb"
+            | "accdb"
+            | "class"
+            | "jar"
+            | "pyc"
+            | "pyo"
+            | "so"
+            | "dylib"
+            | "obj"
+            | "o"
+            | "a"
+            | "lib"
+            | "pdb"
+            | "bin"
+            | "dat"
+            | "vhd"
+            | "vmdk"
+            | "wasm"
     )
 }
 
 /// Extensions for native open/save dialogs and [`is_cybereditor_openable`].
 pub const CYBEREDITOR_TEXT_CODE_EXTENSIONS: &[&str] = &[
-    "astro", "bash", "bat", "c", "cc", "cfg", "cjs", "clj", "cljc", "cljs", "cmake", "cmd",
-    "conf", "cpp", "cs", "css", "cxx", "dart", "diff", "ejs", "erb", "ex", "exs", "fish", "go",
-    "gradle", "graphql", "gql", "gemspec", "h", "hcl", "hh", "hpp", "hs", "htm", "html", "hxx",
-    "ini", "java", "js", "json", "jsonc", "jsx", "kt", "kts", "ktm", "less", "log", "lua", "md",
-    "markdown", "mdx", "mjs", "mk", "mysql", "patch", "php", "php3", "php4", "php5", "phtml",
-    "pl", "pm", "properties", "proto", "ps1", "psm1", "pgsql", "psql", "py", "pyi", "pyw", "r",
-    "rake", "rb", "rs", "sass", "scala", "sc", "scss", "sh", "sql", "sv", "svelte", "svg", "swift",
-    "text", "tf", "toml", "ts", "tsx", "txt", "v", "vue", "xhtml", "xml", "xsl", "xslt", "yaml",
-    "yml", "zig", "zsh",
+    "astro",
+    "bash",
+    "bat",
+    "c",
+    "cc",
+    "cfg",
+    "cjs",
+    "clj",
+    "cljc",
+    "cljs",
+    "cmake",
+    "cmd",
+    "conf",
+    "cpp",
+    "cs",
+    "css",
+    "cxx",
+    "dart",
+    "diff",
+    "ejs",
+    "erb",
+    "ex",
+    "exs",
+    "fish",
+    "go",
+    "gradle",
+    "graphql",
+    "gql",
+    "gemspec",
+    "h",
+    "hcl",
+    "hh",
+    "hpp",
+    "hs",
+    "htm",
+    "html",
+    "hxx",
+    "ini",
+    "java",
+    "js",
+    "json",
+    "jsonc",
+    "jsx",
+    "kt",
+    "kts",
+    "ktm",
+    "less",
+    "log",
+    "lua",
+    "md",
+    "markdown",
+    "mdx",
+    "mjs",
+    "mk",
+    "mysql",
+    "patch",
+    "php",
+    "php3",
+    "php4",
+    "php5",
+    "phtml",
+    "pl",
+    "pm",
+    "properties",
+    "proto",
+    "ps1",
+    "psm1",
+    "pgsql",
+    "psql",
+    "py",
+    "pyi",
+    "pyw",
+    "r",
+    "rake",
+    "rb",
+    "rs",
+    "sass",
+    "scala",
+    "sc",
+    "scss",
+    "sh",
+    "sql",
+    "sv",
+    "svelte",
+    "svg",
+    "swift",
+    "text",
+    "tf",
+    "toml",
+    "ts",
+    "tsx",
+    "txt",
+    "v",
+    "vue",
+    "xhtml",
+    "xml",
+    "xsl",
+    "xslt",
+    "yaml",
+    "yml",
+    "zig",
+    "zsh",
 ];
 
 /// File extensions for CyberEditor open/save dialog filters.
@@ -176,10 +346,16 @@ mod tests {
     fn maps_common_extensions() {
         assert_eq!(language_for_path(Some(Path::new("main.rs"))), "rust");
         assert_eq!(language_for_path(Some(Path::new("app.tsx"))), "tsx");
-        assert_eq!(language_for_path(Some(Path::new("CMakeLists.txt"))), "cmake");
+        assert_eq!(
+            language_for_path(Some(Path::new("CMakeLists.txt"))),
+            "cmake"
+        );
         assert_eq!(language_for_path(Some(Path::new("Makefile"))), "make");
         assert_eq!(language_for_path(Some(Path::new("build.gradle"))), "java");
-        assert_eq!(language_for_path(Some(Path::new("settings.gradle.kts"))), "kotlin");
+        assert_eq!(
+            language_for_path(Some(Path::new("settings.gradle.kts"))),
+            "kotlin"
+        );
         assert!(is_cybereditor_openable(Path::new("build.gradle")));
     }
 

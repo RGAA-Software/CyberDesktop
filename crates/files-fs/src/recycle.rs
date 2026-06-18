@@ -45,8 +45,7 @@ pub fn restore_recycled_originals(_original_paths: &[PathBuf]) -> anyhow::Result
 
 #[cfg(windows)]
 pub fn restore_recycled_originals(original_paths: &[PathBuf]) -> anyhow::Result<()> {
-    let shell_paths =
-        app_platform_windows::recycle_shell_paths_for_originals(original_paths)?;
+    let shell_paths = app_platform_windows::recycle_shell_paths_for_originals(original_paths)?;
     if shell_paths.is_empty() && !original_paths.is_empty() {
         anyhow::bail!("recycle bin items not found for restore");
     }

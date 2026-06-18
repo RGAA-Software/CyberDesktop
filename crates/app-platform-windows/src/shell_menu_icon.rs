@@ -13,15 +13,15 @@ use windows::Win32::Graphics::Gdi::{
     GetDC, GetDIBits, GetObjectW, ReleaseDC, SelectObject, BITMAP, BITMAPINFO, BITMAPINFOHEADER,
     BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ,
 };
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_CLASSES_ROOT, KEY_READ, REG_VALUE_TYPE,
+};
 use windows::Win32::UI::Controls::{
     DRAWITEMSTRUCT, MEASUREITEMSTRUCT, ODA_DRAWENTIRE, ODS_DEFAULT, ODT_MENU,
 };
 use windows::Win32::UI::Shell::{
     AssocQueryStringW, IContextMenu, IContextMenu2, IContextMenu3, ASSOCF_INIT_BYEXENAME,
     ASSOCSTR_EXECUTABLE, ASSOCSTR_PROGID,
-};
-use windows::Win32::System::Registry::{
-    RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_CLASSES_ROOT, KEY_READ, REG_VALUE_TYPE,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetMenuItemInfoW, HBMMENU_CALLBACK, HMENU, MENUITEMINFOW, MIIM_BITMAP, WM_DRAWITEM,
@@ -35,7 +35,8 @@ thread_local! {
 }
 
 /// In-memory PNG cache for Shell context-menu row icons (stable across menu opens).
-static MENU_ICON_PNG_CACHE: OnceLock<Mutex<HashMap<MenuIconCacheKey, Arc<Vec<u8>>>>> = OnceLock::new();
+static MENU_ICON_PNG_CACHE: OnceLock<Mutex<HashMap<MenuIconCacheKey, Arc<Vec<u8>>>>> =
+    OnceLock::new();
 
 #[derive(Clone, Hash, Eq, PartialEq)]
 enum MenuIconCacheKey {
@@ -112,11 +113,7 @@ pub(crate) unsafe fn init_popup_menu(popup: HMENU, menu: &IContextMenu) {
     let Ok(cmenu2) = menu.cast::<IContextMenu2>() else {
         return;
     };
-    let _ = cmenu2.HandleMenuMsg(
-        WM_INITMENUPOPUP,
-        WPARAM(popup.0 as usize),
-        LPARAM(0),
-    );
+    let _ = cmenu2.HandleMenuMsg(WM_INITMENUPOPUP, WPARAM(popup.0 as usize), LPARAM(0));
 }
 
 /// Shell `hbmpItem` sentinel values (Files `HBITMAP_HMENU`); not real bitmap handles.
@@ -144,13 +141,18 @@ fn unpremultiply_rgba(r: u8, g: u8, b: u8, a: u8) -> image::Rgba<u8> {
         return image::Rgba([r, g, b, 255]);
     }
     let a_u = a as u32;
-    let scale = |c: u8| -> u8 {
-        ((c as u32 * 255 + a_u / 2) / a_u).min(255) as u8
-    };
+    let scale = |c: u8| -> u8 { ((c as u32 * 255 + a_u / 2) / a_u).min(255) as u8 };
     image::Rgba([scale(r), scale(g), scale(b), a])
 }
 
-fn pixel_to_rgba(b: u8, g: u8, r: u8, a: u8, chroma_key: bool, unpremultiply: bool) -> image::Rgba<u8> {
+fn pixel_to_rgba(
+    b: u8,
+    g: u8,
+    r: u8,
+    a: u8,
+    chroma_key: bool,
+    unpremultiply: bool,
+) -> image::Rgba<u8> {
     if chroma_key && is_chroma_bgr(b, g, r) {
         return image::Rgba([0, 0, 0, 0]);
     }
@@ -260,7 +262,9 @@ unsafe fn hbitmap_dibsection_png(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<
             break;
         }
     }
-    rgba_pixels_to_png(bits, width, height, stride, chroma_key, has_alpha, !top_down)
+    rgba_pixels_to_png(
+        bits, width, height, stride, chroma_key, has_alpha, !top_down,
+    )
 }
 
 unsafe fn hbitmap_via_copy_image(hbmp: HBITMAP, chroma_key: bool) -> Option<Vec<u8>> {
@@ -538,7 +542,14 @@ fn hkcr_string_value(subkey: &str, value_name: Option<&str>) -> Option<String> {
             .unwrap_or(PCWSTR::null());
         let mut kind = REG_VALUE_TYPE::default();
         let mut len = 0u32;
-        let _ = RegQueryValueExW(hkey, query_name, None, Some(&mut kind), None, Some(&mut len));
+        let _ = RegQueryValueExW(
+            hkey,
+            query_name,
+            None,
+            Some(&mut kind),
+            None,
+            Some(&mut len),
+        );
         if len < 2 {
             let _ = RegCloseKey(hkey);
             return None;
@@ -644,7 +655,9 @@ fn icon_for_file_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
         .extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| format!(".{ext}"))
-        .and_then(|ext| assoc_query_string(Default::default(), ASSOCSTR_EXECUTABLE, &ext, Some(verb)))
+        .and_then(|ext| {
+            assoc_query_string(Default::default(), ASSOCSTR_EXECUTABLE, &ext, Some(verb))
+        })
         .or_else(|| {
             path.extension()
                 .and_then(|ext| ext.to_str())
@@ -684,7 +697,8 @@ pub(crate) unsafe fn resolve_menu_item_icon(
         return Some((*cached).clone());
     }
 
-    let png = resolve_menu_item_icon_uncached(popup, menu, index, item_id, hbmp, primary_path, verb);
+    let png =
+        resolve_menu_item_icon_uncached(popup, menu, index, item_id, hbmp, primary_path, verb);
     if let Some(png) = png {
         menu_icon_cache_put(row_key, png.clone());
         return Some(png);

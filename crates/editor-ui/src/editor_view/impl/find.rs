@@ -22,7 +22,12 @@ impl EngineEditor {
         });
     }
 
-    pub(crate) fn open_find(&mut self, replace_mode: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_find(
+        &mut self,
+        replace_mode: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.search_panel = None;
         self.goto = None;
         let primary = self.document.selections().primary();
@@ -205,18 +210,12 @@ impl EngineEditor {
         let (found, wrapped) = if forward {
             match searcher.find_next_no_wrap(buffer, end) {
                 Some(m) => (Some(m), false),
-                None => (
-                    searcher.find_next_wrap(buffer, end),
-                    true,
-                ),
+                None => (searcher.find_next_wrap(buffer, end), true),
             }
         } else {
             match searcher.find_prev_no_wrap(buffer, start) {
                 Some(m) => (Some(m), false),
-                None => (
-                    searcher.find_prev_wrap(buffer, start),
-                    true,
-                ),
+                None => (searcher.find_prev_wrap(buffer, start), true),
             }
         };
         let wrapped = wrapped && found.is_some();
@@ -301,5 +300,4 @@ impl EngineEditor {
     }
 
     // ---- Input -----------------------------------------------------------
-
 }

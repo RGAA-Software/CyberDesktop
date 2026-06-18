@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use gpui::{Keystroke, KeybindingKeystroke};
+use gpui::{KeybindingKeystroke, Keystroke};
 
 use crate::action_specs::{action_spec_by_id, action_specs, default_keystroke_for};
 

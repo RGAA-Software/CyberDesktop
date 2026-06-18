@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use gpui::{
-    Along, App, Axis, Bounds, Context, ElementId, EventEmitter, IsZero, Pixels, Window, px,
+    px, Along, App, Axis, Bounds, Context, ElementId, EventEmitter, IsZero, Pixels, Window,
 };
 
 mod panel;
@@ -208,19 +208,18 @@ impl ResizableState {
         }
 
         // Sum of fixed panels (clamped to their size_range).
-        let fixed_total = px(
-            self.panels
-                .iter()
-                .enumerate()
-                .filter(|(_, p)| p.fixed_size)
-                .map(|(i, _)| {
-                    self.sizes[i]
-                        .min(self.panel_size_range(i).end)
-                        .max(self.panel_size_range(i).start)
-                        .as_f32()
-                })
-                .sum::<f32>(),
-        );
+        let fixed_total = px(self
+            .panels
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.fixed_size)
+            .map(|(i, _)| {
+                self.sizes[i]
+                    .min(self.panel_size_range(i).end)
+                    .max(self.panel_size_range(i).start)
+                    .as_f32()
+            })
+            .sum::<f32>());
 
         let flex_total = (old_total - fixed_total).max(px(1.));
         let remaining = (container_size - fixed_total).max(px(1.));

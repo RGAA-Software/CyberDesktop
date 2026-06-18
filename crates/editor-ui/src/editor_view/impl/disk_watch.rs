@@ -9,7 +9,9 @@ impl EngineEditor {
         }
         self.watch_started = true;
         cx.spawn(async move |this, cx| loop {
-            cx.background_executor().timer(Duration::from_millis(1500)).await;
+            cx.background_executor()
+                .timer(Duration::from_millis(1500))
+                .await;
             let keep = this
                 .update(cx, |this, cx| this.check_disk_change(cx))
                 .unwrap_or(false);

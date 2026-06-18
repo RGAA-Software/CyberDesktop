@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 use files_fs::{ClipboardOperation, FileClipboard, FileOperation, OperationHistory};
-use gpui::{App, AppContext, Entity, Global, SharedString, Window, AnyWindowHandle};
+use gpui::{AnyWindowHandle, App, AppContext, Entity, Global, SharedString, Window};
 
 use crate::main_page::MainPage;
 use crate::shell::navigation::NavigationTarget;
@@ -66,7 +66,11 @@ impl TransferJob {
     }
 
     pub fn status(&self) -> TransferJobStatus {
-        self.status.read().ok().map(|g| *g).unwrap_or(TransferJobStatus::Running)
+        self.status
+            .read()
+            .ok()
+            .map(|g| *g)
+            .unwrap_or(TransferJobStatus::Running)
     }
 
     fn set_status(&self, status: TransferJobStatus) {
@@ -95,7 +99,11 @@ impl TransferStatusGlobal {
     }
 
     /// Start a new job and return its ID + cancel flag.
-    pub fn begin(message: SharedString, total: u32, cx: &mut App) -> (TransferJobId, Arc<AtomicBool>) {
+    pub fn begin(
+        message: SharedString,
+        total: u32,
+        cx: &mut App,
+    ) -> (TransferJobId, Arc<AtomicBool>) {
         let Some(global) = cx.try_global::<Self>() else {
             let cancel = Arc::new(AtomicBool::new(false));
             return (TransferJobId(0), cancel);
@@ -111,7 +119,9 @@ impl TransferStatusGlobal {
     }
 
     pub fn set_progress(id: TransferJobId, completed: u32, cx: &mut App) {
-        let Some(global) = cx.try_global::<Self>() else { return };
+        let Some(global) = cx.try_global::<Self>() else {
+            return;
+        };
         if let Ok(guard) = global.jobs.read() {
             if let Some(job) = guard.iter().find(|j| j.id == id) {
                 job.set_completed(completed);
@@ -121,7 +131,9 @@ impl TransferStatusGlobal {
     }
 
     pub fn end(id: TransferJobId, cx: &mut App) {
-        let Some(global) = cx.try_global::<Self>() else { return };
+        let Some(global) = cx.try_global::<Self>() else {
+            return;
+        };
         if let Ok(guard) = global.jobs.read() {
             if let Some(job) = guard.iter().find(|j| j.id == id) {
                 job.set_status(TransferJobStatus::Completed);
@@ -132,7 +144,9 @@ impl TransferStatusGlobal {
     }
 
     pub fn fail(id: TransferJobId, cx: &mut App) {
-        let Some(global) = cx.try_global::<Self>() else { return };
+        let Some(global) = cx.try_global::<Self>() else {
+            return;
+        };
         if let Ok(guard) = global.jobs.read() {
             if let Some(job) = guard.iter().find(|j| j.id == id) {
                 job.set_status(TransferJobStatus::Failed);
@@ -142,7 +156,9 @@ impl TransferStatusGlobal {
     }
 
     pub fn cancel(id: TransferJobId, cx: &mut App) {
-        let Some(global) = cx.try_global::<Self>() else { return };
+        let Some(global) = cx.try_global::<Self>() else {
+            return;
+        };
         if let Ok(guard) = global.jobs.read() {
             if let Some(job) = guard.iter().find(|j| j.id == id) {
                 job.request_cancel();
@@ -153,7 +169,9 @@ impl TransferStatusGlobal {
     }
 
     pub fn request_cancel(id: TransferJobId, cx: &mut App) {
-        let Some(global) = cx.try_global::<Self>() else { return };
+        let Some(global) = cx.try_global::<Self>() else {
+            return;
+        };
         if let Ok(guard) = global.jobs.read() {
             if let Some(job) = guard.iter().find(|j| j.id == id) {
                 job.request_cancel();
@@ -164,7 +182,9 @@ impl TransferStatusGlobal {
 
     /// Remove a single finished job from the list.
     pub fn dismiss(id: TransferJobId, cx: &mut App) {
-        let Some(global) = cx.try_global::<Self>() else { return };
+        let Some(global) = cx.try_global::<Self>() else {
+            return;
+        };
         if let Ok(mut guard) = global.jobs.write() {
             guard.retain(|j| j.id != id);
         }
@@ -173,7 +193,9 @@ impl TransferStatusGlobal {
 
     /// Remove all finished jobs (Completed / Cancelled / Failed).
     pub fn dismiss_completed(cx: &mut App) {
-        let Some(global) = cx.try_global::<Self>() else { return };
+        let Some(global) = cx.try_global::<Self>() else {
+            return;
+        };
         if let Ok(mut guard) = global.jobs.write() {
             guard.retain(|j| j.is_active());
         }

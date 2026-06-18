@@ -1,7 +1,7 @@
 use gpui::{prelude::*, *};
 
-use app_ui::popup_menu::PopupMenu;
 use crate::shell::{append_dual_pane_popup_menu, dual_pane_menu_state, DualPanePopupProfile};
+use app_ui::popup_menu::PopupMenu;
 
 use super::MainPage;
 

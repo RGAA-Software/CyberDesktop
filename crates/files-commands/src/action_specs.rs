@@ -2,11 +2,11 @@ use gpui::KeyBinding;
 
 use crate::{
     CancelRename, CloseActivePane, CopyItems, CopyPath, CutItems, DeleteItems,
-    DeleteItemsPermanent, FILE_BROWSER, FocusOmnibar, FocusOtherPane, FocusSearch, NavigateBack,
-    NavigateForward, NavigateLeft, NavigateNext, NavigatePrevious, NavigateRight, NavigateUp, NewFile,
-    NewFolder, OpenInNewPane, OpenItem, PasteItems, RedoOperation, RefreshDirectory, ReopenClosedTab,
-    RenameItem, SelectAll, SplitPaneHorizontally, SplitPaneVertically, ToggleDualPane, UndoOperation,
-    ViewCards, ViewColumns, ViewDetails, ViewGrid, ViewList,
+    DeleteItemsPermanent, FocusOmnibar, FocusOtherPane, FocusSearch, NavigateBack, NavigateForward,
+    NavigateLeft, NavigateNext, NavigatePrevious, NavigateRight, NavigateUp, NewFile, NewFolder,
+    OpenInNewPane, OpenItem, PasteItems, RedoOperation, RefreshDirectory, RenameItem,
+    ReopenClosedTab, SelectAll, SplitPaneHorizontally, SplitPaneVertically, ToggleDualPane,
+    UndoOperation, ViewCards, ViewColumns, ViewDetails, ViewGrid, ViewList, FILE_BROWSER,
 };
 
 pub struct ActionSpec {
@@ -325,7 +325,9 @@ pub fn key_binding_for(spec: &ActionSpec, keystroke: &str) -> Option<KeyBinding>
         "close_active_pane" => KeyBinding::new(keystroke, CloseActivePane, spec.context),
         "open_in_new_pane" => KeyBinding::new(keystroke, OpenInNewPane, spec.context),
         "split_pane_vertically" => KeyBinding::new(keystroke, SplitPaneVertically, spec.context),
-        "split_pane_horizontally" => KeyBinding::new(keystroke, SplitPaneHorizontally, spec.context),
+        "split_pane_horizontally" => {
+            KeyBinding::new(keystroke, SplitPaneHorizontally, spec.context)
+        }
         _ => return None,
     })
 }
@@ -339,11 +341,7 @@ pub fn extra_file_browser_bindings() -> Vec<KeyBinding> {
     )];
     #[cfg(target_os = "macos")]
     {
-        extras.push(KeyBinding::new(
-            "delete",
-            DeleteItems,
-            Some(FILE_BROWSER),
-        ));
+        extras.push(KeyBinding::new("delete", DeleteItems, Some(FILE_BROWSER)));
     }
     extras
 }

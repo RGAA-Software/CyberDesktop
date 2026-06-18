@@ -189,11 +189,7 @@ pub fn bordered_home_card(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
         .bg(cx.theme().secondary)
 }
 
-pub fn space_progress_bar(
-    id: impl Into<ElementId>,
-    fraction: f32,
-    cx: &App,
-) -> impl IntoElement {
+pub fn space_progress_bar(id: impl Into<ElementId>, fraction: f32, cx: &App) -> impl IntoElement {
     Progress::new(id)
         .w_full()
         .h(px(4.))

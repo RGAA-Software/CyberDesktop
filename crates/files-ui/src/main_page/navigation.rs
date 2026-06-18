@@ -45,7 +45,8 @@ impl MainPage {
             shell.update(cx, |shell, cx| {
                 shell.for_each_pane(|pane| {
                     pane.update(cx, |pane, cx| {
-                        if let NavigationTarget::Path(ref path) = pane.current_navigation_target(cx) {
+                        if let NavigationTarget::Path(ref path) = pane.current_navigation_target(cx)
+                        {
                             if let Some(root) = files_fs::path_drive_root(path) {
                                 // Only react to local drive removals (e.g. USB eject).
                                 // Network paths are not in list_drives() and should not trigger auto-navigation.
@@ -153,8 +154,10 @@ impl MainPage {
     pub(super) fn file_navigation_active(&self, cx: &App) -> bool {
         matches!(
             self.active_pane(cx).read(cx).target(),
-            NavigationTarget::Path(_) | NavigationTarget::RecycleBin | NavigationTarget::FileTag(_)
-            | NavigationTarget::SearchResults { .. }
+            NavigationTarget::Path(_)
+                | NavigationTarget::RecycleBin
+                | NavigationTarget::FileTag(_)
+                | NavigationTarget::SearchResults { .. }
         )
     }
 
@@ -294,7 +297,9 @@ impl MainPage {
     pub(crate) fn notify_all_homes(&self, cx: &mut Context<Self>) {
         for tab in &self.tabs {
             let mut panes = Vec::new();
-            tab.shell.read(cx).for_each_pane(|pane| panes.push(pane.clone()));
+            tab.shell
+                .read(cx)
+                .for_each_pane(|pane| panes.push(pane.clone()));
             for pane in panes {
                 if let Some(home) = pane.read(cx).home_page() {
                     let _ = home.update(cx, |_, cx| cx.notify());
@@ -307,11 +312,11 @@ impl MainPage {
     pub(crate) fn notify_all_file_browsers(&self, cx: &mut Context<Self>) {
         for tab in &self.tabs {
             let mut panes = Vec::new();
-            tab.shell.read(cx).for_each_pane(|pane| panes.push(pane.clone()));
+            tab.shell
+                .read(cx)
+                .for_each_pane(|pane| panes.push(pane.clone()));
             for pane in panes {
-                pane.read(cx)
-                    .file_browser()
-                    .update(cx, |_, cx| cx.notify());
+                pane.read(cx).file_browser().update(cx, |_, cx| cx.notify());
             }
         }
     }

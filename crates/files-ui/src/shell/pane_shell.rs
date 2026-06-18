@@ -84,7 +84,9 @@ impl PaneShell {
             NavigationTarget::Path(_)
             | NavigationTarget::RecycleBin
             | NavigationTarget::FileTag(_)
-            | NavigationTarget::SearchResults { .. } => self.file_browser.read(cx).navigation_target(),
+            | NavigationTarget::SearchResults { .. } => {
+                self.file_browser.read(cx).navigation_target()
+            }
         }
     }
 
@@ -124,8 +126,8 @@ impl PaneShell {
                     browser.open_file_tag(name.clone(), cx);
                 }
                 NavigationTarget::SearchResults { query } => {
-                    let scope = search_scope
-                        .unwrap_or_else(|| SearchScope::Home(home_navigation_path()));
+                    let scope =
+                        search_scope.unwrap_or_else(|| SearchScope::Home(home_navigation_path()));
                     browser.open_global_search(query.clone(), scope, cx);
                 }
                 NavigationTarget::Home | _ => {}
@@ -202,10 +204,7 @@ impl PaneShell {
     }
 }
 
-fn search_scope_for_browser(
-    browser: &FileBrowser,
-    pane_target: &NavigationTarget,
-) -> SearchScope {
+fn search_scope_for_browser(browser: &FileBrowser, pane_target: &NavigationTarget) -> SearchScope {
     if let BrowseLocation::SearchResults { scope, .. } = browser.current_browse_location() {
         return scope.clone();
     }

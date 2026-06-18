@@ -10,9 +10,9 @@ use windows::Win32::System::Search::{
     ICondition, IQueryParser, IQueryParserManager, QueryParserManager,
 };
 use windows::Win32::UI::Shell::{
-    IEnumShellItems, ISearchFolderItemFactory, IShellItem, IShellItemArray,
-    SearchFolderItemFactory, SHCreateItemFromParsingName, SHCreateShellItemArrayFromShellItem,
-    BHID_EnumItems, SIGDN_DESKTOPABSOLUTEPARSING,
+    BHID_EnumItems, IEnumShellItems, ISearchFolderItemFactory, IShellItem, IShellItemArray,
+    SHCreateItemFromParsingName, SHCreateShellItemArrayFromShellItem, SearchFolderItemFactory,
+    SIGDN_DESKTOPABSOLUTEPARSING,
 };
 
 use crate::com::ensure_com_apartment;
@@ -76,10 +76,8 @@ unsafe fn search_indexed_aqs_com(
     let parser_manager: IQueryParserManager =
         CoCreateInstance(&QueryParserManager, None, CLSCTX_INPROC_SERVER)?;
     let lang = GetUserDefaultUILanguage();
-    let parser: IQueryParser = parser_manager.CreateLoadedParser(
-        windows::core::w!("SystemIndex"),
-        lang,
-    )?;
+    let parser: IQueryParser =
+        parser_manager.CreateLoadedParser(windows::core::w!("SystemIndex"), lang)?;
 
     let query_wide = string_to_wide(aqs_query);
     let solution = parser.Parse(
@@ -97,8 +95,7 @@ unsafe fn search_indexed_aqs_com(
     let scope_wide = path_to_wide(scope_root);
     let scope_item: IShellItem =
         SHCreateItemFromParsingName(windows::core::PCWSTR(scope_wide.as_ptr()), None)?;
-    let scope_array: IShellItemArray =
-        SHCreateShellItemArrayFromShellItem(&scope_item)?;
+    let scope_array: IShellItemArray = SHCreateShellItemArrayFromShellItem(&scope_item)?;
 
     factory.SetScope(&scope_array)?;
     factory.SetCondition(&condition)?;

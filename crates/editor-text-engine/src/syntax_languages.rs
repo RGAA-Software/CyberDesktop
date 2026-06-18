@@ -52,10 +52,7 @@ pub(crate) fn language_config(language_id: &str) -> Option<(Language, &'static s
             tree_sitter_c::LANGUAGE.into(),
             tree_sitter_c::HIGHLIGHT_QUERY,
         ),
-        "cpp" => (
-            tree_sitter_cpp::LANGUAGE.into(),
-            cpp_highlight_query(),
-        ),
+        "cpp" => (tree_sitter_cpp::LANGUAGE.into(), cpp_highlight_query()),
         "bash" | "shell" | "sh" => (
             tree_sitter_bash::LANGUAGE.into(),
             tree_sitter_bash::HIGHLIGHT_QUERY,

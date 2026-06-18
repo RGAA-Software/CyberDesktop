@@ -2,18 +2,8 @@ use files_core::{APP_NAME, GITHUB_REPO_URL};
 use files_fs;
 use gpui::{prelude::*, *};
 use gpui_component::{
-    badge::Badge,
-    button::Button,
-    h_flex,
-    label::Label,
-    tooltip::Tooltip,
-    ActiveTheme as _,
-    Colorize as _,
-    Disableable as _,
-    Icon, IconName,
-    Sizable as _,
-    ThemeMode,
-    StyledExt as _,
+    badge::Badge, button::Button, h_flex, label::Label, tooltip::Tooltip, ActiveTheme as _,
+    Colorize as _, Disableable as _, Icon, IconName, Sizable as _, StyledExt as _, ThemeMode,
     WindowExt as _,
 };
 use rust_i18n::t;
@@ -22,10 +12,12 @@ use super::{
     MainPage, NAV_TOOLBAR_HEIGHT, OMNIBAR_BAR_HEIGHT, TITLE_TAB_BAR_HEIGHT, TITLE_TAB_CLOSE_HIT,
     TITLE_TAB_CLOSE_ICON, TITLE_TAB_MIN_WIDTH, TITLE_TAB_WIDTH,
 };
-use crate::icons::{app_logo_element, compact_icon, pin_icon, pinned_icon, toolbar_icon, toolbar_tabler};
-use crate::tabler_icons;
+use crate::icons::{
+    app_logo_element, compact_icon, pin_icon, pinned_icon, toolbar_icon, toolbar_tabler,
+};
 use crate::shell::navigation::NavigationTarget;
 use crate::shell::preferences::apply_theme_mode;
+use crate::tabler_icons;
 use app_ui::tab::{Tab, TabBar};
 use app_ui::title_bar::TitleBar;
 use app_ui::toolbar_button::toolbar_icon_button;
@@ -154,12 +146,7 @@ impl MainPage {
                             .min_w_0()
                             .overflow_hidden()
                             .text_color(label_color)
-                            .child(
-                                Label::new(title)
-                                    .text_left()
-                                    .truncate()
-                                    .text_xs(),
-                            ),
+                            .child(Label::new(title).text_left().truncate().text_xs()),
                     );
                 Tab::new()
                     .w(TITLE_TAB_WIDTH)
@@ -169,42 +156,37 @@ impl MainPage {
                     .pr(px(10.))
                     .child(tab_label)
                     .suffix(
-                        div()
-                            .flex_none()
-                            .pl(px(4.))
-                            .pr(px(2.))
-                            .child(
-                                div()
-                                    .id(format!("main-tab-close-{}", tab.id))
-                                    .flex_none()
-                                    .size(TITLE_TAB_CLOSE_HIT)
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .rounded_full()
-                                    .overflow_hidden()
-                                    .cursor_pointer()
-                                    .text_color(close_color)
-                                    .hover(|this| this.bg(tab_close_hover_bg))
-                                    .active(|this| this.bg(tab_close_active_bg))
-                                    .tooltip({
-                                        let tooltip = tab_close_tooltip.clone();
-                                        move |window, cx| {
-                                            Tooltip::new(tooltip.clone()).build(window, cx)
-                                        }
-                                    })
-                                    .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                        cx.stop_propagation();
-                                    })
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        cx.stop_propagation();
-                                        this.close_tab(index, cx);
-                                    }))
-                                    .child(
-                                        compact_icon(IconName::Close)
-                                            .with_size(TITLE_TAB_CLOSE_ICON),
-                                    ),
-                            ),
+                        div().flex_none().pl(px(4.)).pr(px(2.)).child(
+                            div()
+                                .id(format!("main-tab-close-{}", tab.id))
+                                .flex_none()
+                                .size(TITLE_TAB_CLOSE_HIT)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded_full()
+                                .overflow_hidden()
+                                .cursor_pointer()
+                                .text_color(close_color)
+                                .hover(|this| this.bg(tab_close_hover_bg))
+                                .active(|this| this.bg(tab_close_active_bg))
+                                .tooltip({
+                                    let tooltip = tab_close_tooltip.clone();
+                                    move |window, cx| {
+                                        Tooltip::new(tooltip.clone()).build(window, cx)
+                                    }
+                                })
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                    cx.stop_propagation();
+                                })
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    cx.stop_propagation();
+                                    this.close_tab(index, cx);
+                                }))
+                                .child(
+                                    compact_icon(IconName::Close).with_size(TITLE_TAB_CLOSE_ICON),
+                                ),
+                        ),
                     )
             }))
             .on_click(cx.listener(|this, ix: &usize, _, cx| {
@@ -324,9 +306,7 @@ impl MainPage {
                             toolbar_icon_button("github")
                                 .icon(toolbar_icon(IconName::Github))
                                 .tooltip(t!("nav.github"))
-                                .on_click(|_, _, cx| {
-                                    cx.open_url(GITHUB_REPO_URL)
-                                }),
+                                .on_click(|_, _, cx| cx.open_url(GITHUB_REPO_URL)),
                         )
                         .child(
                             div().relative().child(
@@ -369,9 +349,7 @@ impl MainPage {
         };
         let show_file_search = matches!(
             target,
-            NavigationTarget::Path(_)
-                | NavigationTarget::RecycleBin
-                | NavigationTarget::FileTag(_)
+            NavigationTarget::Path(_) | NavigationTarget::RecycleBin | NavigationTarget::FileTag(_)
         );
 
         h_flex()

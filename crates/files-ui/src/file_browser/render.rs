@@ -321,7 +321,8 @@ impl Render for FileBrowser {
             self.watched_dir = Some(self.current_dir.clone());
             // Skip watcher for network/virtual paths — they have no reliable
             // filesystem events and the watcher can cause RefCell borrow races.
-            let is_network_virtual = self.current_dir.to_string_lossy() == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+            let is_network_virtual = self.current_dir.to_string_lossy()
+                == r"::{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
                 || files_fs::is_network_computer_root(&self.current_dir);
             if !is_network_virtual {
                 self.restart_directory_watcher(cx);
@@ -345,10 +346,10 @@ impl Render for FileBrowser {
                 self.clamp_focused_index();
             } else {
                 self.network_loading = true;
-                    let current_dir = self.current_dir.clone();
-                    let loading_computers = is_network_root;
-                    let task_dir = current_dir.clone();
-                    self._network_load_task = Some(cx.spawn(async move |browser, cx| {
+                let current_dir = self.current_dir.clone();
+                let loading_computers = is_network_root;
+                let task_dir = current_dir.clone();
+                self._network_load_task = Some(cx.spawn(async move |browser, cx| {
                         let path = task_dir.clone();
                         tracing::info!(target: "network", path = %path.display(), "starting network load");
                         let entries = if loading_computers {
@@ -424,8 +425,8 @@ impl Render for FileBrowser {
                             }
                         });
                     }));
-                }
             }
+        }
 
         let viewport_width = window.viewport_size().width;
         if self.last_viewport_width != Some(viewport_width) {
@@ -451,10 +452,13 @@ impl Render for FileBrowser {
             matches!(self.browse_location, BrowseLocation::SearchResults { .. });
         let recycle_item_count = if in_recycle_bin { self.items.len() } else { 0 };
         let has_pending_network_task = self._network_load_task.is_some();
-        let show_network_loading =
-            needs_network_load && self.items.is_empty() && (has_pending_network_task || self.network_loading);
-        let show_network_empty =
-            needs_network_load && self.items.is_empty() && !has_pending_network_task && !self.network_loading;
+        let show_network_loading = needs_network_load
+            && self.items.is_empty()
+            && (has_pending_network_task || self.network_loading);
+        let show_network_empty = needs_network_load
+            && self.items.is_empty()
+            && !has_pending_network_task
+            && !self.network_loading;
 
         let page_gap = if self.show_content_toolbar && !self.show_toolbar {
             px(0.)

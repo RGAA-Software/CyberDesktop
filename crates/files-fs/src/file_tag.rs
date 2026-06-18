@@ -108,10 +108,7 @@ pub fn build_path_tag_index(
             color: color.clone(),
         };
         for path in paths {
-            index
-                .entry(path.clone())
-                .or_default()
-                .push(tag_ref.clone());
+            index.entry(path.clone()).or_default().push(tag_ref.clone());
         }
     }
     for tags_for_path in index.values_mut() {

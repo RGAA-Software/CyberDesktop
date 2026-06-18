@@ -1,7 +1,7 @@
 mod mpv_demo;
 
-use files_core::{init_tracing, set_config_app_id};
 use app_ui::{open_window, Assets};
+use files_core::{init_tracing, set_config_app_id};
 
 const EXAMPLES_CONFIG_APP_ID: &str = "cyber_examples";
 
@@ -16,6 +16,10 @@ fn main() {
     app.run(|cx| {
         app_ui::init_editor_shell(cx);
         cx.activate(true);
-        open_window("CyberDesktop Examples", |window, cx| mpv_demo::MpvDemo::view(window, cx), cx);
+        open_window(
+            "CyberDesktop Examples",
+            |window, cx| mpv_demo::MpvDemo::view(window, cx),
+            cx,
+        );
     });
 }
