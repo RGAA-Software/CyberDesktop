@@ -31,6 +31,7 @@ use crate::monitor_dashboard::{render_connection_summary, render_dashboard};
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, RemoteMachineState, SortDirection,
 };
+use crate::monitor_process_details::ProcessDetailsView;
 use crate::sys_info::SysInfo;
 use crate::tray::{self, TrayCommand};
 
@@ -635,10 +636,25 @@ impl SysMonitorHostApp {
 
     fn on_show_process_details(
         &mut self,
-        _action: &ShowProcessDetails,
+        action: &ShowProcessDetails,
         _window: &mut Window,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) {
+        if let Some(machine) = self.selected_machine() {
+            if let Some(process) = machine
+                .telemetry
+                .current
+                .processes
+                .iter()
+                .find(|p| p.pid == action.pid)
+            {
+                ProcessDetailsView::open(
+                    process.clone(),
+                    crate::monitor_process_detail::ProcessDetailInfo::default(),
+                    cx,
+                );
+            }
+        }
     }
 
     fn on_reveal_startup_item(

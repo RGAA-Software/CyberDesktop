@@ -416,7 +416,11 @@ impl SysMonitorApp {
             .iter()
             .find(|p| p.pid == action.pid)
         {
-            ProcessDetailsView::open(process.clone(), cx);
+            let details = self
+                .manager
+                .get_process_details(action.pid)
+                .unwrap_or_default();
+            ProcessDetailsView::open(process.clone(), details, cx);
         }
     }
 

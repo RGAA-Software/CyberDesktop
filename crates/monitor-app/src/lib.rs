@@ -4,6 +4,7 @@ pub mod monitor_dashboard;
 pub mod monitor_host_app;
 pub mod monitor_model;
 pub mod monitor_process_ctrl;
+pub mod monitor_process_detail;
 pub mod monitor_process_details;
 pub mod monitor_sender;
 pub mod monitor_settings;

@@ -6,6 +6,7 @@ use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 use nvml_wrapper::Nvml;
 use sysinfo::{Components, Disks, Networks, Pid, ProcessStatus, System, Users};
 
+use crate::monitor_process_detail::{collect_process_details, ProcessDetailInfo};
 use crate::sys_info::{
     SysComponentInfo, SysCpuInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysIpNetwork, SysMemInfo,
     SysNetworkInfo, SysOsInfo, SysProcessInfo, SysServiceInfo, SysSingleCpuInfo, SysStartupInfo,
@@ -886,6 +887,10 @@ impl SysInfoManager {
 
     pub fn load_system_info_as_encrypt_json(&mut self) -> String {
         self.load_system_info_as_json()
+    }
+
+    pub fn get_process_details(&self, pid: u32) -> Option<ProcessDetailInfo> {
+        collect_process_details(pid, &self.system)
     }
 
     pub fn kill_process(&self, pid: u32) -> bool {
