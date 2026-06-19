@@ -72,6 +72,7 @@ impl Render for ProcessDetailsView {
                     .child(kv_line("可执行文件", &p.exe, cx))
                     .child(kv_line("命令行", &p.command_line, cx))
                     .child(kv_line("状态", &p.status, cx))
+                    .child(kv_line("网络连接数", &d.network.len().to_string(), cx))
                     .child(section_title("Performance", cx))
                     .child(kv_line("CPU 使用率", &format!("{:.1}%", p.cpu_usage), cx))
                     .child(kv_line("物理内存", &format!("{} MB", p.memory_mb), cx))
@@ -189,7 +190,8 @@ fn render_network_table<V>(details: &ProcessDetailInfo, cx: &Context<V>) -> impl
                     .child(TableHead::new().child("协议"))
                     .child(TableHead::new().child("本地地址"))
                     .child(TableHead::new().child("远程地址"))
-                    .child(TableHead::new().child("状态")),
+                    .child(TableHead::new().child("状态"))
+                    .child(TableHead::new().child("PID")),
             ),
         )
         .child(
@@ -199,6 +201,7 @@ fn render_network_table<V>(details: &ProcessDetailInfo, cx: &Context<V>) -> impl
                     .child(TableCell::new().child(conn.local.clone()))
                     .child(TableCell::new().child(conn.remote.clone()))
                     .child(TableCell::new().child(conn.state.clone()))
+                    .child(TableCell::new().child(conn.pid.to_string()))
             })),
         )
         .bg(cx.theme().table)

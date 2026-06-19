@@ -1,4 +1,5 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::HashMap;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use adlx::helper::AdlxHelper;
 use anyhow::Result;
@@ -101,6 +102,8 @@ pub struct SysInfoManager {
     users: Users,
     max_frequency: f32,
     def_ethernet: Option<DefaultEthernet>,
+    last_process_io: HashMap<u32, (u64, u64)>,
+    last_sample_time: Option<Instant>,
 }
 
 impl SysInfoManager {
@@ -119,6 +122,8 @@ impl SysInfoManager {
             users,
             max_frequency: 0.0,
             def_ethernet: None,
+            last_process_io: HashMap::new(),
+            last_sample_time: None,
         }
     }
 
@@ -323,12 +328,20 @@ impl SysInfoManager {
             }
         }
 
+        let now = Instant::now();
+        let elapsed_secs = self
+            .last_sample_time
+            .map(|last| last.elapsed().as_secs_f64())
+            .unwrap_or(0.0)
+            .max(0.001);
+
         let mut processes: Vec<SysProcessInfo> = self
             .system
             .processes()
             .values()
             .map(|process| {
                 let disk = process.disk_usage();
+                let pid = process.pid().as_u32();
                 let command_line = process
                     .cmd()
                     .iter()
@@ -347,8 +360,22 @@ impl SysInfoManager {
                 } else {
                     name
                 };
+
+                let (read_rate, write_rate) = self
+                    .last_process_io
+                    .get(&pid)
+                    .map(|(last_read, last_write)| {
+                        let read_delta = disk.read_bytes.saturating_sub(*last_read);
+                        let write_delta = disk.written_bytes.saturating_sub(*last_write);
+                        (
+                            read_delta as f64 / elapsed_secs / 1024.0 / 1024.0,
+                            write_delta as f64 / elapsed_secs / 1024.0 / 1024.0,
+                        )
+                    })
+                    .unwrap_or((0.0, 0.0));
+
                 SysProcessInfo {
-                    pid: process.pid().as_u32(),
+                    pid,
                     parent_pid: process.parent().map(|p| p.as_u32()).unwrap_or(0),
                     name: truncate_string(&name, 128),
                     command_line: if command_line.is_empty() {
@@ -365,11 +392,22 @@ impl SysInfoManager {
                     virtual_memory_mb: process.virtual_memory() / 1024 / 1024,
                     disk_read_bytes: disk.read_bytes,
                     disk_written_bytes: disk.written_bytes,
+                    disk_read_rate: read_rate,
+                    disk_write_rate: write_rate,
                     start_time: process.start_time(),
                     run_time: process.run_time(),
                 }
             })
             .collect();
+
+        self.last_process_io.clear();
+        for process in &processes {
+            self.last_process_io.insert(
+                process.pid,
+                (process.disk_read_bytes, process.disk_written_bytes),
+            );
+        }
+        self.last_sample_time = Some(now);
         processes.sort_by(|a, b| {
             b.cpu_usage
                 .partial_cmp(&a.cpu_usage)

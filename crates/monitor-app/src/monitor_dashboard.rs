@@ -23,10 +23,9 @@ use crate::monitor_actions::{
     StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_model::{
-    bytes_to_gb, bytes_to_mb, chart_ticks, cpu_color, disk_usage_percent,
-    format_optional_frequency, format_tick, gpu_key, gpu_memory_percent, network_ipv4,
-    sensor_status, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
-    SortDirection,
+    bytes_to_gb, chart_ticks, cpu_color, disk_usage_percent, format_optional_frequency,
+    format_tick, gpu_key, gpu_memory_percent, network_ipv4, sensor_status, sort_processes,
+    MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
 };
 use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo, SysUserInfo};
 use app_ui::ContextMenuExt;
@@ -1459,14 +1458,18 @@ fn render_process_row<V>(process: &SysProcessInfo, cx: &mut Context<V>) -> impl 
                 .child(Label::new(format!("{}", process.virtual_memory_mb)).text_sm()),
         )
         .child(
-            div().w(px(100.)).flex_none().text_right().child(
-                Label::new(format!("{:.2}", bytes_to_mb(process.disk_read_bytes))).text_sm(),
-            ),
+            div()
+                .w(px(100.))
+                .flex_none()
+                .text_right()
+                .child(Label::new(format!("{:.2}", process.disk_read_rate)).text_sm()),
         )
         .child(
-            div().w(px(100.)).flex_none().text_right().child(
-                Label::new(format!("{:.2}", bytes_to_mb(process.disk_written_bytes))).text_sm(),
-            ),
+            div()
+                .w(px(100.))
+                .flex_none()
+                .text_right()
+                .child(Label::new(format!("{:.2}", process.disk_write_rate)).text_sm()),
         )
 }
 

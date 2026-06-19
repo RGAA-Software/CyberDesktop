@@ -22,6 +22,7 @@ pub struct ProcessNetworkInfo {
     pub local: String,
     pub remote: String,
     pub state: String,
+    pub pid: u32,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -247,6 +248,7 @@ fn collect_tcp_connections(pid: u32) -> Vec<ProcessNetworkInfo> {
                 local: format_address_port(row.dwLocalAddr, row.dwLocalPort),
                 remote: format_address_port(row.dwRemoteAddr, row.dwRemotePort),
                 state: tcp_state_name(row.dwState).to_string(),
+                pid: row.dwOwningPid,
             });
         }
     }
@@ -298,6 +300,7 @@ fn collect_udp_connections(pid: u32) -> Vec<ProcessNetworkInfo> {
                 local: format_address_port(row.dwLocalAddr, row.dwLocalPort),
                 remote: "*:*".to_string(),
                 state: "-".to_string(),
+                pid: row.dwOwningPid,
             });
         }
     }

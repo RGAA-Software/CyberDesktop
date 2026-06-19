@@ -159,6 +159,10 @@ pub struct SysProcessInfo {
     #[serde(default)]
     pub disk_written_bytes: u64,
     #[serde(default)]
+    pub disk_read_rate: f64,
+    #[serde(default)]
+    pub disk_write_rate: f64,
+    #[serde(default)]
     pub start_time: u64,
     #[serde(default)]
     pub run_time: u64,
