@@ -399,7 +399,10 @@ mod tests {
             ..Default::default()
         };
         let telemetry = MachineTelemetry::new(info);
-        let last = telemetry.history.back().expect("history should have a point");
+        let last = telemetry
+            .history
+            .back()
+            .expect("history should have a point");
         assert_eq!(last.cpu_cores.len(), 2);
         assert_eq!(last.cpu_cores[0], 12.5);
         assert_eq!(last.cpu_cores[1], 34.0);

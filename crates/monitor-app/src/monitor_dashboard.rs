@@ -23,9 +23,9 @@ use crate::monitor_actions::{
     StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_model::{
-    bytes_to_gb, chart_ticks, disk_usage_percent, format_optional_frequency,
-    format_tick, gpu_key, gpu_memory_percent, network_ipv4, sensor_status, sort_processes,
-    MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
+    bytes_to_gb, chart_ticks, disk_usage_percent, format_optional_frequency, format_tick, gpu_key,
+    gpu_memory_percent, network_ipv4, sensor_status, sort_processes, MachineTelemetry, MonitorTab,
+    ProcessSort, ProcessSortColumn, SortDirection,
 };
 use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo, SysUserInfo};
 use app_ui::ContextMenuExt;
@@ -142,6 +142,8 @@ fn render_chart<V, T: Clone + 'static>(
     unit: &str,
     x_unit: &str,
     y_max: Option<f64>,
+    show_x_axis: bool,
+    show_y_ticks: bool,
     cx: &Context<V>,
 ) -> impl IntoElement {
     let current_value = data.last().map(&y_fn).unwrap_or(0.0);
@@ -152,6 +154,8 @@ fn render_chart<V, T: Clone + 'static>(
         .max(y_max.unwrap_or(0.0))
         .max(1.0);
     let tick_values = chart_ticks(max_value);
+    let compact = !show_x_axis && !show_y_ticks;
+    let chart_min_h = if compact { px(160.) } else { px(260.) };
     let mut chart = AreaChart::new(data)
         .x(x_fn)
         .y(y_fn)
@@ -162,7 +166,8 @@ fn render_chart<V, T: Clone + 'static>(
             linear_color_stop(color.opacity(0.40), 1.),
             linear_color_stop(cx.theme().background.opacity(0.05), 0.),
         ))
-        .tick_margin(14);
+        .tick_margin(14)
+        .x_axis(show_x_axis);
     if let Some(y_max) = y_max {
         chart = chart
             .y(move |_| y_max)
@@ -172,7 +177,7 @@ fn render_chart<V, T: Clone + 'static>(
 
     v_flex()
         .id(SharedString::from(id.to_string()))
-        .min_h(px(260.))
+        .min_h(chart_min_h)
         .gap_3()
         .p_4()
         .rounded_md()
@@ -180,60 +185,66 @@ fn render_chart<V, T: Clone + 'static>(
         .border_color(cx.theme().border)
         .bg(cx.theme().secondary)
         .child(
-            div()
-                .text_base()
-                .font_semibold()
-                .text_color(cx.theme().foreground)
-                .child(title.to_string()),
-        )
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child(format!(
-                    "当前 {:.1} {} | Y轴单位 {} | X轴单位 {}",
-                    current_value, unit, unit, x_unit
-                )),
-        )
-        .child(
-            h_flex()
-                .gap_3()
-                .flex_1()
-                .child(
-                    v_flex()
-                        .w(px(52.))
-                        .h_full()
-                        .justify_between()
-                        .items_end()
-                        .pt_3()
-                        .pb_8()
-                        .pr_1()
-                        .children(tick_values.iter().map(|value| {
-                            div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
-                                .child(format_tick(*value, unit))
-                        })),
-                )
-                .child(div().flex_1().h_full().child(chart)),
-        )
-        .child(
             h_flex()
                 .justify_between()
                 .items_center()
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
-                        .child(format!("Y: {unit}")),
+                        .text_base()
+                        .font_semibold()
+                        .text_color(cx.theme().foreground)
+                        .child(title.to_string()),
                 )
                 .child(
                     div()
-                        .text_xs()
+                        .text_sm()
                         .text_color(cx.theme().muted_foreground)
-                        .child(format!("X: {x_unit} ->")),
+                        .child(format!("当前 {:.1} {}", current_value, unit)),
                 ),
         )
+        .child(
+            h_flex()
+                .gap_3()
+                .flex_1()
+                .when(show_y_ticks, |this| {
+                    this.child(
+                        v_flex()
+                            .w(px(52.))
+                            .h_full()
+                            .justify_between()
+                            .items_end()
+                            .pt_3()
+                            .pb_8()
+                            .pr_1()
+                            .children(tick_values.iter().map(|value| {
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(format_tick(*value, unit))
+                            })),
+                    )
+                })
+                .child(div().flex_1().h_full().child(chart)),
+        )
+        .when(false, |this| {
+            this.child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(format!("Y: {unit}")),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(format!("X: {x_unit} ->")),
+                    ),
+            )
+        })
 }
 
 fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
@@ -320,6 +331,8 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "%",
                     "时间",
                     Some(100.0),
+                    true,
+                    true,
                     cx,
                 )))
                 .child(div().flex_1().min_w(px(320.)).child(render_chart(
@@ -332,6 +345,8 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "%",
                     "时间",
                     Some(100.0),
+                    true,
+                    true,
                     cx,
                 ))),
         )
@@ -363,6 +378,8 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                                     "%",
                                     "时间",
                                     Some(100.0),
+                                    true,
+                                    true,
                                     cx,
                                 )))
                                 .child(div().flex_1().min_w(px(320.)).child(render_chart(
@@ -381,6 +398,8 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                                     "%",
                                     "时间",
                                     Some(100.0),
+                                    true,
+                                    true,
                                     cx,
                                 )))
                         })),
@@ -401,6 +420,8 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "MB/s",
                     "时间",
                     None,
+                    true,
+                    true,
                     cx,
                 )))
                 .child(div().flex_1().min_w(px(320.)).child(render_chart(
@@ -413,6 +434,8 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "MB/s",
                     "时间",
                     None,
+                    true,
+                    true,
                     cx,
                 ))),
         )
@@ -470,45 +493,50 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
             "%",
             "时间",
             Some(100.0),
+            true,
+            true,
             cx,
         )))
-        .child(
-            h_flex().gap_4().flex_wrap().children(
-                telemetry
-                    .current
-                    .cpu
-                    .cpus
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _cpu)| {
-                        let core_history: Vec<_> = history
-                            .iter()
-                            .map(|point| {
-                                (
-                                    point.time.clone(),
-                                    point.cpu_cores.get(index).copied().unwrap_or(0.0),
-                                )
-                            })
-                            .collect();
-                        div()
-                            .flex_1()
-                            .min_w(px(320.))
-                            .min_h(px(220.))
-                            .child(render_chart(
-                                &format!("cpu-core-{index}-chart"),
-                                &format!("Core {index}"),
-                                core_history,
-                                |point| point.0.clone(),
-                                |point| point.1,
-                                cx.theme().red,
-                                "%",
-                                "时间",
-                                Some(100.0),
-                                cx,
-                            ))
-                    }),
-            ),
+        .children(
+            (0..telemetry.current.cpu.cpus.len())
+                .step_by(5)
+                .map(|start| {
+                    let end = (start + 5).min(telemetry.current.cpu.cpus.len());
+                    h_flex()
+                        .gap_4()
+                        .min_h(px(160.))
+                        .children((start..end).map(|index| {
+                            let core_history: Vec<_> = history
+                                .iter()
+                                .map(|point| {
+                                    (
+                                        point.time.clone(),
+                                        point.cpu_cores.get(index).copied().unwrap_or(0.0),
+                                    )
+                                })
+                                .collect();
+                            div()
+                                .flex_1()
+                                .min_w(px(180.))
+                                .min_h(px(160.))
+                                .child(render_chart(
+                                    &format!("cpu-core-{index}-chart"),
+                                    &format!("Core {index}"),
+                                    core_history,
+                                    |point| point.0.clone(),
+                                    |point| point.1,
+                                    cx.theme().red,
+                                    "%",
+                                    "时间",
+                                    Some(100.0),
+                                    false,
+                                    false,
+                                    cx,
+                                ))
+                        }))
+                }),
         )
+        .child(div().h(px(40.)))
 }
 
 fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
@@ -567,6 +595,8 @@ fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
                     "GB",
                     "时间",
                     Some(bytes_to_gb(telemetry.current.mem.total)),
+                    true,
+                    true,
                     cx,
                 )))
                 .child(div().flex_1().min_w(px(320.)).child(render_chart(
@@ -579,6 +609,8 @@ fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
                     "%",
                     "时间",
                     Some(100.0),
+                    true,
+                    true,
                     cx,
                 ))),
         )
@@ -671,6 +703,8 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             "%",
                             "时间",
                             Some(100.0),
+                            true,
+                            true,
                             cx,
                         )))
                         .child(div().flex_1().min_w(px(280.)).child(render_chart(
@@ -683,6 +717,8 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             "°C",
                             "时间",
                             Some(100.0),
+                            true,
+                            true,
                             cx,
                         )))
                         .child(div().flex_1().min_w(px(280.)).child(render_chart(
@@ -695,6 +731,8 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             "GB",
                             "时间",
                             Some(gpu.mem_total_gb as f64),
+                            true,
+                            true,
                             cx,
                         ))),
                 )
@@ -797,6 +835,8 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                     "MB/s",
                     "时间",
                     None,
+                    true,
+                    true,
                     cx,
                 )))
                 .child(div().flex_1().min_w(px(320.)).child(render_chart(
@@ -809,6 +849,8 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                     "MB/s",
                     "时间",
                     None,
+                    true,
+                    true,
                     cx,
                 ))),
         )

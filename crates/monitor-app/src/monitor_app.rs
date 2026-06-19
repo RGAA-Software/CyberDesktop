@@ -357,31 +357,32 @@ impl Render for SysMonitorApp {
                     .child(app_ui::Tab::new().label("用户")),
             )
             .child(
-                div()
-                    .flex_1()
-                    .overflow_y_scrollbar()
-                    .child(render_dashboard(
-                        &self.telemetry,
-                        self.active_tab,
-                        &self.process_scroll,
-                        &self.process_search,
-                        self.process_sort,
-                        &self.service_search,
-                        &self.startup_scroll,
-                        &self.startup_search,
-                        &self.user_search,
-                        move |column, window, cx| {
-                            view.update(cx, |this, cx| {
-                                this.on_cycle_process_sort(
-                                    &CycleProcessSort { column },
-                                    window,
-                                    cx,
-                                );
-                            });
-                        },
-                        _window,
-                        cx,
-                    )),
+                div().flex_1().overflow_y_scrollbar().child(
+                    v_flex()
+                        .child(render_dashboard(
+                            &self.telemetry,
+                            self.active_tab,
+                            &self.process_scroll,
+                            &self.process_search,
+                            self.process_sort,
+                            &self.service_search,
+                            &self.startup_scroll,
+                            &self.startup_search,
+                            &self.user_search,
+                            move |column, window, cx| {
+                                view.update(cx, |this, cx| {
+                                    this.on_cycle_process_sort(
+                                        &CycleProcessSort { column },
+                                        window,
+                                        cx,
+                                    );
+                                });
+                            },
+                            _window,
+                            cx,
+                        ))
+                        .child(div().h(px(40.))),
+                ),
             )
     }
 }
