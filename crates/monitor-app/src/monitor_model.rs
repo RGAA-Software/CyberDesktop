@@ -65,30 +65,32 @@ pub fn sort_processes(processes: &mut [SysProcessInfo], sort: ProcessSort) {
 pub enum MonitorTab {
     #[default]
     Overview = 0,
-    CpuMemory = 1,
-    Gpu = 2,
-    Storage = 3,
-    Network = 4,
-    Sensors = 5,
-    Processes = 6,
-    Services = 7,
-    Startup = 8,
-    Users = 9,
+    Cpu = 1,
+    Memory = 2,
+    Gpu = 3,
+    Storage = 4,
+    Network = 5,
+    Sensors = 6,
+    Processes = 7,
+    Services = 8,
+    Startup = 9,
+    Users = 10,
 }
 
 impl MonitorTab {
     pub fn from_index(index: usize) -> Self {
         match index {
             0 => Self::Overview,
-            1 => Self::CpuMemory,
-            2 => Self::Gpu,
-            3 => Self::Storage,
-            4 => Self::Network,
-            5 => Self::Sensors,
-            6 => Self::Processes,
-            7 => Self::Services,
-            8 => Self::Startup,
-            9 => Self::Users,
+            1 => Self::Cpu,
+            2 => Self::Memory,
+            3 => Self::Gpu,
+            4 => Self::Storage,
+            5 => Self::Network,
+            6 => Self::Sensors,
+            7 => Self::Processes,
+            8 => Self::Services,
+            9 => Self::Startup,
+            10 => Self::Users,
             _ => Self::Overview,
         }
     }
@@ -98,6 +100,7 @@ impl MonitorTab {
 pub struct HistoryPoint {
     pub time: String,
     pub cpu_usage: f64,
+    pub cpu_cores: Vec<f64>,
     pub mem_used_gb: f64,
     pub mem_usage_percent: f64,
     pub net_send_mb: f64,
@@ -235,6 +238,13 @@ impl MachineTelemetry {
         let point = HistoryPoint {
             time: short_time_label(&self.current.timestamp_readable),
             cpu_usage: self.current.cpu.usage as f64,
+            cpu_cores: self
+                .current
+                .cpu
+                .cpus
+                .iter()
+                .map(|cpu| cpu.usage as f64)
+                .collect(),
             mem_used_gb: bytes_to_gb(self.current.mem.used),
             mem_usage_percent,
             net_send_mb,
@@ -364,5 +374,43 @@ pub fn format_tick(value: f64, unit: &str) -> String {
         "GB" => format!("{value:.1}"),
         "°C" => format!("{value:.0}"),
         _ => format!("{value:.1}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sys_info::{SysCpuInfo, SysInfo, SysSingleCpuInfo};
+
+    #[test]
+    fn test_history_records_cpu_cores() {
+        let mut info = SysInfo::default();
+        info.cpu = SysCpuInfo {
+            cpus: vec![
+                SysSingleCpuInfo {
+                    name: "Core 0".to_string(),
+                    usage: 12.5,
+                },
+                SysSingleCpuInfo {
+                    name: "Core 1".to_string(),
+                    usage: 34.0,
+                },
+            ],
+            ..Default::default()
+        };
+        let telemetry = MachineTelemetry::new(info);
+        let last = telemetry.history.back().expect("history should have a point");
+        assert_eq!(last.cpu_cores.len(), 2);
+        assert_eq!(last.cpu_cores[0], 12.5);
+        assert_eq!(last.cpu_cores[1], 34.0);
+    }
+
+    #[test]
+    fn test_monitor_tab_from_index_split() {
+        assert_eq!(MonitorTab::from_index(0), MonitorTab::Overview);
+        assert_eq!(MonitorTab::from_index(1), MonitorTab::Cpu);
+        assert_eq!(MonitorTab::from_index(2), MonitorTab::Memory);
+        assert_eq!(MonitorTab::from_index(3), MonitorTab::Gpu);
+        assert_eq!(MonitorTab::from_index(10), MonitorTab::Users);
     }
 }

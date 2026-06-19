@@ -345,7 +345,8 @@ impl Render for SysMonitorApp {
                         this.set_active_tab(*ix, window, cx);
                     }))
                     .child(app_ui::Tab::new().label("总览"))
-                    .child(app_ui::Tab::new().label("CPU / 内存"))
+                    .child(app_ui::Tab::new().label("CPU"))
+                    .child(app_ui::Tab::new().label("内存"))
                     .child(app_ui::Tab::new().label("GPU"))
                     .child(app_ui::Tab::new().label("存储"))
                     .child(app_ui::Tab::new().label("网络"))

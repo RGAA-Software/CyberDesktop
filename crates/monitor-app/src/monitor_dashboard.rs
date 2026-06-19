@@ -23,7 +23,7 @@ use crate::monitor_actions::{
     StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_model::{
-    bytes_to_gb, chart_ticks, cpu_color, disk_usage_percent, format_optional_frequency,
+    bytes_to_gb, chart_ticks, disk_usage_percent, format_optional_frequency,
     format_tick, gpu_key, gpu_memory_percent, network_ipv4, sensor_status, sort_processes,
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
 };
@@ -56,7 +56,8 @@ where
 {
     match active_tab {
         MonitorTab::Overview => render_overview_tab(telemetry, cx).into_any_element(),
-        MonitorTab::CpuMemory => render_cpu_memory_tab(telemetry, cx).into_any_element(),
+        MonitorTab::Cpu => render_cpu_tab(telemetry, cx).into_any_element(),
+        MonitorTab::Memory => render_memory_tab(telemetry, cx).into_any_element(),
         MonitorTab::Gpu => render_gpu_tab(telemetry, cx).into_any_element(),
         MonitorTab::Storage => render_storage_tab(telemetry, cx).into_any_element(),
         MonitorTab::Network => render_network_tab(telemetry, cx).into_any_element(),
@@ -417,106 +418,149 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
         )
 }
 
-fn render_cpu_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
+fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     let history: Vec<_> = telemetry.history.iter().cloned().collect();
     v_flex()
         .gap_4()
         .p_4()
         .child(
-            h_flex()
-                .gap_4()
-                .flex_wrap()
-                .child(
-                    card("cpu-info")
-                        .flex_1()
-                        .min_w(px(320.))
-                        .border_color(cx.theme().border)
-                        .bg(cx.theme().secondary)
-                        .child(section_title("CPU 概览", cx))
-                        .child(kv_line("型号", &telemetry.current.cpu.brand, cx))
-                        .child(kv_line("Vendor", &telemetry.current.cpu.vendor, cx))
-                        .child(kv_line(
-                            "基准频率",
-                            &format!("{:.2} GHz", telemetry.current.cpu.base_frequency),
-                            cx,
-                        ))
-                        .child(kv_line(
-                            "最大频率",
-                            &format!("{:.2} GHz", telemetry.current.cpu.max_frequency),
-                            cx,
-                        ))
-                        .child(kv_line(
-                            "当前频率",
-                            &format_optional_frequency(telemetry.current.cpu.current_frequency),
-                            cx,
-                        ))
-                        .child(kv_line(
-                            "逻辑核心数",
-                            &telemetry.current.cpu.cpus.len().to_string(),
-                            cx,
-                        ))
-                        .child(kv_line(
-                            "总使用率",
-                            &format!("{:.1}%", telemetry.current.cpu.usage),
-                            cx,
-                        )),
-                )
-                .child(
-                    card("mem-info")
-                        .flex_1()
-                        .min_w(px(320.))
-                        .border_color(cx.theme().border)
-                        .bg(cx.theme().secondary)
-                        .child(section_title("内存概览", cx))
-                        .child(kv_line(
-                            "总内存",
-                            &format!("{:.1} GB", bytes_to_gb(telemetry.current.mem.total)),
-                            cx,
-                        ))
-                        .child(kv_line(
-                            "已用内存",
-                            &format!("{:.1} GB", bytes_to_gb(telemetry.current.mem.used)),
-                            cx,
-                        ))
-                        .child(kv_line(
-                            "可用内存",
-                            &format!("{:.1} GB", bytes_to_gb(telemetry.current.mem.available)),
-                            cx,
-                        ))
-                        .child(kv_line(
-                            "使用率",
-                            &format!("{:.1}%", telemetry.latest_mem_percent()),
-                            cx,
-                        ))
-                        .child(
-                            Progress::new("mem-total-progress")
-                                .w_full()
-                                .h_2()
-                                .color(cx.theme().blue)
-                                .value(telemetry.latest_mem_percent()),
-                        ),
-                ),
+            h_flex().gap_4().flex_wrap().child(
+                card("cpu-info")
+                    .flex_1()
+                    .min_w(px(320.))
+                    .border_color(cx.theme().border)
+                    .bg(cx.theme().secondary)
+                    .child(section_title("CPU 概览", cx))
+                    .child(kv_line("型号", &telemetry.current.cpu.brand, cx))
+                    .child(kv_line("Vendor", &telemetry.current.cpu.vendor, cx))
+                    .child(kv_line(
+                        "基准频率",
+                        &format!("{:.2} GHz", telemetry.current.cpu.base_frequency),
+                        cx,
+                    ))
+                    .child(kv_line(
+                        "最大频率",
+                        &format!("{:.2} GHz", telemetry.current.cpu.max_frequency),
+                        cx,
+                    ))
+                    .child(kv_line(
+                        "当前频率",
+                        &format_optional_frequency(telemetry.current.cpu.current_frequency),
+                        cx,
+                    ))
+                    .child(kv_line(
+                        "逻辑核心数",
+                        &telemetry.current.cpu.cpus.len().to_string(),
+                        cx,
+                    ))
+                    .child(kv_line(
+                        "总使用率",
+                        &format!("{:.1}%", telemetry.current.cpu.usage),
+                        cx,
+                    )),
+            ),
+        )
+        .child(div().min_h(px(260.)).child(render_chart(
+            "cpu-chart",
+            "CPU 总使用率",
+            history.clone(),
+            |point| point.time.clone(),
+            |point| point.cpu_usage,
+            cx.theme().red,
+            "%",
+            "时间",
+            Some(100.0),
+            cx,
+        )))
+        .child(
+            h_flex().gap_4().flex_wrap().children(
+                telemetry
+                    .current
+                    .cpu
+                    .cpus
+                    .iter()
+                    .enumerate()
+                    .map(|(index, _cpu)| {
+                        let core_history: Vec<_> = history
+                            .iter()
+                            .map(|point| {
+                                (
+                                    point.time.clone(),
+                                    point.cpu_cores.get(index).copied().unwrap_or(0.0),
+                                )
+                            })
+                            .collect();
+                        div()
+                            .flex_1()
+                            .min_w(px(320.))
+                            .min_h(px(220.))
+                            .child(render_chart(
+                                &format!("cpu-core-{index}-chart"),
+                                &format!("Core {index}"),
+                                core_history,
+                                |point| point.0.clone(),
+                                |point| point.1,
+                                cx.theme().red,
+                                "%",
+                                "时间",
+                                Some(100.0),
+                                cx,
+                            ))
+                    }),
+            ),
+        )
+}
+
+fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
+    let history: Vec<_> = telemetry.history.iter().cloned().collect();
+    v_flex()
+        .gap_4()
+        .p_4()
+        .child(
+            h_flex().gap_4().flex_wrap().child(
+                card("mem-info")
+                    .flex_1()
+                    .min_w(px(320.))
+                    .border_color(cx.theme().border)
+                    .bg(cx.theme().secondary)
+                    .child(section_title("内存概览", cx))
+                    .child(kv_line(
+                        "总内存",
+                        &format!("{:.1} GB", bytes_to_gb(telemetry.current.mem.total)),
+                        cx,
+                    ))
+                    .child(kv_line(
+                        "已用内存",
+                        &format!("{:.1} GB", bytes_to_gb(telemetry.current.mem.used)),
+                        cx,
+                    ))
+                    .child(kv_line(
+                        "可用内存",
+                        &format!("{:.1} GB", bytes_to_gb(telemetry.current.mem.available)),
+                        cx,
+                    ))
+                    .child(kv_line(
+                        "使用率",
+                        &format!("{:.1}%", telemetry.latest_mem_percent()),
+                        cx,
+                    ))
+                    .child(
+                        Progress::new("mem-total-progress")
+                            .w_full()
+                            .h_2()
+                            .color(cx.theme().blue)
+                            .value(telemetry.latest_mem_percent()),
+                    ),
+            ),
         )
         .child(
             h_flex()
                 .gap_4()
                 .flex_wrap()
                 .child(div().flex_1().min_w(px(320.)).child(render_chart(
-                    "cpu-chart",
-                    "CPU 使用率",
-                    history.clone(),
-                    |point| point.time.clone(),
-                    |point| point.cpu_usage,
-                    cx.theme().red,
-                    "%",
-                    "时间",
-                    Some(100.0),
-                    cx,
-                )))
-                .child(div().flex_1().min_w(px(320.)).child(render_chart(
                     "mem-chart",
                     "内存已用",
-                    history,
+                    history.clone(),
                     |point| point.time.clone(),
                     |point| point.mem_used_gb,
                     cx.theme().blue,
@@ -524,46 +568,19 @@ fn render_cpu_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> im
                     "时间",
                     Some(bytes_to_gb(telemetry.current.mem.total)),
                     cx,
+                )))
+                .child(div().flex_1().min_w(px(320.)).child(render_chart(
+                    "mem-usage-chart",
+                    "内存使用率",
+                    history,
+                    |point| point.time.clone(),
+                    |point| point.mem_usage_percent,
+                    cx.theme().blue,
+                    "%",
+                    "时间",
+                    Some(100.0),
+                    cx,
                 ))),
-        )
-        .child(
-            card("cpu-cores")
-                .gap_2()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().secondary)
-                .child(section_title("每核心使用率", cx))
-                .children(
-                    telemetry
-                        .current
-                        .cpu
-                        .cpus
-                        .iter()
-                        .enumerate()
-                        .map(|(index, cpu)| {
-                            h_flex()
-                                .gap_3()
-                                .items_center()
-                                .child(
-                                    Label::new(format!("Core {index}"))
-                                        .min_w(px(120.))
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground),
-                                )
-                                .child(
-                                    Progress::new(SharedString::from(format!("cpu-core-{index}")))
-                                        .w_full()
-                                        .h_2()
-                                        .color(cx.theme().red)
-                                        .value(cpu.usage.clamp(0.0, 100.0)),
-                                )
-                                .child(
-                                    Label::new(format!("{:.1}%", cpu.usage))
-                                        .min_w(px(64.))
-                                        .text_xs()
-                                        .text_color(cpu_color(cpu.usage, cx.theme())),
-                                )
-                        }),
-                ),
         )
 }
 
