@@ -31,12 +31,12 @@ use crate::monitor_alert::{
     build_host_summary, evaluate_alerts_with_suppression, format_duration,
     machine_offline_duration, Alert, AlertSuppressor, HostSummary,
 };
+use crate::monitor_codec::decode_telemetry;
 use crate::monitor_dashboard::{render_connection_summary, render_dashboard};
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, RemoteMachineState, SortDirection,
 };
 use crate::monitor_process_details::ProcessDetailsView;
-use crate::sys_info::SysInfo;
 use crate::tray::{self, TrayCommand};
 
 const PATH_SYS_INFO: &str = "/sys/info";
@@ -175,7 +175,7 @@ async fn handle_host_client(
             continue;
         };
 
-        match bincode::deserialize::<SysInfo>(&bytes) {
+        match decode_telemetry(&bytes) {
             Ok(info) => {
                 let host_name = if info.os.sys_host_name.is_empty() {
                     "UnknownHost".to_string()

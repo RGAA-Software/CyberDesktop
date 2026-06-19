@@ -4482,6 +4482,7 @@ dependencies = [
  "clap_derive",
  "embed-resource",
  "files-core",
+ "flate2",
  "futures-util",
  "gpui",
  "gpui-component",

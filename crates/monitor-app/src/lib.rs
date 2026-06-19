@@ -1,6 +1,7 @@
 pub mod monitor_actions;
 pub mod monitor_alert;
 pub mod monitor_app;
+pub mod monitor_codec;
 pub mod monitor_dashboard;
 pub mod monitor_host_app;
 pub mod monitor_model;
