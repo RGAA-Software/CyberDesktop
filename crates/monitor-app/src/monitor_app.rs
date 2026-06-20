@@ -359,6 +359,7 @@ impl Render for SysMonitorApp {
             .child(
                 div().flex_1().overflow_y_scrollbar().child(
                     v_flex()
+                        .size_full()
                         .child(render_dashboard(
                             &self.telemetry,
                             self.active_tab,
@@ -381,7 +382,7 @@ impl Render for SysMonitorApp {
                             _window,
                             cx,
                         ))
-                        .child(div().h(px(40.))),
+                        .child(div().h(px(15.))),
                 ),
             )
     }
