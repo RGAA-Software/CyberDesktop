@@ -1,12 +1,13 @@
 use std::time::Duration;
 
 use gpui::{
-    div, px, size, App, AppContext, Context, Entity, InteractiveElement, IntoElement, MouseButton,
-    ParentElement, Render, Styled, Window, WindowBounds, WindowOptions,
+    div, prelude::FluentBuilder, px, size, App, AppContext, Context, Entity, InteractiveElement,
+    IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement, Styled, Window,
+    WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, input::InputState, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme,
-    IconName, Root, StyledExt, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme, Icon,
+    IconName, Root, Sizable, StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 
@@ -336,54 +337,102 @@ impl Render for SysMonitorApp {
                     ),
             )
             .child(
-                app_ui::TabBar::new("monitor-tabs")
-                    .segmented()
-                    .px_3()
-                    .py_2()
-                    .selected_index(active_tab_index)
-                    .on_click(cx.listener(|this, ix: &usize, window, cx| {
-                        this.set_active_tab(*ix, window, cx);
-                    }))
-                    .child(app_ui::Tab::new().label("总览"))
-                    .child(app_ui::Tab::new().label("CPU"))
-                    .child(app_ui::Tab::new().label("内存"))
-                    .child(app_ui::Tab::new().label("GPU"))
-                    .child(app_ui::Tab::new().label("存储"))
-                    .child(app_ui::Tab::new().label("网络"))
-                    .child(app_ui::Tab::new().label("传感器"))
-                    .child(app_ui::Tab::new().label("进程"))
-                    .child(app_ui::Tab::new().label("服务"))
-                    .child(app_ui::Tab::new().label("启动项"))
-                    .child(app_ui::Tab::new().label("用户")),
-            )
-            .child(
-                div().flex_1().overflow_y_scrollbar().child(
-                    v_flex()
-                        .size_full()
-                        .child(render_dashboard(
-                            &self.telemetry,
-                            self.active_tab,
-                            &self.process_scroll,
-                            &self.process_search,
-                            self.process_sort,
-                            &self.service_search,
-                            &self.startup_scroll,
-                            &self.startup_search,
-                            &self.user_search,
-                            move |column, window, cx| {
-                                view.update(cx, |this, cx| {
-                                    this.on_cycle_process_sort(
-                                        &CycleProcessSort { column },
-                                        window,
-                                        cx,
-                                    );
-                                });
-                            },
-                            _window,
-                            cx,
-                        ))
-                        .child(div().h(px(15.))),
-                ),
+                h_flex()
+                    .flex_1()
+                    .child(
+                        v_flex()
+                            .w(px(200.))
+                            .h_full()
+                            .border_r_1()
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().secondary)
+                            .p_2()
+                            .gap_1()
+                            .children(
+                                [
+                                    ("总览", IconName::ChartPie),
+                                    ("CPU", IconName::Cpu),
+                                    ("内存", IconName::MemoryStick),
+                                    ("GPU", IconName::Frame),
+                                    ("存储", IconName::HardDrive),
+                                    ("网络", IconName::Network),
+                                    ("传感器", IconName::Info),
+                                    ("进程", IconName::SquareTerminal),
+                                    ("服务", IconName::Settings),
+                                    ("启动项", IconName::Play),
+                                    ("用户", IconName::User),
+                                ]
+                                .iter()
+                                .enumerate()
+                                .map(|(index, (label, icon))| {
+                                    let active = active_tab_index == index;
+                                    let text_color = if active {
+                                        cx.theme().accent_foreground
+                                    } else {
+                                        cx.theme().foreground
+                                    };
+                                    div()
+                                        .id(format!("sidebar-item-{index}"))
+                                        .px_3()
+                                        .py_2()
+                                        .rounded_md()
+                                        .cursor_pointer()
+                                        .when(active, |this| this.bg(cx.theme().accent))
+                                        .when(!active, |this| {
+                                            this.hover(|style| {
+                                                style.bg(cx.theme().muted.opacity(0.15))
+                                            })
+                                        })
+                                        .child(
+                                            h_flex()
+                                                .gap_3()
+                                                .items_center()
+                                                .child(
+                                                    Icon::new(icon.clone())
+                                                        .small()
+                                                        .text_color(text_color),
+                                                )
+                                                .child(
+                                                    Label::new(label.to_string())
+                                                        .text_sm()
+                                                        .text_color(text_color),
+                                                ),
+                                        )
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.set_active_tab(index, window, cx);
+                                        }))
+                                }),
+                            ),
+                    )
+                    .child(
+                        div().flex_1().overflow_y_scrollbar().child(
+                            v_flex()
+                                .size_full()
+                                .child(render_dashboard(
+                                    &self.telemetry,
+                                    self.active_tab,
+                                    &self.process_scroll,
+                                    &self.process_search,
+                                    self.process_sort,
+                                    &self.service_search,
+                                    &self.startup_scroll,
+                                    &self.startup_search,
+                                    &self.user_search,
+                                    move |column, window, cx| {
+                                        view.update(cx, |this, cx| {
+                                            this.on_cycle_process_sort(
+                                                &CycleProcessSort { column },
+                                                window,
+                                                cx,
+                                            );
+                                        });
+                                    },
+                                    _window,
+                                    cx,
+                                ))
+                                .child(div().h(px(15.))),
+                        ),
+                    ),
             )
     }
 }
