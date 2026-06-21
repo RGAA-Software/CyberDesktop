@@ -261,6 +261,7 @@ pub struct SysMonitorHostApp {
     process_scroll: VirtualListScrollHandle,
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
+    service_scroll: VirtualListScrollHandle,
     service_search: Entity<InputState>,
     startup_scroll: VirtualListScrollHandle,
     startup_search: Entity<InputState>,
@@ -288,6 +289,7 @@ impl SysMonitorHostApp {
             process_scroll: VirtualListScrollHandle::new(),
             process_search,
             process_sort: ProcessSort::default(),
+            service_scroll: VirtualListScrollHandle::new(),
             service_search,
             startup_scroll: VirtualListScrollHandle::new(),
             startup_search,
@@ -787,11 +789,10 @@ impl Render for SysMonitorHostApp {
                                             .child(app_ui::Tab::new().label("GPU"))
                                             .child(app_ui::Tab::new().label("存储"))
                                             .child(app_ui::Tab::new().label("网络"))
-                                            .child(app_ui::Tab::new().label("传感器"))
                                             .child(app_ui::Tab::new().label("进程"))
                                             .child(app_ui::Tab::new().label("服务"))
                                             .child(app_ui::Tab::new().label("启动项"))
-                                            .child(app_ui::Tab::new().label("用户")),
+                                            .child(app_ui::Tab::new().label("用户"))
                                     )
                                     .child({
                                         let view = cx.entity().clone();
@@ -803,6 +804,7 @@ impl Render for SysMonitorHostApp {
                                                     &self.process_scroll,
                                                     &self.process_search,
                                                     self.process_sort,
+                                                    &self.service_scroll,
                                                     &self.service_search,
                                                     &self.startup_scroll,
                                                     &self.startup_search,

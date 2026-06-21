@@ -24,8 +24,8 @@ use crate::monitor_actions::{
 };
 use crate::monitor_model::{
     bytes_to_gb, chart_ticks, disk_usage_percent, format_optional_frequency, format_tick, gpu_key,
-    gpu_memory_percent, network_ipv4, sensor_status, sort_processes, MachineTelemetry, MonitorTab,
-    ProcessSort, ProcessSortColumn, SortDirection,
+    gpu_memory_percent, network_ipv4, sort_processes, MachineTelemetry, MonitorTab, ProcessSort,
+    ProcessSortColumn, SortDirection,
 };
 use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo, SysUserInfo};
 use app_ui::ContextMenuExt;
@@ -43,6 +43,7 @@ pub fn render_dashboard<V: Render, F>(
     process_scroll_handle: &VirtualListScrollHandle,
     process_search: &Entity<InputState>,
     process_sort: ProcessSort,
+    service_scroll_handle: &VirtualListScrollHandle,
     service_search: &Entity<InputState>,
     startup_scroll_handle: &VirtualListScrollHandle,
     startup_search: &Entity<InputState>,
@@ -61,7 +62,6 @@ where
         MonitorTab::Gpu => render_gpu_tab(telemetry, cx).into_any_element(),
         MonitorTab::Storage => render_storage_tab(telemetry, cx).into_any_element(),
         MonitorTab::Network => render_network_tab(telemetry, cx).into_any_element(),
-        MonitorTab::Sensors => render_sensors_tab(telemetry, cx).into_any_element(),
         MonitorTab::Processes => render_processes_tab(
             telemetry,
             process_scroll_handle,
@@ -73,7 +73,8 @@ where
         )
         .into_any_element(),
         MonitorTab::Services => {
-            render_services_tab(telemetry, service_search, cx).into_any_element()
+            render_services_tab(telemetry, service_scroll_handle, service_search, cx)
+                .into_any_element()
         }
         MonitorTab::Startup => {
             render_startup_tab(telemetry, startup_scroll_handle, startup_search, cx)
@@ -444,6 +445,8 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
 fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     let history: Vec<_> = telemetry.history.iter().cloned().collect();
     v_flex()
+        .size_full()
+        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
         .child(
@@ -501,11 +504,14 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
             (0..telemetry.current.cpu.cpus.len())
                 .step_by(5)
                 .map(|start| {
-                    let end = (start + 5).min(telemetry.current.cpu.cpus.len());
                     h_flex()
                         .gap_4()
                         .min_h(px(160.))
-                        .children((start..end).map(|index| {
+                        .children((0..5).map(|offset| {
+                            let index = start + offset;
+                            if index >= telemetry.current.cpu.cpus.len() {
+                                return div().flex_1().min_h(px(160.)).into_any_element();
+                            }
                             let core_history: Vec<_> = history
                                 .iter()
                                 .map(|point| {
@@ -533,6 +539,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     false,
                                     cx,
                                 ))
+                                .into_any_element()
                         }))
                 }),
         )
@@ -857,45 +864,6 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
         .child(render_network_table(telemetry, cx))
 }
 
-fn render_sensors_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
-    v_flex()
-        .gap_4()
-        .p_4()
-        .when(telemetry.current.components.is_empty(), |this| {
-            this.child(empty_state("当前没有温度传感器数据", cx))
-        })
-        .when(!telemetry.current.components.is_empty(), |this| {
-            let max_temp = telemetry
-                .current
-                .components
-                .iter()
-                .map(|component| component.temperature)
-                .fold(0.0, f32::max);
-            this.child(
-                h_flex()
-                    .gap_3()
-                    .flex_wrap()
-                    .child(render_metric_card(
-                        "sensor-count",
-                        "传感器数量",
-                        telemetry.current.components.len().to_string(),
-                        None,
-                        None,
-                        cx,
-                    ))
-                    .child(render_metric_card(
-                        "sensor-max",
-                        "最高当前温度",
-                        format!("{max_temp:.1} °C"),
-                        None,
-                        None,
-                        cx,
-                    )),
-            )
-            .child(render_sensor_table(telemetry, cx))
-        })
-}
-
 fn render_disk_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     Table::new()
         .child(
@@ -984,47 +952,6 @@ fn render_network_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> imp
             })),
         )
         .child(TableCaption::new().child("展示所有非虚拟网卡数据"))
-        .bg(cx.theme().table)
-}
-
-fn render_sensor_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
-    Table::new()
-        .child(
-            TableHeader::new().child(
-                TableRow::new()
-                    .child(TableHead::new().child("标签"))
-                    .child(TableHead::new().text_right().child("当前温度"))
-                    .child(TableHead::new().text_right().child("最大"))
-                    .child(TableHead::new().text_right().child("临界"))
-                    .child(TableHead::new().child("状态")),
-            ),
-        )
-        .child(
-            TableBody::new().children(telemetry.current.components.iter().map(|component| {
-                TableRow::new()
-                    .child(TableCell::new().child(component.label.clone()))
-                    .child(
-                        TableCell::new()
-                            .text_right()
-                            .child(format!("{:.1} °C", component.temperature)),
-                    )
-                    .child(
-                        TableCell::new()
-                            .text_right()
-                            .child(format!("{:.1} °C", component.max)),
-                    )
-                    .child(
-                        TableCell::new()
-                            .text_right()
-                            .child(format!("{:.1} °C", component.critical)),
-                    )
-                    .child(TableCell::new().child(sensor_status(component)))
-            })),
-        )
-        .child(TableCaption::new().child(format!(
-            "共 {} 个温度组件",
-            telemetry.current.components.len()
-        )))
         .bg(cx.theme().table)
 }
 
@@ -1579,6 +1506,7 @@ fn empty_state<V>(message: &str, cx: &Context<V>) -> impl IntoElement {
 
 fn render_services_tab<V: Render>(
     telemetry: &MachineTelemetry,
+    service_scroll_handle: &VirtualListScrollHandle,
     service_search: &Entity<InputState>,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
@@ -1601,6 +1529,7 @@ fn render_services_tab<V: Render>(
 
     let running = services.iter().filter(|s| s.status == "运行中").count();
     let stopped = services.iter().filter(|s| s.status == "已停止").count();
+    let service_count = services.len();
 
     v_flex()
         .gap_4()
@@ -1654,8 +1583,12 @@ fn render_services_tab<V: Render>(
                     div()
                         .flex_1()
                         .min_h_0()
-                        .overflow_y_scrollbar()
-                        .child(render_service_table(&services, cx)),
+                        .child(render_service_table(
+                            services.into(),
+                            service_scroll_handle,
+                            cx,
+                        ))
+                        .scrollbar(service_scroll_handle, ScrollbarAxis::Vertical),
                 )
                 .child(
                     div()
@@ -1664,7 +1597,7 @@ fn render_services_tab<V: Render>(
                         .border_t_1()
                         .border_color(cx.theme().border)
                         .child(
-                            Label::new(format!("共 {} 个服务", services.len()))
+                            Label::new(format!("共 {} 个服务", service_count))
                                 .text_xs()
                                 .text_color(cx.theme().muted_foreground),
                         ),
@@ -1693,14 +1626,28 @@ fn render_service_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoEleme
 }
 
 fn render_service_table<V: Render>(
-    services: &[SysServiceInfo],
+    services: Arc<[SysServiceInfo]>,
+    scroll_handle: &VirtualListScrollHandle,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
-    v_flex().children(
-        services
-            .iter()
-            .map(|service| render_service_row(service, cx)),
+    let item_count = services.len().max(1);
+    let item_sizes = Rc::new(vec![size(px(0.), px(32.)); item_count]);
+
+    v_virtual_list(
+        cx.entity().clone(),
+        "service-virtual-list",
+        item_sizes,
+        move |_this, visible_range, _window, cx| {
+            visible_range
+                .filter_map(|index| {
+                    services
+                        .get(index)
+                        .map(|service| render_service_row(service, cx).into_any_element())
+                })
+                .collect::<Vec<_>>()
+        },
     )
+    .track_scroll(scroll_handle)
 }
 
 fn render_service_row<V: Render>(

@@ -5,7 +5,7 @@ use gpui_component::Theme;
 use serde::Deserialize;
 
 use crate::sys_info::{
-    SysComponentInfo, SysDiskInfo, SysGpuInfo, SysInfo, SysNetworkInfo, SysProcessInfo,
+    SysDiskInfo, SysGpuInfo, SysInfo, SysNetworkInfo, SysProcessInfo,
 };
 
 pub const MAX_POINTS: usize = 180;
@@ -70,11 +70,10 @@ pub enum MonitorTab {
     Gpu = 3,
     Storage = 4,
     Network = 5,
-    Sensors = 6,
-    Processes = 7,
-    Services = 8,
-    Startup = 9,
-    Users = 10,
+    Processes = 6,
+    Services = 7,
+    Startup = 8,
+    Users = 9,
 }
 
 impl MonitorTab {
@@ -86,11 +85,10 @@ impl MonitorTab {
             3 => Self::Gpu,
             4 => Self::Storage,
             5 => Self::Network,
-            6 => Self::Sensors,
-            7 => Self::Processes,
-            8 => Self::Services,
-            9 => Self::Startup,
-            10 => Self::Users,
+            6 => Self::Processes,
+            7 => Self::Services,
+            8 => Self::Startup,
+            9 => Self::Users,
             _ => Self::Overview,
         }
     }
@@ -334,16 +332,6 @@ pub fn network_ipv4(network: &SysNetworkInfo) -> String {
         .join(", ")
 }
 
-pub fn sensor_status(component: &SysComponentInfo) -> String {
-    if component.critical > 0.0 && component.temperature >= component.critical {
-        "Critical".to_string()
-    } else if component.max > 0.0 && component.temperature >= component.max {
-        "Warning".to_string()
-    } else {
-        "Normal".to_string()
-    }
-}
-
 pub fn format_optional_frequency(freq: f32) -> String {
     if freq <= 0.0 {
         "暂不可用".to_string()
@@ -414,6 +402,6 @@ mod tests {
         assert_eq!(MonitorTab::from_index(1), MonitorTab::Cpu);
         assert_eq!(MonitorTab::from_index(2), MonitorTab::Memory);
         assert_eq!(MonitorTab::from_index(3), MonitorTab::Gpu);
-        assert_eq!(MonitorTab::from_index(10), MonitorTab::Users);
+        assert_eq!(MonitorTab::from_index(9), MonitorTab::Users);
     }
 }
