@@ -251,6 +251,8 @@ fn render_chart<V, T: Clone + 'static>(
 fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     let history: Vec<_> = telemetry.history.iter().cloned().collect();
     v_flex()
+        .size_full()
+        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
         .child(
@@ -549,6 +551,8 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
 fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     let history: Vec<_> = telemetry.history.iter().cloned().collect();
     v_flex()
+        .size_full()
+        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
         .child(
@@ -625,6 +629,8 @@ fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
 
 fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     v_flex()
+        .size_full()
+        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
         .when(telemetry.current.gpus.is_empty(), |this| {
@@ -749,6 +755,8 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
 
 fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     v_flex()
+        .size_full()
+        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
         .child(
@@ -795,6 +803,8 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
     let history: Vec<_> = telemetry.history.iter().cloned().collect();
     let primary = telemetry.current.networks.first();
     v_flex()
+        .size_full()
+        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
         .child(
@@ -1725,9 +1735,10 @@ fn render_users_tab<V: Render>(
         .collect();
 
     v_flex()
+        .size_full()
+        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
-        .size_full()
         .child(h_flex().gap_3().flex_wrap().child(render_metric_card(
             "user-count",
             "用户数",

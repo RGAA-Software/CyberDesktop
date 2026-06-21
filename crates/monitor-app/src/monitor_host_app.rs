@@ -797,7 +797,7 @@ impl Render for SysMonitorHostApp {
                                     .child({
                                         let view = cx.entity().clone();
                                         div().flex_1().w_full().min_h_0().overflow_hidden().child(
-                                            div().size_full().overflow_y_scrollbar().child(
+                                            div().size_full().child(
                                                 render_dashboard(
                                                     &machine.telemetry,
                                                     self.active_tab,
