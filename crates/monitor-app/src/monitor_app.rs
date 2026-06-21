@@ -6,8 +6,8 @@ use gpui::{
     WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, input::InputState, label::Label, v_flex, ActiveTheme, Icon, IconName, Root, Sizable,
-    StyledExt, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme, Icon,
+    IconName, Root, Sizable, StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 
@@ -406,7 +406,7 @@ impl Render for SysMonitorApp {
                             ),
                     )
                     .child(
-                        div().flex_1().child(
+                        div().flex_1().overflow_y_scrollbar().child(
                             v_flex()
                                 .size_full()
                                 .child(render_dashboard(
