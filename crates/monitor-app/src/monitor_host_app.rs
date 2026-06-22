@@ -677,107 +677,116 @@ impl Render for SysMonitorHostApp {
             ("CyberMonitorHost".to_string(), "等待机器连接".to_string())
         };
         let view = cx.entity().clone();
+        let is_dark = cx.theme().mode.is_dark();
 
-        v_flex()
+        h_flex()
             .size_full()
             .bg(cx.theme().background)
             .on_action(cx.listener(Self::on_terminate_process))
             .on_action(cx.listener(Self::on_reveal_process_exe))
             .on_action(cx.listener(Self::on_show_process_details))
             .on_action(cx.listener(Self::on_reveal_startup_item))
+            .child(self.render_sidebar(cx))
             .child(
-                app_ui::TitleBar::new()
-                    .h(px(62.))
-                    .bg(cx.theme().title_bar)
-                    .border_b_1()
-                    .border_color(cx.theme().title_bar_border)
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .h_full()
                     .child(
-                        h_flex()
-                            .id("title-bar-inner")
-                            .h_full()
-                            .w_full()
-                            .min_w_0()
-                            .items_center()
-                            .pl(px(11.))
+                        app_ui::TitleBar::new()
+                            .h(px(62.))
+                            .bg(cx.theme().title_bar)
+                            .border_b_1()
+                            .border_color(cx.theme().title_bar_border)
                             .child(
-                                v_flex()
-                                    .justify_center()
+                                h_flex()
+                                    .id("title-bar-inner")
+                                    .h_full()
+                                    .w_full()
+                                    .min_w_0()
+                                    .items_center()
+                                    .pl(px(24.))
                                     .child(
-                                        Label::new(title)
-                                            .text_xl()
-                                            .font_semibold()
-                                            .text_color(cx.theme().foreground),
+                                        v_flex()
+                                            .justify_center()
+                                            .child(
+                                                Label::new(title)
+                                                    .text_xl()
+                                                    .font_semibold()
+                                                    .text_color(cx.theme().foreground),
+                                            )
+                                            .child(
+                                                Label::new(subtitle)
+                                                    .text_xs()
+                                                    .text_color(cx.theme().muted_foreground),
+                                            ),
+                                    ),
+                            )
+                            .trailing_before_controls(
+                                h_flex()
+                                    .id("title-bar-actions")
+                                    .h_full()
+                                    .items_center()
+                                    .gap(px(10.))
+                                    .pr(px(6.))
+                                    .child(
+                                        topbar_icon_button(
+                                            "host-refresh",
+                                            monitor_icons::REFRESH,
+                                            &*cx,
+                                        )
+                                        .on_click({
+                                            let view = view.clone();
+                                            move |_, _, cx| cx.notify(view.entity_id())
+                                        }),
                                     )
                                     .child(
-                                        Label::new(subtitle)
-                                            .text_xs()
-                                            .text_color(cx.theme().muted_foreground),
+                                        topbar_icon_button(
+                                            "host-theme-toggle",
+                                            if is_dark {
+                                                monitor_icons::SUN
+                                            } else {
+                                                monitor_icons::MOON
+                                            },
+                                            &*cx,
+                                        )
+                                        .on_click(|_, _, cx| {
+                                            let mode = if cx.theme().mode.is_dark() {
+                                                ThemeMode::Light
+                                            } else {
+                                                ThemeMode::Dark
+                                            };
+                                            app_ui::apply_theme_mode(mode, cx);
+                                        }),
+                                    )
+                                    .child(
+                                        topbar_icon_button(
+                                            "host-settings",
+                                            monitor_icons::SETTINGS,
+                                            &*cx,
+                                        )
+                                        .on_mouse_down(
+                                            MouseButton::Left,
+                                            cx.listener(|_this, _e, _w, cx| {
+                                                cx.stop_propagation();
+                                                app_ui::SettingsWindowState::open_editor(cx);
+                                            }),
+                                        ),
                                     ),
                             ),
                     )
-                    .trailing_before_controls(
-                        h_flex()
-                            .id("title-bar-actions")
-                            .h_full()
-                            .items_center()
-                            .gap(px(10.))
-                            .pr(px(6.))
-                            .child(
-                                topbar_icon_button("host-refresh", monitor_icons::REFRESH, &*cx)
-                                    .on_click({
-                                        let view = view.clone();
-                                        move |_, _, cx| cx.notify(view.entity_id())
-                                    }),
-                            )
-                            .child(
-                                topbar_icon_button(
-                                    "host-theme-toggle",
-                                    monitor_icons::THEME,
-                                    &*cx,
-                                )
-                                .on_click(|_, _, cx| {
-                                    let mode = if cx.theme().mode.is_dark() {
-                                        ThemeMode::Light
-                                    } else {
-                                        ThemeMode::Dark
-                                    };
-                                    app_ui::apply_theme_mode(mode, cx);
-                                }),
-                            )
-                            .child(
-                                topbar_icon_button(
-                                    "host-settings",
-                                    monitor_icons::SETTINGS,
-                                    &*cx,
-                                )
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(|_this, _e, _w, cx| {
-                                        cx.stop_propagation();
-                                        app_ui::SettingsWindowState::open_editor(cx);
-                                    }),
-                                ),
-                            ),
-                    ),
-            )
-            .child(render_connection_summary(
-                &format!("WebSocket 路径固定为 {}", PATH_SYS_INFO),
-                cx,
-            ))
-            .child(
-                h_flex()
-                    .flex_1()
-                    .min_h_0()
-                    .items_start()
-                    .child(self.render_sidebar(cx))
+                    .child(render_connection_summary(
+                        &format!("WebSocket 路径固定为 {}", PATH_SYS_INFO),
+                        cx,
+                    ))
                     .child(
                         div()
                             .flex_1()
                             .h_full()
                             .min_h_0()
                             .overflow_hidden()
-                            .p(px(20.))
-                            .pr(px(24.))
+                            .px(px(24.))
+                            .pt(px(20.))
                             .pb(px(30.))
                             .child(
                                 v_flex()

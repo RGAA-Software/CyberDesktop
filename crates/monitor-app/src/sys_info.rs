@@ -24,6 +24,9 @@ pub struct SysCpuInfo {
     pub max_frequency: f32,
     #[serde(default)]
     pub cpus: Vec<SysSingleCpuInfo>,
+    /// Physical core count (unique `physical_core_id` values from sysinfo).
+    #[serde(default)]
+    pub physical_cores: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

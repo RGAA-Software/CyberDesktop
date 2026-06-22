@@ -60,7 +60,133 @@ pub fn topbar_icon_button(
                 .bg(cx.theme().muted.opacity(0.1))
                 .border_color(cx.theme().border)
         })
-        .child(monitor_icons::icon(icon_path).text_color(cx.theme().foreground))
+        .child(monitor_icons::topbar_icon(icon_path).text_color(cx.theme().foreground))
+}
+
+/// Equal-width KPI row (design: 3/4/6 column grids without wrapping).
+fn metric_grid_row_equal() -> gpui::Div {
+    h_flex().gap(px(14.)).w_full()
+}
+
+fn striped_row_bg(index: usize, cx: &App) -> Option<Hsla> {
+    if index % 2 == 1 {
+        Some(cx.theme().primary.opacity(0.03))
+    } else {
+        None
+    }
+}
+
+pub fn render_monitor_brand<V>(cx: &Context<V>) -> impl IntoElement {
+    h_flex()
+        .h(px(52.))
+        .gap(px(12.))
+        .items_center()
+        .px(px(8.))
+        .pb(px(14.))
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .child(
+            div()
+                .w(px(38.))
+                .h(px(38.))
+                .rounded(px(8.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(cx.theme().primary)
+                .text_color(cx.theme().primary_foreground)
+                .shadow_md()
+                .child(Label::new("CM").text_base().font_semibold()),
+        )
+        .child(
+            v_flex()
+                .justify_center()
+                .child(
+                    Label::new("CyberMonitor")
+                        .text_base()
+                        .font_semibold()
+                        .text_color(cx.theme().foreground),
+                )
+                .child(
+                    Label::new("System Insight Console")
+                        .text_xs()
+                        .text_color(cx.theme().muted_foreground),
+                ),
+        )
+}
+
+pub fn render_monitor_health_footer<V>(cx: &Context<V>) -> impl IntoElement {
+    v_flex()
+        .mt_auto()
+        .gap(px(10.))
+        .p(px(14.))
+        .rounded(px(7.))
+        .border_1()
+        .border_color(cx.theme().border)
+        .bg(cx.theme().secondary)
+        .shadow_md()
+        .child(
+            h_flex()
+                .justify_between()
+                .items_center()
+                .child(
+                    Label::new("系统状态")
+                        .text_sm()
+                        .font_semibold()
+                        .text_color(cx.theme().foreground),
+                )
+                .child(
+                    div()
+                        .relative()
+                        .w(px(10.))
+                        .h(px(10.))
+                        .child(
+                            div()
+                                .absolute()
+                                .top(px(-5.))
+                                .left(px(-5.))
+                                .w(px(20.))
+                                .h(px(20.))
+                                .rounded_full()
+                                .bg(cx.theme().success.opacity(0.14)),
+                        )
+                        .child(
+                            div()
+                                .w(px(10.))
+                                .h(px(10.))
+                                .rounded_full()
+                                .bg(cx.theme().success),
+                        ),
+                ),
+        )
+        .child(
+            Label::new("实时采样中 · 低延迟曲线 · 双主题支持 · 主色 #7548d8")
+                .text_xs()
+                .text_color(cx.theme().muted_foreground),
+        )
+}
+
+pub fn render_monitor_client_sidebar<V, F>(
+    active_tab: MonitorTab,
+    on_click: F,
+    cx: &Context<V>,
+) -> impl IntoElement
+where
+    F: Fn(MonitorTab, &mut Window, &mut App) + Clone + 'static,
+{
+    v_flex()
+        .id("monitor-sidebar")
+        .w(px(248.))
+        .h_full()
+        .gap(px(18.))
+        .px(px(14.))
+        .py(px(16.))
+        .border_r_1()
+        .border_color(cx.theme().border)
+        .bg(cx.theme().sidebar)
+        .child(render_monitor_brand(cx))
+        .child(render_monitor_nav(active_tab, on_click, cx))
+        .child(render_monitor_health_footer(cx))
 }
 
 pub fn render_dashboard<V: Render, F>(
@@ -216,7 +342,12 @@ where
                                 .justify_center()
                                 .rounded_md()
                                 .bg(icon_box_bg)
-                                .child(monitor_icons::icon(path).text_color(text_color)),
+                                .when(!is_active, |this| {
+                                    this.hover(|style| {
+                                        style.bg(cx.theme().primary.opacity(0.10))
+                                    })
+                                })
+                                .child(monitor_icons::nav_icon(path).text_color(text_color)),
                         )
                         .child(Label::new(*label).text_sm().text_color(text_color)),
                 )
@@ -306,7 +437,7 @@ fn render_chart<V, T: Clone + 'static>(
         .max(1.0);
     let tick_values = chart_ticks(max_value);
     let compact = !show_x_axis && !show_y_ticks;
-    let chart_min_h = if compact { px(160.) } else { px(300.) };
+    let chart_body_h = if compact { px(120.) } else { px(220.) };
     let x_label_count = if show_x_axis { 5 } else { 0 };
     let x_labels: Vec<SharedString> = if show_x_axis && x_label_count > 1 {
         let n = data.len().max(1);
@@ -345,7 +476,6 @@ fn render_chart<V, T: Clone + 'static>(
 
     v_flex()
         .id(SharedString::from(id.to_string()))
-        .h(chart_min_h)
         .gap_3()
         .pl(px(16.))
         .pr(px(16.))
@@ -412,7 +542,7 @@ fn render_chart<V, T: Clone + 'static>(
                             })),
                     )
                 })
-                .child(div().flex_1().h_full().relative().child(chart).when(
+                .child(div().flex_1().h(chart_body_h).relative().child(chart).when(
                     show_x_axis && !x_labels.is_empty(),
                     |this| {
                         this.child(
@@ -479,7 +609,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
     v_flex()
         .gap(px(14.))
         .child(
-            metric_grid_row()
+            metric_grid_row_equal()
                 .child(render_metric_card(
                     "overview-cpu",
                     "CPU 使用率",
@@ -703,7 +833,11 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                         ))
                                         .child(info_item(
                                             "架构",
-                                            &format!("x64 / {} Threads", core_count),
+                                            &format!(
+                                                "x64 / {} Cores / {} Threads",
+                                                telemetry.current.cpu.physical_cores.max(1),
+                                                core_count
+                                            ),
                                             cx,
                                         )),
                                 )
@@ -958,7 +1092,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                         .child(chip("独立显卡 · 在线", cx)),
                 )
                 .child(
-                    metric_grid_row()
+                    metric_grid_row_equal()
                         .child(render_metric_card(
                             &format!("gpu-{gpu_id}-usage"),
                             "利用率",
@@ -1071,7 +1205,7 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
     v_flex()
         .gap(px(14.))
         .child(
-            metric_grid_row()
+            metric_grid_row_equal()
                 .child(render_metric_card(
                     "storage-disk-count",
                     "磁盘数量",
@@ -1116,7 +1250,7 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
     v_flex()
         .gap(px(14.))
         .child(
-            metric_grid_row()
+            metric_grid_row_equal()
                 .child(render_metric_card(
                     "network-primary-name",
                     "当前主网卡",
@@ -1583,7 +1717,7 @@ fn render_process_table<V: Render>(
                 .filter_map(|index| {
                     processes
                         .get(index)
-                        .map(|process| render_process_row(process, cx).into_any_element())
+                        .map(|process| render_process_row(process, index, cx).into_any_element())
                 })
                 .collect::<Vec<_>>()
         },
@@ -1591,10 +1725,21 @@ fn render_process_table<V: Render>(
     .track_scroll(scroll_handle)
 }
 
-fn render_process_row<V>(process: &SysProcessInfo, cx: &mut Context<V>) -> impl IntoElement {
+fn render_process_row<V>(
+    process: &SysProcessInfo,
+    index: usize,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
     let pid = process.pid;
+    let status_color = if process.status == "运行中" {
+        cx.theme().primary
+    } else {
+        cx.theme().foreground
+    };
+    let stripe_bg = striped_row_bg(index, cx);
     h_flex()
         .id(format!("process-row-{}", process.pid))
+        .when_some(stripe_bg, |this, bg| this.bg(bg))
         .context_menu(move |menu, window, cx| {
             menu.menu("结束任务", Box::new(TerminateProcess { pid }))
                 .menu("结束进程树", Box::new(TerminateProcessTree { pid }))
@@ -1740,7 +1885,11 @@ fn render_process_row<V>(process: &SysProcessInfo, cx: &mut Context<V>) -> impl 
             div()
                 .w(px(80.))
                 .flex_none()
-                .child(Label::new(process.status.clone()).text_sm()),
+                .child(
+                    Label::new(process.status.clone())
+                        .text_sm()
+                        .text_color(status_color),
+                ),
         )
         .child(
             div()
@@ -1829,10 +1978,16 @@ fn info_item<V>(label: &str, value: &str, cx: &Context<V>) -> impl IntoElement {
 }
 
 fn empty_state<V>(message: &str, cx: &Context<V>) -> impl IntoElement {
-    card("empty-state")
-        .p_4()
-        .justify_center()
+    div()
+        .id("empty-state")
+        .w_full()
+        .h(px(260.))
+        .mt(px(14.))
+        .flex()
         .items_center()
+        .justify_center()
+        .rounded(px(7.))
+        .border_1()
         .border_color(cx.theme().border)
         .bg(cx.theme().secondary)
         .child(
@@ -1987,7 +2142,7 @@ fn render_service_table<V: Render>(
                 .filter_map(|index| {
                     services
                         .get(index)
-                        .map(|service| render_service_row(service, cx).into_any_element())
+                        .map(|service| render_service_row(service, index, cx).into_any_element())
                 })
                 .collect::<Vec<_>>()
         },
@@ -1997,12 +2152,15 @@ fn render_service_table<V: Render>(
 
 fn render_service_row<V: Render>(
     service: &SysServiceInfo,
+    index: usize,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
     let name = service.name.clone();
     let status_color = service_status_color(&service.status, cx);
+    let stripe_bg = striped_row_bg(index, cx);
     h_flex()
         .id(format!("service-row-{}", service.name))
+        .when_some(stripe_bg, |this, bg| this.bg(bg))
         .context_menu(move |menu, _window, _cx| {
             menu.menu("启动", Box::new(StartServiceAction { name: name.clone() }))
                 .menu("停止", Box::new(StopServiceAction { name: name.clone() }))
@@ -2143,7 +2301,7 @@ fn render_user_table<V: Render>(users: &[SysUserInfo], cx: &mut Context<V>) -> i
 
 fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {
     match status {
-        "运行中" => cx.theme().green,
+        "运行中" => cx.theme().primary,
         "已停止" => cx.theme().red,
         "已暂停" | "正在启动" | "正在停止" | "正在暂停" | "正在恢复" => {
             cx.theme().yellow
@@ -2284,7 +2442,7 @@ fn render_startup_table<V: Render>(
                 .filter_map(|index| {
                     items
                         .get(index)
-                        .map(|item| render_startup_row(item, cx).into_any_element())
+                        .map(|item| render_startup_row(item, index, cx).into_any_element())
                 })
                 .collect::<Vec<_>>()
         },
@@ -2292,10 +2450,16 @@ fn render_startup_table<V: Render>(
     .track_scroll(scroll_handle)
 }
 
-fn render_startup_row<V: Render>(item: &SysStartupInfo, cx: &mut Context<V>) -> impl IntoElement {
+fn render_startup_row<V: Render>(
+    item: &SysStartupInfo,
+    index: usize,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
     let command = item.command.clone();
+    let stripe_bg = striped_row_bg(index, cx);
     h_flex()
         .id(format!("startup-row-{}", item.name))
+        .when_some(stripe_bg, |this, bg| this.bg(bg))
         .context_menu(move |menu, _window, _cx| {
             menu.menu(
                 "打开文件位置",

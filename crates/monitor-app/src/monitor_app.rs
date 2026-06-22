@@ -19,7 +19,9 @@ use crate::monitor_actions::{
     TerminateProcessTree,
 };
 use crate::monitor_codec::encode_telemetry;
-use crate::monitor_dashboard::{render_dashboard, render_monitor_nav, topbar_icon_button};
+use crate::monitor_dashboard::{
+    render_dashboard, render_monitor_client_sidebar, topbar_icon_button,
+};
 use crate::monitor_icons;
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
@@ -269,7 +271,8 @@ impl Render for SysMonitorApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let view = cx.entity().clone();
         let tab_view = cx.entity().clone();
-        v_flex()
+        let is_dark = cx.theme().mode.is_dark();
+        h_flex()
             .size_full()
             .bg(cx.theme().background)
             .on_action(cx.listener(Self::on_terminate_process))
@@ -285,178 +288,105 @@ impl Render for SysMonitorApp {
             .on_action(cx.listener(Self::on_suspend_process))
             .on_action(cx.listener(Self::on_resume_process))
             .on_action(cx.listener(Self::on_terminate_process_tree))
+            .child(render_monitor_client_sidebar(
+                self.active_tab,
+                move |tab, _window, cx| {
+                    let _ = tab_view.update(cx, |this, cx| {
+                        this.active_tab = tab;
+                        cx.notify();
+                    });
+                },
+                cx,
+            ))
             .child(
-                app_ui::TitleBar::new()
-                    .h(px(62.))
-                    .bg(cx.theme().title_bar)
-                    .border_b_1()
-                    .border_color(cx.theme().title_bar_border)
-                    .child(
-                        h_flex()
-                            .id("title-bar-inner")
-                            .h_full()
-                            .w_full()
-                            .min_w_0()
-                            .items_center()
-                            .pl(px(11.))
-                            .child(
-                                v_flex()
-                                    .justify_center()
-                                    .child(
-                                        Label::new(monitor_tab_title(self.active_tab))
-                                            .text_xl()
-                                            .font_semibold()
-                                            .text_color(cx.theme().foreground),
-                                    )
-                                    .child(
-                                        Label::new(monitor_tab_subtitle(self.active_tab))
-                                            .text_xs()
-                                            .text_color(cx.theme().muted_foreground),
-                                    ),
-                            ),
-                    )
-                    .trailing_before_controls(
-                        h_flex()
-                            .id("title-bar-actions")
-                            .h_full()
-                            .items_center()
-                            .gap(px(10.))
-                            .pr(px(6.))
-                            .child(
-                                topbar_icon_button("monitor-refresh", monitor_icons::REFRESH, &*cx)
-                                    .on_click({
-                                        let view = view.clone();
-                                        move |_, _, cx| cx.notify(view.entity_id())
-                                    }),
-                            )
-                            .child(
-                                topbar_icon_button(
-                                    "monitor-theme-toggle",
-                                    monitor_icons::THEME,
-                                    &*cx,
-                                )
-                                .on_click(|_, _, cx| {
-                                    let mode = if cx.theme().mode.is_dark() {
-                                        ThemeMode::Light
-                                    } else {
-                                        ThemeMode::Dark
-                                    };
-                                    app_ui::apply_theme_mode(mode, cx);
-                                }),
-                            )
-                            .child(
-                                topbar_icon_button(
-                                    "monitor-settings",
-                                    monitor_icons::SETTINGS,
-                                    &*cx,
-                                )
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(|_this, _e, _w, cx| {
-                                        cx.stop_propagation();
-                                        app_ui::SettingsWindowState::open_with(
-                                            cx,
-                                            |cx| build_monitor_settings(cx),
-                                            Some(px(62.)),
-                                        );
-                                    }),
-                                ),
-                            ),
-                    ),
-            )
-            .child(
-                h_flex()
+                v_flex()
                     .flex_1()
-                    .min_h_0()
+                    .min_w_0()
+                    .h_full()
                     .child(
-                        v_flex()
-                            .w(px(248.))
-                            .h_full()
-                            .gap(px(18.))
-                            .p(px(14.))
-                            .border_r_1()
-                            .border_color(cx.theme().border)
-                            .bg(cx.theme().sidebar)
+                        app_ui::TitleBar::new()
+                            .h(px(62.))
+                            .bg(cx.theme().title_bar)
+                            .border_b_1()
+                            .border_color(cx.theme().title_bar_border)
                             .child(
                                 h_flex()
-                                    .h(px(52.))
-                                    .gap(px(12.))
+                                    .id("title-bar-inner")
+                                    .h_full()
+                                    .w_full()
+                                    .min_w_0()
                                     .items_center()
-                                    .pb(px(14.))
-                                    .border_b_1()
-                                    .border_color(cx.theme().border)
-                                    .child(
-                                        div()
-                                            .w(px(38.))
-                                            .h(px(38.))
-                                            .rounded(px(8.))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .bg(cx.theme().primary)
-                                            .text_color(cx.theme().primary_foreground)
-                                            .child(Label::new("CM").text_base().font_semibold()),
-                                    )
+                                    .pl(px(24.))
                                     .child(
                                         v_flex()
                                             .justify_center()
                                             .child(
-                                                Label::new("CyberMonitor")
-                                                    .text_base()
+                                                Label::new(monitor_tab_title(self.active_tab))
+                                                    .text_xl()
                                                     .font_semibold()
                                                     .text_color(cx.theme().foreground),
                                             )
                                             .child(
-                                                Label::new("System Insight Console")
+                                                Label::new(monitor_tab_subtitle(self.active_tab))
                                                     .text_xs()
                                                     .text_color(cx.theme().muted_foreground),
                                             ),
                                     ),
                             )
-                            .child(render_monitor_nav(
-                                self.active_tab,
-                                move |tab, _window, cx| {
-                                    let _ = tab_view.update(cx, |this, cx| {
-                                        this.active_tab = tab;
-                                        cx.notify();
-                                    });
-                                },
-                                cx,
-                            ))
-                            .child(
-                                v_flex()
-                                    .mt_auto()
+                            .trailing_before_controls(
+                                h_flex()
+                                    .id("title-bar-actions")
+                                    .h_full()
+                                    .items_center()
                                     .gap(px(10.))
-                                    .p(px(14.))
-                                    .rounded(px(7.))
-                                    .border_1()
-                                    .border_color(cx.theme().border)
-                                    .bg(cx.theme().secondary)
-                                    .shadow_md()
+                                    .pr(px(6.))
                                     .child(
-                                        h_flex()
-                                            .justify_between()
-                                            .items_center()
-                                            .child(
-                                                Label::new("系统状态")
-                                                    .text_sm()
-                                                    .font_semibold()
-                                                    .text_color(cx.theme().foreground),
-                                            )
-                                            .child(
-                                                div()
-                                                    .w(px(10.))
-                                                    .h(px(10.))
-                                                    .rounded_full()
-                                                    .bg(cx.theme().success),
-                                            ),
+                                        topbar_icon_button(
+                                            "monitor-refresh",
+                                            monitor_icons::REFRESH,
+                                            &*cx,
+                                        )
+                                        .on_click({
+                                            let view = view.clone();
+                                            move |_, _, cx| cx.notify(view.entity_id())
+                                        }),
                                     )
                                     .child(
-                                        Label::new(
-                                            "实时采样中 · 低延迟曲线 · 双主题支持 · 主色 #7548d8",
+                                        topbar_icon_button(
+                                            "monitor-theme-toggle",
+                                            if is_dark {
+                                                monitor_icons::SUN
+                                            } else {
+                                                monitor_icons::MOON
+                                            },
+                                            &*cx,
                                         )
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground),
+                                        .on_click(|_, _, cx| {
+                                            let mode = if cx.theme().mode.is_dark() {
+                                                ThemeMode::Light
+                                            } else {
+                                                ThemeMode::Dark
+                                            };
+                                            app_ui::apply_theme_mode(mode, cx);
+                                        }),
+                                    )
+                                    .child(
+                                        topbar_icon_button(
+                                            "monitor-settings",
+                                            monitor_icons::SETTINGS,
+                                            &*cx,
+                                        )
+                                        .on_mouse_down(
+                                            MouseButton::Left,
+                                            cx.listener(|_this, _e, _w, cx| {
+                                                cx.stop_propagation();
+                                                app_ui::SettingsWindowState::open_with(
+                                                    cx,
+                                                    |cx| build_monitor_settings(cx),
+                                                    Some(px(62.)),
+                                                );
+                                            }),
+                                        ),
                                     ),
                             ),
                     )
@@ -466,8 +396,8 @@ impl Render for SysMonitorApp {
                             .min_w_0()
                             .h_full()
                             .overflow_y_scrollbar()
-                            .p(px(20.))
-                            .pr(px(24.))
+                            .px(px(24.))
+                            .pt(px(20.))
                             .pb(px(30.))
                             .child(render_dashboard(
                                 &self.telemetry,

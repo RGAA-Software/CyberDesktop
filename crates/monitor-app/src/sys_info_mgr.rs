@@ -150,6 +150,9 @@ impl SysInfoManager {
             };
             cpus.push(single_cpu);
         }
+        let physical_cores = sysinfo::System::physical_core_count()
+            .unwrap_or(cpus.len())
+            .max(1);
         let cpu = SysCpuInfo {
             usage,
             vendor: vendor.to_string(),
@@ -158,6 +161,7 @@ impl SysInfoManager {
             current_frequency,
             max_frequency: self.max_frequency,
             cpus,
+            physical_cores,
         };
 
         let gb = 1024 * 1024 * 1024;
