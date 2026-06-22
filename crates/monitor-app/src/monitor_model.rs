@@ -59,7 +59,7 @@ pub fn sort_processes(processes: &mut [SysProcessInfo], sort: ProcessSort) {
     });
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 pub enum MonitorTab {
     #[default]
     Overview = 0,

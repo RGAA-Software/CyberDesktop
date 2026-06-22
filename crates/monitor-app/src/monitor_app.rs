@@ -20,7 +20,7 @@ use crate::monitor_actions::{
     TerminateProcessTree,
 };
 use crate::monitor_codec::encode_telemetry;
-use crate::monitor_dashboard::render_dashboard;
+use crate::monitor_dashboard::{render_dashboard, render_monitor_tab_sidebar};
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
 };
@@ -234,21 +234,17 @@ impl SysMonitorApp {
         self.sender.set_latest_payload(payload);
     }
 
-    fn set_active_tab(&mut self, index: usize, _window: &mut Window, cx: &mut Context<Self>) {
-        self.active_tab = MonitorTab::from_index(index);
-        cx.notify();
-    }
 }
 
 impl Render for SysMonitorApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let active_tab_index = self.active_tab as usize;
         let theme_icon = if cx.theme().mode.is_dark() {
             IconName::Moon
         } else {
             IconName::Sun
         };
         let view = cx.entity().clone();
+        let tab_view = cx.entity().clone();
         v_flex()
             .size_full()
             .bg(cx.theme().background)
@@ -341,99 +337,52 @@ impl Render for SysMonitorApp {
             .child(
                 h_flex()
                     .flex_1()
+                    .min_h_0()
                     .child(
-                        v_flex()
-                            .w(px(200.))
+                        div()
+                            .w(px(220.))
                             .h_full()
-                            .border_r_1()
-                            .border_color(cx.theme().border)
-                            .bg(cx.theme().secondary)
-                            .p_2()
-                            .gap_1()
-                            .children(
-                                [
-                                    ("总览", IconName::ChartPie),
-                                    ("CPU", IconName::Cpu),
-                                    ("内存", IconName::MemoryStick),
-                                    ("GPU", IconName::Frame),
-                                    ("存储", IconName::HardDrive),
-                                    ("网络", IconName::Network),
-                                    ("进程", IconName::SquareTerminal),
-                                    ("服务", IconName::Settings),
-                                    ("启动项", IconName::Play),
-                                    ("用户", IconName::User),
-                                ]
-                                .iter()
-                                .enumerate()
-                                .map(|(index, (label, icon))| {
-                                    let active = active_tab_index == index;
-                                    let text_color = if active {
-                                        cx.theme().accent_foreground
-                                    } else {
-                                        cx.theme().foreground
-                                    };
-                                    div()
-                                        .id(format!("sidebar-item-{index}"))
-                                        .px_3()
-                                        .py_2()
-                                        .rounded_md()
-                                        .cursor_pointer()
-                                        .when(active, |this| this.bg(cx.theme().accent))
-                                        .when(!active, |this| {
-                                            this.hover(|style| {
-                                                style.bg(cx.theme().muted.opacity(0.15))
-                                            })
-                                        })
-                                        .child(
-                                            h_flex()
-                                                .gap_3()
-                                                .items_center()
-                                                .child(
-                                                    Icon::new(icon.clone())
-                                                        .small()
-                                                        .text_color(text_color),
-                                                )
-                                                .child(
-                                                    Label::new(label.to_string())
-                                                        .text_sm()
-                                                        .text_color(text_color),
-                                                ),
-                                        )
-                                        .on_click(cx.listener(move |this, _, window, cx| {
-                                            this.set_active_tab(index, window, cx);
-                                        }))
-                                }),
-                            ),
+                            .child(render_monitor_tab_sidebar(
+                                self.active_tab,
+                                move |tab, _window, cx| {
+                                    let _ = tab_view.update(cx, |this, cx| {
+                                        this.active_tab = tab;
+                                        cx.notify();
+                                    });
+                                },
+                                cx,
+                            )),
                     )
                     .child(
-                        div().flex_1().overflow_y_scrollbar().child(
-                            v_flex()
-                                .size_full()
-                                .child(render_dashboard(
-                                    &self.telemetry,
-                                    self.active_tab,
-                                    &self.process_scroll,
-                                    &self.process_search,
-                                    self.process_sort,
-                                    &self.service_scroll,
-                                    &self.service_search,
-                                    &self.startup_scroll,
-                                    &self.startup_search,
-                                    &self.user_search,
-                                    move |column, window, cx| {
-                                        view.update(cx, |this, cx| {
-                                            this.on_cycle_process_sort(
-                                                &CycleProcessSort { column },
-                                                window,
-                                                cx,
-                                            );
-                                        });
-                                    },
-                                    _window,
-                                    cx,
-                                ))
-                                .child(div().h(px(15.))),
-                        ),
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .h_full()
+                            .overflow_y_scrollbar()
+                            .child(render_dashboard(
+                                &self.telemetry,
+                                self.active_tab,
+                                &self.process_scroll,
+                                &self.process_search,
+                                self.process_sort,
+                                &self.service_scroll,
+                                &self.service_search,
+                                &self.startup_scroll,
+                                &self.startup_search,
+                                &self.user_search,
+                                move |column, window, cx| {
+                                    view.update(cx, |this, cx| {
+                                        this.on_cycle_process_sort(
+                                            &CycleProcessSort { column },
+                                            window,
+                                            cx,
+                                        );
+                                    });
+                                },
+                                _window,
+                                cx,
+                            ))
+                            .child(div().h(px(15.))),
                     ),
             )
     }

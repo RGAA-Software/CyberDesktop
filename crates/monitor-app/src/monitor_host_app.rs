@@ -24,15 +24,15 @@ use tokio_tungstenite::tungstenite::Message;
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
-    CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem,
-    ShowProcessDetails, TerminateProcess,
+    CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem, ShowProcessDetails,
+    TerminateProcess,
 };
 use crate::monitor_alert::{
     build_host_summary, evaluate_alerts_with_suppression, format_duration,
     machine_offline_duration, Alert, AlertSuppressor, HostSummary,
 };
 use crate::monitor_codec::decode_telemetry;
-use crate::monitor_dashboard::{render_connection_summary, render_dashboard};
+use crate::monitor_dashboard::{render_connection_summary, render_dashboard, render_monitor_tab_menu};
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, RemoteMachineState, SortDirection,
 };
@@ -365,22 +365,28 @@ impl SysMonitorHostApp {
         cx.notify();
     }
 
-    fn set_active_tab(&mut self, index: usize, _window: &mut Window, cx: &mut Context<Self>) {
-        self.active_tab = MonitorTab::from_index(index);
-        cx.notify();
-    }
-
     fn render_sidebar(&self, cx: &Context<Self>) -> impl IntoElement {
         let online = self.machines.iter().filter(|m| m.connected).count();
         let offline = self.machines.len() - online;
+        let view = cx.entity().clone();
         v_flex()
-            .w(px(280.))
+            .w(px(260.))
             .h_full()
             .gap_2()
-            .p_3()
+            .p_2()
             .border_r_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().secondary)
+            .child(render_monitor_tab_menu(
+                self.active_tab,
+                move |tab, _window, cx| {
+                    let _ = view.update(cx, |this, cx| {
+                        this.active_tab = tab;
+                        cx.notify();
+                    });
+                },
+            ))
+            .child(div().h(px(1.)).bg(cx.theme().border))
             .child(
                 h_flex()
                     .w_full()
@@ -410,6 +416,7 @@ impl SysMonitorHostApp {
             .child(
                 div()
                     .flex_1()
+                    .min_h_0()
                     .overflow_y_scrollbar()
                     .child(
                         v_flex()
@@ -657,7 +664,6 @@ impl SysMonitorHostApp {
 
 impl Render for SysMonitorHostApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let active_tab_index = self.active_tab as usize;
         let theme_icon = if cx.theme().mode.is_dark() {
             IconName::Moon
         } else {
@@ -771,28 +777,6 @@ impl Render for SysMonitorHostApp {
                                         .py_3()
                                         .text_xs()
                                         .text_color(cx.theme().muted_foreground),
-                                    )
-                                    .child(
-                                        app_ui::TabBar::new("host-monitor-tabs")
-                                            .segmented()
-                                            .px_3()
-                                            .py_2()
-                                            .selected_index(active_tab_index)
-                                            .on_click(cx.listener(
-                                                |this, ix: &usize, window, cx| {
-                                                    this.set_active_tab(*ix, window, cx);
-                                                },
-                                            ))
-                                            .child(app_ui::Tab::new().label("总览"))
-                                            .child(app_ui::Tab::new().label("CPU"))
-                                            .child(app_ui::Tab::new().label("内存"))
-                                            .child(app_ui::Tab::new().label("GPU"))
-                                            .child(app_ui::Tab::new().label("存储"))
-                                            .child(app_ui::Tab::new().label("网络"))
-                                            .child(app_ui::Tab::new().label("进程"))
-                                            .child(app_ui::Tab::new().label("服务"))
-                                            .child(app_ui::Tab::new().label("启动项"))
-                                            .child(app_ui::Tab::new().label("用户")),
                                     )
                                     .child({
                                         let view = cx.entity().clone();

@@ -2,8 +2,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, size, AnyElement,
-    App, Context, Entity, Hsla, InteractiveElement, IntoElement, ParentElement, Pixels, Render,
+    div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, size, AnyElement, App,
+    Context, Entity, Hsla, InteractiveElement, IntoElement, ParentElement, Pixels, Render,
     SharedString, Stateful, StatefulInteractiveElement, Styled, Window,
 };
 use gpui_component::{
@@ -13,8 +13,9 @@ use gpui_component::{
     label::Label,
     progress::Progress,
     scroll::{ScrollableElement as _, ScrollbarAxis},
+    sidebar::{Sidebar, SidebarCollapsible, SidebarMenu, SidebarMenuItem},
     table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
-    v_flex, v_virtual_list, ActiveTheme, Sizable, StyledExt, VirtualListScrollHandle,
+    v_flex, v_virtual_list, ActiveTheme, IconName, Sizable, StyledExt, VirtualListScrollHandle,
 };
 
 use crate::monitor_actions::{
@@ -98,6 +99,61 @@ pub fn render_connection_summary<V>(details: &str, cx: &Context<V>) -> impl Into
         )
 }
 
+fn build_monitor_tab_menu<F>(active_tab: MonitorTab, on_click: F) -> Sidebar<SidebarMenu>
+where
+    F: Fn(MonitorTab, &mut Window, &mut App) + Clone + 'static,
+{
+    let tabs: [(MonitorTab, &'static str, IconName); 10] = [
+        (MonitorTab::Overview, "总览", IconName::ChartPie),
+        (MonitorTab::Cpu, "CPU", IconName::Cpu),
+        (MonitorTab::Memory, "内存", IconName::MemoryStick),
+        (MonitorTab::Gpu, "GPU", IconName::Frame),
+        (MonitorTab::Storage, "存储", IconName::HardDrive),
+        (MonitorTab::Network, "网络", IconName::Network),
+        (MonitorTab::Processes, "进程", IconName::SquareTerminal),
+        (MonitorTab::Services, "服务", IconName::Settings),
+        (MonitorTab::Startup, "启动项", IconName::Play),
+        (MonitorTab::Users, "用户", IconName::User),
+    ];
+
+    Sidebar::new("monitor-tabs")
+        .collapsible(SidebarCollapsible::None)
+        .w_full()
+        .child(SidebarMenu::new().children(tabs.iter().map(|(tab, label, icon)| {
+            let tab = *tab;
+            let on_click = on_click.clone();
+            SidebarMenuItem::new(*label)
+                .icon(icon.clone())
+                .active(active_tab == tab)
+                .on_click(move |_event, window, cx| {
+                    on_click(tab, window, cx);
+                })
+        })))
+}
+
+pub fn render_monitor_tab_sidebar<V, F>(active_tab: MonitorTab, on_click: F, cx: &Context<V>) -> impl IntoElement
+where
+    F: Fn(MonitorTab, &mut Window, &mut App) + Clone + 'static,
+{
+    div()
+        .id("monitor-tab-sidebar")
+        .size_full()
+        .min_h_0()
+        .bg(cx.theme().secondary)
+        .border_r_1()
+        .border_color(cx.theme().border)
+        .p_2()
+        .overflow_y_scroll()
+        .child(build_monitor_tab_menu(active_tab, on_click))
+}
+
+pub fn render_monitor_tab_menu<F>(active_tab: MonitorTab, on_click: F) -> impl IntoElement
+where
+    F: Fn(MonitorTab, &mut Window, &mut App) + Clone + 'static,
+{
+    build_monitor_tab_menu(active_tab, on_click)
+}
+
 fn render_metric_card<V>(
     id: &str,
     title: &str,
@@ -156,8 +212,24 @@ fn render_chart<V, T: Clone + 'static>(
         .max(1.0);
     let tick_values = chart_ticks(max_value);
     let compact = !show_x_axis && !show_y_ticks;
-    let chart_min_h = if compact { px(160.) } else { px(260.) };
-    let x_tick_margin = (data.len() / 3).max(1);
+    let chart_min_h = if compact { px(200.) } else { px(300.) };
+    let x_label_count = if show_x_axis { 5 } else { 0 };
+    let x_labels: Vec<SharedString> = if show_x_axis && x_label_count > 1 {
+        let n = data.len().max(1);
+        (0..x_label_count)
+            .map(|i| {
+                let idx = ((n - 1) as f32 * i as f32 / (x_label_count - 1) as f32).round() as usize;
+                x_fn(&data[idx.min(n - 1)]).into()
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+    let x_tick_margin = if show_x_axis {
+        data.len().saturating_add(1)
+    } else {
+        1
+    };
     let mut chart = AreaChart::new(data)
         .x(x_fn)
         .y(y_fn)
@@ -179,7 +251,7 @@ fn render_chart<V, T: Clone + 'static>(
 
     v_flex()
         .id(SharedString::from(id.to_string()))
-        .min_h(chart_min_h)
+        .h(chart_min_h)
         .gap_3()
         .p_4()
         .rounded_md()
@@ -226,7 +298,50 @@ fn render_chart<V, T: Clone + 'static>(
                             })),
                     )
                 })
-                .child(div().flex_1().h_full().child(chart)),
+                .child(
+                    div()
+                        .flex_1()
+                        .h_full()
+                        .relative()
+                        .child(chart)
+                        .when(show_x_axis && !x_labels.is_empty(), |this| {
+                            this.child(
+                                div()
+                                    .absolute()
+                                    .bottom_0()
+                                    .left_0()
+                                    .right_0()
+                                    .h(px(18.))
+                                    .child(
+                                        h_flex()
+                                            .w_full()
+                                            .h_full()
+                                            .children(x_labels.iter().enumerate().map(
+                                                |(i, text)| {
+                                                    let last = x_label_count - 1;
+                                                    div()
+                                                        .flex_1()
+                                                        .h_full()
+                                                        .flex()
+                                                        .items_end()
+                                                        .when(i == 0, |this| this.justify_start())
+                                                        .when(i == last, |this| this.justify_end())
+                                                        .when(i > 0 && i < last, |this| {
+                                                            this.justify_center()
+                                                        })
+                                                        .child(
+                                                            Label::new(text.clone())
+                                                                .text_xs()
+                                                                .text_color(
+                                                                    cx.theme().muted_foreground,
+                                                                ),
+                                                        )
+                                                },
+                                            )),
+                                    ),
+                            )
+                        }),
+                ),
         )
         .when(false, |this| {
             this.child(
@@ -441,13 +556,12 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     cx,
                 ))),
         )
+        .child(div().h(px(15.)))
 }
 
 fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
     let history: Vec<_> = telemetry.history.iter().cloned().collect();
     v_flex()
-        .size_full()
-        .overflow_y_scrollbar()
         .gap_4()
         .p_4()
         .child(
@@ -507,11 +621,11 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                 .map(|start| {
                     h_flex()
                         .gap_4()
-                        .min_h(px(160.))
+                        .min_h(px(200.))
                         .children((0..5).map(|offset| {
                             let index = start + offset;
                             if index >= telemetry.current.cpu.cpus.len() {
-                                return div().flex_1().min_h(px(160.)).into_any_element();
+                                return div().flex_1().min_h(px(200.)).into_any_element();
                             }
                             let core_history: Vec<_> = history
                                 .iter()
@@ -525,7 +639,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             div()
                                 .flex_1()
                                 .min_w(px(180.))
-                                .min_h(px(160.))
+                                .min_h(px(200.))
                                 .child(render_chart(
                                     &format!("cpu-core-{index}-chart"),
                                     &format!("Core {index}"),
@@ -544,7 +658,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                         }))
                 }),
         )
-        .child(div().h(px(40.)))
+        .child(div().h(px(15.)))
 }
 
 fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
