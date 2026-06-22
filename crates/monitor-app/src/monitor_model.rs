@@ -4,9 +4,7 @@ use gpui::Hsla;
 use gpui_component::Theme;
 use serde::Deserialize;
 
-use crate::sys_info::{
-    SysDiskInfo, SysGpuInfo, SysInfo, SysNetworkInfo, SysProcessInfo,
-};
+use crate::sys_info::{SysDiskInfo, SysGpuInfo, SysInfo, SysNetworkInfo, SysProcessInfo};
 
 pub const MAX_POINTS: usize = 180;
 

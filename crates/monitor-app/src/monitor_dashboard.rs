@@ -157,6 +157,7 @@ fn render_chart<V, T: Clone + 'static>(
     let tick_values = chart_ticks(max_value);
     let compact = !show_x_axis && !show_y_ticks;
     let chart_min_h = if compact { px(160.) } else { px(260.) };
+    let x_tick_margin = (data.len() / 3).max(1);
     let mut chart = AreaChart::new(data)
         .x(x_fn)
         .y(y_fn)
@@ -167,7 +168,7 @@ fn render_chart<V, T: Clone + 'static>(
             linear_color_stop(color.opacity(0.40), 1.),
             linear_color_stop(cx.theme().background.opacity(0.05), 0.),
         ))
-        .tick_margin(14)
+        .tick_margin(x_tick_margin)
         .x_axis(show_x_axis);
     if let Some(y_max) = y_max {
         chart = chart

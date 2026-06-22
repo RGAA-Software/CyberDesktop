@@ -792,7 +792,7 @@ impl Render for SysMonitorHostApp {
                                             .child(app_ui::Tab::new().label("进程"))
                                             .child(app_ui::Tab::new().label("服务"))
                                             .child(app_ui::Tab::new().label("启动项"))
-                                            .child(app_ui::Tab::new().label("用户"))
+                                            .child(app_ui::Tab::new().label("用户")),
                                     )
                                     .child({
                                         let view = cx.entity().clone();
