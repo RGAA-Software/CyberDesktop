@@ -7,8 +7,8 @@ use clap::Parser;
 use futures_util::StreamExt;
 use gpui::{
     div, prelude::FluentBuilder as _, px, size, App, AppContext, Context, Entity,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, Styled, Window,
-    WindowBounds, WindowOptions,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
+    StatefulInteractiveElement, Styled, Window, WindowBounds, WindowOptions,
 };
 use gpui_component::{
     h_flex, input::InputState, label::Label, list::ListItem, scroll::ScrollableElement, v_flex,
@@ -24,15 +24,18 @@ use tokio_tungstenite::tungstenite::Message;
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
-    CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem, ShowProcessDetails,
-    TerminateProcess,
+    CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem,
+    ShowProcessDetails, TerminateProcess,
 };
 use crate::monitor_alert::{
     build_host_summary, evaluate_alerts_with_suppression, format_duration,
     machine_offline_duration, Alert, AlertSuppressor, HostSummary,
 };
 use crate::monitor_codec::decode_telemetry;
-use crate::monitor_dashboard::{render_connection_summary, render_dashboard, render_monitor_tab_menu};
+use crate::monitor_dashboard::{
+    render_connection_summary, render_dashboard, render_monitor_nav, topbar_icon_button,
+};
+use crate::monitor_icons;
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, RemoteMachineState, SortDirection,
 };
@@ -377,7 +380,7 @@ impl SysMonitorHostApp {
             .border_r_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().secondary)
-            .child(render_monitor_tab_menu(
+            .child(render_monitor_nav(
                 self.active_tab,
                 move |tab, _window, cx| {
                     let _ = view.update(cx, |this, cx| {
@@ -385,6 +388,7 @@ impl SysMonitorHostApp {
                         cx.notify();
                     });
                 },
+                cx,
             ))
             .child(div().h(px(1.)).bg(cx.theme().border))
             .child(
@@ -664,11 +668,16 @@ impl SysMonitorHostApp {
 
 impl Render for SysMonitorHostApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme_icon = if cx.theme().mode.is_dark() {
-            IconName::Moon
+        let (title, subtitle) = if let Some(machine) = self.selected_machine() {
+            (
+                machine.display_name.clone(),
+                format!("{} | 最后上报 {}", machine.peer_addr, machine.last_seen),
+            )
         } else {
-            IconName::Sun
+            ("CyberMonitorHost".to_string(), "等待机器连接".to_string())
         };
+        let view = cx.entity().clone();
+
         v_flex()
             .size_full()
             .bg(cx.theme().background)
@@ -678,8 +687,10 @@ impl Render for SysMonitorHostApp {
             .on_action(cx.listener(Self::on_reveal_startup_item))
             .child(
                 app_ui::TitleBar::new()
-                    .h(px(35.))
+                    .h(px(62.))
                     .bg(cx.theme().title_bar)
+                    .border_b_1()
+                    .border_color(cx.theme().title_bar_border)
                     .child(
                         h_flex()
                             .id("title-bar-inner")
@@ -687,61 +698,65 @@ impl Render for SysMonitorHostApp {
                             .w_full()
                             .min_w_0()
                             .items_center()
+                            .pl(px(11.))
                             .child(
-                                h_flex()
-                                    .id("app-logo")
-                                    .flex_none()
-                                    .items_center()
-                                    .gap(px(8.))
-                                    .pr(px(12.))
+                                v_flex()
+                                    .justify_center()
                                     .child(
-                                        Label::new("CyberMonitorHost")
-                                            .text_sm()
+                                        Label::new(title)
+                                            .text_xl()
                                             .font_semibold()
                                             .text_color(cx.theme().foreground),
+                                    )
+                                    .child(
+                                        Label::new(subtitle)
+                                            .text_xs()
+                                            .text_color(cx.theme().muted_foreground),
                                     ),
-                            )
-                            .child(div().flex_1())
+                            ),
+                    )
+                    .trailing_before_controls(
+                        h_flex()
+                            .id("title-bar-actions")
+                            .h_full()
+                            .items_center()
+                            .gap(px(10.))
+                            .pr(px(6.))
                             .child(
-                                h_flex()
-                                    .id("title-bar-actions")
-                                    .flex_none()
-                                    .items_center()
-                                    .gap(px(6.))
-                                    .px(px(10.))
-                                    .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                        cx.stop_propagation()
-                                    })
-                                    .child(
-                                        app_ui::toolbar_icon_button("host-theme-toggle")
-                                            .icon(app_ui::toolbar_icon(theme_icon))
-                                            .on_click(|_, _, cx| {
-                                                let mode = if cx.theme().mode.is_dark() {
-                                                    ThemeMode::Light
-                                                } else {
-                                                    ThemeMode::Dark
-                                                };
-                                                app_ui::apply_theme_mode(mode, cx);
-                                            }),
-                                    )
-                                    .child(
-                                        app_ui::toolbar_icon_button("host-settings")
-                                            .icon(app_ui::toolbar_icon(IconName::Settings2))
-                                            .on_mouse_down(
-                                                MouseButton::Left,
-                                                cx.listener(|_this, _e, _w, cx| {
-                                                    cx.stop_propagation();
-                                                    app_ui::SettingsWindowState::open_editor(cx);
-                                                }),
-                                            ),
-                                    )
-                                    .child(
-                                        app_ui::toolbar_icon_button("host-github")
-                                            .icon(app_ui::toolbar_icon(IconName::Github))
-                                            .on_click(|_, _, cx| {
-                                                cx.open_url(app_ui::GITHUB_REPO_URL)
-                                            }),
-                                    ),
+                                topbar_icon_button("host-refresh", monitor_icons::REFRESH, &*cx)
+                                    .on_click({
+                                        let view = view.clone();
+                                        move |_, _, cx| cx.notify(view.entity_id())
+                                    }),
+                            )
+                            .child(
+                                topbar_icon_button(
+                                    "host-theme-toggle",
+                                    monitor_icons::THEME,
+                                    &*cx,
+                                )
+                                .on_click(|_, _, cx| {
+                                    let mode = if cx.theme().mode.is_dark() {
+                                        ThemeMode::Light
+                                    } else {
+                                        ThemeMode::Dark
+                                    };
+                                    app_ui::apply_theme_mode(mode, cx);
+                                }),
+                            )
+                            .child(
+                                topbar_icon_button(
+                                    "host-settings",
+                                    monitor_icons::SETTINGS,
+                                    &*cx,
+                                )
+                                .on_mouse_down(
+                                    MouseButton::Left,
+                                    cx.listener(|_this, _e, _w, cx| {
+                                        cx.stop_propagation();
+                                        app_ui::SettingsWindowState::open_editor(cx);
+                                    }),
+                                ),
                             ),
                     ),
             )
@@ -752,64 +767,80 @@ impl Render for SysMonitorHostApp {
             .child(
                 h_flex()
                     .flex_1()
+                    .min_h_0()
                     .items_start()
                     .child(self.render_sidebar(cx))
                     .child(
-                        div().flex_1().h_full().min_h_0().overflow_hidden().child(
-                            v_flex()
-                                .size_full()
-                                .items_start()
-                                .when(!self.machines.is_empty(), |this| {
-                                    this.child(self.render_host_summary(cx))
-                                })
-                                .when(self.selected_machine().is_none(), |this| {
-                                    this.child(self.render_empty(cx))
-                                })
-                                .when_some(self.selected_machine(), |this, machine| {
-                                    this.child(
-                                        Label::new(format!(
-                                            "{} | {} | 最后上报 {}",
-                                            machine.display_name,
-                                            machine.peer_addr,
-                                            machine.last_seen
-                                        ))
-                                        .px_4()
-                                        .py_3()
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground),
-                                    )
-                                    .child({
-                                        let view = cx.entity().clone();
-                                        div().flex_1().w_full().min_h_0().overflow_hidden().child(
-                                            div().size_full().overflow_y_scrollbar().child(
-                                                render_dashboard(
-                                                    &machine.telemetry,
-                                                    self.active_tab,
-                                                    &self.process_scroll,
-                                                    &self.process_search,
-                                                    self.process_sort,
-                                                    &self.service_scroll,
-                                                    &self.service_search,
-                                                    &self.startup_scroll,
-                                                    &self.startup_search,
-                                                    &self.user_search,
-                                                    move |column, window, cx| {
-                                                        view.update(cx, |this, cx| {
-                                                            this.on_cycle_process_sort(
-                                                                &CycleProcessSort { column },
-                                                                window,
-                                                                cx,
-                                                            );
-                                                        });
-                                                    },
-                                                    _window,
-                                                    cx,
-                                                ),
-                                            ),
-                                        )
+                        div()
+                            .flex_1()
+                            .h_full()
+                            .min_h_0()
+                            .overflow_hidden()
+                            .p(px(20.))
+                            .pr(px(24.))
+                            .pb(px(30.))
+                            .child(
+                                v_flex()
+                                    .size_full()
+                                    .items_start()
+                                    .when(!self.machines.is_empty(), |this| {
+                                        this.child(self.render_host_summary(cx))
                                     })
-                                }),
-                        ),
+                                    .when(self.selected_machine().is_none(), |this| {
+                                        this.child(self.render_empty(cx))
+                                    })
+                                    .when_some(self.selected_machine(), {
+                                        let host_view = cx.entity().clone();
+                                        let active_tab = self.active_tab;
+                                        let process_scroll = self.process_scroll.clone();
+                                        let process_search = self.process_search.clone();
+                                        let process_sort = self.process_sort;
+                                        let service_scroll = self.service_scroll.clone();
+                                        let service_search = self.service_search.clone();
+                                        let startup_scroll = self.startup_scroll.clone();
+                                        let startup_search = self.startup_search.clone();
+                                        let user_search = self.user_search.clone();
+                                        move |this, machine| {
+                                            this.child(
+                                                div()
+                                                    .flex_1()
+                                                    .w_full()
+                                                    .min_h_0()
+                                                    .overflow_hidden()
+                                                    .child(
+                                                        div()
+                                                            .size_full()
+                                                            .overflow_y_scrollbar()
+                                                            .child(render_dashboard(
+                                                                &machine.telemetry,
+                                                                active_tab,
+                                                                &process_scroll,
+                                                                &process_search,
+                                                                process_sort,
+                                                                &service_scroll,
+                                                                &service_search,
+                                                                &startup_scroll,
+                                                                &startup_search,
+                                                                &user_search,
+                                                                move |column, window, cx| {
+                                                                    host_view.update(cx, |this, cx| {
+                                                                        this.on_cycle_process_sort(
+                                                                            &CycleProcessSort {
+                                                                                column,
+                                                                            },
+                                                                            window,
+                                                                            cx,
+                                                                        );
+                                                                    });
+                                                                },
+                                                                _window,
+                                                                cx,
+                                                            )),
+                                                    ),
+                                            )
+                                        }
+                                    }),
+                            ),
                     ),
             )
     }

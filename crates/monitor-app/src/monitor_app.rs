@@ -1,13 +1,12 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::FluentBuilder, px, size, App, AppContext, Context, Entity, InteractiveElement,
-    IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement, Styled, Window,
-    WindowBounds, WindowOptions,
+    div, px, size, App, AppContext, Context, Entity, InteractiveElement, IntoElement, MouseButton,
+    ParentElement, Render, StatefulInteractiveElement, Styled, Window, WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, input::InputState, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme, Icon,
-    IconName, Root, Sizable, StyledExt, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, label::Label, scroll::ScrollableElement as _, v_flex, ActiveTheme,
+    Root, StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 
@@ -20,7 +19,8 @@ use crate::monitor_actions::{
     TerminateProcessTree,
 };
 use crate::monitor_codec::encode_telemetry;
-use crate::monitor_dashboard::{render_dashboard, render_monitor_tab_sidebar};
+use crate::monitor_dashboard::{render_dashboard, render_monitor_nav, topbar_icon_button};
+use crate::monitor_icons;
 use crate::monitor_model::{
     MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
 };
@@ -233,16 +233,40 @@ impl SysMonitorApp {
         self.telemetry.apply_snapshot(snapshot);
         self.sender.set_latest_payload(payload);
     }
+}
 
+fn monitor_tab_title(tab: MonitorTab) -> &'static str {
+    match tab {
+        MonitorTab::Overview => "总览",
+        MonitorTab::Cpu => "CPU",
+        MonitorTab::Memory => "内存",
+        MonitorTab::Gpu => "GPU",
+        MonitorTab::Storage => "存储",
+        MonitorTab::Network => "网络",
+        MonitorTab::Processes => "进程",
+        MonitorTab::Services => "服务",
+        MonitorTab::Startup => "启动项",
+        MonitorTab::Users => "用户",
+    }
+}
+
+fn monitor_tab_subtitle(tab: MonitorTab) -> &'static str {
+    match tab {
+        MonitorTab::Overview => "关键资源趋势与系统健康概览",
+        MonitorTab::Cpu => "CPU 总览、总使用率与逻辑核心负载",
+        MonitorTab::Memory => "内存容量、已用空间和使用率趋势",
+        MonitorTab::Gpu => "显卡负载、温度、显存与风扇信息",
+        MonitorTab::Storage => "磁盘容量、占用率与读写吞吐",
+        MonitorTab::Network => "网卡速率、累计流量与连接信息",
+        MonitorTab::Processes => "进程列表、CPU/内存/IO 排序与搜索",
+        MonitorTab::Services => "Windows 服务状态与启动类型",
+        MonitorTab::Startup => "注册表与启动文件夹中的开机项",
+        MonitorTab::Users => "本机用户、SID 与用户组信息",
+    }
 }
 
 impl Render for SysMonitorApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme_icon = if cx.theme().mode.is_dark() {
-            IconName::Moon
-        } else {
-            IconName::Sun
-        };
         let view = cx.entity().clone();
         let tab_view = cx.entity().clone();
         v_flex()
@@ -263,8 +287,10 @@ impl Render for SysMonitorApp {
             .on_action(cx.listener(Self::on_terminate_process_tree))
             .child(
                 app_ui::TitleBar::new()
-                    .h(px(35.))
+                    .h(px(62.))
                     .bg(cx.theme().title_bar)
+                    .border_b_1()
+                    .border_color(cx.theme().title_bar_border)
                     .child(
                         h_flex()
                             .id("title-bar-inner")
@@ -272,65 +298,69 @@ impl Render for SysMonitorApp {
                             .w_full()
                             .min_w_0()
                             .items_center()
+                            .pl(px(11.))
                             .child(
-                                h_flex()
-                                    .id("app-logo")
-                                    .flex_none()
-                                    .items_center()
-                                    .gap(px(8.))
-                                    .pr(px(12.))
+                                v_flex()
+                                    .justify_center()
                                     .child(
-                                        Label::new("CyberMonitor")
-                                            .text_sm()
+                                        Label::new(monitor_tab_title(self.active_tab))
+                                            .text_xl()
                                             .font_semibold()
                                             .text_color(cx.theme().foreground),
+                                    )
+                                    .child(
+                                        Label::new(monitor_tab_subtitle(self.active_tab))
+                                            .text_xs()
+                                            .text_color(cx.theme().muted_foreground),
                                     ),
-                            )
-                            .child(div().flex_1())
+                            ),
+                    )
+                    .trailing_before_controls(
+                        h_flex()
+                            .id("title-bar-actions")
+                            .h_full()
+                            .items_center()
+                            .gap(px(10.))
+                            .pr(px(6.))
                             .child(
-                                h_flex()
-                                    .id("title-bar-actions")
-                                    .flex_none()
-                                    .items_center()
-                                    .gap(px(6.))
-                                    .px(px(10.))
-                                    .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                        cx.stop_propagation()
-                                    })
-                                    .child(
-                                        app_ui::toolbar_icon_button("monitor-theme-toggle")
-                                            .icon(app_ui::toolbar_icon(theme_icon))
-                                            .on_click(|_, _, cx| {
-                                                let mode = if cx.theme().mode.is_dark() {
-                                                    ThemeMode::Light
-                                                } else {
-                                                    ThemeMode::Dark
-                                                };
-                                                app_ui::apply_theme_mode(mode, cx);
-                                            }),
-                                    )
-                                    .child(
-                                        app_ui::toolbar_icon_button("monitor-settings")
-                                            .icon(app_ui::toolbar_icon(IconName::Settings2))
-                                            .on_mouse_down(
-                                                MouseButton::Left,
-                                                cx.listener(|_this, _e, _w, cx| {
-                                                    cx.stop_propagation();
-                                                    app_ui::SettingsWindowState::open_with(
-                                                        cx,
-                                                        |cx| build_monitor_settings(cx),
-                                                        Some(px(35.)),
-                                                    );
-                                                }),
-                                            ),
-                                    )
-                                    .child(
-                                        app_ui::toolbar_icon_button("monitor-github")
-                                            .icon(app_ui::toolbar_icon(IconName::Github))
-                                            .on_click(|_, _, cx| {
-                                                cx.open_url(app_ui::GITHUB_REPO_URL)
-                                            }),
-                                    ),
+                                topbar_icon_button("monitor-refresh", monitor_icons::REFRESH, &*cx)
+                                    .on_click({
+                                        let view = view.clone();
+                                        move |_, _, cx| cx.notify(view.entity_id())
+                                    }),
+                            )
+                            .child(
+                                topbar_icon_button(
+                                    "monitor-theme-toggle",
+                                    monitor_icons::THEME,
+                                    &*cx,
+                                )
+                                .on_click(|_, _, cx| {
+                                    let mode = if cx.theme().mode.is_dark() {
+                                        ThemeMode::Light
+                                    } else {
+                                        ThemeMode::Dark
+                                    };
+                                    app_ui::apply_theme_mode(mode, cx);
+                                }),
+                            )
+                            .child(
+                                topbar_icon_button(
+                                    "monitor-settings",
+                                    monitor_icons::SETTINGS,
+                                    &*cx,
+                                )
+                                .on_mouse_down(
+                                    MouseButton::Left,
+                                    cx.listener(|_this, _e, _w, cx| {
+                                        cx.stop_propagation();
+                                        app_ui::SettingsWindowState::open_with(
+                                            cx,
+                                            |cx| build_monitor_settings(cx),
+                                            Some(px(62.)),
+                                        );
+                                    }),
+                                ),
                             ),
                     ),
             )
@@ -339,10 +369,51 @@ impl Render for SysMonitorApp {
                     .flex_1()
                     .min_h_0()
                     .child(
-                        div()
-                            .w(px(220.))
+                        v_flex()
+                            .w(px(248.))
                             .h_full()
-                            .child(render_monitor_tab_sidebar(
+                            .gap(px(18.))
+                            .p(px(14.))
+                            .border_r_1()
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().sidebar)
+                            .child(
+                                h_flex()
+                                    .h(px(52.))
+                                    .gap(px(12.))
+                                    .items_center()
+                                    .pb(px(14.))
+                                    .border_b_1()
+                                    .border_color(cx.theme().border)
+                                    .child(
+                                        div()
+                                            .w(px(38.))
+                                            .h(px(38.))
+                                            .rounded(px(8.))
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .bg(cx.theme().primary)
+                                            .text_color(cx.theme().primary_foreground)
+                                            .child(Label::new("CM").text_base().font_semibold()),
+                                    )
+                                    .child(
+                                        v_flex()
+                                            .justify_center()
+                                            .child(
+                                                Label::new("CyberMonitor")
+                                                    .text_base()
+                                                    .font_semibold()
+                                                    .text_color(cx.theme().foreground),
+                                            )
+                                            .child(
+                                                Label::new("System Insight Console")
+                                                    .text_xs()
+                                                    .text_color(cx.theme().muted_foreground),
+                                            ),
+                                    ),
+                            )
+                            .child(render_monitor_nav(
                                 self.active_tab,
                                 move |tab, _window, cx| {
                                     let _ = tab_view.update(cx, |this, cx| {
@@ -351,7 +422,43 @@ impl Render for SysMonitorApp {
                                     });
                                 },
                                 cx,
-                            )),
+                            ))
+                            .child(
+                                v_flex()
+                                    .mt_auto()
+                                    .gap(px(10.))
+                                    .p(px(14.))
+                                    .rounded(px(7.))
+                                    .border_1()
+                                    .border_color(cx.theme().border)
+                                    .bg(cx.theme().secondary)
+                                    .shadow_md()
+                                    .child(
+                                        h_flex()
+                                            .justify_between()
+                                            .items_center()
+                                            .child(
+                                                Label::new("系统状态")
+                                                    .text_sm()
+                                                    .font_semibold()
+                                                    .text_color(cx.theme().foreground),
+                                            )
+                                            .child(
+                                                div()
+                                                    .w(px(10.))
+                                                    .h(px(10.))
+                                                    .rounded_full()
+                                                    .bg(cx.theme().success),
+                                            ),
+                                    )
+                                    .child(
+                                        Label::new(
+                                            "实时采样中 · 低延迟曲线 · 双主题支持 · 主色 #7548d8",
+                                        )
+                                        .text_xs()
+                                        .text_color(cx.theme().muted_foreground),
+                                    ),
+                            ),
                     )
                     .child(
                         div()
@@ -359,6 +466,9 @@ impl Render for SysMonitorApp {
                             .min_w_0()
                             .h_full()
                             .overflow_y_scrollbar()
+                            .p(px(20.))
+                            .pr(px(24.))
+                            .pb(px(30.))
                             .child(render_dashboard(
                                 &self.telemetry,
                                 self.active_tab,
