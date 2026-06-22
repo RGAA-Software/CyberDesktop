@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CyberMonitor Redesign</title>
+<style>
+
+:root{
+  --brand:#7548d8;
+  --brand-soft:#ece5fb;
+  --brand-soft-2:#f6f3fe;
+  --bg:#f3f5fa;
+  --sidebar:#eef1f7;
+  --panel:#ffffff;
+  --panel-2:#f7f9fc;
+  --text:#121726;
+  --muted:#6d7388;
+  --line:#dce2ee;
+  --line-strong:#c9d2e4;
+  --danger:#ef5d6d;
+  --warning:#f2a32c;
+  --success:#25b37d;
+  --shadow:0 8px 22px rgba(17,23,38,.055);
+  --radius:7px;
+  --radius-sm:6px;
+  --topbar:#ffffffd9;
+  --hover:#eef3fb;
+  --canvas-grid:#e4e9f4;
+  --fill-brand:rgba(117,72,216,.14);
+  --fill-danger:rgba(239,93,109,.14);
+  --fill-warning:rgba(242,163,44,.14);
+}
+body[data-theme="dark"]{
+  --bg:#0c1018;
+  --sidebar:#0a0e15;
+  --panel:#131927;
+  --panel-2:#0f1521;
+  --text:#eef2ff;
+  --muted:#8a92a9;
+  --line:#232a3b;
+  --line-strong:#33405c;
+  --shadow:0 8px 22px rgba(0,0,0,.24);
+  --topbar:#0e1420ee;
+  --hover:#171d2c;
+  --canvas-grid:#283247;
+  --fill-brand:rgba(117,72,216,.18);
+  --fill-danger:rgba(239,93,109,.17);
+  --fill-warning:rgba(242,163,44,.17);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;font-size:14px;overflow:hidden;transition:background .18s,color .18s}
+button,input{font:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-track{background:transparent}
+.app{height:100vh;display:grid;grid-template-columns:248px 1fr}
+.sidebar{background:var(--sidebar);border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:18px}
+.brand{height:52px;display:flex;align-items:center;gap:12px;padding:0 8px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.brand-mark{width:38px;height:38px;border-radius:8px;background:var(--brand);display:grid;place-items:center;color:#fff;font-weight:800;letter-spacing:.4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 0 0 1px rgba(117,72,216,.12)}
+.brand h1{font-size:18px;line-height:1;margin:0;font-weight:760;letter-spacing:.2px}
+.brand span{display:block;color:var(--muted);font-size:11px;margin-top:6px;letter-spacing:.3px;text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:7px}
+.nav button{height:44px;border:1px solid transparent;background:transparent;border-radius:8px;display:flex;align-items:center;gap:12px;padding:0 12px;text-align:left;color:var(--text);cursor:pointer;transition:.16s ease;position:relative}
+.nav button:hover{background:var(--hover);border-color:var(--line);color:var(--brand)}
+.nav button.active{background:var(--panel);color:var(--brand);border-color:var(--line-strong);box-shadow:var(--shadow)}
+.nav button.active::before{content:'';position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:999px;background:var(--brand)}
+.nav button .nav-ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:0 0 22px;background:transparent;transition:.16s ease}
+.nav button:hover .nav-ic,.nav button.active .nav-ic{background:rgba(117,72,216,.10)}
+.nav svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sidebar-foot{margin-top:auto;border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.health{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 0 5px rgba(37,179,125,.14)}
+.mini-note{font-size:12px;color:var(--muted);line-height:1.55}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:62px;background:var(--topbar);border-bottom:1px solid var(--line);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:space-between;padding:0 18px 0 24px}
+.crumb .title{font-size:20px;font-weight:760;letter-spacing:.2px}
+.crumb .sub{font-size:12px;color:var(--muted);margin-top:4px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.actions{display:flex;align-items:center;gap:10px}
+.window-controls{display:flex;align-items:center;gap:8px;padding-left:6px;border-left:1px solid var(--line)}
+.iconbtn,.winbtn{height:34px;border:1px solid var(--line);background:var(--panel);color:var(--text);display:grid;place-items:center;cursor:pointer;transition:.16s ease;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.iconbtn{width:34px;border-radius:7px}
+.winbtn{width:38px;border-radius:7px}
+.iconbtn:hover,.winbtn:hover{border-color:var(--line-strong);background:var(--hover);color:var(--brand)}
+.winbtn.close:hover{background:#ffebeef0;color:#d63b54;border-color:#f0b6c2}
+body[data-theme="dark"] .winbtn.close:hover{background:#3a1c28;color:#ff90a4;border-color:#6a3043}
+.winbtn svg,.iconbtn svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.content{padding:20px 24px 30px;overflow:auto;height:calc(100vh - 62px)}
+.page{display:none;animation:fade .16s ease}.page.active{display:block}
+@keyframes fade{from{opacity:.35;transform:translateY(4px)}to{opacity:1;transform:none}}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+.kpis.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);position:relative}
+.card::before{content:'';position:absolute;left:0;top:0;right:0;height:1px;background:rgba(255,255,255,.04);pointer-events:none}
+.kpi{padding:14px 14px 13px;min-height:96px;position:relative;overflow:hidden}
+.kpi::after{display:none}
+.label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.55px;text-transform:uppercase}
+.value{font-size:24px;font-weight:780;letter-spacing:-.3px;margin-top:10px;line-height:1.15}
+.value.small{font-size:17px}
+.bar{height:6px;background:rgba(117,72,216,.10);border-radius:999px;margin-top:13px;overflow:hidden}
+.bar i{display:block;height:100%;width:40%;background:var(--brand);border-radius:999px}
+.bar.warn i{background:var(--warning)}
+.bar.danger i{background:var(--danger)}
+.chart-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px}
+.chart-card{padding:14px 16px 16px;position:relative}
+.chart-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.chart-title{font-weight:760;font-size:14px;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+.chart-title::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 4px rgba(117,72,216,.12)}
+.chart-now{color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.2px}
+.chart{height:220px;position:relative;border-radius:6px;background:var(--panel-2);border:1px solid var(--line)}
+.chart.sm{height:120px}
+.chart canvas{width:100%;height:100%;display:block}
+.info-panel{padding:16px}
+.info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 22px}
+.info-item{padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2)}
+.info-item b{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;letter-spacing:.45px;text-transform:uppercase}
+.info-item span{display:block;font-size:14px;font-weight:680;line-height:1.45;word-break:break-word}
+.cpu-summary{display:grid;grid-template-columns:280px 1fr;gap:14px;margin-bottom:14px}
+.cpu-usage{padding:16px}
+.cpu-usage .value{font-size:34px}
+.core-grid{grid-template-columns:repeat(5,minmax(180px,1fr));margin-top:14px}
+.core{padding:16px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.memory-hero{padding:16px 18px}
+.metric-list{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:12px}
+.metric{padding:12px;border:1px solid var(--line);background:var(--panel-2);border-radius:6px}
+.metric strong{display:block;font-size:22px;margin-top:6px}
+.table-card{padding:0;overflow:hidden;margin-top:14px;border-radius:7px}
+.tools{display:flex;align-items:center;gap:12px;margin:14px 0}
+.search{width:280px;height:38px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);padding:0 13px;outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
+.search:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(117,72,216,.10)}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel);font-variant-numeric:tabular-nums}
+th,td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+tbody tr:nth-child(even) td{background:rgba(117,72,216,.03)}
+tbody tr:hover td{background:rgba(117,72,216,.07)}
+th{font-size:11px;color:var(--muted);font-weight:700;background:var(--panel-2);position:sticky;top:0;z-index:1;letter-spacing:.55px;text-transform:uppercase}
+td{font-size:13px}
+td.num,th.num{text-align:right}
+.status{font-weight:700}
+.status.run{color:var(--brand)}
+.status.stop{color:var(--danger)}
+.chip{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:rgba(117,72,216,.10);color:var(--brand);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border:1px solid rgba(117,72,216,.18)}
+.muted{color:var(--muted)}
+.gpu-shell{padding:16px}
+.gpu-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px}
+.gpu-name{font-weight:800;font-size:18px;letter-spacing:.2px}
+.gpu-layout{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.gpu-layout .kpi{min-height:88px}
+.gpu-charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+.device-id{font-size:11px;color:var(--muted);margin-top:10px;text-align:right;letter-spacing:.25px}
+.empty{height:260px;display:grid;place-items:center;color:var(--muted);background:var(--panel);border-radius:7px;border:1px dashed var(--line-strong);margin-top:14px;padding:20px;text-align:center}
+.helper-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.card .chart::after{content:'';position:absolute;left:10px;right:10px;bottom:10px;height:1px;background:var(--line);opacity:.3}
+.table-card tbody td:first-child,.table-card thead th:first-child{padding-left:16px}
+.table-card tbody td:last-child,.table-card thead th:last-child{padding-right:16px}
+@media(max-width:1280px){.kpis{grid-template-columns:repeat(3,1fr)}.chart-grid,.split,.cpu-summary{grid-template-columns:1fr}.core-grid{grid-template-columns:repeat(3,1fr)}.gpu-layout{grid-template-columns:repeat(3,1fr)}.gpu-charts{grid-template-columns:1fr}.app{grid-template-columns:210px 1fr}}
+@media(max-width:860px){body{overflow:auto}.app{display:block}.sidebar{position:sticky;top:0;z-index:5}.nav{display:grid;grid-template-columns:repeat(5,1fr)}.sidebar-foot{display:none}.content{height:auto}.kpis,.kpis.three,.kpis.four,.core-grid,.metric-list,.info-grid{grid-template-columns:1fr}.topbar{position:sticky;top:0;z-index:4;padding:0 14px}.chart{height:200px}.topbar-right{gap:8px}.actions{gap:8px}.window-controls{padding-left:0;border-left:0}}
+
+</style>
+</head>
+<body data-theme="dark">
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CM</div>
+      <div><h1>CyberMonitor</h1><span>System Insight Console</span></div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <div class="health"><b>系统状态</b><span class="pulse"></span></div>
+      <div class="mini-note">实时采样中 · 低延迟曲线 · 双主题支持 · 主色 #7548d8</div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb">
+        <div class="title" id="pageTitle">总览</div>
+        <div class="sub" id="pageSub">关键资源趋势与系统健康概览</div>
+      </div>
+      <div class="topbar-right">
+        <div class="actions">
+          <button class="iconbtn" title="刷新" id="refreshBtn">
+            <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg>
+          </button>
+          <button class="iconbtn" title="切换亮暗主题" id="themeBtn">
+            <svg viewBox="0 0 24 24"><path d="M12 3v2"/><path d="M12 19v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/><circle cx="12" cy="12" r="4"/></svg>
+          </button>
+          <button class="iconbtn" title="设置">
+            <svg viewBox="0 0 24 24"><path d="M12 3l1.6 2.7 3-.1.8 2.8 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.8-3-.1L12 21l-1.6-2.7-3 .1-.8-2.8L4 14.2l1-2.8-1-2.8 2.6-1.4.8-2.8 3 .1z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="window-controls">
+          <button class="winbtn" title="最小化">
+            <svg viewBox="0 0 24 24"><path d="M6 18h12"/></svg>
+          </button>
+          <button class="winbtn" title="最大化">
+            <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+          </button>
+          <button class="winbtn close" title="关闭">
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <section class="content" id="pages"></section>
+  </main>
+</div>
+<script>
+const brand = '#7548d8';
+const tabs = [
+ ['overview','总览','关键资源趋势与系统健康概览','M5 12a7 7 0 1 0 7-7v7z M12 5v7h7'],
+ ['cpu','CPU','CPU 总览、总使用率与逻辑核心负载','M9 2v3 M15 2v3 M9 19v3 M15 19v3 M2 9h3 M2 15h3 M19 9h3 M19 15h3 M7 7h10v10H7z'],
+ ['memory','内存','内存容量、已用空间和使用率趋势','M4 7h16v10H4z M8 11h8 M8 15h5'],
+ ['gpu','GPU','显卡负载、温度、显存与风扇信息','M4 7h16v10H4z M8 3v4 M16 3v4 M8 17v4 M16 17v4'],
+ ['storage','存储','磁盘容量、占用率与读写吞吐','M5 6h14l1 4v8H4v-8z M7 16h.01 M17 16h.01'],
+ ['network','网络','网卡速率、累计流量与连接信息','M4 17h16 M6 17a6 6 0 0 1 12 0 M8 17a4 4 0 0 1 8 0 M12 17v4'],
+ ['process','进程','进程列表、CPU/内存/IO 排序与搜索','M4 6h16 M4 12h16 M4 18h16 M8 6v12'],
+ ['service','服务','Windows 服务状态与启动类型','M12 2l2.2 5.4L20 8l-4 3 1.2 5L12 22l-4.2-6L4 16l4-3-1.2-5z'],
+ ['startup','启动项','注册表与启动文件夹中的开机项','M5 12h14 M13 5l7 7-7 7'],
+ ['users','用户','本机用户、SID 与用户组信息','M16 21v-2a4 4 0 0 0-8 0v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-5-3.9']
+];
+const nav = document.getElementById('nav');
+const pages = document.getElementById('pages');
+function icon(path){return `<svg viewBox="0 0 24 24"><path d="${path}"/></svg>`}
+function kpi(label,value,width,cls=''){return `<div class="card kpi"><div class="label">${label}</div><div class="value ${String(value).length>14?'small':''}">${value}</div><div class="bar ${cls}"><i style="width:${width}%"></i></div></div>`}
+function chartCard(title,now,id,small=''){return `<div class="card chart-card"><div class="chart-head"><div class="chart-title">${title}</div><div class="chart-now">${now}</div></div><div class="chart ${small}"><canvas id="${id}"></canvas></div></div>`}
+function table(headers,rows){return `<div class="card table-card"><table><thead><tr>${headers.map(h=>`<th class="${h[1]||''}">${h[0]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${headers[i]?.[1]||''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
+
+tabs.forEach((t,i)=>{
+  nav.insertAdjacentHTML('beforeend',`<button class="${i?'':'active'}" data-tab="${t[0]}">${icon(t[3])}<span>${t[1]}</span></button>`)
+});
+
+pages.innerHTML = `
+<div class="page active" id="page-overview">
+  <div class="grid kpis">
+    ${kpi('CPU 使用率','34.1%',34,'danger')}
+    ${kpi('内存使用','20.8 / 31.8 GB',65)}
+    ${kpi('磁盘最高占用','96.9%',97,'warn')}
+    ${kpi('首块 GPU','NVIDIA RTX 3060',8)}
+    ${kpi('主网卡发送速率','0.00 MB/s',2)}
+    ${kpi('主网卡接收速率','0.01 MB/s',4)}
+  </div>
+  <div class="grid chart-grid">
+    ${chartCard('CPU 趋势','当前 34.1 %','ovCpu')}
+    ${chartCard('内存占用趋势','当前 65.4 %','ovMem')}
+    ${chartCard('网络发送速率','当前 0.0 MB/s','ovSend')}
+    ${chartCard('网络接收速率','当前 0.0 MB/s','ovRecv')}
+  </div>
+</div>
+
+<div class="page" id="page-cpu">
+  <div class="cpu-summary">
+    <div class="card cpu-usage">
+      <div class="label">当前使用率</div>
+      <div class="value">43.8%</div>
+      <div class="bar danger"><i style="width:43.8%"></i></div>
+      <div class="helper-row" style="margin-top:16px;color:var(--muted)"><span>逻辑核心</span><b style="color:var(--text)">20</b></div>
+      <div class="helper-row" style="margin-top:10px;color:var(--muted)"><span>当前频率</span><b style="color:var(--text)">2.81 GHz</b></div>
+      <div class="helper-row" style="margin-top:10px;color:var(--muted)"><span>最大频率</span><b style="color:var(--text)">4.15 GHz</b></div>
+    </div>
+    <div class="card info-panel">
+      <div class="label" style="margin-bottom:14px">基本信息</div>
+      <div class="info-grid">
+        <div class="info-item"><b>型号</b><span>Intel(R) Core(TM) i9-10900 CPU @ 2.80GHz</span></div>
+        <div class="info-item"><b>Vendor</b><span>GenuineIntel</span></div>
+        <div class="info-item"><b>架构</b><span>x64 / 10 Cores / 20 Threads</span></div>
+        <div class="info-item"><b>基准频率</b><span>2.81 GHz</span></div>
+        <div class="info-item"><b>最大频率</b><span>4.15 GHz</span></div>
+        <div class="info-item"><b>总使用率</b><span>43.8%</span></div>
+      </div>
+    </div>
+  </div>
+  ${chartCard('CPU 总使用率','当前 43.8 %','cpuTotal')}
+  <div class="grid core-grid">${Array.from({length:20},(_,i)=>chartCard('Core '+i,'当前 '+(32+Math.random()*24).toFixed(1)+' %','core'+i,'sm')).join('')}</div>
+</div>
+
+<div class="page" id="page-memory">
+  <div class="card memory-hero">
+    <div class="label">内存概览</div>
+    <div class="metric-list">
+      <div class="metric"><span class="muted">总内存</span><strong>31.8 GB</strong></div>
+      <div class="metric"><span class="muted">已用内存</span><strong>21.1 GB</strong></div>
+      <div class="metric"><span class="muted">可用内存</span><strong>10.8 GB</strong></div>
+      <div class="metric"><span class="muted">使用率</span><strong>66.2%</strong></div>
+    </div>
+    <div class="bar"><i style="width:66%"></i></div>
+  </div>
+  <div class="split" style="margin-top:16px">
+    ${chartCard('内存已用','当前 21.1 GB','memUsed')}
+    ${chartCard('内存使用率','当前 66.2 %','memRate')}
+  </div>
+  <div class="empty">这里可以扩展：分页池、非分页池、缓存、提交大小、交换区等高级指标</div>
+</div>
+
+<div class="page" id="page-gpu">
+  <div class="card gpu-shell">
+    <div class="gpu-head"><div class="gpu-name">NVIDIA GeForce RTX 3060</div><span class="chip">独立显卡 · 在线</span></div>
+    <div class="grid gpu-layout">
+      ${kpi('利用率','2%',2)}
+      ${kpi('温度','42 °C',42,'danger')}
+      ${kpi('风扇转速','2006 RPM',54)}
+      ${kpi('显存','0.74 / 12.00 GB',6)}
+      ${kpi('编码器','4%',4)}
+      ${kpi('功耗上限','170.0 W',70)}
+    </div>
+    <div class="gpu-charts">
+      ${chartCard('GPU 利用率','当前 2.0 %','gpuUtil')}
+      ${chartCard('GPU 温度','当前 42.0 °C','gpuTemp')}
+      ${chartCard('显存占用','当前 0.7 GB','gpuMem')}
+    </div>
+    <div class="device-id">GPU-d8d81684-e3b0-cda7-d801-e845658ce74e</div>
+  </div>
+</div>
+
+<div class="page" id="page-storage">
+  <div class="grid kpis four">
+    ${kpi('磁盘数量','3',30)}
+    ${kpi('最高占用','96.9%',97,'warn')}
+    ${kpi('磁盘读取速率','4.92 MB/s',25)}
+    ${kpi('磁盘写入速率','3.80 MB/s',20)}
+  </div>
+  ${table([['挂载点'],['类型'],['文件系统'],['总量(GB)','num'],['可用(GB)','num'],['已用(%)','num'],['读取(MB/s)','num'],['写入(MB/s)','num']],[[`D:\\`,'SSD','NTFS','1862','264','85.8%','0.36','0.11'],[`E:\\`,'SSD','NTFS','223','16','92.4%','0.00','0.00'],[`C:\\`,'SSD','NTFS','952','29','96.9%','0.00','1.42']])}
+</div>
+
+<div class="page" id="page-network">
+  <div class="grid kpis three">
+    ${kpi('当前主网卡','以太网',20)}
+    ${kpi('发送速率','0.01 MB/s',3)}
+    ${kpi('接收速率','0.07 MB/s',8)}
+  </div>
+  <div class="split" style="margin-top:16px">
+    ${chartCard('发送速率','当前 0.0 MB/s','netSend')}
+    ${chartCard('接收速率','当前 0.1 MB/s','netRecv')}
+  </div>
+  ${table([['名称'],['MAC'],['IPv4'],['累计发送(GB)','num'],['累计接收(GB)','num'],['链路速率(Mbps)','num']], [['以太网','fc:34:97:e0:0f:25','10.0.0.16/24','8.06','16.00','1000000000/1000000000'],['vEthernet (WSL)','00:15:5d:c6:38:8c','172.26.208.1/20','0.01','0.00','0/0']])}
+</div>
+
+<div class="page" id="page-process">
+  <div class="grid kpis three">
+    ${kpi('进程数','549',80)}
+    ${kpi('最高 CPU','TGitCache.exe 95.0%',95,'danger')}
+    ${kpi('最高内存','Memory Compression 1436 MB',62)}
+  </div>
+  <div class="tools"><input class="search" placeholder="搜索进程..."/></div>
+  ${table([['PID'],['名称'],['命令行'],['状态'],['CPU% ↓','num'],['内存(MB)','num'],['虚拟内存(MB)','num'],['读取(MB/s)','num'],['写入(MB/s)','num']], [['44184','python.exe','C:\\Users\\hy\\AppData\\Roaming\\uv\\tools\\kimi-cli...','运行中','2.3','134','186','0.00','0.00'],['26436','java.exe','c:\\Users\\hy\\.vscode\\extensions\\redhat.java...','运行中','1.2','28','406','0.00','0.00'],['20360','GammaRay.exe','D:\\source\\GoCloud\\GammaRayPremium\\build...','运行中','1.2','66','129','0.00','0.00'],['26872','chrome.exe','C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','运行中','1.2','311','228','0.00','0.00'],['16736','Code.exe','C:\\Users\\hy\\AppData\\Local\\Programs\\Microsoft VS Code','运行中','1.2','160','327','0.00','0.00'],['11308','Clash for Windows.exe','D:\\Program Files (x86)\\Clash for Windows\\Clash.exe','运行中','1.2','51','66','0.00','0.00']])}
+</div>
+
+<div class="page" id="page-service">
+  <div class="grid kpis three">
+    ${kpi('服务数','347',70)}
+    ${kpi('运行中','163',47)}
+    ${kpi('已停止','184',53,'danger')}
+  </div>
+  <div class="tools"><input class="search" placeholder="搜索服务..."/></div>
+  ${table([['名称'],['显示名称'],['状态'],['启动类型']], [['vmcompute','Hyper-V Host Compute Service','<span class="status run">运行中</span>','手动'],['IKEEXT','IKE and AuthIP IPsec Keying Modules','<span class="status run">运行中</span>','自动'],['vmicheartbeat','Hyper-V Heartbeat Service','<span class="status stop">已停止</span>','手动'],['igccservice','Intel(R) Graphics Command Center Service','<span class="status run">运行中</span>','自动'],['PolicyAgent','IPsec Policy Agent','<span class="status stop">已停止</span>','手动'],['SharedAccess','Internet Connection Sharing (ICS)','<span class="status run">运行中</span>','手动']])}
+</div>
+
+<div class="page" id="page-startup">
+  <div class="grid kpis three">
+    ${kpi('启动项数','29',68)}
+    ${kpi('注册表项','28',64)}
+    ${kpi('启动文件夹项','1',8)}
+  </div>
+  <div class="tools"><input class="search" placeholder="搜索启动项..."/></div>
+  ${table([['名称'],['命令'],['位置']], [['OneDrive','"C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe" /background','HKCU\\Run'],['ParsecVDisplay','"C:\\Program Files\\ParsecVDisplay\\ParsecVDisplay.exe"','HKCU\\Run'],['Steam','"C:\\Program Files (x86)\\Steam\\steam.exe" -silent','HKCU\\Run'],['SecurityHealth','C:\\WINDOWS\\system32\\SecurityHealthSystray.exe','HKLM\\Run'],['Weixin','"C:\\Program Files\\Tencent\\Weixin\\Weixin.exe" -autorun','HKCU\\Run'],['vmware-tray.exe','"C:\\Program Files (x86)\\VMware\\VMware Workstation\\vmware-tray.exe"','HKLM\\Run']])}
+</div>
+
+<div class="page" id="page-users">
+  <div class="grid kpis three">
+    ${kpi('用户数','14',50)}
+    ${kpi('管理员账户','2',16)}
+    ${kpi('系统账户','7',46)}
+  </div>
+  <div class="tools"><input class="search" placeholder="搜索用户..."/></div>
+  ${table([['名称'],['UID'],['GID'],['所属组']], [['Administrator','S-1-5-21-2021636358-3602562422-2116939800-500','500','Administrators'],['hy','S-1-5-21-2021636358-3602562422-2116939800-1001','1001','Administrators'],['Guest','S-1-5-21-2021636358-3602562422-2116939800-501','501','Guests'],['DefaultAccount','S-1-5-21-2021636358-3602562422-2116939800-503','503','System Managed Accounts Group'],['CodeSandboxOnline','S-1-5-21-2021636358-3602562422-2116939800-1006','1006','CodeSandboxUsers, Users']])}
+</div>`;
+
+function getCSS(name){return getComputedStyle(document.body).getPropertyValue(name).trim()}
+function rand(n,base=20,variance=8,spike=false,max=100){return Array.from({length:n},(_,i)=>{let v=base+(Math.random()-.5)*variance+(Math.sin(i/7)*variance/3); if(spike&&Math.random()>.92)v+=Math.random()*Math.min(40,max*.4); return Math.max(0,Math.min(max,v));});}
+function drawLine(id, data, color='var(--brand)', fill='rgba(117,72,216,.14)', max=100){
+  const c=document.getElementById(id); if(!c) return;
+  const dpr=window.devicePixelRatio||1;
+  const w=c.clientWidth, h=c.clientHeight;
+  c.width=w*dpr; c.height=h*dpr;
+  const ctx=c.getContext('2d'); ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h);
+  const gridColor=getCSS('--canvas-grid');
+  ctx.strokeStyle=gridColor; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  for(let i=1;i<4;i++){ const y=h*i/4; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  ctx.setLineDash([]);
+  const pad=10; const step=(w-pad*2)/(data.length-1);
+  const yv=v=>h-pad-(v/max)*(h-pad*2);
+  ctx.beginPath();
+  data.forEach((v,i)=>{ const x=pad+i*step, y=yv(v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.strokeStyle=color; ctx.lineWidth=1.8; ctx.stroke();
+  ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
+  ctx.fillStyle=fill; ctx.fill();
+}
+function drawAll(){
+  const b=getCSS('--brand');
+  const d=getCSS('--danger');
+  const w=getCSS('--warning');
+  const fb=getCSS('--fill-brand');
+  const fd=getCSS('--fill-danger');
+  const fw=getCSS('--fill-warning');
+  ['ovCpu','cpuTotal'].forEach(id=>drawLine(id,rand(120,24,18,true),d,fd,100));
+  ['ovMem','memRate'].forEach(id=>drawLine(id,rand(120,66,3),b,fb,100));
+  ['ovSend','netSend'].forEach(id=>drawLine(id,rand(120,0.15,0.35,true,1.2),b,fb,1.2));
+  ['ovRecv','netRecv'].forEach(id=>drawLine(id,rand(120,0.3,0.6,true,2.8),w,fw,2.8));
+  drawLine('memUsed',rand(120,21.1,0.4,false,31.8),b,fb,31.8);
+  for(let i=0;i<20;i++) drawLine('core'+i,rand(90,18+Math.random()*7,10,true),d,fd,100);
+  drawLine('gpuUtil',rand(120,2,2),b,fb,100);
+  drawLine('gpuTemp',rand(120,42,1,false,100),d,fd,100);
+  drawLine('gpuMem',rand(120,0.74,0.1,false,12),b,fb,12);
+}
+function setTheme(theme){
+  document.body.setAttribute('data-theme',theme);
+  localStorage.setItem('cybermonitor-theme',theme);
+  setTimeout(drawAll,30);
+}
+const savedTheme=localStorage.getItem('cybermonitor-theme')||'dark';
+setTheme(savedTheme);
+
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  const next=document.body.getAttribute('data-theme')==='dark'?'light':'dark';
+  setTheme(next);
+});
+document.getElementById('refreshBtn').addEventListener('click',()=>setTimeout(drawAll,20));
+window.addEventListener('resize',()=>setTimeout(drawAll,80));
+
+nav.addEventListener('click',e=>{
+  const btn=e.target.closest('button[data-tab]'); if(!btn) return;
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const id=btn.dataset.tab;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const t=tabs.find(x=>x[0]===id);
+  document.getElementById('pageTitle').textContent=t[1];
+  document.getElementById('pageSub').textContent=t[2];
+  setTimeout(drawAll,40);
+});
+
+drawAll();
+</script>
+</body>
+</html>
