@@ -1,6 +1,8 @@
-# Build every application binary (cyber_files + cyber_editor).
+# Build every application binary.
 #   .\scripts\Invoke-AppBuildAll.ps1 -Profile debug
 #   .\scripts\Invoke-AppBuildAll.ps1 -Profile release
+#
+# Targets: cyber_files, cyber_editor, cyber_media_player, cyber_monitor, cyber_monitor_host
 
 param(
     [ValidateSet("debug", "release")]

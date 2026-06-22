@@ -1,4 +1,5 @@
 # Shared build helpers for CyberDesktop application binaries.
+# Targets: cyber_files, cyber_editor, cyber_media_player, cyber_monitor, cyber_monitor_host
 # Dot-source from scripts under scripts/debug|release, or via scripts/Invoke-AppBuild.ps1.
 
 $script:CyberDesktopRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
