@@ -14,6 +14,9 @@ use crate::sys_info::{
     SysUserInfo,
 };
 
+#[cfg(target_os = "windows")]
+use crate::cpu_metrics_windows;
+
 fn truncate_string(text: &str, max_len: usize) -> String {
     if text.chars().count() <= max_len {
         text.to_string()
@@ -135,13 +138,38 @@ impl SysInfoManager {
         self.users.refresh();
 
         let usage = self.system.global_cpu_usage();
-        let vendor = self.system.cpus()[0].vendor_id();
-        let brand = self.system.cpus()[0].brand();
-        let base_frequency = self.system.cpus()[0].frequency() as f32 / 1000.0;
-        let current_frequency = self.load_current_frequency(base_frequency);
-        if self.max_frequency <= 0.1 {
-            self.max_frequency = calcmhz::mhz().unwrap_or(0.0) as f32 / 1000.0;
-        }
+        let vendor = self.system.cpus()[0].vendor_id().to_string();
+        let brand = self.system.cpus()[0].brand().to_string();
+        let components: Vec<SysComponentInfo> = self
+            .components
+            .iter()
+            .map(|component| SysComponentInfo {
+                temperature: component.temperature().unwrap_or(0.0),
+                max: component.max().unwrap_or(0.0),
+                critical: component.critical().unwrap_or(0.0),
+                label: component.label().to_string(),
+            })
+            .collect();
+        let logical_cores = self.system.cpus().len().max(1);
+        let physical_cores = sysinfo::System::physical_core_count()
+            .unwrap_or(logical_cores / 2)
+            .max(1);
+        #[cfg(target_os = "windows")]
+        let ohm_snapshot = crate::cpu_ohm::read_cpu_hardware_snapshot(
+            &brand,
+            physical_cores,
+            logical_cores,
+        );
+        #[cfg(not(target_os = "windows"))]
+        let ohm_snapshot = None;
+        let cpu_temperature = load_cpu_temperature_celsius(
+            physical_cores,
+            logical_cores,
+            &components,
+            ohm_snapshot.as_ref(),
+        );
+        let (base_frequency, current_frequency, max_frequency) =
+            self.load_cpu_frequencies(&brand, ohm_snapshot);
         let mut cpus = Vec::new();
         for cpu in self.system.cpus() {
             let single_cpu = SysSingleCpuInfo {
@@ -151,17 +179,18 @@ impl SysInfoManager {
             cpus.push(single_cpu);
         }
         let physical_cores = sysinfo::System::physical_core_count()
-            .unwrap_or(cpus.len())
+            .unwrap_or(cpus.len() / 2)
             .max(1);
         let cpu = SysCpuInfo {
             usage,
-            vendor: vendor.to_string(),
-            brand: brand.to_string(),
+            vendor,
+            brand,
             base_frequency,
             current_frequency,
-            max_frequency: self.max_frequency,
+            max_frequency,
             cpus,
             physical_cores,
+            temperature: cpu_temperature,
         };
 
         let gb = 1024 * 1024 * 1024;
@@ -260,15 +289,7 @@ impl SysInfoManager {
             sys_kernel: System::kernel_long_version().to_string(),
         };
 
-        let mut cps = Vec::new();
-        for component in self.components.iter() {
-            cps.push(SysComponentInfo {
-                temperature: component.temperature().unwrap_or(0.0),
-                max: component.max().unwrap_or(0.0),
-                critical: component.critical().unwrap_or(0.0),
-                label: component.label().to_string(),
-            });
-        }
+        let cps = components;
 
         let up = System::uptime();
         let mut uptime = up;
@@ -303,6 +324,10 @@ impl SysInfoManager {
 
                     if let Ok(u) = device.encoder_utilization() {
                         gpu_info.encoder_utilization = u.utilization;
+                    }
+
+                    if let Ok(u) = device.decoder_utilization() {
+                        gpu_info.decoder_utilization = u.utilization;
                     }
 
                     if let Ok(u) = device.utilization_rates() {
@@ -440,45 +465,149 @@ impl SysInfoManager {
         }
     }
 
-    fn load_current_frequency(&self, fallback: f32) -> f32 {
-        #[cfg(target_os = "windows")]
-        {
-            use windows::Win32::System::Power::{
-                CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
-            };
-
-            let cpu_count = self.system.cpus().len();
-            if cpu_count == 0 {
-                return fallback;
-            }
-
-            let mut buffer = vec![PROCESSOR_POWER_INFORMATION::default(); cpu_count];
-            let status = unsafe {
-                CallNtPowerInformation(
-                    ProcessorInformation,
-                    None,
-                    0,
-                    Some(buffer.as_mut_ptr() as *mut _),
-                    (std::mem::size_of::<PROCESSOR_POWER_INFORMATION>() * cpu_count) as u32,
-                )
-            };
-            if status.is_ok() {
-                let total_mhz: u64 = buffer.iter().map(|info| info.CurrentMhz as u64).sum();
-                return total_mhz as f32 / cpu_count as f32 / 1000.0;
-            }
+    fn resolve_base_frequency_ghz(&mut self, brand: &str) -> f32 {
+        if let Some(ghz) = parse_base_frequency_ghz(brand) {
+            return ghz;
         }
 
-        let total: f32 = self
+        self.system.refresh_cpu_frequency();
+        let sysinfo_base_mhz = self
             .system
             .cpus()
-            .iter()
-            .map(|c| c.frequency() as f32)
-            .sum();
-        if self.system.cpus().is_empty() {
-            fallback
-        } else {
-            total / self.system.cpus().len() as f32 / 1000.0
+            .first()
+            .map(|cpu| cpu.frequency() as f32)
+            .unwrap_or(0.0);
+        if sysinfo_base_mhz > 0.0 {
+            return sysinfo_base_mhz / 1000.0;
         }
+
+        if let Some(mhz) = read_cpuid_base_mhz() {
+            if mhz > 0.0 {
+                return mhz / 1000.0;
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if let Some((_, max)) = cpu_metrics_windows::read_processor_clocks_mhz() {
+                if max > 0.0 {
+                    return max / 1000.0;
+                }
+            }
+            if let Some(mhz) = cpu_metrics_windows::read_registry_max_mhz() {
+                if mhz > 0 {
+                    return mhz as f32 / 1000.0;
+                }
+            }
+        }
+
+        0.0
+    }
+
+    fn load_cpu_frequencies(
+        &mut self,
+        brand: &str,
+        ohm_snapshot: Option<crate::cpu_ohm::CpuHardwareSnapshot>,
+    ) -> (f32, f32, f32) {
+        let mut base_ghz = self.resolve_base_frequency_ghz(brand);
+
+        if let Some(hw) = ohm_snapshot {
+            if hw.current_frequency_ghz > 0.0 {
+                if self.max_frequency <= 0.1 && hw.max_frequency_ghz > 0.0 {
+                    self.max_frequency = hw.max_frequency_ghz;
+                } else if hw.max_frequency_ghz > self.max_frequency {
+                    self.max_frequency = hw.max_frequency_ghz;
+                }
+                let max = self.max_frequency.max(hw.max_frequency_ghz).max(base_ghz);
+                self.max_frequency = max;
+                return (base_ghz, hw.current_frequency_ghz, max);
+            }
+        }
+
+        let cpu_count = self.system.cpus().len().max(1);
+
+        let mut power_current_mhz = None::<f32>;
+        let mut power_max_mhz = None::<f32>;
+
+        #[cfg(target_os = "windows")]
+        if let Some(infos) = read_processor_power_info(cpu_count) {
+            if !infos.is_empty() {
+                power_current_mhz = Some(
+                    infos
+                        .iter()
+                        .map(|info| info.CurrentMhz as f32)
+                        .sum::<f32>()
+                        / infos.len() as f32,
+                );
+                power_max_mhz = Some(
+                    infos
+                        .iter()
+                        .map(|info| info.MaxMhz as f32)
+                        .fold(0.0_f32, f32::max),
+                );
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        let wmi_clocks = cpu_metrics_windows::read_processor_clocks_mhz();
+        #[cfg(not(target_os = "windows"))]
+        let wmi_clocks: Option<(f32, f32)> = None;
+
+        #[cfg(target_os = "windows")]
+        let registry_max_mhz = cpu_metrics_windows::read_registry_max_mhz().map(|mhz| mhz as f32);
+        #[cfg(not(target_os = "windows"))]
+        let registry_max_mhz = None::<f32>;
+
+        self.system.refresh_cpu_frequency();
+        let sysinfo_current_mhz = if self.system.cpus().is_empty() {
+            0.0
+        } else {
+            self.system
+                .cpus()
+                .iter()
+                .map(|cpu| cpu.frequency() as f32)
+                .sum::<f32>()
+                / self.system.cpus().len() as f32
+        };
+
+        let current_ghz = power_current_mhz
+            .filter(|mhz| *mhz > 0.0)
+            .or_else(|| wmi_clocks.map(|(current, _)| current).filter(|mhz| *mhz > 0.0))
+            .unwrap_or(sysinfo_current_mhz)
+            / 1000.0;
+
+        let candidate_max_mhz = [power_max_mhz, registry_max_mhz, wmi_clocks.map(|(_, max)| max)]
+            .into_iter()
+            .flatten()
+            .filter(|mhz| *mhz > 0.0)
+            .fold(0.0_f32, f32::max);
+
+        if base_ghz <= 0.0 {
+            base_ghz = power_max_mhz
+                .map(|mhz| mhz / 1000.0)
+                .filter(|ghz| *ghz > 0.0)
+                .unwrap_or(current_ghz);
+        }
+
+        if self.max_frequency <= 0.1 {
+            if candidate_max_mhz > 0.0 {
+                self.max_frequency = candidate_max_mhz / 1000.0;
+            } else {
+                self.max_frequency = base_ghz.max(current_ghz);
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            if self.max_frequency <= 0.1 {
+                if let Some(max_ghz) = read_linux_max_frequency_ghz(cpu_count) {
+                    self.max_frequency = max_ghz;
+                }
+            }
+        }
+
+        let max_frequency = self.max_frequency.max(base_ghz);
+        (base_ghz, current_ghz, max_frequency)
     }
 
     fn load_amd_gpu_info(&self) -> Result<Vec<SysGpuInfo>, anyhow::Error> {
@@ -941,5 +1070,129 @@ impl SysInfoManager {
             .get(&Pid::from_u32(pid))
             .map(|process| process.kill())
             .unwrap_or(false)
+    }
+}
+
+fn parse_base_frequency_ghz(brand: &str) -> Option<f32> {
+    let at = brand.find('@')?;
+    let tail = brand[at + 1..].trim_start();
+    let digits: String = tail
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '.')
+        .collect();
+    digits.parse().ok().filter(|ghz: &f32| *ghz > 0.0)
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn read_cpuid_base_mhz() -> Option<f32> {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::__cpuid;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::__cpuid;
+
+    let result = __cpuid(0x16);
+    if result.eax > 0 {
+        Some(result.eax as f32)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+fn read_cpuid_base_mhz() -> Option<f32> {
+    None
+}
+
+fn load_cpu_temperature_celsius(
+    physical_cores: usize,
+    logical_cores: usize,
+    components: &[SysComponentInfo],
+    ohm_snapshot: Option<&crate::cpu_ohm::CpuHardwareSnapshot>,
+) -> f32 {
+    if let Some(hw) = ohm_snapshot {
+        if hw.temperature_c > 0.0 {
+            return hw.temperature_c;
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Some(temp) =
+        crate::cpu_ohm::read_cpu_temperature_celsius(physical_cores, logical_cores)
+    {
+        return temp;
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Some(temp) = cpu_metrics_windows::read_cpu_temperature_celsius() {
+        return temp;
+    }
+
+    crate::monitor_model::cpu_package_temperature(components).unwrap_or(0.0)
+}
+
+#[cfg(target_os = "windows")]
+fn read_processor_power_info(
+    cpu_count: usize,
+) -> Option<Vec<windows::Win32::System::Power::PROCESSOR_POWER_INFORMATION>> {
+    use windows::Win32::System::Power::{
+        CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
+    };
+
+    if cpu_count == 0 {
+        return None;
+    }
+
+    let mut buffer = vec![PROCESSOR_POWER_INFORMATION::default(); cpu_count];
+    let status = unsafe {
+        CallNtPowerInformation(
+            ProcessorInformation,
+            None,
+            0,
+            Some(buffer.as_mut_ptr() as *mut _),
+            (std::mem::size_of::<PROCESSOR_POWER_INFORMATION>() * cpu_count) as u32,
+        )
+    };
+    if status.is_ok() {
+        Some(buffer)
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn read_linux_max_frequency_ghz(cpu_count: usize) -> Option<f32> {
+    let mut max_khz = 0u64;
+    for index in 0..cpu_count {
+        let path = format!("/sys/devices/system/cpu/cpu{index}/cpufreq/scaling_max_freq");
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            continue;
+        };
+        if let Ok(khz) = contents.trim().parse::<u64>() {
+            max_khz = max_khz.max(khz);
+        }
+    }
+    if max_khz > 0 {
+        Some(max_khz as f32 / 1_000_000.0)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod frequency_tests {
+    use super::parse_base_frequency_ghz;
+
+    #[test]
+    fn parse_base_frequency_from_intel_brand() {
+        let parsed = parse_base_frequency_ghz("Intel(R) Core(TM) i9-10900 CPU @ 2.80GHz").unwrap();
+        assert!((parsed - 2.80).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn parse_base_frequency_missing_for_amd_brand() {
+        assert!(parse_base_frequency_ghz(
+            "AMD Ryzen 9 5900X 12-Core Processor"
+        )
+        .is_none());
     }
 }

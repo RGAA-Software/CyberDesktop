@@ -42,7 +42,6 @@ impl Render for ProcessDetailsView {
             .bg(cx.theme().background)
             .child(
                 app_ui::TitleBar::new()
-                    .h(px(35.))
                     .bg(cx.theme().title_bar)
                     .child(
                         h_flex()

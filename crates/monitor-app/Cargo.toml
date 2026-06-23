@@ -25,7 +25,6 @@ serde_json.workspace = true
 sysinfo.workspace = true
 nvml-wrapper.workspace = true
 netdev.workspace = true
-calcmhz.workspace = true
 adlx.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
@@ -42,6 +41,7 @@ bincode = "1.3"
 flate2 = "1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+wmi.workspace = true
 windows = { version = "0.58", features = [
   "Win32_Foundation",
   "Win32_Security",
@@ -52,12 +52,15 @@ windows = { version = "0.58", features = [
   "Win32_System_Registry",
   "Win32_System_Environment",
   "Win32_System_Power",
+  "Win32_System_IO",
+  "Win32_System_SystemInformation",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Diagnostics_Debug",
   "Win32_System_Memory",
   "Win32_System_WindowsProgramming",
   "Win32_NetworkManagement_IpHelper",
   "Win32_Security_Authorization",
+  "Win32_Storage_FileSystem",
   "Wdk_System_Threading",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",

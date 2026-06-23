@@ -15,7 +15,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 use gpui::App;
 
 pub use app_assets::Assets;
-pub use color_icon::{color_icon, color_icon_box};
+pub use color_icon::{color_icon, color_icon_box, color_icon_box_sharp, color_icon_sharp};
 pub use cyber_editor::{
     apply_theme_mode, build_editor_settings, editor_menu_bar, pick_open_file_path,
     pick_save_file_path, set_view_toggles, AboutEditor, EditorCopy, EditorCut, EditorPaste,

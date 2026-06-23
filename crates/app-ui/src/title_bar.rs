@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    div, px, AnyElement, App, ClickEvent, Context, Decorations, Hsla, InteractiveElement,
+    div, px, rgb, AnyElement, App, ClickEvent, Context, Decorations, Hsla, InteractiveElement,
     IntoElement, MouseButton, ParentElement, Pixels, Render, RenderOnce,
     StatefulInteractiveElement as _, StyleRefinement, Styled, TitlebarOptions, Window,
     WindowControlArea,
@@ -52,6 +52,7 @@ pub struct TitleBar {
     children: SmallVec<[AnyElement; 1]>,
     trailing_before_controls: SmallVec<[AnyElement; 2]>,
     on_close_window: Option<Rc<Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>>>,
+    design_window_controls: bool,
 }
 
 impl TitleBar {
@@ -61,7 +62,14 @@ impl TitleBar {
             children: SmallVec::new(),
             trailing_before_controls: SmallVec::new(),
             on_close_window: None,
+            design_window_controls: false,
         }
+    }
+
+    /// Use bordered custom minimize / maximize / close buttons (CyberMonitor design).
+    pub fn design_window_controls(mut self, enabled: bool) -> Self {
+        self.design_window_controls = enabled;
+        self
     }
 
     /// Icon buttons placed immediately left of the window controls (minimize / maximize / close).
@@ -91,7 +99,7 @@ impl TitleBar {
     }
 }
 
-#[derive(IntoElement, Clone)]
+#[derive(Clone)]
 enum ControlIcon {
     Minimize,
     Restore,
@@ -173,22 +181,106 @@ impl ControlIcon {
     }
 }
 
-impl RenderOnce for ControlIcon {
+fn design_border_strong(cx: &App) -> Hsla {
+    if cx.theme().mode.is_dark() {
+        rgb(0x33405c).into()
+    } else {
+        rgb(0xc9d2e4).into()
+    }
+}
+
+fn design_topbar_hover_bg(cx: &App) -> Hsla {
+    if cx.theme().mode.is_dark() {
+        rgb(0x171d2c).into()
+    } else {
+        rgb(0xeef3fb).into()
+    }
+}
+
+const DESIGN_WIN_BTN: Pixels = px(38.);
+
+#[derive(IntoElement)]
+struct ControlIconRender {
+    icon: ControlIcon,
+    design: bool,
+}
+
+impl RenderOnce for ControlIconRender {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let is_linux = cfg!(target_os = "linux");
         let is_windows = cfg!(target_os = "windows");
+        let use_native_windows = is_windows && !self.design;
         let normal_fg = cx.theme().muted_foreground;
-        let hover_fg = self.hover_fg(cx);
-        let hover_bg = self.hover_bg(cx);
-        let active_bg = self.active_bg(cx);
-        let icon = self.clone();
-        let on_close_window = match &self {
+        let hover_fg = self.icon.hover_fg(cx);
+        let hover_bg = self.icon.hover_bg(cx);
+        let active_bg = self.icon.active_bg(cx);
+        let icon = self.icon.clone();
+        let on_close_window = match &self.icon {
             ControlIcon::Close { on_close_window } => on_close_window.clone(),
             _ => None,
         };
+        let is_close = self.icon.is_close();
+
+        let click_handler = move |_: &ClickEvent, window: &mut Window, cx: &mut App| {
+            cx.stop_propagation();
+            match icon {
+                ControlIcon::Minimize => window.minimize_window(),
+                ControlIcon::Restore | ControlIcon::Maximize => window.zoom_window(),
+                ControlIcon::Close { .. } => {
+                    if let Some(f) = on_close_window.clone() {
+                        f(&ClickEvent::default(), window, cx);
+                    } else {
+                        window.remove_window();
+                    }
+                }
+            }
+        };
+
+        if self.design {
+            let strong_border = design_border_strong(cx);
+            let topbar_hover = design_topbar_hover_bg(cx);
+            return div()
+                .id(self.icon.id())
+                .w(DESIGN_WIN_BTN)
+                .h(DESIGN_WIN_BTN)
+                .flex()
+                .flex_shrink_0()
+                .items_center()
+                .justify_center()
+                .rounded(px(7.))
+                .border_1()
+                .border_color(cx.theme().border)
+                .bg(cx.theme().secondary)
+                .text_color(cx.theme().foreground)
+                .cursor_pointer()
+                .when(is_close, |this| {
+                    this.hover(|style| {
+                        style
+                            .bg(cx.theme().danger)
+                            .border_color(cx.theme().danger)
+                            .text_color(cx.theme().danger_foreground)
+                    })
+                })
+                .when(!is_close, |this| {
+                    this.hover(|style| {
+                        style
+                            .bg(topbar_hover)
+                            .border_color(strong_border)
+                            .text_color(cx.theme().primary)
+                    })
+                })
+                .when(is_windows, |this| {
+                    this.window_control_area(self.icon.window_control_area())
+                })
+                .when(!is_windows, |this| {
+                    this.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(click_handler)
+                })
+                .child(Icon::new(self.icon.icon()).small());
+        }
 
         div()
-            .id(self.id())
+            .id(self.icon.id())
             .flex()
             .w(TITLE_BAR_HEIGHT)
             .h_full()
@@ -199,42 +291,70 @@ impl RenderOnce for ControlIcon {
             .text_color(normal_fg)
             .hover(|style| style.bg(hover_bg).text_color(hover_fg))
             .active(|style| style.bg(active_bg).text_color(hover_fg))
-            .when(is_windows, |this| {
-                this.window_control_area(self.window_control_area())
+            .when(use_native_windows, |this| {
+                this.window_control_area(self.icon.window_control_area())
             })
             .when(is_linux, |this| {
                 this.on_mouse_down(MouseButton::Left, move |_, window, cx| {
                     window.prevent_default();
                     cx.stop_propagation();
                 })
-                .on_click(move |_, window, cx| {
-                    cx.stop_propagation();
-                    match icon {
-                        Self::Minimize => window.minimize_window(),
-                        Self::Restore | Self::Maximize => window.zoom_window(),
-                        Self::Close { .. } => {
-                            if let Some(f) = on_close_window.clone() {
-                                f(&ClickEvent::default(), window, cx);
-                            } else {
-                                window.remove_window();
-                            }
-                        }
-                    }
-                })
+                .on_click(click_handler)
             })
-            .child(Icon::new(self.icon()).small())
+            .child(Icon::new(self.icon.icon()).small())
     }
 }
 
 #[derive(IntoElement)]
 struct WindowControls {
     on_close_window: Option<Rc<Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>>>,
+    design: bool,
 }
 
 impl RenderOnce for WindowControls {
-    fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         if cfg!(target_os = "macos") || cfg!(target_family = "wasm") {
             return div().id("window-controls");
+        }
+
+        let maximize = if window.is_maximized() {
+            ControlIcon::restore()
+        } else {
+            ControlIcon::maximize()
+        };
+
+        if self.design {
+            return h_flex()
+                .id("window-controls")
+                .items_center()
+                .flex_shrink_0()
+                .ml(px(6.))
+                .pr(px(8.))
+                .child(
+                    div()
+                        .w(px(1.))
+                        .h(DESIGN_WIN_BTN)
+                        .flex_none()
+                        .bg(cx.theme().border),
+                )
+                .child(
+                    h_flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .pl(px(6.))
+                        .child(ControlIconRender {
+                            icon: ControlIcon::minimize(),
+                            design: true,
+                        })
+                        .child(ControlIconRender {
+                            icon: maximize,
+                            design: true,
+                        })
+                        .child(ControlIconRender {
+                            icon: ControlIcon::close(self.on_close_window),
+                            design: true,
+                        }),
+                );
         }
 
         h_flex()
@@ -242,13 +362,18 @@ impl RenderOnce for WindowControls {
             .items_center()
             .flex_shrink_0()
             .h_full()
-            .child(ControlIcon::minimize())
-            .child(if window.is_maximized() {
-                ControlIcon::restore()
-            } else {
-                ControlIcon::maximize()
+            .child(ControlIconRender {
+                icon: ControlIcon::minimize(),
+                design: false,
             })
-            .child(ControlIcon::close(self.on_close_window))
+            .child(ControlIconRender {
+                icon: maximize,
+                design: false,
+            })
+            .child(ControlIconRender {
+                icon: ControlIcon::close(self.on_close_window),
+                design: false,
+            })
     }
 }
 
@@ -327,6 +452,7 @@ impl RenderOnce for TitleBar {
                         .h_full()
                         .flex_1()
                         .min_w_0()
+                        .items_center()
                         .when(!is_web, |this| {
                             this.window_control_area(WindowControlArea::Drag)
                                 .when(window.is_fullscreen(), |this| this.pl_3())
@@ -360,6 +486,7 @@ impl RenderOnce for TitleBar {
                 )
                 .child(WindowControls {
                     on_close_window: self.on_close_window,
+                    design: self.design_window_controls,
                 }),
         )
     }

@@ -5,8 +5,8 @@ use gpui::{
     ParentElement, Render, StatefulInteractiveElement, Styled, Window, WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, input::InputState, label::Label, scroll::ScrollableElement as _, v_flex, ActiveTheme,
-    Root, StyledExt, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, scroll::ScrollableElement as _, v_flex, ActiveTheme,
+    Root, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 
@@ -20,7 +20,8 @@ use crate::monitor_actions::{
 };
 use crate::monitor_codec::encode_telemetry;
 use crate::monitor_dashboard::{
-    render_dashboard, render_monitor_client_sidebar, topbar_icon_button,
+    monitor_title_crumb, render_dashboard, render_monitor_client_sidebar, topbar_icon_button,
+    MONITOR_MAIN_TITLE_BAR_HEIGHT,
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
@@ -305,7 +306,8 @@ impl Render for SysMonitorApp {
                     .h_full()
                     .child(
                         app_ui::TitleBar::new()
-                            .h(px(62.))
+                            .design_window_controls(true)
+                            .h(MONITOR_MAIN_TITLE_BAR_HEIGHT)
                             .bg(cx.theme().title_bar)
                             .border_b_1()
                             .border_color(cx.theme().title_bar_border)
@@ -315,23 +317,15 @@ impl Render for SysMonitorApp {
                                     .h_full()
                                     .w_full()
                                     .min_w_0()
+                                    .flex_1()
                                     .items_center()
                                     .pl(px(24.))
-                                    .child(
-                                        v_flex()
-                                            .justify_center()
-                                            .child(
-                                                Label::new(monitor_tab_title(self.active_tab))
-                                                    .text_xl()
-                                                    .font_semibold()
-                                                    .text_color(cx.theme().foreground),
-                                            )
-                                            .child(
-                                                Label::new(monitor_tab_subtitle(self.active_tab))
-                                                    .text_xs()
-                                                    .text_color(cx.theme().muted_foreground),
-                                            ),
-                                    ),
+                                    .pr(px(18.))
+                                    .child(monitor_title_crumb(
+                                        monitor_tab_title(self.active_tab),
+                                        monitor_tab_subtitle(self.active_tab),
+                                        cx,
+                                    )),
                             )
                             .trailing_before_controls(
                                 h_flex()
@@ -339,7 +333,6 @@ impl Render for SysMonitorApp {
                                     .h_full()
                                     .items_center()
                                     .gap(px(10.))
-                                    .pr(px(6.))
                                     .child(
                                         topbar_icon_button(
                                             "monitor-refresh",
@@ -383,7 +376,7 @@ impl Render for SysMonitorApp {
                                                 app_ui::SettingsWindowState::open_with(
                                                     cx,
                                                     |cx| build_monitor_settings(cx),
-                                                    Some(px(62.)),
+                                                    None,
                                                 );
                                             }),
                                         ),

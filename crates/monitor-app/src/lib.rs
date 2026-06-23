@@ -15,3 +15,10 @@ pub mod single_instance;
 pub mod sys_info;
 pub mod sys_info_mgr;
 pub mod tray;
+
+#[cfg(target_os = "windows")]
+mod cpu_metrics_windows;
+#[cfg(target_os = "windows")]
+mod cpu_ohm;
+#[cfg(target_os = "windows")]
+mod cpu_ring0;

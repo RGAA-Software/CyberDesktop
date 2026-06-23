@@ -27,6 +27,8 @@ pub struct SysCpuInfo {
     /// Physical core count (unique `physical_core_id` values from sysinfo).
     #[serde(default)]
     pub physical_cores: usize,
+    #[serde(default)]
+    pub temperature: f32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -211,6 +213,8 @@ pub struct SysGpuInfo {
     pub power_limit: u32,
     #[serde(default)]
     pub encoder_utilization: u32,
+    #[serde(default)]
+    pub decoder_utilization: u32,
     #[serde(default)]
     pub gpu_utilization: u32,
     #[serde(default)]

@@ -25,6 +25,9 @@ pub const SUN: &str = tabler_path!("sun");
 pub const MOON: &str = tabler_path!("moon");
 pub const SETTINGS: &str = tabler_path!("settings");
 
+/// Full-color sidebar / brand logo (`app-assets/assets/app/logo/ic_cyber_monitor.svg`).
+pub const APP_LOGO_PATH: &str = "app/logo/ic_cyber_monitor.svg";
+
 const NAV_ICON: Size = Size::Size(px(18.));
 const TOPBAR_ICON: Size = Size::Size(px(16.));
 

@@ -96,6 +96,7 @@ impl MonitorTab {
 pub struct HistoryPoint {
     pub time: String,
     pub cpu_usage: f64,
+    pub cpu_frequency: f64,
     pub cpu_cores: Vec<f64>,
     pub mem_used_gb: f64,
     pub mem_usage_percent: f64,
@@ -111,6 +112,7 @@ pub struct GpuHistoryPoint {
     pub usage: f64,
     pub temperature: f64,
     pub memory_used_gb: f64,
+    pub decoder_usage: f64,
 }
 
 #[derive(Clone, Default)]
@@ -234,6 +236,7 @@ impl MachineTelemetry {
         let point = HistoryPoint {
             time: short_time_label(&self.current.timestamp_readable),
             cpu_usage: self.current.cpu.usage as f64,
+            cpu_frequency: self.current.cpu.current_frequency as f64,
             cpu_cores: self
                 .current
                 .cpu
@@ -257,6 +260,7 @@ impl MachineTelemetry {
                 usage: gpu.gpu_utilization as f64,
                 temperature: gpu.temperature as f64,
                 memory_used_gb: gpu.mem_used_gb as f64,
+                decoder_usage: gpu.decoder_utilization as f64,
             };
             let history = self.gpu_history.entry(id).or_default();
             push_point(history, point);
@@ -338,6 +342,54 @@ pub fn format_optional_frequency(freq: f32) -> String {
     }
 }
 
+/// Reads the best available CPU package temperature from hardware sensors.
+pub fn cpu_package_temperature(components: &[crate::sys_info::SysComponentInfo]) -> Option<f32> {
+    let mut package_temp = None::<f32>;
+    for component in components {
+        let label = component.label.to_lowercase();
+        let is_cpu_sensor = label.contains("cpu")
+            || label.contains("core")
+            || label.contains("package")
+            || label.contains("tctl")
+            || label.contains("ccd");
+        if is_cpu_sensor && component.temperature > 0.0 {
+            package_temp = Some(
+                package_temp
+                    .map(|current| current.max(component.temperature))
+                    .unwrap_or(component.temperature),
+            );
+        }
+    }
+    if package_temp.is_some() {
+        return package_temp;
+    }
+
+    components
+        .iter()
+        .filter(|component| {
+            let label = component.label.to_lowercase();
+            component.temperature > 0.0
+                && !label.contains("gpu")
+                && !label.contains("nvidia")
+                && !label.contains("radeon")
+                && !label.contains("disk")
+                && !label.contains("hdd")
+                && !label.contains("ssd")
+        })
+        .map(|component| component.temperature)
+        .max_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal))
+}
+
+pub fn format_cpu_temperature(cpu: &crate::sys_info::SysCpuInfo, components: &[crate::sys_info::SysComponentInfo]) -> String {
+    if cpu.temperature > 0.0 {
+        return format!("{:.0} °C", cpu.temperature);
+    }
+    match cpu_package_temperature(components) {
+        Some(temp) if temp > 0.0 => format!("{temp:.0} °C"),
+        _ => "暂不可用".to_string(),
+    }
+}
+
 pub fn cpu_color(cpu: f32, theme: &Theme) -> Hsla {
     if cpu >= 80.0 {
         theme.red
@@ -359,6 +411,7 @@ pub fn format_tick(value: f64, unit: &str) -> String {
         "MB/s" => format!("{value:.1}"),
         "GB" => format!("{value:.1}"),
         "°C" => format!("{value:.0}"),
+        "GHz" => format!("{value:.2}"),
         _ => format!("{value:.1}"),
     }
 }

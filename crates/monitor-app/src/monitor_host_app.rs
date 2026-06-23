@@ -33,7 +33,8 @@ use crate::monitor_alert::{
 };
 use crate::monitor_codec::decode_telemetry;
 use crate::monitor_dashboard::{
-    render_connection_summary, render_dashboard, render_monitor_nav, topbar_icon_button,
+    monitor_title_crumb, render_connection_summary, render_dashboard, render_monitor_nav,
+    topbar_icon_button,
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
@@ -694,7 +695,7 @@ impl Render for SysMonitorHostApp {
                     .h_full()
                     .child(
                         app_ui::TitleBar::new()
-                            .h(px(62.))
+                            .design_window_controls(true)
                             .bg(cx.theme().title_bar)
                             .border_b_1()
                             .border_color(cx.theme().title_bar_border)
@@ -704,23 +705,11 @@ impl Render for SysMonitorHostApp {
                                     .h_full()
                                     .w_full()
                                     .min_w_0()
+                                    .flex_1()
                                     .items_center()
                                     .pl(px(24.))
-                                    .child(
-                                        v_flex()
-                                            .justify_center()
-                                            .child(
-                                                Label::new(title)
-                                                    .text_xl()
-                                                    .font_semibold()
-                                                    .text_color(cx.theme().foreground),
-                                            )
-                                            .child(
-                                                Label::new(subtitle)
-                                                    .text_xs()
-                                                    .text_color(cx.theme().muted_foreground),
-                                            ),
-                                    ),
+                                    .pr(px(18.))
+                                    .child(monitor_title_crumb(title, subtitle, cx)),
                             )
                             .trailing_before_controls(
                                 h_flex()
@@ -728,7 +717,6 @@ impl Render for SysMonitorHostApp {
                                     .h_full()
                                     .items_center()
                                     .gap(px(10.))
-                                    .pr(px(6.))
                                     .child(
                                         topbar_icon_button(
                                             "host-refresh",
