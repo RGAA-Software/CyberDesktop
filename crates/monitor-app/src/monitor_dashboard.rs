@@ -457,7 +457,8 @@ fn render_metric_card_with_height<V>(
     cx: &Context<V>,
 ) -> impl IntoElement {
     let value_is_long = value.len() > 14;
-    let percent = percent.unwrap_or(0.0).clamp(0.0, 100.0);
+    let show_progress = percent.is_some();
+    let progress_percent = percent.unwrap_or(0.0).clamp(0.0, 100.0);
     let progress_color = progress_color.unwrap_or(cx.theme().primary);
 
     card(id)
@@ -505,22 +506,24 @@ fn render_metric_card_with_height<V>(
                         .text_color(cx.theme().foreground)
                         .into_any_element()
                 })
-                .child(
-                    div()
-                        .id(format!("{id}-bar"))
-                        .w_full()
-                        .h(px(6.))
-                        .rounded_full()
-                        .overflow_hidden()
-                        .bg(cx.theme().primary.opacity(0.10))
-                        .child(
-                            div()
-                                .h_full()
-                                .rounded_full()
-                                .bg(progress_color)
-                                .w(relative(percent / 100.0)),
-                        ),
-                ),
+                .when(show_progress, |this| {
+                    this.child(
+                        div()
+                            .id(format!("{id}-bar"))
+                            .w_full()
+                            .h(px(6.))
+                            .rounded_full()
+                            .overflow_hidden()
+                            .bg(cx.theme().primary.opacity(0.10))
+                            .child(
+                                div()
+                                    .h_full()
+                                    .rounded_full()
+                                    .bg(progress_color)
+                                    .w(relative(progress_percent / 100.0)),
+                            ),
+                    )
+                }),
         )
 }
 
@@ -1538,6 +1541,11 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
             } else {
                 disk.disk_type.clone()
             };
+            let manufacturer_label = if disk.manufacturer.is_empty() {
+                "未知磁盘".to_string()
+            } else {
+                disk.manufacturer.clone()
+            };
 
             card(format!("disk-panel-{disk_id}"))
                 .p(px(16.))
@@ -1562,7 +1570,7 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                                                 .text_color(cx.theme().foreground),
                                         ),
                                 )
-                                .child(chip(&disk_type, cx)),
+                                .child(chip(&manufacturer_label, cx)),
                         )
                         .child(
                             metric_grid_row_equal()
@@ -1578,28 +1586,32 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                                     &format!("disk-{disk_id}-free"),
                                     "可用空间",
                                     format!("{} GB", disk.available_gb),
-                                    Some(
-                                        ((disk.available as f32 / disk.total.max(1) as f32)
-                                            * 100.0)
-                                            .clamp(0.0, 100.0),
-                                    ),
-                                    Some(cx.theme().primary),
+                                    None,
+                                    None,
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("disk-{disk_id}-type"),
+                                    "磁盘类型",
+                                    disk_type.clone(),
+                                    None,
+                                    None,
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
                                     &format!("disk-{disk_id}-read"),
                                     "读取速率",
                                     format!("{read_rate:.2} MB/s"),
-                                    Some(((read_rate / 10.0) * 100.0).min(100.0) as f32),
-                                    Some(cx.theme().primary),
+                                    None,
+                                    None,
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
                                     &format!("disk-{disk_id}-write"),
                                     "写入速率",
                                     format!("{write_rate:.2} MB/s"),
-                                    Some(((write_rate / 10.0) * 100.0).min(100.0) as f32),
-                                    Some(cx.theme().primary),
+                                    None,
+                                    None,
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
@@ -1611,7 +1623,7 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                                         disk.filesystem.clone()
                                     },
                                     None,
-                                    Some(cx.theme().primary),
+                                    None,
                                     cx,
                                 )),
                         )

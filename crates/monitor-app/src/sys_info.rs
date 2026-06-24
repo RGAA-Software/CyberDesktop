@@ -77,6 +77,8 @@ pub struct SysDiskInfo {
     #[serde(default)]
     pub disk_type: String,
     #[serde(default)]
+    pub manufacturer: String,
+    #[serde(default)]
     pub mount_on: String,
     #[serde(default)]
     pub filesystem: String,

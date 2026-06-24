@@ -228,6 +228,7 @@ impl SysInfoManager {
             let usage = disk.usage();
             disks_info.push(SysDiskInfo {
                 disk_type: disk.kind().to_string(),
+                manufacturer: String::new(),
                 mount_on: disk.mount_point().to_str().unwrap_or("").to_string(),
                 filesystem: disk.file_system().to_str().unwrap_or("").to_string(),
                 available: disk.available_space(),
@@ -239,6 +240,18 @@ impl SysInfoManager {
                 read_rate: usage.read_bytes as f64 / 1024.0 / 1024.0,
                 write_rate: usage.written_bytes as f64 / 1024.0 / 1024.0,
             });
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let mounts: Vec<String> = disks_info.iter().map(|disk| disk.mount_on.clone()).collect();
+            let manufacturers = crate::disk_metrics_windows::read_disk_manufacturers(&mounts);
+            for disk in &mut disks_info {
+                let device_id =
+                    crate::disk_metrics_windows::normalize_device_id(&disk.mount_on);
+                if let Some(manufacturer) = manufacturers.get(&device_id) {
+                    disk.manufacturer = manufacturer.clone();
+                }
+            }
         }
 
         if self.def_ethernet.is_none() {
