@@ -25,6 +25,12 @@ pub struct ShowProcessDetails {
 
 #[derive(Clone, Action, PartialEq, Eq, Deserialize)]
 #[action(namespace = monitor_process, no_json)]
+pub struct CopyProcessInfo {
+    pub pid: u32,
+}
+
+#[derive(Clone, Action, PartialEq, Eq, Deserialize)]
+#[action(namespace = monitor_process, no_json)]
 pub struct CycleProcessSort {
     pub column: ProcessSortColumn,
 }
@@ -97,6 +103,7 @@ pub trait ProcessActionHandler: Sized {
     fn terminate_process(&mut self, _pid: u32, _cx: &mut gpui::Context<Self>) {}
     fn reveal_process_exe(&mut self, _pid: u32, _cx: &mut gpui::Context<Self>) {}
     fn show_process_details(&mut self, _pid: u32, _cx: &mut gpui::Context<Self>) {}
+    fn copy_process_info(&mut self, _pid: u32, _cx: &mut gpui::Context<Self>) {}
     fn start_service(&mut self, _name: &str, _cx: &mut gpui::Context<Self>) -> bool {
         false
     }

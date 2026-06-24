@@ -3,24 +3,26 @@ use std::sync::Arc;
 
 use gpui::{
     div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, relative, rgb, size,
-    AnyElement, App, Context, ElementId, Entity, FontWeight, Hsla, InteractiveElement,
-    IntoElement, ParentElement, Pixels, Render, SharedString, Stateful, StatefulInteractiveElement,
-    Styled, Window,
+    AnyElement, App, Axis, Context, ElementId, Entity, FontWeight, Hsla, InteractiveElement,
+    IntoElement, ParentElement, Pixels, Render, SharedString, Stateful,
+    StatefulInteractiveElement, Styled, Window,
 };
 use gpui_component::{
     chart::AreaChart,
     h_flex,
     input::{Input, InputState},
     label::Label,
-    scroll::{ScrollableElement as _, ScrollbarAxis},
+    scroll::{
+        ScrollableElement as _, ScrollableMask, Scrollbar, ScrollbarAxis, ScrollbarShow,
+    },
     table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
     v_flex, v_virtual_list, ActiveTheme, StyledExt, VirtualListScrollHandle,
 };
 
 use crate::monitor_actions::{
-    RestartServiceAction, ResumeProcess, RevealProcessExe, RevealStartupItem, SetProcessAffinity,
-    SetProcessIoPriority, SetProcessPriority, ShowProcessDetails, StartServiceAction,
-    StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
+    CopyProcessInfo, RestartServiceAction, ResumeProcess, RevealProcessExe, RevealStartupItem,
+    SetProcessAffinity, SetProcessIoPriority, SetProcessPriority, ShowProcessDetails,
+    StartServiceAction, StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_icons;
 use crate::cpu_platform::format_cpu_frequency_range;
@@ -82,6 +84,20 @@ fn striped_row_bg(index: usize, cx: &App) -> Option<Hsla> {
     } else {
         None
     }
+}
+
+const PROCESS_COL_PID: Pixels = px(80.);
+const PROCESS_COL_NAME: Pixels = px(160.);
+const PROCESS_COL_STATUS: Pixels = px(80.);
+const PROCESS_COL_CPU: Pixels = px(80.);
+const PROCESS_COL_MEM: Pixels = px(100.);
+const PROCESS_COL_VMEM: Pixels = px(120.);
+const PROCESS_COL_READ: Pixels = px(100.);
+const PROCESS_COL_WRITE: Pixels = px(100.);
+const PROCESS_COL_CMD: Pixels = px(800.);
+
+fn process_table_min_width() -> Pixels {
+    px(1620. + 64.)
 }
 
 /// Design token `--panel-2` (#f7f9fc / #0f1521).
@@ -254,6 +270,7 @@ pub fn render_dashboard<V: Render, F>(
     telemetry: &MachineTelemetry,
     active_tab: MonitorTab,
     process_scroll_handle: &VirtualListScrollHandle,
+    process_h_scroll_handle: &VirtualListScrollHandle,
     process_search: &Entity<InputState>,
     process_sort: ProcessSort,
     service_scroll_handle: &VirtualListScrollHandle,
@@ -278,6 +295,7 @@ where
         MonitorTab::Processes => render_processes_tab(
             telemetry,
             process_scroll_handle,
+            process_h_scroll_handle,
             process_search,
             process_sort,
             on_cycle_sort,
@@ -432,7 +450,7 @@ fn render_metric_card<V>(
     progress_color: Option<Hsla>,
     cx: &Context<V>,
 ) -> impl IntoElement {
-    render_metric_card_with_height(id, title, value, percent, progress_color, px(96.), false, cx)
+    render_metric_card_with_height(id, title, value, percent, progress_color, px(96.), false, false, cx)
 }
 
 fn render_overview_metric_card<V>(
@@ -443,7 +461,16 @@ fn render_overview_metric_card<V>(
     progress_color: Option<Hsla>,
     cx: &Context<V>,
 ) -> impl IntoElement {
-    render_metric_card_with_height(id, title, value, percent, progress_color, px(96.), true, cx)
+    render_metric_card_with_height(id, title, value, percent, progress_color, px(96.), true, false, cx)
+}
+
+fn render_process_header_metric_card<V>(
+    id: &str,
+    title: &str,
+    value: String,
+    cx: &Context<V>,
+) -> impl IntoElement {
+    render_metric_card_with_height(id, title, value, None, None, px(96.), true, true, cx)
 }
 
 fn render_metric_card_with_height<V>(
@@ -454,6 +481,7 @@ fn render_metric_card_with_height<V>(
     progress_color: Option<Hsla>,
     height: Pixels,
     overview_value: bool,
+    large_overview_value: bool,
     cx: &Context<V>,
 ) -> impl IntoElement {
     let value_is_long = value.len() > 14;
@@ -490,9 +518,13 @@ fn render_metric_card_with_height<V>(
                         .overflow_hidden()
                         .child(
                             Label::new(value)
-                                .text_sm()
+                                .when(large_overview_value, |this| {
+                                    this.text_base().line_height(px(22.))
+                                })
+                                .when(!large_overview_value, |this| {
+                                    this.text_sm().line_height(px(20.))
+                                })
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .line_height(px(20.))
                                 .truncate()
                                 .text_color(cx.theme().foreground),
                         )
@@ -1746,16 +1778,16 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                                     &format!("net-{network_id}-send-rate"),
                                     "发送速率",
                                     format!("{send_rate:.2} MB/s"),
-                                    Some(((send_rate / 10.0) * 100.0).min(100.0) as f32),
-                                    Some(cx.theme().primary),
+                                    None,
+                                    None,
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
                                     &format!("net-{network_id}-recv-rate"),
                                     "接收速率",
                                     format!("{recv_rate:.2} MB/s"),
-                                    Some(((recv_rate / 10.0) * 100.0).min(100.0) as f32),
-                                    Some(cx.theme().yellow),
+                                    None,
+                                    None,
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
@@ -1811,6 +1843,7 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
 fn render_processes_tab<V: Render, F>(
     telemetry: &MachineTelemetry,
     scroll_handle: &VirtualListScrollHandle,
+    h_scroll_handle: &VirtualListScrollHandle,
     process_search: &Entity<InputState>,
     process_sort: ProcessSort,
     on_cycle_sort: F,
@@ -1836,53 +1869,51 @@ where
         })
         .cloned()
         .collect();
-    sort_processes(&mut processes, process_sort);
-
-    let top_cpu = processes.first().cloned();
+    let top_cpu = processes
+        .iter()
+        .max_by(|a, b| {
+            a.cpu_usage
+                .partial_cmp(&b.cpu_usage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .cloned();
     let top_mem = processes
         .iter()
         .max_by_key(|process| process.memory)
         .cloned();
+    sort_processes(&mut processes, process_sort);
+
     let processes: Arc<[SysProcessInfo]> = processes.into();
-    let mem_total_mb = bytes_to_gb(telemetry.current.mem.total) * 1024.0;
+    let h_offset_x = h_scroll_handle.offset().x;
+    let table_scroll_size = size(process_table_min_width(), px(1.));
 
     v_flex()
         .gap(px(14.))
         .size_full()
         .child(
             metric_grid_row_equal()
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "process-count",
                     "进程数",
                     processes.len().to_string(),
-                    Some(80.0),
-                    Some(cx.theme().primary),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "process-top-cpu",
                     "最高 CPU",
                     top_cpu
                         .as_ref()
                         .map(|process| format!("{} {:.1}%", process.name, process.cpu_usage))
                         .unwrap_or_else(|| "-".to_string()),
-                    top_cpu
-                        .as_ref()
-                        .map(|process| process.cpu_usage.clamp(0.0, 100.0)),
-                    Some(cx.theme().red),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "process-top-mem",
                     "最高内存",
                     top_mem
                         .as_ref()
                         .map(|process| format!("{} {} MB", process.name, process.memory_mb))
                         .unwrap_or_else(|| "-".to_string()),
-                    top_mem.as_ref().map(|process| {
-                        ((process.memory_mb as f64 / mem_total_mb) * 100.0).clamp(0.0, 100.0) as f32
-                    }),
-                    Some(cx.theme().primary),
                     cx,
                 )),
         )
@@ -1900,13 +1931,92 @@ where
                 .border_1()
                 .border_color(cx.theme().border)
                 .overflow_hidden()
-                .child(render_process_table_header(process_sort, on_cycle_sort, cx))
                 .child(
                     div()
+                        .id("process-table-scroll-area")
                         .flex_1()
                         .min_h_0()
-                        .child(render_process_table(processes.clone(), scroll_handle, cx))
-                        .scrollbar(scroll_handle, ScrollbarAxis::Vertical),
+                        .relative()
+                        .child(
+                            v_flex()
+                                .size_full()
+                                .overflow_hidden()
+                                .child(
+                                    div()
+                                        .id("process-table-header-viewport")
+                                        .flex_none()
+                                        .w_full()
+                                        .overflow_hidden()
+                                        .child(
+                                            div()
+                                                .left(h_offset_x)
+                                                .min_w(process_table_min_width())
+                                                .child(render_process_table_header(
+                                                    process_sort,
+                                                    on_cycle_sort,
+                                                    cx,
+                                                )),
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .id("process-table-body-viewport")
+                                        .flex_1()
+                                        .min_h_0()
+                                        .w_full()
+                                        .overflow_hidden()
+                                        .relative()
+                                        .child(
+                                            div()
+                                                .w_full()
+                                                .h_full()
+                                                .pr(px(16.))
+                                                .overflow_hidden()
+                                                .child(
+                                                    div()
+                                                        .left(h_offset_x)
+                                                        .min_w(process_table_min_width())
+                                                        .h_full()
+                                                        .child(
+                                                            div()
+                                                                .h_full()
+                                                                .child(render_process_table(
+                                                                    processes.clone(),
+                                                                    scroll_handle,
+                                                                    cx,
+                                                                )),
+                                                        ),
+                                                ),
+                                        )
+                                        .child(
+                                            div()
+                                                .absolute()
+                                                .top_0()
+                                                .right_0()
+                                                .bottom_0()
+                                                .w(px(16.))
+                                                .child(
+                                                    Scrollbar::vertical(scroll_handle)
+                                                        .scrollbar_show(ScrollbarShow::Always),
+                                                ),
+                                        ),
+                                ),
+                        )
+                        .child(ScrollableMask::new(
+                            Axis::Horizontal,
+                            h_scroll_handle.base_handle(),
+                        )),
+                )
+                .child(
+                    div()
+                        .flex_none()
+                        .w_full()
+                        .h(px(16.))
+                        .child(
+                            Scrollbar::horizontal(h_scroll_handle)
+                                .scrollbar_show(ScrollbarShow::Always)
+                                .scroll_size(table_scroll_size),
+                        ),
                 )
                 .child(
                     div()
@@ -1921,6 +2031,7 @@ where
                         ),
                 ),
         )
+        .pb(px(10.))
 }
 
 fn render_process_table_header<V: Render, F>(
@@ -1933,6 +2044,7 @@ where
 {
     h_flex()
         .id("process-table-header")
+        .min_w(process_table_min_width())
         .h(px(32.))
         .px(px(12.))
         .gap(px(8.))
@@ -1943,7 +2055,7 @@ where
         .border_color(cx.theme().border)
         .child(render_header_cell(
             "PID",
-            px(80.),
+            PROCESS_COL_PID,
             false,
             None,
             false,
@@ -1954,7 +2066,7 @@ where
         ))
         .child(render_header_cell(
             "名称",
-            px(160.),
+            PROCESS_COL_NAME,
             false,
             None,
             false,
@@ -1964,19 +2076,8 @@ where
             cx,
         ))
         .child(render_header_cell(
-            "命令行",
-            px(0.),
-            true,
-            Some(px(200.)),
-            false,
-            None,
-            sort,
-            on_cycle_sort.clone(),
-            cx,
-        ))
-        .child(render_header_cell(
             "状态",
-            px(80.),
+            PROCESS_COL_STATUS,
             false,
             None,
             false,
@@ -1987,7 +2088,7 @@ where
         ))
         .child(render_header_cell(
             "CPU%",
-            px(80.),
+            PROCESS_COL_CPU,
             false,
             None,
             true,
@@ -1998,7 +2099,7 @@ where
         ))
         .child(render_header_cell(
             "内存 (MB)",
-            px(100.),
+            PROCESS_COL_MEM,
             false,
             None,
             true,
@@ -2009,7 +2110,7 @@ where
         ))
         .child(render_header_cell(
             "虚拟内存 (MB)",
-            px(120.),
+            PROCESS_COL_VMEM,
             false,
             None,
             true,
@@ -2020,7 +2121,7 @@ where
         ))
         .child(render_header_cell(
             "读取 (MB/s)",
-            px(100.),
+            PROCESS_COL_READ,
             false,
             None,
             true,
@@ -2031,11 +2132,22 @@ where
         ))
         .child(render_header_cell(
             "写入 (MB/s)",
-            px(100.),
+            PROCESS_COL_WRITE,
             false,
             None,
             true,
             Some(ProcessSortColumn::DiskWrite),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "命令行",
+            PROCESS_COL_CMD,
+            false,
+            None,
+            false,
+            None,
             sort,
             on_cycle_sort.clone(),
             cx,
@@ -2071,6 +2183,7 @@ where
         .id(format!("process-header-{label}"))
         .flex_none()
         .h_full()
+        .flex()
         .items_center()
         .text_xs()
         .font_semibold()
@@ -2094,7 +2207,7 @@ where
         cell = cell.min_w(min_w);
     }
     if align_right {
-        cell = cell.text_right();
+        cell = cell.justify_end().text_right();
     }
     if let Some(column) = column {
         cell = cell.cursor_pointer().on_click(move |_event, window, cx| {
@@ -2110,7 +2223,8 @@ fn render_process_table<V: Render>(
     cx: &mut Context<V>,
 ) -> impl IntoElement {
     let item_count = processes.len().max(1);
-    let item_sizes = Rc::new(vec![size(px(0.), px(32.)); item_count]);
+    let item_sizes =
+        Rc::new(vec![size(process_table_min_width(), px(32.)); item_count]);
 
     v_virtual_list(
         cx.entity().clone(),
@@ -2150,6 +2264,7 @@ fn render_process_row<V>(
                 .menu("结束进程树", Box::new(TerminateProcessTree { pid }))
                 .menu("打开文件位置", Box::new(RevealProcessExe { pid }))
                 .menu("属性", Box::new(ShowProcessDetails { pid }))
+                .menu("拷贝信息", Box::new(CopyProcessInfo { pid }))
                 .separator()
                 .menu("暂停", Box::new(SuspendProcess { pid }))
                 .menu("恢复", Box::new(ResumeProcess { pid }))
@@ -2259,78 +2374,92 @@ fn render_process_row<V>(
                     )
                 })
         })
-        .w_full()
+        .min_w(process_table_min_width())
         .h(px(32.))
         .px(px(12.))
         .gap(px(8.))
         .items_center()
+        .overflow_hidden()
         .border_b_1()
         .border_color(cx.theme().border)
         .text_sm()
         .text_color(cx.theme().foreground)
+        .child(process_table_text_cell(
+            process.pid.to_string(),
+            PROCESS_COL_PID,
+            false,
+        ))
+        .child(process_table_text_cell(
+            process.name.clone(),
+            PROCESS_COL_NAME,
+            false,
+        ))
         .child(
             div()
-                .w(px(80.))
+                .w(PROCESS_COL_STATUS)
                 .flex_none()
-                .child(Label::new(process.pid.to_string()).text_sm()),
-        )
-        .child(
-            div()
-                .w(px(160.))
-                .flex_none()
-                .child(Label::new(truncate_text(&process.name, 24)).text_sm()),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w(px(200.))
-                .child(Label::new(truncate_text(&process.command_line, 48)).text_sm()),
-        )
-        .child(
-            div()
-                .w(px(80.))
-                .flex_none()
+                .overflow_hidden()
                 .child(
                     Label::new(process.status.clone())
                         .text_sm()
+                        .truncate()
                         .text_color(status_color),
                 ),
         )
+        .child(process_table_text_cell(
+            format!("{:.1}", process.cpu_usage),
+            PROCESS_COL_CPU,
+            true,
+        ))
+        .child(process_table_text_cell(
+            format!("{}", process.memory_mb),
+            PROCESS_COL_MEM,
+            true,
+        ))
+        .child(process_table_text_cell(
+            format!("{}", process.virtual_memory_mb),
+            PROCESS_COL_VMEM,
+            true,
+        ))
+        .child(process_table_text_cell(
+            format!("{:.2}", process.disk_read_rate),
+            PROCESS_COL_READ,
+            true,
+        ))
+        .child(process_table_text_cell(
+            format!("{:.2}", process.disk_write_rate),
+            PROCESS_COL_WRITE,
+            true,
+        ))
         .child(
             div()
-                .w(px(80.))
+                .w(PROCESS_COL_CMD)
                 .flex_none()
-                .text_right()
-                .child(Label::new(format!("{:.1}", process.cpu_usage)).text_sm()),
+                .overflow_hidden()
+                .child(
+                    Label::new(if process.command_line.is_empty() {
+                        process.exe.clone()
+                    } else {
+                        process.command_line.clone()
+                    })
+                    .text_sm()
+                    .truncate(),
+                ),
         )
-        .child(
-            div()
-                .w(px(100.))
-                .flex_none()
-                .text_right()
-                .child(Label::new(format!("{}", process.memory_mb)).text_sm()),
-        )
-        .child(
-            div()
-                .w(px(120.))
-                .flex_none()
-                .text_right()
-                .child(Label::new(format!("{}", process.virtual_memory_mb)).text_sm()),
-        )
-        .child(
-            div()
-                .w(px(100.))
-                .flex_none()
-                .text_right()
-                .child(Label::new(format!("{:.2}", process.disk_read_rate)).text_sm()),
-        )
-        .child(
-            div()
-                .w(px(100.))
-                .flex_none()
-                .text_right()
-                .child(Label::new(format!("{:.2}", process.disk_write_rate)).text_sm()),
-        )
+}
+
+fn process_table_text_cell(value: String, width: Pixels, align_right: bool) -> gpui::Div {
+    let mut cell = div()
+        .w(width)
+        .flex_none()
+        .overflow_hidden()
+        .flex()
+        .items_center()
+        .child(Label::new(value).text_sm().truncate());
+    if align_right {
+        cell = cell.justify_end().text_right();
+    }
+    cell
 }
 
 fn truncate_text(text: &str, max_len: usize) -> String {

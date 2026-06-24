@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use gpui::{
-    div, px, size, App, AppContext, Context, Entity, InteractiveElement, IntoElement, MouseButton,
-    ParentElement, Render, StatefulInteractiveElement, Styled, Window, WindowBounds, WindowOptions,
+    div, prelude::FluentBuilder as _, px, size, App, AppContext, ClipboardItem, Context, Entity,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement,
+    Styled, Window, WindowBounds, WindowOptions,
 };
 use gpui_component::{
     h_flex, input::InputState, scroll::ScrollableElement as _, v_flex, ActiveTheme,
@@ -13,10 +14,10 @@ use smol::Timer;
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
-    CycleProcessSort, ProcessActionHandler, RestartServiceAction, ResumeProcess, RevealProcessExe,
-    RevealStartupItem, SetProcessAffinity, SetProcessIoPriority, SetProcessPriority,
-    ShowProcessDetails, StartServiceAction, StopServiceAction, SuspendProcess, TerminateProcess,
-    TerminateProcessTree,
+    CopyProcessInfo, CycleProcessSort, ProcessActionHandler, RestartServiceAction, ResumeProcess,
+    RevealProcessExe, RevealStartupItem, SetProcessAffinity, SetProcessIoPriority,
+    SetProcessPriority, ShowProcessDetails, StartServiceAction, StopServiceAction, SuspendProcess,
+    TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_codec::encode_telemetry;
 use crate::monitor_dashboard::{
@@ -45,6 +46,7 @@ pub struct SysMonitorApp {
     active_tab: MonitorTab,
     sender: MonitorSenderHandle,
     process_scroll: VirtualListScrollHandle,
+    process_h_scroll: VirtualListScrollHandle,
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
     service_scroll: VirtualListScrollHandle,
@@ -204,6 +206,7 @@ impl SysMonitorApp {
             active_tab: MonitorTab::Overview,
             sender,
             process_scroll: VirtualListScrollHandle::new(),
+            process_h_scroll: VirtualListScrollHandle::new(),
             process_search,
             process_sort: ProcessSort::default(),
             service_scroll: VirtualListScrollHandle::new(),
@@ -279,6 +282,7 @@ impl Render for SysMonitorApp {
             .on_action(cx.listener(Self::on_terminate_process))
             .on_action(cx.listener(Self::on_reveal_process_exe))
             .on_action(cx.listener(Self::on_show_process_details))
+            .on_action(cx.listener(Self::on_copy_process_info))
             .on_action(cx.listener(Self::on_start_service))
             .on_action(cx.listener(Self::on_stop_service))
             .on_action(cx.listener(Self::on_restart_service))
@@ -383,40 +387,52 @@ impl Render for SysMonitorApp {
                                     ),
                             ),
                     )
-                    .child(
+                    .child({
+                        let bottom_pad = if self.active_tab == MonitorTab::Processes {
+                            px(0.)
+                        } else {
+                            px(30.)
+                        };
                         div()
                             .flex_1()
                             .min_w_0()
                             .h_full()
-                            .overflow_y_scrollbar()
                             .px(px(24.))
                             .pt(px(20.))
-                            .pb(px(30.))
-                            .child(render_dashboard(
-                                &self.telemetry,
-                                self.active_tab,
-                                &self.process_scroll,
-                                &self.process_search,
-                                self.process_sort,
-                                &self.service_scroll,
-                                &self.service_search,
-                                &self.startup_scroll,
-                                &self.startup_search,
-                                &self.user_search,
-                                move |column, window, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.on_cycle_process_sort(
-                                            &CycleProcessSort { column },
-                                            window,
-                                            cx,
-                                        );
-                                    });
-                                },
-                                _window,
-                                cx,
-                            ))
-                            .child(div().h(px(15.))),
-                    ),
+                            .pb(bottom_pad)
+                            .child(
+                                div()
+                                    .size_full()
+                                    .overflow_y_scrollbar()
+                                    .child(render_dashboard(
+                                        &self.telemetry,
+                                        self.active_tab,
+                                        &self.process_scroll,
+                                        &self.process_h_scroll,
+                                        &self.process_search,
+                                        self.process_sort,
+                                        &self.service_scroll,
+                                        &self.service_search,
+                                        &self.startup_scroll,
+                                        &self.startup_search,
+                                        &self.user_search,
+                                        move |column, window, cx| {
+                                            view.update(cx, |this, cx| {
+                                                this.on_cycle_process_sort(
+                                                    &CycleProcessSort { column },
+                                                    window,
+                                                    cx,
+                                                );
+                                            });
+                                        },
+                                        _window,
+                                        cx,
+                                    ))
+                                    .when(self.active_tab != MonitorTab::Processes, |this| {
+                                        this.child(div().h(px(15.)))
+                                    }),
+                            )
+                    }),
             )
     }
 }
@@ -459,6 +475,15 @@ impl SysMonitorApp {
                 .unwrap_or_default();
             ProcessDetailsView::open(process.clone(), details, cx);
         }
+    }
+
+    fn on_copy_process_info(
+        &mut self,
+        action: &CopyProcessInfo,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.copy_process_info(action.pid, cx);
     }
 
     fn on_cycle_process_sort(
@@ -570,6 +595,20 @@ impl SysMonitorApp {
         cx: &mut Context<Self>,
     ) {
         self.terminate_process_tree(action.pid, cx);
+    }
+
+    fn copy_process_info(&mut self, pid: u32, cx: &mut Context<Self>) {
+        if let Some(process) = self
+            .telemetry
+            .current
+            .processes
+            .iter()
+            .find(|p| p.pid == pid)
+        {
+            if let Ok(json) = serde_json::to_string_pretty(process) {
+                cx.write_to_clipboard(ClipboardItem::new_string(json));
+            }
+        }
     }
 }
 

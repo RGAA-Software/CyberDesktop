@@ -462,11 +462,11 @@ impl SysInfoManager {
                     parent_pid: process.parent().map(|p| p.as_u32()).unwrap_or(0),
                     name: truncate_string(&name, 128),
                     command_line: if command_line.is_empty() {
-                        truncate_string(&exe, 256)
+                        exe.clone()
                     } else {
-                        truncate_string(&command_line, 256)
+                        command_line
                     },
-                    exe: truncate_string(&exe, 256),
+                    exe,
                     status: format_process_status(process.status()).to_string(),
                     cpu_usage: process.cpu_usage(),
                     memory: process.memory(),

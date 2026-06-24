@@ -6,7 +6,7 @@ use std::time::Duration;
 use clap::Parser;
 use futures_util::StreamExt;
 use gpui::{
-    div, prelude::FluentBuilder as _, px, size, App, AppContext, Context, Entity,
+    div, prelude::FluentBuilder as _, px, size, App, AppContext, ClipboardItem, Context, Entity,
     InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
     StatefulInteractiveElement, Styled, Window, WindowBounds, WindowOptions,
 };
@@ -24,7 +24,7 @@ use tokio_tungstenite::tungstenite::Message;
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
-    CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem,
+    CopyProcessInfo, CycleProcessSort, ProcessActionHandler, RevealProcessExe, RevealStartupItem,
     ShowProcessDetails, TerminateProcess,
 };
 use crate::monitor_alert::{
@@ -263,6 +263,7 @@ pub struct SysMonitorHostApp {
     server_status: HostServerStatus,
     active_tab: MonitorTab,
     process_scroll: VirtualListScrollHandle,
+    process_h_scroll: VirtualListScrollHandle,
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
     service_scroll: VirtualListScrollHandle,
@@ -291,6 +292,7 @@ impl SysMonitorHostApp {
             server_status: HostServerStatus::default(),
             active_tab: MonitorTab::Overview,
             process_scroll: VirtualListScrollHandle::new(),
+            process_h_scroll: VirtualListScrollHandle::new(),
             process_search,
             process_sort: ProcessSort::default(),
             service_scroll: VirtualListScrollHandle::new(),
@@ -686,6 +688,7 @@ impl Render for SysMonitorHostApp {
             .on_action(cx.listener(Self::on_terminate_process))
             .on_action(cx.listener(Self::on_reveal_process_exe))
             .on_action(cx.listener(Self::on_show_process_details))
+            .on_action(cx.listener(Self::on_copy_process_info))
             .on_action(cx.listener(Self::on_reveal_startup_item))
             .child(self.render_sidebar(cx))
             .child(
@@ -790,6 +793,7 @@ impl Render for SysMonitorHostApp {
                                         let host_view = cx.entity().clone();
                                         let active_tab = self.active_tab;
                                         let process_scroll = self.process_scroll.clone();
+                                        let process_h_scroll = self.process_h_scroll.clone();
                                         let process_search = self.process_search.clone();
                                         let process_sort = self.process_sort;
                                         let service_scroll = self.service_scroll.clone();
@@ -812,6 +816,7 @@ impl Render for SysMonitorHostApp {
                                                                 &machine.telemetry,
                                                                 active_tab,
                                                                 &process_scroll,
+                                                                &process_h_scroll,
                                                                 &process_search,
                                                                 process_sort,
                                                                 &service_scroll,
@@ -879,6 +884,27 @@ impl SysMonitorHostApp {
                     crate::monitor_process_detail::ProcessDetailInfo::default(),
                     cx,
                 );
+            }
+        }
+    }
+
+    fn on_copy_process_info(
+        &mut self,
+        action: &CopyProcessInfo,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(machine) = self.selected_machine() {
+            if let Some(process) = machine
+                .telemetry
+                .current
+                .processes
+                .iter()
+                .find(|p| p.pid == action.pid)
+            {
+                if let Ok(json) = serde_json::to_string_pretty(process) {
+                    cx.write_to_clipboard(ClipboardItem::new_string(json));
+                }
             }
         }
     }
