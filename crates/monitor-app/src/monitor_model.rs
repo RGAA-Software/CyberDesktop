@@ -32,6 +32,7 @@ pub enum ProcessSortColumn {
     Name,
     DiskRead,
     DiskWrite,
+    Gpu,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -51,6 +52,10 @@ pub fn sort_processes(processes: &mut [SysProcessInfo], sort: ProcessSort) {
             ProcessSortColumn::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
             ProcessSortColumn::DiskRead => a.disk_read_bytes.cmp(&b.disk_read_bytes),
             ProcessSortColumn::DiskWrite => a.disk_written_bytes.cmp(&b.disk_written_bytes),
+            ProcessSortColumn::Gpu => a
+                .gpu_usage
+                .partial_cmp(&b.gpu_usage)
+                .unwrap_or(std::cmp::Ordering::Equal),
         };
         match sort.direction {
             SortDirection::Desc => ord.reverse(),

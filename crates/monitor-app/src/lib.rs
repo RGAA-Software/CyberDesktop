@@ -29,3 +29,5 @@ mod mem_metrics_windows;
 mod cpu_ohm;
 #[cfg(target_os = "windows")]
 mod cpu_ring0;
+#[cfg(target_os = "windows")]
+mod gpu_process_metrics_windows;

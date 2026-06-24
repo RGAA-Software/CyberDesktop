@@ -194,6 +194,15 @@ pub struct SysProcessInfo {
     pub disk_read_rate: f64,
     #[serde(default)]
     pub disk_write_rate: f64,
+    /// Adapter label for the GPU this process is using (Windows PDH).
+    #[serde(default)]
+    pub gpu_name: String,
+    /// GPU utilization percent for this process (Task Manager style, 0–100).
+    #[serde(default)]
+    pub gpu_usage: f32,
+    /// Dedicated GPU memory in bytes (Windows PDH).
+    #[serde(default)]
+    pub gpu_dedicated_bytes: u64,
     #[serde(default)]
     pub start_time: u64,
     #[serde(default)]

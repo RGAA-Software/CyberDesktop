@@ -91,11 +91,18 @@ const PROCESS_COL_MEM: Pixels = px(100.);
 const PROCESS_COL_VMEM: Pixels = px(120.);
 const PROCESS_COL_READ: Pixels = px(100.);
 const PROCESS_COL_WRITE: Pixels = px(100.);
+const PROCESS_COL_GPU: Pixels = px(180.);
+const PROCESS_COL_GPU_USAGE: Pixels = px(80.);
+const PROCESS_COL_GPU_MEM: Pixels = px(110.);
 const PROCESS_COL_CMD: Pixels = px(800.);
 
 fn process_table_min_width() -> Pixels {
-    px(1620. + 64.)
+    px(1620. + 180. + 80. + 110. + 64. + 48.)
 }
+
+/// Extra space between right-aligned numeric cells and following left-aligned text.
+const PROCESS_COL_INNER_PAD: Pixels = px(10.);
+const PROCESS_COL_GAP: Pixels = px(12.);
 
 const SERVICE_COL_NAME: Pixels = px(250.);
 const SERVICE_COL_DISPLAY: Pixels = px(400.);
@@ -2119,7 +2126,7 @@ where
         .min_w(process_table_min_width())
         .h(px(32.))
         .px(px(12.))
-        .gap(px(8.))
+        .gap(PROCESS_COL_GAP)
         .items_center()
         .overflow_hidden()
         .bg(panel_2(cx))
@@ -2130,6 +2137,7 @@ where
             PROCESS_COL_PID,
             false,
             None,
+            false,
             false,
             None,
             sort,
@@ -2142,6 +2150,7 @@ where
             false,
             None,
             false,
+            false,
             Some(ProcessSortColumn::Name),
             sort,
             on_cycle_sort.clone(),
@@ -2152,6 +2161,7 @@ where
             PROCESS_COL_STATUS,
             false,
             None,
+            false,
             false,
             None,
             sort,
@@ -2164,6 +2174,7 @@ where
             false,
             None,
             true,
+            false,
             Some(ProcessSortColumn::Cpu),
             sort,
             on_cycle_sort.clone(),
@@ -2175,6 +2186,7 @@ where
             false,
             None,
             true,
+            false,
             Some(ProcessSortColumn::Memory),
             sort,
             on_cycle_sort.clone(),
@@ -2186,6 +2198,7 @@ where
             false,
             None,
             true,
+            false,
             None,
             sort,
             on_cycle_sort.clone(),
@@ -2197,6 +2210,7 @@ where
             false,
             None,
             true,
+            false,
             Some(ProcessSortColumn::DiskRead),
             sort,
             on_cycle_sort.clone(),
@@ -2208,7 +2222,44 @@ where
             false,
             None,
             true,
+            false,
             Some(ProcessSortColumn::DiskWrite),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "GPU",
+            PROCESS_COL_GPU,
+            false,
+            None,
+            false,
+            true,
+            None,
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "GPU%",
+            PROCESS_COL_GPU_USAGE,
+            false,
+            None,
+            true,
+            false,
+            Some(ProcessSortColumn::Gpu),
+            sort,
+            on_cycle_sort.clone(),
+            cx,
+        ))
+        .child(render_header_cell(
+            "GPU 内存 (MB)",
+            PROCESS_COL_GPU_MEM,
+            false,
+            None,
+            true,
+            false,
+            None,
             sort,
             on_cycle_sort.clone(),
             cx,
@@ -2219,6 +2270,7 @@ where
             false,
             None,
             false,
+            true,
             None,
             sort,
             on_cycle_sort.clone(),
@@ -2232,6 +2284,7 @@ fn render_header_cell<V: Render, F>(
     flex: bool,
     min_w: Option<Pixels>,
     align_right: bool,
+    leading_pad: bool,
     column: Option<ProcessSortColumn>,
     sort: ProcessSort,
     on_cycle_sort: F,
@@ -2279,7 +2332,13 @@ where
         cell = cell.min_w(min_w);
     }
     if align_right {
-        cell = cell.justify_end().text_right();
+        cell = cell
+            .justify_end()
+            .text_right()
+            .pl(PROCESS_COL_INNER_PAD);
+    }
+    if leading_pad {
+        cell = cell.pl(PROCESS_COL_INNER_PAD);
     }
     if let Some(column) = column {
         cell = cell.cursor_pointer().on_click(move |_event, window, cx| {
@@ -2449,7 +2508,7 @@ fn render_process_row<V>(
         .min_w(process_table_min_width())
         .h(px(32.))
         .px(px(12.))
-        .gap(px(8.))
+        .gap(PROCESS_COL_GAP)
         .items_center()
         .overflow_hidden()
         .border_b_1()
@@ -2503,21 +2562,40 @@ fn render_process_row<V>(
             PROCESS_COL_WRITE,
             true,
         ))
-        .child(
-            div()
-                .w(PROCESS_COL_CMD)
-                .flex_none()
-                .overflow_hidden()
-                .child(
-                    Label::new(if process.command_line.is_empty() {
-                        process.exe.clone()
-                    } else {
-                        process.command_line.clone()
-                    })
-                    .text_sm()
-                    .truncate(),
-                ),
-        )
+        .child(process_table_text_cell_after_numeric(
+            if process.gpu_name.is_empty() {
+                "—".to_string()
+            } else {
+                process.gpu_name.clone()
+            },
+            PROCESS_COL_GPU,
+        ))
+        .child(process_table_text_cell(
+            if process.gpu_usage > 0.0 {
+                format!("{:.1}", process.gpu_usage)
+            } else {
+                "—".to_string()
+            },
+            PROCESS_COL_GPU_USAGE,
+            true,
+        ))
+        .child(process_table_text_cell(
+            if process.gpu_dedicated_bytes > 0 {
+                format!("{}", process.gpu_dedicated_bytes / 1024 / 1024)
+            } else {
+                "—".to_string()
+            },
+            PROCESS_COL_GPU_MEM,
+            true,
+        ))
+        .child(process_table_cmd_cell(
+            if process.command_line.is_empty() {
+                process.exe.clone()
+            } else {
+                process.command_line.clone()
+            },
+            PROCESS_COL_CMD,
+        ))
 }
 
 fn process_table_text_cell(value: String, width: Pixels, align_right: bool) -> gpui::Div {
@@ -2533,9 +2611,36 @@ fn virtual_table_text_cell(value: String, width: Pixels, align_right: bool) -> g
         .items_center()
         .child(Label::new(value).text_sm().truncate());
     if align_right {
-        cell = cell.justify_end().text_right();
+        cell = cell
+            .justify_end()
+            .text_right()
+            .pl(PROCESS_COL_INNER_PAD);
+    } else {
+        cell = cell.pr(PROCESS_COL_INNER_PAD);
     }
     cell
+}
+
+fn process_table_text_cell_after_numeric(value: String, width: Pixels) -> gpui::Div {
+    div()
+        .w(width)
+        .flex_none()
+        .overflow_hidden()
+        .flex()
+        .items_center()
+        .pl(PROCESS_COL_INNER_PAD)
+        .child(Label::new(value).text_sm().truncate())
+}
+
+fn process_table_cmd_cell(value: String, width: Pixels) -> gpui::Div {
+    div()
+        .w(width)
+        .flex_none()
+        .overflow_hidden()
+        .flex()
+        .items_center()
+        .pl(PROCESS_COL_INNER_PAD)
+        .child(Label::new(value).text_sm().truncate())
 }
 
 fn inline_stat_row<V>(label: &str, value: &str, cx: &Context<V>) -> impl IntoElement {

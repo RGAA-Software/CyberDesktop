@@ -107,6 +107,8 @@ pub struct SysInfoManager {
     def_ethernet: Option<DefaultEthernet>,
     last_process_io: HashMap<u32, (u64, u64)>,
     last_sample_time: Option<Instant>,
+    #[cfg(target_os = "windows")]
+    gpu_process_collector: Option<crate::gpu_process_metrics_windows::GpuProcessMetricsCollector>,
 }
 
 impl SysInfoManager {
@@ -127,6 +129,8 @@ impl SysInfoManager {
             def_ethernet: None,
             last_process_io: HashMap::new(),
             last_sample_time: None,
+            #[cfg(target_os = "windows")]
+            gpu_process_collector: None,
         }
     }
 
@@ -407,6 +411,20 @@ impl SysInfoManager {
             }
         }
 
+        #[cfg(target_os = "windows")]
+        let gpu_names: Vec<String> = gpus
+            .iter()
+            .map(|gpu| {
+                if gpu.brand.is_empty() {
+                    String::new()
+                } else {
+                    gpu.brand.clone()
+                }
+            })
+            .collect();
+        #[cfg(target_os = "windows")]
+        let process_gpu_stats = self.sample_process_gpu_stats(&gpu_names);
+
         let now = Instant::now();
         let elapsed_secs = self
             .last_sample_time
@@ -457,6 +475,21 @@ impl SysInfoManager {
                     })
                     .unwrap_or((0.0, 0.0));
 
+                #[cfg(target_os = "windows")]
+                let (gpu_name, gpu_usage, gpu_dedicated_bytes) = process_gpu_stats
+                    .get(&pid)
+                    .map(|stats| {
+                        (
+                            stats.gpu_name.clone(),
+                            stats.usage_percent,
+                            stats.dedicated_bytes,
+                        )
+                    })
+                    .unwrap_or_default();
+                #[cfg(not(target_os = "windows"))]
+                let (gpu_name, gpu_usage, gpu_dedicated_bytes) =
+                    (String::new(), 0.0f32, 0u64);
+
                 SysProcessInfo {
                     pid,
                     parent_pid: process.parent().map(|p| p.as_u32()).unwrap_or(0),
@@ -477,6 +510,9 @@ impl SysInfoManager {
                     disk_written_bytes: disk.written_bytes,
                     disk_read_rate: read_rate,
                     disk_write_rate: write_rate,
+                    gpu_name,
+                    gpu_usage,
+                    gpu_dedicated_bytes,
                     start_time: process.start_time(),
                     run_time: process.run_time(),
                 }
@@ -1132,6 +1168,22 @@ impl SysInfoManager {
             .get(&Pid::from_u32(pid))
             .map(|process| process.kill())
             .unwrap_or(false)
+    }
+
+    #[cfg(target_os = "windows")]
+    fn sample_process_gpu_stats(
+        &mut self,
+        gpu_names: &[String],
+    ) -> std::collections::HashMap<u32, crate::gpu_process_metrics_windows::ProcessGpuUsage>
+    {
+        if self.gpu_process_collector.is_none() {
+            self.gpu_process_collector =
+                crate::gpu_process_metrics_windows::GpuProcessMetricsCollector::open();
+        }
+        self.gpu_process_collector
+            .as_mut()
+            .map(|collector| collector.sample(gpu_names))
+            .unwrap_or_default()
     }
 }
 
