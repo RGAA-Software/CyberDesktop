@@ -21,8 +21,8 @@ use crate::monitor_actions::{
 };
 use crate::monitor_codec::encode_telemetry;
 use crate::monitor_dashboard::{
-    monitor_title_crumb, render_dashboard, render_monitor_client_sidebar, topbar_icon_button,
-    MONITOR_MAIN_TITLE_BAR_HEIGHT,
+    monitor_title_crumb, render_dashboard, render_monitor_client_sidebar, tab_manages_bottom_padding,
+    topbar_icon_button, MONITOR_MAIN_TITLE_BAR_HEIGHT,
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
@@ -50,9 +50,13 @@ pub struct SysMonitorApp {
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
     service_scroll: VirtualListScrollHandle,
+    service_h_scroll: VirtualListScrollHandle,
     service_search: Entity<InputState>,
     startup_scroll: VirtualListScrollHandle,
+    startup_h_scroll: VirtualListScrollHandle,
     startup_search: Entity<InputState>,
+    user_scroll: VirtualListScrollHandle,
+    user_h_scroll: VirtualListScrollHandle,
     user_search: Entity<InputState>,
 }
 
@@ -210,9 +214,13 @@ impl SysMonitorApp {
             process_search,
             process_sort: ProcessSort::default(),
             service_scroll: VirtualListScrollHandle::new(),
+            service_h_scroll: VirtualListScrollHandle::new(),
             service_search,
             startup_scroll: VirtualListScrollHandle::new(),
+            startup_h_scroll: VirtualListScrollHandle::new(),
             startup_search,
+            user_scroll: VirtualListScrollHandle::new(),
+            user_h_scroll: VirtualListScrollHandle::new(),
             user_search,
         };
 
@@ -388,7 +396,7 @@ impl Render for SysMonitorApp {
                             ),
                     )
                     .child({
-                        let bottom_pad = if self.active_tab == MonitorTab::Processes {
+                        let bottom_pad = if tab_manages_bottom_padding(self.active_tab) {
                             px(0.)
                         } else {
                             px(30.)
@@ -412,9 +420,13 @@ impl Render for SysMonitorApp {
                                         &self.process_search,
                                         self.process_sort,
                                         &self.service_scroll,
+                                        &self.service_h_scroll,
                                         &self.service_search,
                                         &self.startup_scroll,
+                                        &self.startup_h_scroll,
                                         &self.startup_search,
+                                        &self.user_scroll,
+                                        &self.user_h_scroll,
                                         &self.user_search,
                                         move |column, window, cx| {
                                             view.update(cx, |this, cx| {
@@ -428,7 +440,7 @@ impl Render for SysMonitorApp {
                                         _window,
                                         cx,
                                     ))
-                                    .when(self.active_tab != MonitorTab::Processes, |this| {
+                                    .when(!tab_manages_bottom_padding(self.active_tab), |this| {
                                         this.child(div().h(px(15.)))
                                     }),
                             )

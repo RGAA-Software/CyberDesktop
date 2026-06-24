@@ -12,10 +12,7 @@ use gpui_component::{
     h_flex,
     input::{Input, InputState},
     label::Label,
-    scroll::{
-        ScrollableElement as _, ScrollableMask, Scrollbar, ScrollbarAxis, ScrollbarShow,
-    },
-    table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
+    scroll::{ScrollableMask, Scrollbar, ScrollbarShow},
     v_flex, v_virtual_list, ActiveTheme, StyledExt, VirtualListScrollHandle,
 };
 
@@ -100,6 +97,39 @@ fn process_table_min_width() -> Pixels {
     px(1620. + 64.)
 }
 
+const SERVICE_COL_NAME: Pixels = px(250.);
+const SERVICE_COL_DISPLAY: Pixels = px(400.);
+const SERVICE_COL_STATUS: Pixels = px(100.);
+const SERVICE_COL_START: Pixels = px(100.);
+
+fn service_table_min_width() -> Pixels {
+    px(250. + 400. + 100. + 100. + 64.)
+}
+
+const STARTUP_COL_NAME: Pixels = px(180.);
+const STARTUP_COL_COMMAND: Pixels = px(600.);
+const STARTUP_COL_LOCATION: Pixels = px(240.);
+
+fn startup_table_min_width() -> Pixels {
+    px(180. + 600. + 240. + 64.)
+}
+
+const USER_COL_NAME: Pixels = px(200.);
+const USER_COL_UID: Pixels = px(400.);
+const USER_COL_GID: Pixels = px(120.);
+const USER_COL_GROUPS: Pixels = px(300.);
+
+fn user_table_min_width() -> Pixels {
+    px(200. + 400. + 120. + 300. + 64.)
+}
+
+pub fn tab_manages_bottom_padding(tab: MonitorTab) -> bool {
+    matches!(
+        tab,
+        MonitorTab::Processes | MonitorTab::Services | MonitorTab::Startup | MonitorTab::Users
+    )
+}
+
 /// Design token `--panel-2` (#f7f9fc / #0f1521).
 fn panel_2(cx: &App) -> Hsla {
     cx.theme().secondary_active
@@ -149,24 +179,6 @@ fn monitor_search_input(search: &Entity<InputState>) -> Input {
         .rounded(px(7.))
 }
 
-fn styled_table_head_label(label: &str, cx: &App) -> impl IntoElement {
-    div()
-        .text_xs()
-        .font_weight(FontWeight::BOLD)
-        .text_color(cx.theme().muted_foreground)
-        .child(label.to_uppercase())
-}
-
-fn data_table_head(label: &str, cx: &App) -> TableHead {
-    TableHead::new().child(styled_table_head_label(label, cx))
-}
-
-fn data_table_head_right(label: &str, cx: &App) -> TableHead {
-    TableHead::new()
-        .text_right()
-        .child(styled_table_head_label(label, cx))
-}
-
 /// Page title in the content topbar (design: 20px semibold).
 pub fn monitor_page_title_label(title: impl Into<SharedString>) -> Label {
     Label::new(title).text_size(px(20.)).font_semibold()
@@ -195,17 +207,6 @@ pub fn monitor_title_crumb<V>(
                 .mt(px(4.))
                 .text_color(cx.theme().muted_foreground),
         )
-}
-
-fn data_table_header<V>(cx: &Context<V>) -> TableHeader {
-    TableHeader::new().bg(panel_2(cx))
-}
-
-fn virtual_table_head_label(label: &str) -> impl IntoElement {
-    div()
-        .text_xs()
-        .font_weight(FontWeight::BOLD)
-        .child(label.to_uppercase())
 }
 
 pub const MONITOR_MAIN_TITLE_BAR_HEIGHT: Pixels = px(62.);
@@ -274,9 +275,13 @@ pub fn render_dashboard<V: Render, F>(
     process_search: &Entity<InputState>,
     process_sort: ProcessSort,
     service_scroll_handle: &VirtualListScrollHandle,
+    service_h_scroll_handle: &VirtualListScrollHandle,
     service_search: &Entity<InputState>,
     startup_scroll_handle: &VirtualListScrollHandle,
+    startup_h_scroll_handle: &VirtualListScrollHandle,
     startup_search: &Entity<InputState>,
+    user_scroll_handle: &VirtualListScrollHandle,
+    user_h_scroll_handle: &VirtualListScrollHandle,
     user_search: &Entity<InputState>,
     on_cycle_sort: F,
     window: &mut Window,
@@ -303,15 +308,30 @@ where
             cx,
         )
         .into_any_element(),
-        MonitorTab::Services => {
-            render_services_tab(telemetry, service_scroll_handle, service_search, cx)
-                .into_any_element()
-        }
-        MonitorTab::Startup => {
-            render_startup_tab(telemetry, startup_scroll_handle, startup_search, cx)
-                .into_any_element()
-        }
-        MonitorTab::Users => render_users_tab(telemetry, user_search, cx).into_any_element(),
+        MonitorTab::Services => render_services_tab(
+            telemetry,
+            service_scroll_handle,
+            service_h_scroll_handle,
+            service_search,
+            cx,
+        )
+        .into_any_element(),
+        MonitorTab::Startup => render_startup_tab(
+            telemetry,
+            startup_scroll_handle,
+            startup_h_scroll_handle,
+            startup_search,
+            cx,
+        )
+        .into_any_element(),
+        MonitorTab::Users => render_users_tab(
+            telemetry,
+            user_scroll_handle,
+            user_h_scroll_handle,
+            user_search,
+            cx,
+        )
+        .into_any_element(),
     }
 }
 
@@ -1840,6 +1860,157 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
         .child(div().h(px(10.)))
 }
 
+fn render_table_header_cell<V>(label: &str, width: Pixels, cx: &Context<V>) -> impl IntoElement {
+    div()
+        .flex_none()
+        .h_full()
+        .flex()
+        .items_center()
+        .w(width)
+        .child(
+            Label::new(label.to_uppercase())
+                .text_xs()
+                .font_semibold()
+                .text_color(cx.theme().muted_foreground),
+        )
+}
+
+fn render_table_header_flex_cell<V>(
+    label: &str,
+    min_w: Pixels,
+    cx: &Context<V>,
+) -> impl IntoElement {
+    div()
+        .flex_1()
+        .min_w(min_w)
+        .h_full()
+        .flex()
+        .items_center()
+        .child(
+            Label::new(label.to_uppercase())
+                .text_xs()
+                .font_semibold()
+                .text_color(cx.theme().muted_foreground),
+        )
+}
+
+fn render_scrollable_virtual_table_panel<V>(
+    panel_id: &str,
+    table_min_width: Pixels,
+    h_scroll_handle: &VirtualListScrollHandle,
+    v_scroll_handle: &VirtualListScrollHandle,
+    header: impl IntoElement,
+    body: impl IntoElement,
+    footer_text: String,
+    fill_width: bool,
+    cx: &Context<V>,
+) -> impl IntoElement {
+    let h_offset_x = h_scroll_handle.offset().x;
+    let table_scroll_size = size(table_min_width, px(1.));
+
+    v_flex()
+        .flex_1()
+        .min_h_0()
+        .rounded_md()
+        .border_1()
+        .border_color(cx.theme().border)
+        .overflow_hidden()
+        .child(
+            div()
+                .id(format!("{panel_id}-table-scroll-area"))
+                .flex_1()
+                .min_h_0()
+                .relative()
+                .child(
+                    v_flex()
+                        .size_full()
+                        .overflow_hidden()
+                        .child(
+                            div()
+                                .id(format!("{panel_id}-table-header-viewport"))
+                                .flex_none()
+                                .w_full()
+                                .overflow_hidden()
+                                .child(
+                                    div()
+                                        .left(h_offset_x)
+                                        .min_w(table_min_width)
+                                        .when(fill_width, |this| this.w_full())
+                                        .child(header),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .id(format!("{panel_id}-table-body-viewport"))
+                                .flex_1()
+                                .min_h_0()
+                                .w_full()
+                                .overflow_hidden()
+                                .relative()
+                                .child(
+                                    div()
+                                        .w_full()
+                                        .h_full()
+                                        .pr(px(16.))
+                                        .overflow_hidden()
+                                        .child(
+                                            div()
+                                                .left(h_offset_x)
+                                                .min_w(table_min_width)
+                                                .when(fill_width, |this| this.w_full())
+                                                .h_full()
+                                                .child(
+                                                    div()
+                                                        .h_full()
+                                                        .when(fill_width, |this| this.w_full())
+                                                        .child(body),
+                                                ),
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .absolute()
+                                        .top_0()
+                                        .right_0()
+                                        .bottom_0()
+                                        .w(px(16.))
+                                        .child(
+                                            Scrollbar::vertical(v_scroll_handle)
+                                                .scrollbar_show(ScrollbarShow::Always),
+                                        ),
+                                ),
+                        ),
+                )
+                .child(ScrollableMask::new(
+                    Axis::Horizontal,
+                    h_scroll_handle.base_handle(),
+                )),
+        )
+        .child(
+            div()
+                .flex_none()
+                .w_full()
+                .h(px(16.))
+                .child(
+                    Scrollbar::horizontal(h_scroll_handle)
+                        .scrollbar_show(ScrollbarShow::Always)
+                        .scroll_size(table_scroll_size),
+                ),
+        )
+        .child(
+            div()
+                .px_3()
+                .py_2()
+                .border_t_1()
+                .border_color(cx.theme().border)
+                .child(
+                    Label::new(footer_text)
+                        .text_xs()
+                        .text_color(cx.theme().muted_foreground),
+                ),
+        )
+}
+
 fn render_processes_tab<V: Render, F>(
     telemetry: &MachineTelemetry,
     scroll_handle: &VirtualListScrollHandle,
@@ -1884,8 +2055,6 @@ where
     sort_processes(&mut processes, process_sort);
 
     let processes: Arc<[SysProcessInfo]> = processes.into();
-    let h_offset_x = h_scroll_handle.offset().x;
-    let table_scroll_size = size(process_table_min_width(), px(1.));
 
     v_flex()
         .gap(px(14.))
@@ -1923,114 +2092,17 @@ where
                 .items_center()
                 .child(monitor_search_input(process_search)),
         )
-        .child(
-            v_flex()
-                .flex_1()
-                .min_h_0()
-                .rounded_md()
-                .border_1()
-                .border_color(cx.theme().border)
-                .overflow_hidden()
-                .child(
-                    div()
-                        .id("process-table-scroll-area")
-                        .flex_1()
-                        .min_h_0()
-                        .relative()
-                        .child(
-                            v_flex()
-                                .size_full()
-                                .overflow_hidden()
-                                .child(
-                                    div()
-                                        .id("process-table-header-viewport")
-                                        .flex_none()
-                                        .w_full()
-                                        .overflow_hidden()
-                                        .child(
-                                            div()
-                                                .left(h_offset_x)
-                                                .min_w(process_table_min_width())
-                                                .child(render_process_table_header(
-                                                    process_sort,
-                                                    on_cycle_sort,
-                                                    cx,
-                                                )),
-                                        ),
-                                )
-                                .child(
-                                    div()
-                                        .id("process-table-body-viewport")
-                                        .flex_1()
-                                        .min_h_0()
-                                        .w_full()
-                                        .overflow_hidden()
-                                        .relative()
-                                        .child(
-                                            div()
-                                                .w_full()
-                                                .h_full()
-                                                .pr(px(16.))
-                                                .overflow_hidden()
-                                                .child(
-                                                    div()
-                                                        .left(h_offset_x)
-                                                        .min_w(process_table_min_width())
-                                                        .h_full()
-                                                        .child(
-                                                            div()
-                                                                .h_full()
-                                                                .child(render_process_table(
-                                                                    processes.clone(),
-                                                                    scroll_handle,
-                                                                    cx,
-                                                                )),
-                                                        ),
-                                                ),
-                                        )
-                                        .child(
-                                            div()
-                                                .absolute()
-                                                .top_0()
-                                                .right_0()
-                                                .bottom_0()
-                                                .w(px(16.))
-                                                .child(
-                                                    Scrollbar::vertical(scroll_handle)
-                                                        .scrollbar_show(ScrollbarShow::Always),
-                                                ),
-                                        ),
-                                ),
-                        )
-                        .child(ScrollableMask::new(
-                            Axis::Horizontal,
-                            h_scroll_handle.base_handle(),
-                        )),
-                )
-                .child(
-                    div()
-                        .flex_none()
-                        .w_full()
-                        .h(px(16.))
-                        .child(
-                            Scrollbar::horizontal(h_scroll_handle)
-                                .scrollbar_show(ScrollbarShow::Always)
-                                .scroll_size(table_scroll_size),
-                        ),
-                )
-                .child(
-                    div()
-                        .px_3()
-                        .py_2()
-                        .border_t_1()
-                        .border_color(cx.theme().border)
-                        .child(
-                            Label::new(format!("共 {} 个进程", processes.len()))
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground),
-                        ),
-                ),
-        )
+        .child(render_scrollable_virtual_table_panel(
+            "process",
+            process_table_min_width(),
+            h_scroll_handle,
+            scroll_handle,
+            render_process_table_header(process_sort, on_cycle_sort, cx),
+            render_process_table(processes.clone(), scroll_handle, cx),
+            format!("共 {} 个进程", processes.len()),
+            false,
+            cx,
+        ))
         .pb(px(10.))
 }
 
@@ -2449,6 +2521,10 @@ fn render_process_row<V>(
 }
 
 fn process_table_text_cell(value: String, width: Pixels, align_right: bool) -> gpui::Div {
+    virtual_table_text_cell(value, width, align_right)
+}
+
+fn virtual_table_text_cell(value: String, width: Pixels, align_right: bool) -> gpui::Div {
     let mut cell = div()
         .w(width)
         .flex_none()
@@ -2460,14 +2536,6 @@ fn process_table_text_cell(value: String, width: Pixels, align_right: bool) -> g
         cell = cell.justify_end().text_right();
     }
     cell
-}
-
-fn truncate_text(text: &str, max_len: usize) -> String {
-    if text.chars().count() <= max_len {
-        text.to_string()
-    } else {
-        format!("{}...", text.chars().take(max_len).collect::<String>())
-    }
 }
 
 fn inline_stat_row<V>(label: &str, value: &str, cx: &Context<V>) -> impl IntoElement {
@@ -2535,7 +2603,8 @@ fn empty_state<V>(message: &str, cx: &Context<V>) -> impl IntoElement {
 
 fn render_services_tab<V: Render>(
     telemetry: &MachineTelemetry,
-    service_scroll_handle: &VirtualListScrollHandle,
+    scroll_handle: &VirtualListScrollHandle,
+    h_scroll_handle: &VirtualListScrollHandle,
     service_search: &Entity<InputState>,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
@@ -2559,44 +2628,29 @@ fn render_services_tab<V: Render>(
     let running = services.iter().filter(|s| s.status == "运行中").count();
     let stopped = services.iter().filter(|s| s.status == "已停止").count();
     let service_count = services.len();
-    let running_pct = if service_count > 0 {
-        (running as f32 / service_count as f32) * 100.0
-    } else {
-        0.0
-    };
-    let stopped_pct = if service_count > 0 {
-        (stopped as f32 / service_count as f32) * 100.0
-    } else {
-        0.0
-    };
+    let services: Arc<[SysServiceInfo]> = services.into();
 
     v_flex()
         .gap(px(14.))
         .size_full()
         .child(
             metric_grid_row_equal()
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "service-count",
                     "服务数",
                     service_count.to_string(),
-                    Some(70.0),
-                    Some(cx.theme().primary),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "service-running",
                     "运行中",
                     running.to_string(),
-                    Some(running_pct),
-                    Some(cx.theme().primary),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "service-stopped",
                     "已停止",
                     stopped.to_string(),
-                    Some(stopped_pct),
-                    Some(cx.theme().red),
                     cx,
                 )),
         )
@@ -2606,44 +2660,25 @@ fn render_services_tab<V: Render>(
                 .items_center()
                 .child(monitor_search_input(service_search)),
         )
-        .child(
-            v_flex()
-                .flex_1()
-                .min_h_0()
-                .rounded_md()
-                .border_1()
-                .border_color(cx.theme().border)
-                .overflow_hidden()
-                .child(render_service_table_header(cx))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_h_0()
-                        .child(render_service_table(
-                            services.into(),
-                            service_scroll_handle,
-                            cx,
-                        ))
-                        .scrollbar(service_scroll_handle, ScrollbarAxis::Vertical),
-                )
-                .child(
-                    div()
-                        .px_3()
-                        .py_2()
-                        .border_t_1()
-                        .border_color(cx.theme().border)
-                        .child(
-                            Label::new(format!("共 {} 个服务", service_count))
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground),
-                        ),
-                ),
-        )
+        .child(render_scrollable_virtual_table_panel(
+            "service",
+            service_table_min_width(),
+            h_scroll_handle,
+            scroll_handle,
+            render_service_table_header(cx),
+            render_service_table(services.clone(), scroll_handle, cx),
+            format!("共 {} 个服务", service_count),
+            true,
+            cx,
+        ))
+        .pb(px(10.))
 }
 
 fn render_service_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoElement {
     h_flex()
         .id("service-table-header")
+        .min_w(service_table_min_width())
+        .w_full()
         .h(px(32.))
         .px(px(12.))
         .gap(px(8.))
@@ -2652,18 +2687,10 @@ fn render_service_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoEleme
         .bg(panel_2(cx))
         .border_b_1()
         .border_color(cx.theme().border)
-        .text_xs()
-        .font_weight(FontWeight::BOLD)
-        .text_color(cx.theme().muted_foreground)
-        .child(div().w(px(160.)).flex_none().child(virtual_table_head_label("名称")))
-        .child(
-            div()
-                .flex_1()
-                .min_w(px(200.))
-                .child(virtual_table_head_label("显示名称")),
-        )
-        .child(div().w(px(100.)).flex_none().child(virtual_table_head_label("状态")))
-        .child(div().w(px(100.)).flex_none().child(virtual_table_head_label("启动类型")))
+        .child(render_table_header_cell("名称", SERVICE_COL_NAME, cx))
+        .child(render_table_header_flex_cell("显示名称", SERVICE_COL_DISPLAY, cx))
+        .child(render_table_header_cell("状态", SERVICE_COL_STATUS, cx))
+        .child(render_table_header_cell("启动类型", SERVICE_COL_START, cx))
 }
 
 fn render_service_table<V: Render>(
@@ -2711,44 +2738,60 @@ fn render_service_row<V: Render>(
                     Box::new(RestartServiceAction { name: name.clone() }),
                 )
         })
+        .min_w(service_table_min_width())
         .w_full()
         .h(px(32.))
         .px(px(12.))
         .gap(px(8.))
         .items_center()
+        .overflow_hidden()
         .border_b_1()
         .border_color(cx.theme().border)
         .text_sm()
         .text_color(cx.theme().foreground)
-        .child(
-            div()
-                .w(px(160.))
-                .flex_none()
-                .child(Label::new(service.name.clone()).text_sm()),
-        )
+        .child(virtual_table_text_cell(
+            service.name.clone(),
+            SERVICE_COL_NAME,
+            false,
+        ))
         .child(
             div()
                 .flex_1()
-                .min_w(px(200.))
-                .child(Label::new(truncate_text(&service.display_name, 48)).text_sm()),
-        )
-        .child(
-            div().w(px(100.)).flex_none().child(
-                Label::new(service.status.clone())
-                    .text_sm()
-                    .text_color(status_color),
-            ),
+                .min_w(SERVICE_COL_DISPLAY)
+                .overflow_hidden()
+                .flex()
+                .items_center()
+                .child(
+                    Label::new(service.display_name.clone())
+                        .text_sm()
+                        .truncate(),
+                ),
         )
         .child(
             div()
-                .w(px(100.))
+                .w(SERVICE_COL_STATUS)
                 .flex_none()
-                .child(Label::new(service.start_type.clone()).text_sm()),
+                .overflow_hidden()
+                .flex()
+                .items_center()
+                .child(
+                    Label::new(service.status.clone())
+                        .text_sm()
+                        .truncate()
+                        .text_color(status_color),
+                ),
         )
+        .child(virtual_table_text_cell(
+            service.start_type.clone(),
+            SERVICE_COL_START,
+            false,
+        ))
 }
 
 fn render_users_tab<V: Render>(
     telemetry: &MachineTelemetry,
+    scroll_handle: &VirtualListScrollHandle,
+    h_scroll_handle: &VirtualListScrollHandle,
     user_search: &Entity<InputState>,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
@@ -2779,34 +2822,30 @@ fn render_users_tab<V: Render>(
             user.groups.to_lowercase().contains("system") || user.name.to_lowercase() == "system"
         })
         .count();
+    let user_count = users.len();
+    let users: Arc<[SysUserInfo]> = users.into();
 
     v_flex()
         .gap(px(14.))
         .size_full()
         .child(
             metric_grid_row_equal()
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "user-count",
                     "用户数",
-                    users.len().to_string(),
-                    Some(50.0),
-                    Some(cx.theme().primary),
+                    user_count.to_string(),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "user-admin",
                     "管理员账户",
                     admin_count.to_string(),
-                    Some(16.0),
-                    Some(cx.theme().primary),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "user-system",
                     "系统账户",
                     system_count.to_string(),
-                    Some(46.0),
-                    Some(cx.theme().primary),
                     cx,
                 )),
         )
@@ -2816,31 +2855,89 @@ fn render_users_tab<V: Render>(
                 .items_center()
                 .child(monitor_search_input(user_search)),
         )
-        .child(render_user_table(&users, cx))
+        .child(render_scrollable_virtual_table_panel(
+            "user",
+            user_table_min_width(),
+            h_scroll_handle,
+            scroll_handle,
+            render_user_table_header(cx),
+            render_user_table(users.clone(), scroll_handle, cx),
+            format!("共 {} 个用户", user_count),
+            true,
+            cx,
+        ))
+        .pb(px(10.))
 }
 
-fn render_user_table<V: Render>(users: &[SysUserInfo], cx: &mut Context<V>) -> impl IntoElement {
-    Table::new()
-        .child(
-            data_table_header(cx).child(
-                TableRow::new()
-                    .child(data_table_head("名称", cx))
-                    .child(data_table_head("UID", cx))
-                    .child(data_table_head("GID", cx))
-                    .child(data_table_head("所属组", cx)),
-            ),
-        )
-        .child(TableBody::new().children(users.iter().enumerate().map(|(index, user)| {
-            let stripe = striped_row_bg(index, cx);
-            TableRow::new()
-                .when_some(stripe, |row, bg| row.bg(bg))
-                .child(TableCell::new().child(user.name.clone()))
-                .child(TableCell::new().child(user.uid.clone()))
-                .child(TableCell::new().child(user.gid.clone()))
-                .child(TableCell::new().child(user.groups.clone()))
-        })))
-        .child(TableCaption::new().child(format!("共 {} 个用户", users.len())))
-        .bg(cx.theme().table)
+fn render_user_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoElement {
+    h_flex()
+        .id("user-table-header")
+        .min_w(user_table_min_width())
+        .w_full()
+        .h(px(32.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .overflow_hidden()
+        .bg(panel_2(cx))
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .child(render_table_header_cell("名称", USER_COL_NAME, cx))
+        .child(render_table_header_cell("UID", USER_COL_UID, cx))
+        .child(render_table_header_cell("GID", USER_COL_GID, cx))
+        .child(render_table_header_cell("所属组", USER_COL_GROUPS, cx))
+}
+
+fn render_user_table<V: Render>(
+    users: Arc<[SysUserInfo]>,
+    scroll_handle: &VirtualListScrollHandle,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let item_count = users.len().max(1);
+    let item_sizes = Rc::new(vec![size(px(0.), px(32.)); item_count]);
+
+    v_virtual_list(
+        cx.entity().clone(),
+        "user-virtual-list",
+        item_sizes,
+        move |_this, visible_range, _window, cx| {
+            visible_range
+                .filter_map(|index| {
+                    users
+                        .get(index)
+                        .map(|user| render_user_row(user, index, cx).into_any_element())
+                })
+                .collect::<Vec<_>>()
+        },
+    )
+    .track_scroll(scroll_handle)
+}
+
+fn render_user_row<V: Render>(
+    user: &SysUserInfo,
+    index: usize,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let stripe_bg = striped_row_bg(index, cx);
+    h_flex()
+        .id(format!("user-row-{}", user.name))
+        .when_some(stripe_bg, |this, bg| this.bg(bg))
+        .hover(|style| style.bg(cx.theme().primary.opacity(0.07)))
+        .min_w(user_table_min_width())
+        .w_full()
+        .h(px(32.))
+        .px(px(12.))
+        .gap(px(8.))
+        .items_center()
+        .overflow_hidden()
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .text_sm()
+        .text_color(cx.theme().foreground)
+        .child(virtual_table_text_cell(user.name.clone(), USER_COL_NAME, false))
+        .child(virtual_table_text_cell(user.uid.clone(), USER_COL_UID, false))
+        .child(virtual_table_text_cell(user.gid.clone(), USER_COL_GID, false))
+        .child(virtual_table_text_cell(user.groups.clone(), USER_COL_GROUPS, false))
 }
 
 fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {
@@ -2857,6 +2954,7 @@ fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {
 fn render_startup_tab<V: Render>(
     telemetry: &MachineTelemetry,
     scroll_handle: &VirtualListScrollHandle,
+    h_scroll_handle: &VirtualListScrollHandle,
     startup_search: &Entity<InputState>,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
@@ -2881,34 +2979,30 @@ fn render_startup_tab<V: Render>(
         .filter(|item| item.location.starts_with("HK"))
         .count();
     let folder_count = items.len().saturating_sub(registry_count);
+    let item_count = items.len();
+    let items: Arc<[SysStartupInfo]> = items.into();
 
     v_flex()
         .gap(px(14.))
         .size_full()
         .child(
             metric_grid_row_equal()
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "startup-count",
                     "启动项数",
-                    items.len().to_string(),
-                    Some(68.0),
-                    Some(cx.theme().primary),
+                    item_count.to_string(),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "startup-registry",
                     "注册表项",
                     registry_count.to_string(),
-                    Some(64.0),
-                    Some(cx.theme().primary),
                     cx,
                 ))
-                .child(render_metric_card(
+                .child(render_process_header_metric_card(
                     "startup-folder",
                     "启动文件夹项",
                     folder_count.to_string(),
-                    Some(8.0),
-                    Some(cx.theme().primary),
                     cx,
                 )),
         )
@@ -2918,40 +3012,25 @@ fn render_startup_tab<V: Render>(
                 .items_center()
                 .child(monitor_search_input(startup_search)),
         )
-        .child(
-            v_flex()
-                .flex_1()
-                .min_h_0()
-                .rounded_md()
-                .border_1()
-                .border_color(cx.theme().border)
-                .overflow_hidden()
-                .child(render_startup_table_header(cx))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_h_0()
-                        .child(render_startup_table(&items, scroll_handle, cx))
-                        .scrollbar(scroll_handle, ScrollbarAxis::Vertical),
-                )
-                .child(
-                    div()
-                        .px_3()
-                        .py_2()
-                        .border_t_1()
-                        .border_color(cx.theme().border)
-                        .child(
-                            Label::new(format!("共 {} 个启动项", items.len()))
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground),
-                        ),
-                ),
-        )
+        .child(render_scrollable_virtual_table_panel(
+            "startup",
+            startup_table_min_width(),
+            h_scroll_handle,
+            scroll_handle,
+            render_startup_table_header(cx),
+            render_startup_table(items.clone(), scroll_handle, cx),
+            format!("共 {} 个启动项", item_count),
+            true,
+            cx,
+        ))
+        .pb(px(10.))
 }
 
 fn render_startup_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoElement {
     h_flex()
         .id("startup-table-header")
+        .min_w(startup_table_min_width())
+        .w_full()
         .h(px(32.))
         .px(px(12.))
         .gap(px(8.))
@@ -2960,22 +3039,18 @@ fn render_startup_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoEleme
         .bg(panel_2(cx))
         .border_b_1()
         .border_color(cx.theme().border)
-        .text_xs()
-        .font_weight(FontWeight::BOLD)
-        .text_color(cx.theme().muted_foreground)
-        .child(div().w(px(180.)).flex_none().child(virtual_table_head_label("名称")))
-        .child(div().flex_1().min_w(px(200.)).child(virtual_table_head_label("命令")))
-        .child(div().w(px(180.)).flex_none().child(virtual_table_head_label("位置")))
+        .child(render_table_header_cell("名称", STARTUP_COL_NAME, cx))
+        .child(render_table_header_cell("命令", STARTUP_COL_COMMAND, cx))
+        .child(render_table_header_flex_cell("位置", STARTUP_COL_LOCATION, cx))
 }
 
 fn render_startup_table<V: Render>(
-    items: &[SysStartupInfo],
+    items: Arc<[SysStartupInfo]>,
     scroll_handle: &VirtualListScrollHandle,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
-    let items = items.to_vec();
     let item_count = items.len().max(1);
-    let item_sizes = Rc::new(vec![size(px(0.), px(40.)); item_count]);
+    let item_sizes = Rc::new(vec![size(px(0.), px(32.)); item_count]);
 
     v_virtual_list(
         cx.entity().clone(),
@@ -3013,33 +3088,26 @@ fn render_startup_row<V: Render>(
                 }),
             )
         })
+        .min_w(startup_table_min_width())
         .w_full()
-        .h(px(40.))
+        .h(px(32.))
         .px(px(12.))
         .gap(px(8.))
         .items_center()
+        .overflow_hidden()
         .border_b_1()
         .border_color(cx.theme().border)
         .text_sm()
         .text_color(cx.theme().foreground)
-        .child(
-            div()
-                .w(px(180.))
-                .flex_none()
-                .child(Label::new(truncate_text(&item.name, 28)).text_sm()),
-        )
+        .child(virtual_table_text_cell(item.name.clone(), STARTUP_COL_NAME, false))
+        .child(virtual_table_text_cell(item.command.clone(), STARTUP_COL_COMMAND, false))
         .child(
             div()
                 .flex_1()
-                .min_w(px(200.))
+                .min_w(STARTUP_COL_LOCATION)
                 .overflow_hidden()
-                .whitespace_nowrap()
-                .child(Label::new(truncate_text(&item.command, 80)).text_sm()),
-        )
-        .child(
-            div()
-                .w(px(180.))
-                .flex_none()
-                .child(Label::new(item.location.clone()).text_sm()),
+                .flex()
+                .items_center()
+                .child(Label::new(item.location.clone()).text_sm().truncate()),
         )
 }

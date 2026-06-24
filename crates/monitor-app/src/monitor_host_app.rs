@@ -267,9 +267,13 @@ pub struct SysMonitorHostApp {
     process_search: Entity<InputState>,
     process_sort: ProcessSort,
     service_scroll: VirtualListScrollHandle,
+    service_h_scroll: VirtualListScrollHandle,
     service_search: Entity<InputState>,
     startup_scroll: VirtualListScrollHandle,
+    startup_h_scroll: VirtualListScrollHandle,
     startup_search: Entity<InputState>,
+    user_scroll: VirtualListScrollHandle,
+    user_h_scroll: VirtualListScrollHandle,
     user_search: Entity<InputState>,
     alerts: VecDeque<Alert>,
     alert_suppressor: AlertSuppressor,
@@ -296,9 +300,13 @@ impl SysMonitorHostApp {
             process_search,
             process_sort: ProcessSort::default(),
             service_scroll: VirtualListScrollHandle::new(),
+            service_h_scroll: VirtualListScrollHandle::new(),
             service_search,
             startup_scroll: VirtualListScrollHandle::new(),
+            startup_h_scroll: VirtualListScrollHandle::new(),
             startup_search,
+            user_scroll: VirtualListScrollHandle::new(),
+            user_h_scroll: VirtualListScrollHandle::new(),
             user_search,
             alerts: VecDeque::new(),
             alert_suppressor: AlertSuppressor::new(),
@@ -797,9 +805,13 @@ impl Render for SysMonitorHostApp {
                                         let process_search = self.process_search.clone();
                                         let process_sort = self.process_sort;
                                         let service_scroll = self.service_scroll.clone();
+                                        let service_h_scroll = self.service_h_scroll.clone();
                                         let service_search = self.service_search.clone();
                                         let startup_scroll = self.startup_scroll.clone();
+                                        let startup_h_scroll = self.startup_h_scroll.clone();
                                         let startup_search = self.startup_search.clone();
+                                        let user_scroll = self.user_scroll.clone();
+                                        let user_h_scroll = self.user_h_scroll.clone();
                                         let user_search = self.user_search.clone();
                                         move |this, machine| {
                                             this.child(
@@ -820,9 +832,13 @@ impl Render for SysMonitorHostApp {
                                                                 &process_search,
                                                                 process_sort,
                                                                 &service_scroll,
+                                                                &service_h_scroll,
                                                                 &service_search,
                                                                 &startup_scroll,
+                                                                &startup_h_scroll,
                                                                 &startup_search,
+                                                                &user_scroll,
+                                                                &user_h_scroll,
                                                                 &user_search,
                                                                 move |column, window, cx| {
                                                                     host_view.update(cx, |this, cx| {
