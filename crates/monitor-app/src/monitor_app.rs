@@ -34,14 +34,32 @@ use crate::monitor_sender::MonitorSenderHandle;
 use crate::monitor_settings::{
     build_monitor_settings, init_monitor_connection, load_monitor_connection_config,
 };
-use crate::sys_info::SysProcessInfo;
-use crate::sys_info_mgr::SysInfoManager;
+use crate::sys_info::{SysInfo, SysProcessInfo};
+use crate::sys_info_mgr::SysInfoWorker;
 use crate::tray::{self, TrayCommand};
 
 const INTERVAL: Duration = Duration::from_secs(1);
+const COLLECT_POLL: Duration = Duration::from_millis(16);
+
+/// Runs `SysInfoWorker::collect` off the GPUI main thread (smol executor, no Tokio runtime).
+async fn collect_sysinfo_async(worker: SysInfoWorker) -> Option<SysInfo> {
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    std::thread::spawn(move || {
+        let _ = tx.send(worker.collect());
+    });
+    loop {
+        match rx.try_recv() {
+            Ok(snapshot) => return Some(snapshot),
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => return None,
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                Timer::after(COLLECT_POLL).await;
+            }
+        }
+    }
+}
 
 pub struct SysMonitorApp {
-    manager: SysInfoManager,
+    sysinfo: SysInfoWorker,
     telemetry: MachineTelemetry,
     active_tab: MonitorTab,
     sender: MonitorSenderHandle,
@@ -62,7 +80,7 @@ pub struct SysMonitorApp {
 
 impl ProcessActionHandler for SysMonitorApp {
     fn terminate_process(&mut self, pid: u32, cx: &mut Context<Self>) {
-        if self.manager.kill_process(pid) {
+        if self.sysinfo.kill_process(pid) {
             cx.notify();
         }
     }
@@ -85,7 +103,7 @@ impl ProcessActionHandler for SysMonitorApp {
     }
 
     fn start_service(&mut self, name: &str, cx: &mut Context<Self>) -> bool {
-        let ok = self.manager.start_service(name);
+        let ok = self.sysinfo.start_service(name);
         if ok {
             cx.notify();
         }
@@ -93,7 +111,7 @@ impl ProcessActionHandler for SysMonitorApp {
     }
 
     fn stop_service(&mut self, name: &str, cx: &mut Context<Self>) -> bool {
-        let ok = self.manager.stop_service(name);
+        let ok = self.sysinfo.stop_service(name);
         if ok {
             cx.notify();
         }
@@ -101,8 +119,8 @@ impl ProcessActionHandler for SysMonitorApp {
     }
 
     fn restart_service(&mut self, name: &str, cx: &mut Context<Self>) -> bool {
-        if self.manager.stop_service(name) {
-            let ok = self.manager.start_service(name);
+        if self.sysinfo.stop_service(name) {
+            let ok = self.sysinfo.start_service(name);
             if ok {
                 cx.notify();
             }
@@ -191,13 +209,10 @@ impl ProcessActionHandler for SysMonitorApp {
 }
 
 impl SysMonitorApp {
-    fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let mut manager = SysInfoManager::new();
-        let current = manager.load_system_info();
-        let telemetry = MachineTelemetry::new(current.clone());
+    fn new(_window: &mut Window, cx: &mut Context<Self>, sysinfo: SysInfoWorker) -> Self {
+        let telemetry = MachineTelemetry::new(Default::default());
         let connection_config = load_monitor_connection_config();
         let sender = MonitorSenderHandle::new();
-        sender.set_latest_payload(encode_telemetry(&current).unwrap_or_default());
         init_monitor_connection(cx, sender.clone(), connection_config);
 
         let process_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索进程..."));
@@ -205,7 +220,7 @@ impl SysMonitorApp {
         let startup_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索启动项..."));
         let user_search = cx.new(|cx| InputState::new(_window, cx).placeholder("搜索用户..."));
         let this = Self {
-            manager,
+            sysinfo,
             telemetry,
             active_tab: MonitorTab::Overview,
             sender,
@@ -224,28 +239,31 @@ impl SysMonitorApp {
             user_search,
         };
 
-        cx.spawn(async move |this, cx| loop {
-            Timer::after(INTERVAL).await;
-            if this
-                .update(cx, |this, cx| {
-                    this.refresh();
-                    cx.notify();
-                })
-                .is_err()
-            {
-                break;
+        let worker = this.sysinfo.clone();
+        cx.spawn(async move |this, cx| {
+            loop {
+                let worker = worker.clone();
+                let snapshot = match collect_sysinfo_async(worker).await {
+                    Some(snapshot) => snapshot,
+                    None => break,
+                };
+                let payload = encode_telemetry(&snapshot).unwrap_or_default();
+                if this
+                    .update(cx, |this, cx| {
+                        this.telemetry.apply_snapshot(snapshot);
+                        this.sender.set_latest_payload(payload);
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+                Timer::after(INTERVAL).await;
             }
         })
         .detach();
 
         this
-    }
-
-    fn refresh(&mut self) {
-        let snapshot = self.manager.load_system_info();
-        let payload = encode_telemetry(&snapshot).unwrap_or_default();
-        self.telemetry.apply_snapshot(snapshot);
-        self.sender.set_latest_payload(payload);
     }
 }
 
@@ -482,7 +500,7 @@ impl SysMonitorApp {
             .find(|p| p.pid == action.pid)
         {
             let details = self
-                .manager
+                .sysinfo
                 .get_process_details(action.pid)
                 .unwrap_or_default();
             ProcessDetailsView::open(process.clone(), details, cx);
@@ -674,6 +692,7 @@ fn resolve_startup_command_path(command: &str) -> String {
 
 pub fn run(start_hidden: bool) {
     tray::init_tray("CyberMonitor");
+    let sysinfo_worker = SysInfoWorker::start();
     let app = gpui_platform::application().with_assets(app_ui::Assets);
     app.run(move |cx: &mut App| {
         set_config_app_id(MONITOR_CONFIG_APP_ID);
@@ -705,7 +724,8 @@ pub fn run(start_hidden: bool) {
                         window.activate_window();
                     }
 
-                    let view = cx.new(|cx| SysMonitorApp::new(window, cx));
+                    let worker = sysinfo_worker.clone();
+                    let view = cx.new(|cx| SysMonitorApp::new(window, cx, worker));
                     cx.new(|cx| Root::new(view, window, cx))
                 })
                 .expect("failed to open CyberMonitor window");

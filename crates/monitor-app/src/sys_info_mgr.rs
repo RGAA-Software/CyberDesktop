@@ -1135,6 +1135,122 @@ impl SysInfoManager {
     }
 }
 
+/// Owns `SysInfoManager` on a dedicated thread so WMI/COM probes and heavy sysinfo
+/// refresh never block the GPUI main thread (STA COM apartment).
+#[derive(Clone)]
+pub struct SysInfoWorker {
+    tx: std::sync::Arc<std::sync::mpsc::SyncSender<WorkerRequest>>,
+}
+
+enum WorkerRequest {
+    Collect(std::sync::mpsc::SyncSender<SysInfo>),
+    KillProcess {
+        pid: u32,
+        reply: std::sync::mpsc::SyncSender<bool>,
+    },
+    StartService {
+        name: String,
+        reply: std::sync::mpsc::SyncSender<bool>,
+    },
+    StopService {
+        name: String,
+        reply: std::sync::mpsc::SyncSender<bool>,
+    },
+    ProcessDetails {
+        pid: u32,
+        reply: std::sync::mpsc::SyncSender<Option<ProcessDetailInfo>>,
+    },
+}
+
+struct WorkerState {
+    manager: SysInfoManager,
+    /// First snapshot produced during startup, before the UI requests data.
+    prefetch: Option<SysInfo>,
+}
+
+impl WorkerState {
+    fn collect(&mut self) -> SysInfo {
+        if let Some(snapshot) = self.prefetch.take() {
+            return snapshot;
+        }
+        self.manager.load_system_info()
+    }
+}
+
+impl SysInfoWorker {
+    /// Spawns the collector thread immediately (call before GPUI init to overlap startup work).
+    pub fn start() -> Self {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<WorkerRequest>(8);
+        let tx = std::sync::Arc::new(tx);
+        std::thread::Builder::new()
+            .name("cyber-monitor-sysinfo".into())
+            .spawn({
+                let rx = rx;
+                move || {
+                    let mut manager = SysInfoManager::new();
+                    let mut state = WorkerState {
+                        prefetch: Some(manager.load_system_info()),
+                        manager,
+                    };
+                    while let Ok(request) = rx.recv() {
+                        match request {
+                            WorkerRequest::Collect(reply) => {
+                                let _ = reply.send(state.collect());
+                            }
+                            WorkerRequest::KillProcess { pid, reply } => {
+                                let _ = reply.send(state.manager.kill_process(pid));
+                            }
+                            WorkerRequest::StartService { name, reply } => {
+                                let _ = reply.send(state.manager.start_service(&name));
+                            }
+                            WorkerRequest::StopService { name, reply } => {
+                                let _ = reply.send(state.manager.stop_service(&name));
+                            }
+                            WorkerRequest::ProcessDetails { pid, reply } => {
+                                let _ = reply.send(state.manager.get_process_details(pid));
+                            }
+                        }
+                    }
+                }
+            })
+            .expect("spawn cyber-monitor-sysinfo thread");
+        Self { tx }
+    }
+
+    fn send_request<T, F>(&self, build: F) -> T
+    where
+        F: FnOnce(std::sync::mpsc::SyncSender<T>) -> WorkerRequest,
+    {
+        let (reply_tx, reply_rx) = std::sync::mpsc::sync_channel(1);
+        self.tx
+            .send(build(reply_tx))
+            .expect("sysinfo worker thread alive");
+        reply_rx.recv().expect("sysinfo worker reply")
+    }
+
+    pub fn collect(&self) -> SysInfo {
+        self.send_request(WorkerRequest::Collect)
+    }
+
+    pub fn kill_process(&self, pid: u32) -> bool {
+        self.send_request(|reply| WorkerRequest::KillProcess { pid, reply })
+    }
+
+    pub fn start_service(&self, name: &str) -> bool {
+        let name = name.to_string();
+        self.send_request(|reply| WorkerRequest::StartService { name, reply })
+    }
+
+    pub fn stop_service(&self, name: &str) -> bool {
+        let name = name.to_string();
+        self.send_request(|reply| WorkerRequest::StopService { name, reply })
+    }
+
+    pub fn get_process_details(&self, pid: u32) -> Option<ProcessDetailInfo> {
+        self.send_request(|reply| WorkerRequest::ProcessDetails { pid, reply })
+    }
+}
+
 fn parse_base_frequency_ghz(brand: &str) -> Option<f32> {
     let at = brand.find('@')?;
     let tail = brand[at + 1..].trim_start();
