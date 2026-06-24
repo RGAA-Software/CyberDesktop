@@ -546,7 +546,7 @@ fn render_metric_card_with_height<V>(
                         .child(
                             Label::new(value)
                                 .when(large_overview_value, |this| {
-                                    this.text_base().line_height(px(22.))
+                                    this.text_lg().line_height(px(26.))
                                 })
                                 .when(!large_overview_value, |this| {
                                     this.text_sm().line_height(px(20.))
