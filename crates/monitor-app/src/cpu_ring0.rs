@@ -14,7 +14,7 @@ use windows::Win32::Storage::FileSystem::{
 };
 use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Services::{
-    CloseServiceHandle, CreateServiceW, DeleteService, OpenSCManagerW, OpenServiceW, StartServiceW,
+    CloseServiceHandle, CreateServiceW, DeleteService, OpenSCManagerW, OpenServiceW,
     SC_MANAGER_ALL_ACCESS, SERVICE_ALL_ACCESS, SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
     SERVICE_KERNEL_DRIVER,
 };
@@ -290,34 +290,82 @@ fn install_and_start_service(driver_path: &PathBuf) -> Result<(), ()> {
         let service_name = wide(DRIVER_ID);
         let driver_wide = wide(&driver_path.to_string_lossy());
 
-        let service = match CreateServiceW(
-            manager,
-            PCWSTR(service_name.as_ptr()),
-            PCWSTR(service_name.as_ptr()),
-            SERVICE_ALL_ACCESS,
-            SERVICE_KERNEL_DRIVER,
-            SERVICE_DEMAND_START,
-            SERVICE_ERROR_NORMAL,
-            PCWSTR(driver_wide.as_ptr()),
-            PCWSTR::null(),
-            None,
-            PCWSTR::null(),
-            PCWSTR::null(),
-            PCWSTR::null(),
-        ) {
-            Ok(handle) => handle,
-            Err(_) => OpenServiceW(
+        let create = || {
+            CreateServiceW(
                 manager,
                 PCWSTR(service_name.as_ptr()),
+                PCWSTR(service_name.as_ptr()),
                 SERVICE_ALL_ACCESS,
+                SERVICE_KERNEL_DRIVER,
+                SERVICE_DEMAND_START,
+                SERVICE_ERROR_NORMAL,
+                PCWSTR(driver_wide.as_ptr()),
+                PCWSTR::null(),
+                None,
+                PCWSTR::null(),
+                PCWSTR::null(),
+                PCWSTR::null(),
             )
-            .map_err(|_| ())?,
         };
 
-        let _ = StartServiceW(service, None);
+        let service = match create() {
+            Ok(handle) => handle,
+            Err(_) => {
+                let existing = OpenServiceW(
+                    manager,
+                    PCWSTR(service_name.as_ptr()),
+                    SERVICE_ALL_ACCESS,
+                )
+                .map_err(|_| ())?;
+                if service_start_ok(existing) {
+                    let _ = CloseServiceHandle(existing);
+                    let _ = CloseServiceHandle(manager);
+                    return Ok(());
+                }
+                // Stale registration (e.g. leftover OpenHardwareMonitor path) — recreate.
+                let _ = DeleteService(existing);
+                let _ = CloseServiceHandle(existing);
+                create().map_err(|_| ())?
+            }
+        };
+
+        let _ = service_start_ok(service);
         let _ = CloseServiceHandle(service);
         let _ = CloseServiceHandle(manager);
         Ok(())
+    }
+}
+
+/// Returns true when the service is running or was started successfully.
+unsafe fn service_start_ok(service: windows::Win32::System::Services::SC_HANDLE) -> bool {
+    use windows::Win32::Foundation::GetLastError;
+    use windows::Win32::System::Services::StartServiceW;
+
+    if StartServiceW(service, None).is_ok() {
+        return true;
+    }
+    // ERROR_SERVICE_ALREADY_RUNNING
+    GetLastError().0 == 1056
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod live_probe {
+    use super::with_ring0;
+
+    #[test]
+    #[ignore = "requires admin; loads WinRing0 kernel driver"]
+    fn winring0_driver_loads_and_reads_msr() {
+        let result = with_ring0(|ring0| {
+            let platform = ring0.rdmsr(0x00CE);
+            let perf = ring0.rdmsr_on_core(0x0198, 0);
+            eprintln!("MSR 0xCE (platform info): {platform:?}");
+            eprintln!("MSR 0x198 (perf status core0): {perf:?}");
+            Some((platform.is_some(), perf.is_some()))
+        });
+        eprintln!("with_ring0 returned: {result:?}");
+        if result.is_none() || result == Some((false, false)) {
+            eprintln!("FAIL: WinRing0 driver not loaded or MSR reads blocked");
+        }
     }
 }
 
