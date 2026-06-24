@@ -29,6 +29,10 @@ pub struct SysCpuInfo {
     pub physical_cores: usize,
     #[serde(default)]
     pub temperature: f32,
+    #[serde(default)]
+    pub virtualization: String,
+    #[serde(default)]
+    pub cache_summary: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -45,6 +49,27 @@ pub struct SysMemInfo {
     pub available: u64,
     #[serde(default)]
     pub available_gb: u64,
+    /// Commit charge (virtual memory in use).
+    #[serde(default)]
+    pub committed: u64,
+    #[serde(default)]
+    pub commit_peak: u64,
+    #[serde(default)]
+    pub commit_limit: u64,
+    #[serde(default)]
+    pub system_cache: u64,
+    #[serde(default)]
+    pub kernel_ws: u64,
+    #[serde(default)]
+    pub kernel_paged: u64,
+    #[serde(default)]
+    pub kernel_nonpaged: u64,
+    #[serde(default)]
+    pub hw_reserved: u64,
+    #[serde(default)]
+    pub swap_total: u64,
+    #[serde(default)]
+    pub swap_used: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -206,9 +231,17 @@ pub struct SysGpuInfo {
     #[serde(default)]
     pub id: String,
     #[serde(default)]
+    pub pci_address: String,
+    #[serde(default)]
     pub brand: String,
     #[serde(default)]
     pub fan_speed: u32,
+    /// True when RPM was read successfully via NVML (includes 0 RPM).
+    #[serde(default)]
+    pub fan_rpm_valid: bool,
+    /// Fan duty cycle 0–100 when RPM API is unavailable (AMD ADLX fallback).
+    #[serde(default)]
+    pub fan_speed_percent: u32,
     #[serde(default)]
     pub power_limit: u32,
     #[serde(default)]
@@ -255,6 +288,10 @@ pub struct SysInfo {
     pub components: Vec<SysComponentInfo>,
     #[serde(default)]
     pub uptime: String,
+    #[serde(default)]
+    pub thread_count: u32,
+    #[serde(default)]
+    pub handle_count: u32,
     #[serde(default)]
     pub gpus: Vec<SysGpuInfo>,
     #[serde(default)]

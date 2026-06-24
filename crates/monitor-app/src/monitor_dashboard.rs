@@ -23,10 +23,14 @@ use crate::monitor_actions::{
     StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_icons;
+use crate::cpu_platform::format_cpu_frequency_range;
 use crate::monitor_model::{
-    bytes_to_gb, chart_ticks, disk_usage_percent, format_cpu_temperature, format_optional_frequency,
-    format_tick, gpu_key, gpu_memory_percent, network_ipv4, sort_processes, MachineTelemetry,
-    MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
+    bytes_to_gb, chart_ticks, disk_key, disk_usage_percent, disk_used_gb, format_cpu_temperature,
+    format_gpu_fan_speed, format_mem_size, format_network_link_speed, format_optional_frequency,
+    format_tick, gpu_chart_color, gpu_chart_title, gpu_display_model, gpu_fan_meter_percent,
+    gpu_key, gpu_memory_percent, latest_disk_rates, latest_network_rates, network_ipv4,
+    network_key, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
+    SortDirection,
 };
 use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo, SysUserInfo};
 use app_ui::{color_icon_box, ContextMenuExt};
@@ -218,57 +222,6 @@ pub fn render_monitor_brand<V>(cx: &Context<V>) -> impl IntoElement {
         )
 }
 
-pub fn render_monitor_health_footer<V>(cx: &Context<V>) -> impl IntoElement {
-    v_flex()
-        .mt_auto()
-        .gap(px(10.))
-        .p(px(14.))
-        .rounded(px(7.))
-        .border_1()
-        .border_color(cx.theme().border)
-        .bg(cx.theme().secondary)
-        .shadow_md()
-        .child(
-            h_flex()
-                .justify_between()
-                .items_center()
-                .child(
-                    Label::new("系统状态")
-                        .text_sm()
-                        .font_semibold()
-                        .text_color(cx.theme().foreground),
-                )
-                .child(
-                    div()
-                        .relative()
-                        .w(px(10.))
-                        .h(px(10.))
-                        .child(
-                            div()
-                                .absolute()
-                                .top(px(-5.))
-                                .left(px(-5.))
-                                .w(px(20.))
-                                .h(px(20.))
-                                .rounded_full()
-                                .bg(cx.theme().success.opacity(0.14)),
-                        )
-                        .child(
-                            div()
-                                .w(px(10.))
-                                .h(px(10.))
-                                .rounded_full()
-                                .bg(cx.theme().success),
-                        ),
-                ),
-        )
-        .child(
-            Label::new("实时采样中 · 低延迟曲线 · 双主题支持 · 主色 #7548d8")
-                .text_xs()
-                .text_color(cx.theme().muted_foreground),
-        )
-}
-
 pub fn render_monitor_client_sidebar<V, F>(
     active_tab: MonitorTab,
     on_click: F,
@@ -293,8 +246,7 @@ where
                 .px(px(14.))
                 .pt(px(16.))
                 .pb(px(16.))
-                .child(render_monitor_nav(active_tab, on_click, cx))
-                .child(render_monitor_health_footer(cx)),
+                .child(render_monitor_nav(active_tab, on_click, cx)),
         )
 }
 
@@ -758,19 +710,29 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
     let send_percent = ((send_rate / 10.0) * 100.0).min(100.0) as f32;
     let recv_percent = ((recv_rate / 10.0) * 100.0).min(100.0) as f32;
     let primary_gpu = telemetry.current.gpus.first();
-    let gpu_history: Vec<_> = primary_gpu
-        .and_then(|gpu| {
-            telemetry
-                .gpu_history
-                .get(&gpu_key(gpu))
-                .map(|history| history.iter().cloned().collect())
+    let cpu_trend_title = format!("CPU 趋势 ({})", telemetry.current.cpu.brand.trim());
+    let gpu_rows: Vec<_> = telemetry
+        .current
+        .gpus
+        .iter()
+        .take(16)
+        .enumerate()
+        .filter_map(|(index, gpu)| {
+            let gpu_id = gpu_key(gpu);
+            let history = telemetry.gpu_history.get(&gpu_id)?;
+            if history.is_empty() {
+                return None;
+            }
+            let gpu_history: Vec<_> = history.iter().cloned().collect();
+            let gpu_mem_total = gpu.mem_total_gb as f64;
+            let gpu_mem_total = if gpu_mem_total > 0.0 {
+                gpu_mem_total
+            } else {
+                1.0
+            };
+            Some((index, gpu.clone(), gpu_history, gpu_mem_total))
         })
-        .unwrap_or_default();
-    let gpu_mem_total = primary_gpu
-        .map(|gpu| gpu.mem_total_gb as f64)
-        .filter(|total| *total > 0.0)
-        .unwrap_or(1.0);
-    let show_gpu_charts = primary_gpu.is_some() && !gpu_history.is_empty();
+        .collect();
 
     v_flex()
         .gap(px(14.))
@@ -798,9 +760,9 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                 ))
                 .child(render_overview_metric_card(
                     "overview-disk",
-                    "磁盘最高占用",
-                    format!("{:.1}%", telemetry.highest_disk_percent()),
-                    Some(telemetry.highest_disk_percent()),
+                    "系统盘占用",
+                    telemetry.system_disk_label(),
+                    Some(telemetry.system_disk_percent()),
                     Some(cx.theme().yellow),
                     cx,
                 ))
@@ -811,15 +773,14 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                         .current
                         .gpus
                         .first()
-                        .map(|gpu| gpu.brand.clone())
+                        .map(|gpu| gpu_display_model(&gpu.brand))
                         .unwrap_or_else(|| "无 GPU 数据".to_string()),
                     telemetry
                         .current
                         .gpus
                         .first()
-                        .map(|gpu| gpu.gpu_utilization as f32)
-                        .or(Some(8.0)),
-                    Some(cx.theme().primary),
+                        .map(|gpu| gpu.gpu_utilization as f32),
+                    primary_gpu.map(|_| gpu_chart_color(0)).or(Some(cx.theme().primary)),
                     cx,
                 ))
                 .child(render_overview_metric_card(
@@ -847,7 +808,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                         .gap(px(14.))
                         .child(div().flex_1().min_w_0().child(render_chart(
                             "overview-chart-cpu",
-                            "CPU 趋势",
+                            &cpu_trend_title,
                             history.clone(),
                             |point| point.time.clone(),
                             |point| point.cpu_usage,
@@ -874,42 +835,43 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                             cx,
                         ))),
                 )
-                .when(show_gpu_charts, |this| {
-                    this.child(
-                        h_flex()
-                            .gap(px(14.))
-                            .child(div().flex_1().min_w_0().child(render_chart(
-                                "overview-chart-gpu-usage",
-                                "GPU 使用率",
-                                gpu_history.clone(),
-                                |point| point.time.clone(),
-                                |point| point.usage,
-                                cx.theme().primary,
-                                "%",
-                                "时间",
-                                Some(100.0),
-                                true,
-                                true,
-                                cx,
-                            )))
-                            .child(div().flex_1().min_w_0().child(render_chart(
-                                "overview-chart-gpu-mem",
-                                "显存占用率",
-                                gpu_history,
-                                |point| point.time.clone(),
-                                move |point| {
-                                    (point.memory_used_gb / gpu_mem_total * 100.0).clamp(0.0, 100.0)
-                                },
-                                cx.theme().primary,
-                                "%",
-                                "时间",
-                                Some(100.0),
-                                true,
-                                true,
-                                cx,
-                            ))),
-                    )
-                })
+                .children(gpu_rows.into_iter().map(|(index, gpu, gpu_history, gpu_mem_total)| {
+                    let color = gpu_chart_color(index);
+                    let usage_title = gpu_chart_title("GPU 使用率", &gpu);
+                    let mem_title = gpu_chart_title("显存占用率", &gpu);
+                    h_flex()
+                        .gap(px(14.))
+                        .child(div().flex_1().min_w_0().child(render_chart(
+                            &format!("overview-chart-gpu-usage-{index}"),
+                            &usage_title,
+                            gpu_history.clone(),
+                            |point| point.time.clone(),
+                            |point| point.usage,
+                            color,
+                            "%",
+                            "时间",
+                            Some(100.0),
+                            true,
+                            true,
+                            cx,
+                        )))
+                        .child(div().flex_1().min_w_0().child(render_chart(
+                            &format!("overview-chart-gpu-mem-{index}"),
+                            &mem_title,
+                            gpu_history,
+                            |point| point.time.clone(),
+                            move |point| {
+                                (point.memory_used_gb / gpu_mem_total * 100.0).clamp(0.0, 100.0)
+                            },
+                            color,
+                            "%",
+                            "时间",
+                            Some(100.0),
+                            true,
+                            true,
+                            cx,
+                        )))
+                }))
                 .child(
                     h_flex()
                         .gap(px(14.))
@@ -943,6 +905,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                         ))),
                 ),
         )
+        .child(div().h(px(10.)))
 }
 
 fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
@@ -969,50 +932,41 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                         .border_color(cx.theme().border)
                         .bg(cx.theme().secondary)
                         .child(
-                            Label::new("当前使用率".to_uppercase())
-                                .text_xs()
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(cx.theme().muted_foreground),
+                            v_flex()
+                                .gap(px(10.))
+                                .child(inline_stat_row(
+                                    "当前使用率",
+                                    &format!("{cpu_usage:.1}%"),
+                                    cx,
+                                ))
+                                .child(inline_stat_row("逻辑核心", &core_count.to_string(), cx))
+                                .child(inline_stat_row(
+                                    "当前频率",
+                                    &format_optional_frequency(telemetry.current.cpu.current_frequency),
+                                    cx,
+                                ))
+                                .child(inline_stat_row(
+                                    "最大频率",
+                                    &format!("{:.2} GHz", telemetry.current.cpu.max_frequency),
+                                    cx,
+                                ))
+                                .child(inline_stat_row(
+                                    "Threads",
+                                    &telemetry.current.thread_count.to_string(),
+                                    cx,
+                                ))
+                                .child(inline_stat_row(
+                                    "Handles",
+                                    &telemetry.current.handle_count.to_string(),
+                                    cx,
+                                ))
+                                .child(inline_stat_row("Up time", &telemetry.current.uptime, cx))
+                                .child(inline_stat_row(
+                                    "Processes",
+                                    &telemetry.current.processes.len().to_string(),
+                                    cx,
+                                )),
                         )
-                        .child(
-                            div().mt(px(10.)).child(
-                                Label::new(format!("{:.1}%", cpu_usage))
-                                    .text_3xl()
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(cx.theme().foreground),
-                            ),
-                        )
-                        .child(
-                            div()
-                                .mt(px(13.))
-                                .w_full()
-                                .h(px(6.))
-                                .rounded_full()
-                                .overflow_hidden()
-                                .bg(cx.theme().primary.opacity(0.10))
-                                .child(
-                                    div()
-                                        .h_full()
-                                        .rounded_full()
-                                        .bg(cx.theme().red)
-                                        .w(relative((cpu_usage as f32 / 100.0).clamp(0.0, 1.0))),
-                                ),
-                        )
-                        .child(div().mt(px(16.)).child(helper_row(
-                            "逻辑核心",
-                            &core_count.to_string(),
-                            cx,
-                        )))
-                        .child(div().mt(px(10.)).child(helper_row(
-                            "当前频率",
-                            &format_optional_frequency(telemetry.current.cpu.current_frequency),
-                            cx,
-                        )))
-                        .child(div().mt(px(10.)).child(helper_row(
-                            "最大频率",
-                            &format!("{:.2} GHz", telemetry.current.cpu.max_frequency),
-                            cx,
-                        ))),
                 )
                 .child(
                     card("cpu-info")
@@ -1042,8 +996,8 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                             cx,
                                         )))
                                         .child(div().flex_1().min_w_0().child(info_item(
-                                            "Vendor",
-                                            &telemetry.current.cpu.vendor,
+                                            "硬件虚拟化",
+                                            &telemetry.current.cpu.virtualization,
                                             cx,
                                         )))
                                         .child(div().flex_1().min_w_0().child(info_item(
@@ -1061,19 +1015,16 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                         .gap(px(16.))
                                         .items_stretch()
                                         .child(div().flex_1().min_w_0().child(info_item(
-                                            "基准频率",
-                                            &format!(
-                                                "{:.2} GHz",
-                                                telemetry.current.cpu.base_frequency
+                                            "基准/最大频率",
+                                            &format_cpu_frequency_range(
+                                                telemetry.current.cpu.base_frequency,
+                                                telemetry.current.cpu.max_frequency,
                                             ),
                                             cx,
                                         )))
                                         .child(div().flex_1().min_w_0().child(info_item(
-                                            "最大频率",
-                                            &format!(
-                                                "{:.2} GHz",
-                                                telemetry.current.cpu.max_frequency
-                                            ),
+                                            "L1/L2/L3缓存",
+                                            &telemetry.current.cpu.cache_summary,
                                             cx,
                                         )))
                                         .child(div().flex_1().min_w_0().child(info_item(
@@ -1154,7 +1105,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             .min_h(px(160.))
                             .child(render_chart(
                                 &format!("cpu-core-{index}-chart"),
-                                &format!("Core {index}"),
+                                &format!("Core {}", index + 1),
                                 core_history,
                                 |point| point.0.clone(),
                                 |point| point.1,
@@ -1170,11 +1121,15 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                     }))
                 }),
         )
+        .child(div().h(px(10.)))
 }
 
 fn metric_item<V>(label: &str, value: &str, cx: &Context<V>) -> impl IntoElement {
     div()
         .w_full()
+        .h_full()
+        .flex()
+        .flex_col()
         .p(px(12.))
         .rounded(px(6.))
         .border_1()
@@ -1188,8 +1143,9 @@ fn metric_item<V>(label: &str, value: &str, cx: &Context<V>) -> impl IntoElement
         .child(
             div().mt(px(6.)).child(
                 Label::new(value.to_string())
-                    .text_xl()
-                    .font_weight(FontWeight::BOLD)
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .line_height(px(20.))
                     .text_color(cx.theme().foreground),
             ),
         )
@@ -1270,10 +1226,118 @@ fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
                     cx,
                 ))),
         )
-        .child(empty_state(
-            "这里可以扩展：分页池、非分页池、缓存、提交大小、交换区等高级指标",
-            cx,
-        ))
+        .child(render_memory_advanced_metrics(telemetry, cx))
+}
+
+fn render_memory_advanced_metrics<V>(
+    telemetry: &MachineTelemetry,
+    cx: &Context<V>,
+) -> impl IntoElement {
+    let mem = &telemetry.current.mem;
+    let has_advanced = mem.committed > 0
+        || mem.system_cache > 0
+        || mem.kernel_ws > 0
+        || mem.swap_total > 0;
+
+    v_flex()
+        .gap(px(14.))
+        .when(has_advanced, |this| {
+            this.child(
+                h_flex()
+                    .gap(px(14.))
+                    .items_stretch()
+                    .child(
+                        card("memory-virtual")
+                            .flex_1()
+                            .min_w_0()
+                            .p(px(16.))
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().secondary)
+                            .child(
+                                Label::new("虚拟内存".to_uppercase())
+                                    .text_xs()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(cx.theme().muted_foreground),
+                            )
+                            .child(
+                                h_flex()
+                                    .mt(px(12.))
+                                    .gap(px(14.))
+                                    .items_stretch()
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "提交大小",
+                                        &format_mem_size(mem.committed),
+                                        cx,
+                                    )))
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "峰值提交",
+                                        &format_mem_size(mem.commit_peak),
+                                        cx,
+                                    )))
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "提交限制",
+                                        &format_mem_size(mem.commit_limit),
+                                        cx,
+                                    )))
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "交换区已用",
+                                        &format_mem_size(mem.swap_used),
+                                        cx,
+                                    ))),
+                            ),
+                    )
+                    .child(
+                        card("memory-physical-advanced")
+                            .flex_1()
+                            .min_w_0()
+                            .p(px(16.))
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().secondary)
+                            .child(
+                                Label::new("物理内存".to_uppercase())
+                                    .text_xs()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(cx.theme().muted_foreground),
+                            )
+                            .child(
+                                h_flex()
+                                    .mt(px(12.))
+                                    .gap(px(14.))
+                                    .items_stretch()
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "硬件保留",
+                                        &format_mem_size(mem.hw_reserved),
+                                        cx,
+                                    )))
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "缓存 WS",
+                                        &format_mem_size(mem.system_cache),
+                                        cx,
+                                    )))
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "内核 WS",
+                                        &format_mem_size(mem.kernel_ws),
+                                        cx,
+                                    )))
+                                    .child(div().flex_1().min_w_0().child(metric_item(
+                                        "分页/非分页池",
+                                        &format!(
+                                            "{} / {}",
+                                            format_mem_size(mem.kernel_paged),
+                                            format_mem_size(mem.kernel_nonpaged)
+                                        ),
+                                        cx,
+                                    ))),
+                            ),
+                    ),
+            )
+        })
+        .when(!has_advanced, |this| {
+            this.child(empty_state(
+                "高级内存指标需要 Windows 系统 API（GetPerformanceInfo）",
+                cx,
+            ))
+        })
 }
 
 fn chip<V>(label: &str, cx: &Context<V>) -> impl IntoElement {
@@ -1349,8 +1413,8 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                 .child(render_overview_metric_card(
                                     &format!("gpu-{gpu_id}-fan"),
                                     "风扇转速",
-                                    format!("{} RPM", gpu.fan_speed),
-                                    Some(((gpu.fan_speed as f32 / 5000.0) * 100.0).clamp(0.0, 100.0)),
+                                    format_gpu_fan_speed(gpu),
+                                    gpu_fan_meter_percent(gpu),
                                     Some(cx.theme().primary),
                                     cx,
                                 ))
@@ -1455,216 +1519,281 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
 }
 
 fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
-    let read_rate = telemetry.latest_disk_read_rate();
-    let write_rate = telemetry.latest_disk_write_rate();
     v_flex()
         .gap(px(14.))
-        .child(
-            metric_grid_row_equal()
-                .child(render_metric_card(
-                    "storage-disk-count",
-                    "磁盘数量",
-                    telemetry.current.disks.len().to_string(),
-                    Some(30.0),
-                    Some(cx.theme().primary),
-                    cx,
-                ))
-                .child(render_metric_card(
-                    "storage-max-used",
-                    "最高占用",
-                    format!("{:.1}%", telemetry.highest_disk_percent()),
-                    Some(telemetry.highest_disk_percent()),
-                    Some(cx.theme().yellow),
-                    cx,
-                ))
-                .child(render_metric_card(
-                    "storage-read-rate",
-                    "磁盘读取速率",
-                    format!("{:.2} MB/s", read_rate),
-                    Some(((read_rate / 10.0) * 100.0).min(100.0) as f32),
-                    Some(cx.theme().primary),
-                    cx,
-                ))
-                .child(render_metric_card(
-                    "storage-write-rate",
-                    "磁盘写入速率",
-                    format!("{:.2} MB/s", write_rate),
-                    Some(((write_rate / 10.0) * 100.0).min(100.0) as f32),
-                    Some(cx.theme().primary),
-                    cx,
-                )),
-        )
-        .child(render_disk_table(telemetry, cx))
+        .when(telemetry.current.disks.is_empty(), |this| {
+            this.child(empty_state("当前没有磁盘监控数据", cx))
+        })
+        .children(telemetry.current.disks.iter().map(|disk| {
+            let disk_id = disk_key(disk);
+            let history = telemetry
+                .disk_history
+                .get(&disk_id)
+                .map(|items| items.iter().cloned().collect::<Vec<_>>())
+                .unwrap_or_default();
+            let (read_rate, write_rate) = latest_disk_rates(telemetry, &disk_id);
+            let used_gb = disk_used_gb(disk);
+            let disk_type = if disk.disk_type.is_empty() {
+                "本地磁盘".to_string()
+            } else {
+                disk.disk_type.clone()
+            };
+
+            card(format!("disk-panel-{disk_id}"))
+                .p(px(16.))
+                .border_color(cx.theme().border)
+                .bg(cx.theme().secondary)
+                .child(
+                    v_flex()
+                        .gap(px(10.))
+                        .child(
+                            h_flex()
+                                .justify_between()
+                                .items_center()
+                                .child(
+                                    h_flex()
+                                        .gap(px(8.))
+                                        .items_center()
+                                        .child(monitor_icons::nav_icon(monitor_icons::STORAGE))
+                                        .child(
+                                            Label::new(disk.mount_on.clone())
+                                                .text_lg()
+                                                .font_weight(FontWeight::BOLD)
+                                                .text_color(cx.theme().foreground),
+                                        ),
+                                )
+                                .child(chip(&disk_type, cx)),
+                        )
+                        .child(
+                            metric_grid_row_equal()
+                                .child(render_overview_metric_card(
+                                    &format!("disk-{disk_id}-usage"),
+                                    "已用空间",
+                                    format!("{used_gb:.1} / {} GB", disk.total_gb),
+                                    Some(disk_usage_percent(disk)),
+                                    Some(cx.theme().yellow),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("disk-{disk_id}-free"),
+                                    "可用空间",
+                                    format!("{} GB", disk.available_gb),
+                                    Some(
+                                        ((disk.available as f32 / disk.total.max(1) as f32)
+                                            * 100.0)
+                                            .clamp(0.0, 100.0),
+                                    ),
+                                    Some(cx.theme().primary),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("disk-{disk_id}-read"),
+                                    "读取速率",
+                                    format!("{read_rate:.2} MB/s"),
+                                    Some(((read_rate / 10.0) * 100.0).min(100.0) as f32),
+                                    Some(cx.theme().primary),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("disk-{disk_id}-write"),
+                                    "写入速率",
+                                    format!("{write_rate:.2} MB/s"),
+                                    Some(((write_rate / 10.0) * 100.0).min(100.0) as f32),
+                                    Some(cx.theme().primary),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("disk-{disk_id}-fs"),
+                                    "文件系统",
+                                    if disk.filesystem.is_empty() {
+                                        "—".to_string()
+                                    } else {
+                                        disk.filesystem.clone()
+                                    },
+                                    None,
+                                    Some(cx.theme().primary),
+                                    cx,
+                                )),
+                        )
+                        .child(
+                            h_flex()
+                                .gap(px(14.))
+                                .child(div().flex_1().min_w_0().child(render_chart(
+                                    &format!("disk-{disk_id}-chart-read"),
+                                    "读取速率",
+                                    history.clone(),
+                                    |point| point.time.clone(),
+                                    |point| point.read_mb,
+                                    cx.theme().primary,
+                                    "MB/s",
+                                    "时间",
+                                    None,
+                                    true,
+                                    true,
+                                    cx,
+                                )))
+                                .child(div().flex_1().min_w_0().child(render_chart(
+                                    &format!("disk-{disk_id}-chart-write"),
+                                    "写入速率",
+                                    history,
+                                    |point| point.time.clone(),
+                                    |point| point.write_mb,
+                                    cx.theme().yellow,
+                                    "MB/s",
+                                    "时间",
+                                    None,
+                                    true,
+                                    true,
+                                    cx,
+                                ))),
+                        ),
+                )
+        }))
+        .child(div().h(px(10.)))
 }
 
 fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
-    let history: Vec<_> = telemetry.history.iter().cloned().collect();
-    let primary = telemetry.current.networks.first();
-    let send_rate = telemetry.latest_send_rate();
-    let recv_rate = telemetry.latest_recv_rate();
     v_flex()
         .gap(px(14.))
-        .child(
-            metric_grid_row_equal()
-                .child(render_metric_card(
-                    "network-primary-name",
-                    "当前主网卡",
-                    primary
-                        .map(|item| item.name.clone())
-                        .unwrap_or_else(|| "未识别".to_string()),
-                    Some(20.0),
-                    Some(cx.theme().primary),
-                    cx,
-                ))
-                .child(render_metric_card(
-                    "network-send-rate",
-                    "发送速率",
-                    format!("{:.2} MB/s", send_rate),
-                    Some(((send_rate / 10.0) * 100.0).min(100.0) as f32),
-                    Some(cx.theme().primary),
-                    cx,
-                ))
-                .child(render_metric_card(
-                    "network-recv-rate",
-                    "接收速率",
-                    format!("{:.2} MB/s", recv_rate),
-                    Some(((recv_rate / 10.0) * 100.0).min(100.0) as f32),
-                    Some(cx.theme().primary),
-                    cx,
-                )),
-        )
-        .child(
-            h_flex()
-                .gap(px(14.))
-                .child(div().flex_1().min_w_0().child(render_chart(
-                    "network-chart-send",
-                    "发送速率",
-                    history.clone(),
-                    |point| point.time.clone(),
-                    |point| point.net_send_mb,
-                    cx.theme().primary,
-                    "MB/s",
-                    "时间",
-                    None,
-                    true,
-                    true,
-                    cx,
-                )))
-                .child(div().flex_1().min_w_0().child(render_chart(
-                    "network-chart-recv",
-                    "接收速率",
-                    history,
-                    |point| point.time.clone(),
-                    |point| point.net_recv_mb,
-                    cx.theme().yellow,
-                    "MB/s",
-                    "时间",
-                    None,
-                    true,
-                    true,
-                    cx,
-                ))),
-        )
-        .child(render_network_table(telemetry, cx))
-}
+        .when(telemetry.current.networks.is_empty(), |this| {
+            this.child(empty_state("当前没有网卡监控数据", cx))
+        })
+        .children(telemetry.current.networks.iter().map(|network| {
+            let network_id = network_key(network);
+            let history = telemetry
+                .network_history
+                .get(&network_id)
+                .map(|items| items.iter().cloned().collect::<Vec<_>>())
+                .unwrap_or_default();
+            let (send_rate, recv_rate) = latest_network_rates(telemetry, &network_id);
+            let ipv4 = network_ipv4(network);
 
-fn render_disk_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
-    Table::new()
-        .child(
-            data_table_header(cx).child(
-                TableRow::new()
-                    .child(data_table_head("挂载点", cx))
-                    .child(data_table_head("类型", cx))
-                    .child(data_table_head("文件系统", cx))
-                    .child(data_table_head_right("总量(GB)", cx))
-                    .child(data_table_head_right("可用(GB)", cx))
-                    .child(data_table_head_right("已用(%)", cx))
-                    .child(data_table_head_right("读取(MB/s)", cx))
-                    .child(data_table_head_right("写入(MB/s)", cx)),
-            ),
-        )
-        .child(
-            TableBody::new().children(telemetry.current.disks.iter().enumerate().map(
-                |(index, disk)| {
-                    let stripe = striped_row_bg(index, cx);
-                    TableRow::new()
-                        .when_some(stripe, |row, bg| row.bg(bg))
-                        .child(TableCell::new().child(disk.mount_on.clone()))
-                        .child(TableCell::new().child(disk.disk_type.clone()))
-                        .child(TableCell::new().child(disk.filesystem.clone()))
+            card(format!("network-panel-{network_id}"))
+                .p(px(16.))
+                .border_color(cx.theme().border)
+                .bg(cx.theme().secondary)
+                .child(
+                    v_flex()
+                        .gap(px(10.))
                         .child(
-                            TableCell::new()
-                                .text_right()
-                                .child(format!("{}", disk.total_gb)),
+                            h_flex()
+                                .justify_between()
+                                .items_center()
+                                .child(
+                                    h_flex()
+                                        .gap(px(8.))
+                                        .items_center()
+                                        .child(monitor_icons::nav_icon(monitor_icons::NETWORK))
+                                        .child(
+                                            Label::new(network.name.clone())
+                                                .text_lg()
+                                                .font_weight(FontWeight::BOLD)
+                                                .text_color(cx.theme().foreground),
+                                        ),
+                                )
+                                .child(chip(
+                                    if ipv4.is_empty() { "未分配 IPv4" } else { "在线" },
+                                    cx,
+                                )),
                         )
                         .child(
-                            TableCell::new()
-                                .text_right()
-                                .child(format!("{}", disk.available_gb)),
+                            metric_grid_row_equal()
+                                .child(render_overview_metric_card(
+                                    &format!("net-{network_id}-ipv4"),
+                                    "IPv4",
+                                    if ipv4.is_empty() {
+                                        "—".to_string()
+                                    } else {
+                                        ipv4.clone()
+                                    },
+                                    None,
+                                    Some(cx.theme().primary),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("net-{network_id}-mac"),
+                                    "MAC",
+                                    if network.mac.is_empty() {
+                                        "—".to_string()
+                                    } else {
+                                        network.mac.clone()
+                                    },
+                                    None,
+                                    Some(cx.theme().primary),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("net-{network_id}-link"),
+                                    "链路速率",
+                                    format_network_link_speed(network),
+                                    None,
+                                    Some(cx.theme().primary),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("net-{network_id}-send-rate"),
+                                    "发送速率",
+                                    format!("{send_rate:.2} MB/s"),
+                                    Some(((send_rate / 10.0) * 100.0).min(100.0) as f32),
+                                    Some(cx.theme().primary),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("net-{network_id}-recv-rate"),
+                                    "接收速率",
+                                    format!("{recv_rate:.2} MB/s"),
+                                    Some(((recv_rate / 10.0) * 100.0).min(100.0) as f32),
+                                    Some(cx.theme().yellow),
+                                    cx,
+                                ))
+                                .child(render_overview_metric_card(
+                                    &format!("net-{network_id}-total"),
+                                    "累计流量",
+                                    format!(
+                                        "↑ {:.2} / ↓ {:.2} GB",
+                                        bytes_to_gb(network.sent_data),
+                                        bytes_to_gb(network.received_data)
+                                    ),
+                                    None,
+                                    Some(cx.theme().primary),
+                                    cx,
+                                )),
                         )
                         .child(
-                            TableCell::new()
-                                .text_right()
-                                .child(format!("{:.1}%", disk_usage_percent(disk))),
-                        )
-                        .child(
-                            TableCell::new()
-                                .text_right()
-                                .child(format!("{:.2}", disk.read_rate)),
-                        )
-                        .child(
-                            TableCell::new()
-                                .text_right()
-                                .child(format!("{:.2}", disk.write_rate)),
-                        )
-                },
-            )),
-        )
-        .child(TableCaption::new().child(format!("共 {} 块磁盘", telemetry.current.disks.len())))
-        .bg(cx.theme().table)
-}
-
-fn render_network_table<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
-    Table::new()
-        .child(
-            data_table_header(cx).child(
-                TableRow::new()
-                    .child(data_table_head("名称", cx))
-                    .child(data_table_head("MAC", cx))
-                    .child(data_table_head("IPv4", cx))
-                    .child(data_table_head_right("累计发送(GB)", cx))
-                    .child(data_table_head_right("累计接收(GB)", cx))
-                    .child(data_table_head_right("链路速率(Mbps)", cx)),
-            ),
-        )
-        .child(
-            TableBody::new().children(telemetry.current.networks.iter().enumerate().map(
-                |(index, network)| {
-                    let stripe = striped_row_bg(index, cx);
-                    TableRow::new()
-                        .when_some(stripe, |row, bg| row.bg(bg))
-                        .child(TableCell::new().child(network.name.clone()))
-                        .child(TableCell::new().child(network.mac.clone()))
-                        .child(TableCell::new().child(network_ipv4(network)))
-                        .child(
-                            TableCell::new()
-                                .text_right()
-                                .child(format!("{:.2}", bytes_to_gb(network.sent_data))),
-                        )
-                        .child(
-                            TableCell::new()
-                                .text_right()
-                                .child(format!("{:.2}", bytes_to_gb(network.received_data))),
-                        )
-                        .child(TableCell::new().text_right().child(format!(
-                            "{}/{}",
-                            network.max_transmit_speed, network.max_receive_speed
-                        )))
-                },
-            )),
-        )
-        .child(TableCaption::new().child("展示所有非虚拟网卡数据"))
-        .bg(cx.theme().table)
+                            h_flex()
+                                .gap(px(14.))
+                                .child(div().flex_1().min_w_0().child(render_chart(
+                                    &format!("net-{network_id}-chart-send"),
+                                    "发送速率",
+                                    history.clone(),
+                                    |point| point.time.clone(),
+                                    |point| point.send_mb,
+                                    cx.theme().primary,
+                                    "MB/s",
+                                    "时间",
+                                    None,
+                                    true,
+                                    true,
+                                    cx,
+                                )))
+                                .child(div().flex_1().min_w_0().child(render_chart(
+                                    &format!("net-{network_id}-chart-recv"),
+                                    "接收速率",
+                                    history,
+                                    |point| point.time.clone(),
+                                    |point| point.recv_mb,
+                                    cx.theme().yellow,
+                                    "MB/s",
+                                    "时间",
+                                    None,
+                                    true,
+                                    true,
+                                    cx,
+                                ))),
+                        ),
+                )
+        }))
+        .child(div().h(px(10.)))
 }
 
 fn render_processes_tab<V: Render, F>(
@@ -2200,19 +2329,17 @@ fn truncate_text(text: &str, max_len: usize) -> String {
     }
 }
 
-fn helper_row<V>(label: &str, value: &str, cx: &Context<V>) -> impl IntoElement {
+fn inline_stat_row<V>(label: &str, value: &str, cx: &Context<V>) -> impl IntoElement {
     h_flex()
-        .justify_between()
-        .items_center()
         .child(
-            Label::new(label.to_string())
-                .text_xs()
-                .text_color(cx.theme().muted_foreground),
+            Label::new(format!("{label}: "))
+                .text_sm()
+                .text_color(cx.theme().foreground),
         )
         .child(
             Label::new(value.to_string())
-                .text_xs()
-                .font_weight(FontWeight::SEMIBOLD)
+                .text_sm()
+                .font_weight(FontWeight::BOLD)
                 .text_color(cx.theme().foreground),
         )
 }

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use gpui::Hsla;
+use gpui::{rgb, Hsla};
 use gpui_component::Theme;
 use serde::Deserialize;
 
@@ -116,12 +116,30 @@ pub struct GpuHistoryPoint {
 }
 
 #[derive(Clone, Default)]
+pub struct DiskHistoryPoint {
+    pub time: String,
+    pub read_mb: f64,
+    pub write_mb: f64,
+}
+
+#[derive(Clone, Default)]
+pub struct NetworkHistoryPoint {
+    pub time: String,
+    pub send_mb: f64,
+    pub recv_mb: f64,
+}
+
+#[derive(Clone, Default)]
 pub struct MachineTelemetry {
     pub current: SysInfo,
     pub history: VecDeque<HistoryPoint>,
     pub gpu_history: BTreeMap<String, VecDeque<GpuHistoryPoint>>,
+    pub disk_history: BTreeMap<String, VecDeque<DiskHistoryPoint>>,
+    pub network_history: BTreeMap<String, VecDeque<NetworkHistoryPoint>>,
     last_net_received: u64,
     last_net_sent: u64,
+    last_net_by_iface: BTreeMap<String, (u64, u64)>,
+    last_disk_totals: BTreeMap<String, (u64, u64)>,
     last_sample_ready: bool,
 }
 
@@ -131,8 +149,12 @@ impl MachineTelemetry {
             current: initial,
             history: VecDeque::with_capacity(MAX_POINTS),
             gpu_history: BTreeMap::new(),
+            disk_history: BTreeMap::new(),
+            network_history: BTreeMap::new(),
             last_net_received: 0,
             last_net_sent: 0,
+            last_net_by_iface: BTreeMap::new(),
+            last_disk_totals: BTreeMap::new(),
             last_sample_ready: false,
         };
         this.record_sample();
@@ -164,6 +186,18 @@ impl MachineTelemetry {
             .iter()
             .map(disk_usage_percent)
             .fold(0.0, f32::max)
+    }
+
+    pub fn system_disk_percent(&self) -> f32 {
+        system_disk(&self.current.disks)
+            .map(disk_usage_percent)
+            .unwrap_or(0.0)
+    }
+
+    pub fn system_disk_label(&self) -> String {
+        system_disk(&self.current.disks)
+            .map(format_system_disk_usage)
+            .unwrap_or_else(|| "系统盘不可用".to_string())
     }
 
     pub fn primary_gpu_percent(&self) -> f32 {
@@ -265,6 +299,53 @@ impl MachineTelemetry {
             let history = self.gpu_history.entry(id).or_default();
             push_point(history, point);
         }
+
+        let sample_time = short_time_label(&self.current.timestamp_readable);
+        for disk in &self.current.disks {
+            let id = disk_key(disk);
+            let (read_mb, write_mb) = if self.last_sample_ready {
+                match self.last_disk_totals.get(&id) {
+                    Some((last_read, last_write)) => (
+                        bytes_to_mb(disk.read_bytes.saturating_sub(*last_read)),
+                        bytes_to_mb(disk.written_bytes.saturating_sub(*last_write)),
+                    ),
+                    None => (0.0, 0.0),
+                }
+            } else {
+                (0.0, 0.0)
+            };
+            self.last_disk_totals
+                .insert(id.clone(), (disk.read_bytes, disk.written_bytes));
+            let point = DiskHistoryPoint {
+                time: sample_time.clone(),
+                read_mb,
+                write_mb,
+            };
+            push_point(self.disk_history.entry(id).or_default(), point);
+        }
+
+        for network in &self.current.networks {
+            let id = network_key(network);
+            let (send_mb, recv_mb) = if self.last_sample_ready {
+                match self.last_net_by_iface.get(&id) {
+                    Some((last_sent, last_recv)) => (
+                        bytes_to_mb(network.sent_data.saturating_sub(*last_sent)),
+                        bytes_to_mb(network.received_data.saturating_sub(*last_recv)),
+                    ),
+                    None => (0.0, 0.0),
+                }
+            } else {
+                (0.0, 0.0)
+            };
+            self.last_net_by_iface
+                .insert(id.clone(), (network.sent_data, network.received_data));
+            let point = NetworkHistoryPoint {
+                time: sample_time.clone(),
+                send_mb,
+                recv_mb,
+            };
+            push_point(self.network_history.entry(id).or_default(), point);
+        }
     }
 }
 
@@ -291,6 +372,42 @@ pub fn bytes_to_gb(value: u64) -> f64 {
     value as f64 / 1024.0 / 1024.0 / 1024.0
 }
 
+pub fn format_mem_size(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1} GB", bytes as f64 / 1024.0 / 1024.0 / 1024.0)
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.1} MB", bytes as f64 / 1024.0 / 1024.0)
+    } else if bytes >= 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else {
+        format!("{bytes} B")
+    }
+}
+
+pub fn format_gpu_fan_speed(gpu: &crate::sys_info::SysGpuInfo) -> String {
+    if gpu.fan_rpm_valid {
+        format!("{} RPM", gpu.fan_speed)
+    } else if gpu.fan_speed_percent > 0 {
+        format!("{}%", gpu.fan_speed_percent)
+    } else {
+        "—".to_string()
+    }
+}
+
+pub fn gpu_fan_meter_percent(gpu: &crate::sys_info::SysGpuInfo) -> Option<f32> {
+    if gpu.fan_rpm_valid {
+        if gpu.fan_speed == 0 {
+            None
+        } else {
+            Some(((gpu.fan_speed as f32 / 5000.0) * 100.0).clamp(0.0, 100.0))
+        }
+    } else if gpu.fan_speed_percent > 0 {
+        Some(gpu.fan_speed_percent as f32)
+    } else {
+        None
+    }
+}
+
 pub fn bytes_to_mb(value: u64) -> f64 {
     value as f64 / 1024.0 / 1024.0
 }
@@ -309,11 +426,200 @@ pub fn disk_usage_percent(disk: &SysDiskInfo) -> f32 {
     }
 }
 
-pub fn gpu_key(gpu: &SysGpuInfo) -> String {
-    if gpu.id.is_empty() {
-        gpu.brand.clone()
+/// Returns the OS system volume from mounted disks (Windows: `SystemDrive`, Linux: `/`).
+pub fn system_disk<'a>(disks: &'a [SysDiskInfo]) -> Option<&'a SysDiskInfo> {
+    let prefix = system_drive_prefix();
+    disks
+        .iter()
+        .find(|disk| disk_matches_system_drive(&disk.mount_on, &prefix))
+        .or_else(|| disks.first())
+}
+
+fn system_drive_prefix() -> String {
+    #[cfg(windows)]
+    {
+        std::env::var("SystemDrive").unwrap_or_else(|_| "C:".to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        "/".to_string()
+    }
+}
+
+fn disk_matches_system_drive(mount_on: &str, system_prefix: &str) -> bool {
+    let mount = mount_on.trim_end_matches(['\\', '/']).to_lowercase();
+    #[cfg(windows)]
+    {
+        let prefix = system_prefix.trim_end_matches(['\\', '/']).to_lowercase();
+        mount == prefix || mount.starts_with(&format!("{prefix}\\"))
+    }
+    #[cfg(not(windows))]
+    {
+        mount == system_prefix.trim_end_matches('/')
+            || mount.starts_with(system_prefix)
+            || system_prefix == "/" && (mount.is_empty() || mount == "/")
+    }
+}
+
+pub fn format_system_disk_usage(disk: &SysDiskInfo) -> String {
+    let used_gb = bytes_to_gb(disk.total.saturating_sub(disk.available));
+    let total_gb = bytes_to_gb(disk.total);
+    let mount = disk
+        .mount_on
+        .trim_end_matches(['\\', '/'])
+        .to_string();
+    let label = if mount.is_empty() {
+        "系统盘".to_string()
     } else {
+        mount
+    };
+    format!("{label} {used_gb:.1} / {total_gb:.1} GB")
+}
+
+/// Distinct chart colors for up to 16 GPUs on the overview page.
+pub fn gpu_chart_color(index: usize) -> Hsla {
+    const COLORS: [u32; 16] = [
+        0x7548d8, 0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0x1abc9c, 0xe67e22,
+        0x2980b9, 0xc0392b, 0x16a085, 0x8e44ad, 0x27ae60, 0xd35400, 0x34495e, 0xf1c40f,
+    ];
+    rgb(COLORS[index % COLORS.len()]).into()
+}
+
+/// PCI BDF in decimal — matches Windows Task Manager (bus:device:function).
+/// NVML/lspci use hex internally; we convert for display. Example: `PCI: 1:0:0`
+pub fn format_pci_address(bus: u32, device: u32, function: u32) -> String {
+    format!("PCI: {bus}:{device}:{function}")
+}
+
+/// Parses NVML-style bus id (hex) such as `00000000:01:00.0`, returns decimal display.
+pub fn pci_address_from_bus_id(bus_id: &str) -> Option<String> {
+    let s = bus_id.trim();
+    if s.is_empty() {
+        return None;
+    }
+    let (head, function) = s.rsplit_once('.').unwrap_or((s, "0"));
+    let function = u32::from_str_radix(function, 16).ok()?;
+    let parts: Vec<&str> = head.split(':').collect();
+    let (bus, device) = match parts.len() {
+        0 | 1 => return None,
+        2 => (parts[0], parts[1]),
+        _ => (parts[parts.len() - 2], parts[parts.len() - 1]),
+    };
+    let bus = u32::from_str_radix(bus, 16).ok()?;
+    let device = u32::from_str_radix(device, 16).ok()?;
+    Some(format_pci_address(bus, device, function))
+}
+
+pub fn gpu_key(gpu: &SysGpuInfo) -> String {
+    if !gpu.id.is_empty() {
         gpu.id.clone()
+    } else if !gpu.pci_address.is_empty() {
+        gpu.pci_address.clone()
+    } else {
+        gpu.brand.clone()
+    }
+}
+
+pub fn disk_key(disk: &SysDiskInfo) -> String {
+    if disk.mount_on.is_empty() {
+        format!("{}-{}", disk.disk_type, disk.filesystem)
+    } else {
+        disk.mount_on.clone()
+    }
+}
+
+pub fn network_key(network: &SysNetworkInfo) -> String {
+    network.name.clone()
+}
+
+pub fn disk_used_gb(disk: &SysDiskInfo) -> f64 {
+    bytes_to_gb(disk.total.saturating_sub(disk.available))
+}
+
+fn format_link_speed_bps(bps: u64) -> String {
+    if bps == 0 {
+        return "—".to_string();
+    }
+
+    const G: f64 = 1_000_000_000.0;
+    const M: f64 = 1_000_000.0;
+    const K: f64 = 1_000.0;
+
+    let bps_f = bps as f64;
+    if bps_f >= G {
+        format_link_speed_unit(bps_f / G, "Gbps")
+    } else if bps_f >= M {
+        format_link_speed_unit(bps_f / M, "Mbps")
+    } else if bps_f >= K {
+        format_link_speed_unit(bps_f / K, "Kbps")
+    } else {
+        format!("{bps} bps")
+    }
+}
+
+fn format_link_speed_unit(value: f64, unit: &str) -> String {
+    if (value - value.round()).abs() < 0.05 {
+        format!("{:.0} {unit}", value.round())
+    } else {
+        format!("{:.1} {unit}", value)
+    }
+}
+
+pub fn format_network_link_speed(network: &SysNetworkInfo) -> String {
+    let tx = network.max_transmit_speed;
+    let rx = network.max_receive_speed;
+    if tx == 0 && rx == 0 {
+        return "—".to_string();
+    }
+    if tx > 0 && (rx == 0 || tx == rx) {
+        format_link_speed_bps(tx)
+    } else if rx > 0 && tx == 0 {
+        format_link_speed_bps(rx)
+    } else {
+        format!(
+            "↑ {} / ↓ {}",
+            format_link_speed_bps(tx),
+            format_link_speed_bps(rx)
+        )
+    }
+}
+
+pub fn latest_disk_rates(telemetry: &MachineTelemetry, disk_id: &str) -> (f64, f64) {
+    telemetry
+        .disk_history
+        .get(disk_id)
+        .and_then(|history| history.back())
+        .map(|point| (point.read_mb, point.write_mb))
+        .unwrap_or((0.0, 0.0))
+}
+
+pub fn latest_network_rates(telemetry: &MachineTelemetry, network_id: &str) -> (f64, f64) {
+    telemetry
+        .network_history
+        .get(network_id)
+        .and_then(|history| history.back())
+        .map(|point| (point.send_mb, point.recv_mb))
+        .unwrap_or((0.0, 0.0))
+}
+
+/// Strips vendor prefix from GPU marketing name for compact display.
+pub fn gpu_display_model(brand: &str) -> String {
+    let trimmed = brand.trim();
+    let lower = trimmed.to_lowercase();
+    for prefix in ["nvidia ", "amd ", "intel ", "apple "] {
+        if lower.starts_with(prefix) {
+            return trimmed[prefix.len()..].trim().to_string();
+        }
+    }
+    trimmed.to_string()
+}
+
+pub fn gpu_chart_title(kind: &str, gpu: &SysGpuInfo) -> String {
+    let name = gpu.brand.trim();
+    if gpu.pci_address.is_empty() {
+        format!("{kind} ({name})")
+    } else {
+        format!("{kind} ({name} · {})", gpu.pci_address)
     }
 }
 
@@ -419,7 +725,124 @@ pub fn format_tick(value: f64, unit: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sys_info::{SysCpuInfo, SysInfo, SysSingleCpuInfo};
+    use crate::sys_info::{SysCpuInfo, SysGpuInfo, SysInfo, SysNetworkInfo, SysSingleCpuInfo};
+
+    #[test]
+    fn gpu_display_model_strips_nvidia_prefix() {
+        assert_eq!(
+            gpu_display_model("NVIDIA GeForce RTX 4070 Ti"),
+            "GeForce RTX 4070 Ti"
+        );
+    }
+
+    #[test]
+    fn format_pci_address_uses_decimal_for_windows() {
+        assert_eq!(format_pci_address(1, 0, 0), "PCI: 1:0:0");
+        assert_eq!(format_pci_address(10, 31, 0), "PCI: 10:31:0");
+    }
+
+    #[test]
+    fn pci_address_from_bus_id_converts_hex_nvml_to_decimal() {
+        assert_eq!(
+            pci_address_from_bus_id("00000000:01:00.0").as_deref(),
+            Some("PCI: 1:0:0")
+        );
+        assert_eq!(
+            pci_address_from_bus_id("01:00.0").as_deref(),
+            Some("PCI: 1:0:0")
+        );
+        assert_eq!(
+            pci_address_from_bus_id("00000000:0A:1F.0").as_deref(),
+            Some("PCI: 10:31:0")
+        );
+    }
+
+    #[test]
+    fn gpu_chart_title_includes_pci_address() {
+        let gpu = SysGpuInfo {
+            brand: "NVIDIA GeForce RTX 4070 Ti".to_string(),
+            pci_address: "PCI: 1:0:0".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(
+            gpu_chart_title("GPU 使用率", &gpu),
+            "GPU 使用率 (NVIDIA GeForce RTX 4070 Ti · PCI: 1:0:0)"
+        );
+    }
+
+    #[test]
+    fn format_gpu_fan_speed_prefers_rpm_including_zero() {
+        let gpu = SysGpuInfo {
+            fan_speed: 0,
+            fan_rpm_valid: true,
+            fan_speed_percent: 100,
+            ..Default::default()
+        };
+        assert_eq!(format_gpu_fan_speed(&gpu), "0 RPM");
+        assert_eq!(gpu_fan_meter_percent(&gpu), None);
+    }
+
+    #[test]
+    fn format_gpu_fan_speed_shows_rpm_when_available() {
+        let gpu = SysGpuInfo {
+            fan_speed: 1650,
+            fan_rpm_valid: true,
+            ..Default::default()
+        };
+        assert_eq!(format_gpu_fan_speed(&gpu), "1650 RPM");
+    }
+
+    #[test]
+    fn format_gpu_fan_speed_uses_percent_only_without_rpm_api() {
+        let gpu = SysGpuInfo {
+            fan_speed_percent: 42,
+            ..Default::default()
+        };
+        assert_eq!(format_gpu_fan_speed(&gpu), "42%");
+    }
+
+    #[test]
+    fn gpu_chart_color_cycles_at_sixteen() {
+        let c0 = gpu_chart_color(0);
+        let c16 = gpu_chart_color(16);
+        assert_eq!(c0, c16);
+    }
+
+    #[test]
+    fn system_disk_prefers_os_system_volume() {
+        let disks = vec![
+            SysDiskInfo {
+                mount_on: "D:\\".to_string(),
+                total: 1000,
+                available: 500,
+                ..Default::default()
+            },
+            SysDiskInfo {
+                mount_on: "C:\\".to_string(),
+                total: 2000,
+                available: 1000,
+                ..Default::default()
+            },
+            SysDiskInfo {
+                mount_on: "/".to_string(),
+                total: 3000,
+                available: 1500,
+                ..Default::default()
+            },
+        ];
+        let disk = system_disk(&disks).unwrap();
+        #[cfg(windows)]
+        {
+            assert_eq!(disk.mount_on, "C:\\");
+            assert!(format_system_disk_usage(disk).starts_with("C:"));
+        }
+        #[cfg(not(windows))]
+        {
+            assert_eq!(disk.mount_on, "/");
+            assert!(format_system_disk_usage(disk).starts_with('/'));
+        }
+        assert!((disk_usage_percent(disk) - 50.0).abs() < f32::EPSILON);
+    }
 
     #[test]
     fn test_history_records_cpu_cores() {
@@ -454,5 +877,36 @@ mod tests {
         assert_eq!(MonitorTab::from_index(2), MonitorTab::Memory);
         assert_eq!(MonitorTab::from_index(3), MonitorTab::Gpu);
         assert_eq!(MonitorTab::from_index(9), MonitorTab::Users);
+    }
+
+    #[test]
+    fn format_link_speed_bps_uses_readable_units() {
+        assert_eq!(format_link_speed_bps(1_000_000_000), "1 Gbps");
+        assert_eq!(format_link_speed_bps(100_000_000), "100 Mbps");
+        assert_eq!(format_link_speed_bps(2_500_000_000), "2.5 Gbps");
+        assert_eq!(format_link_speed_bps(1_000_000), "1 Mbps");
+    }
+
+    #[test]
+    fn format_network_link_speed_collapses_symmetric_links() {
+        let network = SysNetworkInfo {
+            max_transmit_speed: 1_000_000_000,
+            max_receive_speed: 1_000_000_000,
+            ..Default::default()
+        };
+        assert_eq!(format_network_link_speed(&network), "1 Gbps");
+    }
+
+    #[test]
+    fn format_network_link_speed_shows_asymmetric_links() {
+        let network = SysNetworkInfo {
+            max_transmit_speed: 1_000_000_000,
+            max_receive_speed: 100_000_000,
+            ..Default::default()
+        };
+        assert_eq!(
+            format_network_link_speed(&network),
+            "↑ 1 Gbps / ↓ 100 Mbps"
+        );
     }
 }

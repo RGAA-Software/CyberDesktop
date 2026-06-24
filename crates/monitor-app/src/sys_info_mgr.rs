@@ -191,17 +191,37 @@ impl SysInfoManager {
             cpus,
             physical_cores,
             temperature: cpu_temperature,
+            virtualization: crate::cpu_platform::read_cpu_virtualization_label(),
+            cache_summary: crate::cpu_platform::read_cpu_cache_label(),
         };
 
         let gb = 1024 * 1024 * 1024;
-        let mem = SysMemInfo {
+        let mut mem = SysMemInfo {
             total: self.system.total_memory(),
             total_gb: self.system.total_memory() / gb,
             used: self.system.used_memory(),
             used_gb: self.system.used_memory() / gb,
             available: self.system.available_memory(),
             available_gb: self.system.available_memory() / gb,
+            ..Default::default()
         };
+        #[cfg(target_os = "windows")]
+        if let Some(ext) = crate::mem_metrics_windows::read_windows_mem_metrics() {
+            mem.committed = ext.committed;
+            mem.commit_peak = ext.commit_peak;
+            mem.commit_limit = ext.commit_limit;
+            mem.system_cache = ext.system_cache;
+            mem.kernel_ws = ext.kernel_ws;
+            mem.kernel_paged = ext.kernel_paged;
+            mem.kernel_nonpaged = ext.kernel_nonpaged;
+            mem.hw_reserved = ext.hw_reserved;
+            mem.swap_total = ext.swap_total;
+            mem.swap_used = ext.swap_used;
+            if ext.physical_used > 0 {
+                mem.used = ext.physical_used;
+                mem.used_gb = ext.physical_used / gb;
+            }
+        }
 
         let mut disks_info = Vec::new();
         for disk in &mut self.disks {
@@ -314,12 +334,27 @@ impl SysInfoManager {
                         gpu_info.id = uuid;
                     }
 
+                    if let Ok(pci) = device.pci_info() {
+                        gpu_info.pci_address =
+                            crate::monitor_model::pci_address_from_bus_id(&pci.bus_id)
+                                .unwrap_or_else(|| {
+                                    crate::monitor_model::format_pci_address(
+                                        pci.bus,
+                                        pci.device,
+                                        0,
+                                    )
+                                });
+                    }
+
                     let brand = device.name();
                     if let Ok(brand) = brand {
                         gpu_info.brand = brand.trim_matches('"').replace('"', "");
                     }
 
-                    gpu_info.fan_speed = device.fan_speed_rpm(0).unwrap_or(0);
+                    let fan = crate::gpu_nvml::read_nvml_fan(&device);
+                    gpu_info.fan_speed = fan.rpm;
+                    gpu_info.fan_rpm_valid = fan.rpm_valid;
+                    gpu_info.fan_speed_percent = if fan.rpm_valid { 0 } else { fan.percent };
                     gpu_info.power_limit = device.enforced_power_limit().unwrap_or(0);
 
                     if let Ok(u) = device.encoder_utilization() {
@@ -351,9 +386,11 @@ impl SysInfoManager {
             }
         }
 
-        if let Ok(amd_gpus) = self.load_amd_gpu_info() {
-            for amd_gpu_info in amd_gpus {
-                gpus.push(amd_gpu_info);
+        if gpus.is_empty() {
+            if let Ok(amd_gpus) = self.load_amd_gpu_info() {
+                for amd_gpu_info in amd_gpus {
+                    gpus.push(amd_gpu_info);
+                }
             }
         }
 
@@ -364,11 +401,15 @@ impl SysInfoManager {
             .unwrap_or(0.0)
             .max(0.001);
 
+        let mut handle_count = 0u64;
         let mut processes: Vec<SysProcessInfo> = self
             .system
             .processes()
             .values()
             .map(|process| {
+                if let Some(handles) = process.open_files() {
+                    handle_count += handles as u64;
+                }
                 let disk = process.disk_usage();
                 let pid = process.pid().as_u32();
                 let command_line = process
@@ -446,6 +487,7 @@ impl SysInfoManager {
         let services = self.load_services();
         let startup_items = self.load_startup_items();
         let users = self.load_users();
+        let thread_count = count_system_threads(&self.system);
 
         SysInfo {
             timestamp: current_timestamp_ms(),
@@ -457,6 +499,8 @@ impl SysInfoManager {
             os,
             components: cps,
             uptime,
+            thread_count,
+            handle_count: handle_count.min(u32::MAX as u64) as u32,
             gpus,
             processes,
             services,
@@ -668,7 +712,12 @@ impl SysInfoManager {
             info.gpu_utilization = gpu_usage as u32;
             info.mem_total_gb = gpu_ram as f32 * 1.0 / 1024.0;
             info.mem_used_gb = gpu_used_ram as f32 * 1.0 / 1024.0;
-            info.fan_speed = gpu_fan_speed as u32;
+            if gpu_fan_speed > 100 {
+                info.fan_speed = gpu_fan_speed as u32;
+                info.fan_rpm_valid = true;
+            } else if gpu_fan_speed > 0 {
+                info.fan_speed_percent = gpu_fan_speed as u32;
+            }
             info.temperature = gpu_temperature as u32;
             gpus_info.push(info);
         }
@@ -1175,6 +1224,50 @@ fn read_linux_max_frequency_ghz(cpu_count: usize) -> Option<f32> {
         Some(max_khz as f32 / 1_000_000.0)
     } else {
         None
+    }
+}
+
+#[cfg_attr(target_os = "windows", allow(unused_variables))]
+fn count_system_threads(system: &System) -> u32 {
+    #[cfg(target_os = "windows")]
+    {
+        count_system_threads_windows()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        system
+            .processes()
+            .values()
+            .filter_map(|process| process.tasks())
+            .map(|tasks| tasks.len() as u32)
+            .sum()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn count_system_threads_windows() -> u32 {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
+    };
+
+    unsafe {
+        let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) else {
+            return 0;
+        };
+        let mut count = 0u32;
+        let mut entry = THREADENTRY32 {
+            dwSize: std::mem::size_of::<THREADENTRY32>() as u32,
+            ..Default::default()
+        };
+        if Thread32First(snapshot, &mut entry).is_ok() {
+            count += 1;
+            while Thread32Next(snapshot, &mut entry).is_ok() {
+                count += 1;
+            }
+        }
+        let _ = CloseHandle(snapshot);
+        count
     }
 }
 

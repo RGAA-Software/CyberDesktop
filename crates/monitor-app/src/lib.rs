@@ -16,8 +16,13 @@ pub mod sys_info;
 pub mod sys_info_mgr;
 pub mod tray;
 
+pub mod cpu_platform;
+
+pub mod gpu_nvml;
 #[cfg(target_os = "windows")]
 mod cpu_metrics_windows;
+#[cfg(target_os = "windows")]
+mod mem_metrics_windows;
 #[cfg(target_os = "windows")]
 mod cpu_ohm;
 #[cfg(target_os = "windows")]

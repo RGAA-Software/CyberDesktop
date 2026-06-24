@@ -54,6 +54,7 @@ windows = { version = "0.58", features = [
   "Win32_System_Power",
   "Win32_System_IO",
   "Win32_System_SystemInformation",
+  "Win32_System_ProcessStatus",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Diagnostics_Debug",
   "Win32_System_Memory",
@@ -72,6 +73,7 @@ harness = false
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+nvml-wrapper.workspace = true
 
 [build-dependencies]
 embed-resource.workspace = true
