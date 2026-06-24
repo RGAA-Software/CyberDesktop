@@ -481,13 +481,32 @@ pub fn format_system_disk_usage(disk: &SysDiskInfo) -> String {
     format!("{label} {used_gb:.1} / {total_gb:.1} GB")
 }
 
-/// Distinct chart colors for up to 16 GPUs on the overview page.
+/// CPU charts and utilization progress bars (#05DF72).
+pub fn cpu_metric_color() -> Hsla {
+    rgb(0x05DF72).into()
+}
+
+/// Memory charts and utilization progress bars (#21BCFF).
+pub fn mem_metric_color() -> Hsla {
+    rgb(0x21BCFF).into()
+}
+
+/// Distinct chart colors per GPU index (avoids CPU green and memory cyan).
 pub fn gpu_chart_color(index: usize) -> Hsla {
-    const COLORS: [u32; 16] = [
-        0x7548d8, 0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0x1abc9c, 0xe67e22,
-        0x2980b9, 0xc0392b, 0x16a085, 0x8e44ad, 0x27ae60, 0xd35400, 0x34495e, 0xf1c40f,
+    const COLORS: [u32; 8] = [
+        0xA855F7, 0xF97316, 0xF472B6, 0xEAB308, 0x8B5CF6, 0xEC4899, 0x6366F1, 0x14B8A6,
     ];
     rgb(COLORS[index % COLORS.len()]).into()
+}
+
+/// Stable per-GPU color based on position in the current GPU list.
+pub fn gpu_color_for(gpu: &SysGpuInfo, gpus: &[SysGpuInfo]) -> Hsla {
+    let key = gpu_key(gpu);
+    let index = gpus
+        .iter()
+        .position(|item| gpu_key(item) == key)
+        .unwrap_or(0);
+    gpu_chart_color(index)
 }
 
 /// PCI BDF in decimal — matches Windows Task Manager (bus:device:function).
@@ -809,8 +828,8 @@ mod tests {
     #[test]
     fn gpu_chart_color_cycles_at_sixteen() {
         let c0 = gpu_chart_color(0);
-        let c16 = gpu_chart_color(16);
-        assert_eq!(c0, c16);
+        let c8 = gpu_chart_color(8);
+        assert_eq!(c0, c8);
     }
 
     #[test]

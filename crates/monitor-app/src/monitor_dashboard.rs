@@ -24,10 +24,11 @@ use crate::monitor_actions::{
 use crate::monitor_icons;
 use crate::cpu_platform::format_cpu_frequency_range;
 use crate::monitor_model::{
-    bytes_to_gb, chart_ticks, disk_key, disk_usage_percent, disk_used_gb, format_cpu_temperature,
-    format_gpu_fan_speed, format_mem_size, format_network_link_speed, format_optional_frequency,
-    format_tick, gpu_chart_color, gpu_chart_title, gpu_display_model, gpu_fan_meter_percent,
-    gpu_key, gpu_memory_percent, latest_disk_rates, latest_network_rates, network_ipv4,
+    bytes_to_gb, chart_ticks, cpu_metric_color, disk_key, disk_usage_percent, disk_used_gb,
+    format_cpu_temperature, format_gpu_fan_speed, format_mem_size, format_network_link_speed,
+    format_optional_frequency, format_tick, gpu_chart_title, gpu_color_for,
+    gpu_display_model, gpu_fan_meter_percent, gpu_key, gpu_memory_percent, latest_disk_rates,
+    latest_network_rates, mem_metric_color, network_ipv4,
     network_key, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
     SortDirection,
 };
@@ -805,7 +806,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                     "CPU 使用率",
                     format!("{:.1}%", telemetry.latest_cpu_percent()),
                     Some(telemetry.latest_cpu_percent()),
-                    Some(cx.theme().red),
+                    Some(cpu_metric_color()),
                     cx,
                 ))
                 .child(render_overview_metric_card(
@@ -817,7 +818,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                         bytes_to_gb(telemetry.current.mem.total)
                     ),
                     Some(telemetry.latest_mem_percent()),
-                    Some(cx.theme().primary),
+                    Some(mem_metric_color()),
                     cx,
                 ))
                 .child(render_overview_metric_card(
@@ -842,7 +843,9 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                         .gpus
                         .first()
                         .map(|gpu| gpu.gpu_utilization as f32),
-                    primary_gpu.map(|_| gpu_chart_color(0)).or(Some(cx.theme().primary)),
+                    primary_gpu
+                        .map(|gpu| gpu_color_for(gpu, &telemetry.current.gpus))
+                        .or(Some(cx.theme().primary)),
                     cx,
                 ))
                 .child(render_overview_metric_card(
@@ -874,7 +877,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                             history.clone(),
                             |point| point.time.clone(),
                             |point| point.cpu_usage,
-                            cx.theme().red,
+                            cpu_metric_color(),
                             "%",
                             "时间",
                             Some(100.0),
@@ -888,7 +891,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                             history.clone(),
                             |point| point.time.clone(),
                             |point| point.mem_usage_percent,
-                            cx.theme().primary,
+                            mem_metric_color(),
                             "%",
                             "时间",
                             Some(100.0),
@@ -898,7 +901,7 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                         ))),
                 )
                 .children(gpu_rows.into_iter().map(|(index, gpu, gpu_history, gpu_mem_total)| {
-                    let color = gpu_chart_color(index);
+                    let color = gpu_color_for(&gpu, &telemetry.current.gpus);
                     let usage_title = gpu_chart_title("GPU 使用率", &gpu);
                     let mem_title = gpu_chart_title("显存占用率", &gpu);
                     h_flex()
@@ -1114,7 +1117,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             history.clone(),
                             |point| point.time.clone(),
                             |point| point.cpu_usage,
-                            cx.theme().red,
+                            cpu_metric_color(),
                             "%",
                             "时间",
                             Some(100.0),
@@ -1133,7 +1136,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                             history.clone(),
                             |point| point.time.clone(),
                             |point| point.cpu_frequency,
-                            cx.theme().primary,
+                            cpu_metric_color(),
                             "GHz",
                             "时间",
                             Some(freq_y_max),
@@ -1171,7 +1174,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                 core_history,
                                 |point| point.0.clone(),
                                 |point| point.1,
-                                cx.theme().red,
+                                cpu_metric_color(),
                                 "%",
                                 "时间",
                                 Some(100.0),
@@ -1265,7 +1268,7 @@ fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
                     history.clone(),
                     |point| point.time.clone(),
                     |point| point.mem_used_gb,
-                    cx.theme().primary,
+                    mem_metric_color(),
                     "GB",
                     "时间",
                     Some(bytes_to_gb(telemetry.current.mem.total)),
@@ -1279,7 +1282,7 @@ fn render_memory_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl I
                     history,
                     |point| point.time.clone(),
                     |point| point.mem_usage_percent,
-                    cx.theme().primary,
+                    mem_metric_color(),
                     "%",
                     "时间",
                     Some(100.0),
@@ -1402,31 +1405,33 @@ fn render_memory_advanced_metrics<V>(
         })
 }
 
-fn chip<V>(label: &str, cx: &Context<V>) -> impl IntoElement {
+fn chip<V>(label: &str, accent: Hsla, _cx: &Context<V>) -> impl IntoElement {
     div()
         .h(px(24.))
         .px(px(10.))
         .rounded_full()
         .border_1()
-        .border_color(cx.theme().primary.opacity(0.18))
-        .bg(cx.theme().primary.opacity(0.10))
+        .border_color(accent.opacity(0.18))
+        .bg(accent.opacity(0.10))
         .flex()
         .items_center()
         .child(
             Label::new(label.to_string())
                 .text_xs()
                 .font_weight(FontWeight::BOLD)
-                .text_color(cx.theme().primary),
+                .text_color(accent),
         )
 }
 
 fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl IntoElement {
+    let gpus = telemetry.current.gpus.clone();
     v_flex()
         .gap(px(14.))
-        .when(telemetry.current.gpus.is_empty(), |this| {
+        .when(gpus.is_empty(), |this| {
             this.child(empty_state("当前没有 GPU 监控数据", cx))
         })
-        .children(telemetry.current.gpus.iter().map(|gpu| {
+        .children(gpus.iter().map(|gpu| {
+            let color = gpu_color_for(gpu, &gpus);
             let gpu_id = gpu_key(gpu);
             let history = telemetry
                 .gpu_history
@@ -1452,7 +1457,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                         .font_weight(FontWeight::BOLD)
                                         .text_color(cx.theme().foreground),
                                 )
-                                .child(chip("独立显卡 · 在线", cx)),
+                                .child(chip("独立显卡 · 在线", color, cx)),
                         )
                         .child(
                             metric_grid_row_equal()
@@ -1461,7 +1466,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     "利用率",
                                     format!("{}%", gpu.gpu_utilization),
                                     Some(gpu.gpu_utilization as f32),
-                                    Some(cx.theme().primary),
+                                    Some(color),
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
@@ -1469,7 +1474,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     "温度",
                                     format!("{} °C", gpu.temperature),
                                     Some((gpu.temperature as f32).clamp(0.0, 100.0)),
-                                    Some(cx.theme().red),
+                                    Some(color),
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
@@ -1477,7 +1482,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     "风扇转速",
                                     format_gpu_fan_speed(gpu),
                                     gpu_fan_meter_percent(gpu),
-                                    Some(cx.theme().primary),
+                                    Some(color),
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
@@ -1485,7 +1490,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     "显存",
                                     format!("{:.2} / {:.2} GB", gpu.mem_used_gb, gpu.mem_total_gb),
                                     Some(gpu_memory_percent(gpu)),
-                                    Some(cx.theme().primary),
+                                    Some(color),
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
@@ -1493,7 +1498,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     "编码器",
                                     format!("{}%", gpu.encoder_utilization),
                                     Some(gpu.encoder_utilization as f32),
-                                    Some(cx.theme().primary),
+                                    Some(color),
                                     cx,
                                 ))
                                 .child(render_overview_metric_card(
@@ -1501,7 +1506,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     "功耗上限",
                                     format!("{:.1} W", power_w),
                                     Some(((power_w / 300.0) * 100.0).clamp(0.0, 100.0) as f32),
-                                    Some(cx.theme().primary),
+                                    Some(color),
                                     cx,
                                 )),
                         )
@@ -1514,7 +1519,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     history.clone(),
                                     |point| point.time.clone(),
                                     |point| point.usage,
-                                    cx.theme().primary,
+                                    color,
                                     "%",
                                     "时间",
                                     Some(100.0),
@@ -1528,7 +1533,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     history.clone(),
                                     |point| point.time.clone(),
                                     |point| point.temperature,
-                                    cx.theme().red,
+                                    color,
                                     "°C",
                                     "时间",
                                     Some(100.0),
@@ -1546,7 +1551,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     history.clone(),
                                     |point| point.time.clone(),
                                     |point| point.memory_used_gb,
-                                    cx.theme().primary,
+                                    color,
                                     "GB",
                                     "时间",
                                     Some(gpu.mem_total_gb as f64),
@@ -1560,7 +1565,7 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     history,
                                     |point| point.time.clone(),
                                     |point| point.decoder_usage,
-                                    cx.theme().primary,
+                                    color,
                                     "%",
                                     "时间",
                                     Some(100.0),
@@ -1629,7 +1634,7 @@ fn render_storage_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                                                 .text_color(cx.theme().foreground),
                                         ),
                                 )
-                                .child(chip(&manufacturer_label, cx)),
+                                .child(chip(&manufacturer_label, cx.theme().primary, cx)),
                         )
                         .child(
                             metric_grid_row_equal()
@@ -1764,6 +1769,7 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                                 )
                                 .child(chip(
                                     if ipv4.is_empty() { "未分配 IPv4" } else { "在线" },
+                                    cx.theme().primary,
                                     cx,
                                 )),
                         )
