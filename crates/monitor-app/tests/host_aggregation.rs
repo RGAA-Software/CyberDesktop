@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::time::Instant;
 
 use monitor_app::monitor_alert::{
     aggregate_top_processes, build_host_summary, evaluate_alerts, AlertLevel, TopProcessSortBy,
@@ -58,6 +59,7 @@ fn make_machine(
         peer_addr: "127.0.0.1:0".to_string(),
         active_peer_addr: "127.0.0.1:0".to_string(),
         last_seen: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        last_seen_at: Instant::now(),
         connected,
         telemetry: MachineTelemetry::new(info.clone()),
     };

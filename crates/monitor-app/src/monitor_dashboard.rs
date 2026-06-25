@@ -248,28 +248,31 @@ pub fn render_monitor_client_sidebar<V, F>(
     active_tab: MonitorTab,
     on_click: F,
     cx: &Context<V>,
+    with_brand: bool,
 ) -> impl IntoElement
 where
     F: Fn(MonitorTab, &mut Window, &mut App) + Clone + 'static,
 {
-    v_flex()
+    let mut sidebar = v_flex()
         .id("monitor-sidebar")
         .w(px(248.))
         .h_full()
         .border_r_1()
         .border_color(cx.theme().border)
-        .bg(cx.theme().sidebar)
-        .child(render_monitor_brand(cx))
-        .child(
-            v_flex()
-                .flex_1()
-                .min_h_0()
-                .gap(px(18.))
-                .px(px(14.))
-                .pt(px(16.))
-                .pb(px(16.))
-                .child(render_monitor_nav(active_tab, on_click, cx)),
-        )
+        .bg(cx.theme().sidebar);
+    if with_brand {
+        sidebar = sidebar.child(render_monitor_brand(cx));
+    }
+    sidebar.child(
+        v_flex()
+            .flex_1()
+            .min_h_0()
+            .gap(px(18.))
+            .px(px(14.))
+            .pt(px(16.))
+            .pb(px(16.))
+            .child(render_monitor_nav(active_tab, on_click, cx)),
+    )
 }
 
 pub fn render_dashboard<V: Render, F>(

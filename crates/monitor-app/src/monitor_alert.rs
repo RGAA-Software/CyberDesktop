@@ -302,7 +302,8 @@ pub fn build_host_summary(
 ) -> HostSummary {
     let online_count = machines.iter().filter(|m| m.connected).count();
     let offline_count = machines.len() - online_count;
-    let top_processes = aggregate_top_processes(machines, 10, TopProcessSortBy::Cpu);
+    let connected_machines: Vec<_> = machines.iter().filter(|m| m.connected).cloned().collect();
+    let top_processes = aggregate_top_processes(&connected_machines, 10, TopProcessSortBy::Cpu);
     let alerts: Vec<Alert> = alerts.iter().rev().take(20).cloned().collect();
 
     HostSummary {
@@ -335,6 +336,7 @@ mod tests {
             peer_addr: "127.0.0.1:0".to_string(),
             active_peer_addr: "127.0.0.1:0".to_string(),
             last_seen: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            last_seen_at: Instant::now(),
             connected,
             telemetry: MachineTelemetry::new(info.clone()),
         };

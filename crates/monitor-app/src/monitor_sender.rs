@@ -11,9 +11,9 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::MaybeTlsStream;
 
-const MIN_RECONNECT_INTERVAL: Duration = Duration::from_secs(1);
-const MAX_RECONNECT_INTERVAL: Duration = Duration::from_secs(30);
-const RECONNECT_BACKOFF_MULTIPLIER: u32 = 2;
+const MIN_RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
+const MAX_RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
+const RECONNECT_BACKOFF_MULTIPLIER: u32 = 1;
 
 type WsStream = tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>;
 type WsSink = futures_util::stream::SplitSink<WsStream, Message>;

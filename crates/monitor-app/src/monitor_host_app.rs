@@ -6,13 +6,13 @@ use std::time::{Duration, Instant};
 use clap::Parser;
 use futures_util::StreamExt;
 use gpui::{
-    div, prelude::FluentBuilder as _, px, size, App, AppContext, ClipboardItem, Context, Entity,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
+    div, prelude::FluentBuilder as _, px, rgb, size, App, AppContext, ClipboardItem, Context,
+    Entity, InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
     StatefulInteractiveElement, Styled, Window, WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, input::InputState, label::Label, list::ListItem, scroll::ScrollableElement, v_flex,
-    ActiveTheme, Icon, IconName, Root, StyledExt, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, label::Label, scroll::ScrollableElement, v_flex, ActiveTheme, Root,
+    StyledExt, ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 use tokio::net::{TcpListener, TcpStream};
@@ -32,8 +32,8 @@ use crate::monitor_alert::{
 };
 use crate::monitor_codec::decode_telemetry;
 use crate::monitor_dashboard::{
-    monitor_title_crumb, render_dashboard, render_monitor_brand, tab_manages_bottom_padding,
-    topbar_icon_button, MONITOR_MAIN_TITLE_BAR_HEIGHT,
+    monitor_title_crumb, render_dashboard, render_monitor_client_sidebar,
+    tab_manages_bottom_padding, topbar_icon_button, MONITOR_MAIN_TITLE_BAR_HEIGHT,
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
@@ -44,6 +44,8 @@ use crate::tray::{self, TrayCommand};
 
 const PATH_SYS_INFO: &str = "/sys/info";
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
+/// Treat a machine as offline if no telemetry has been received for this long.
+const MACHINE_OFFLINE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Parser, Clone)]
 #[command(name = "CyberMonitorHost", version, about)]
@@ -97,6 +99,17 @@ impl HostServerHandle {
             .lock()
             .map(|status| status.clone())
             .unwrap_or_default()
+    }
+
+    fn mark_stale_machines_offline(&self, timeout: Duration) {
+        if let Ok(mut items) = self.machines.lock() {
+            let now = Instant::now();
+            for record in items.values_mut() {
+                if record.connected && now.duration_since(record.last_seen_at) > timeout {
+                    record.connected = false;
+                }
+            }
+        }
     }
 }
 
@@ -196,6 +209,7 @@ async fn handle_host_client(
                             record.peer_ip = peer_ip.clone();
                             record.active_peer_addr = peer_addr.clone();
                             record.last_seen = info.timestamp_readable.clone();
+                            record.last_seen_at = Instant::now();
                             record.connected = true;
                             record.telemetry.apply_snapshot(info);
                         }
@@ -209,6 +223,7 @@ async fn handle_host_client(
                                     peer_addr: peer_addr.clone(),
                                     active_peer_addr: peer_addr.clone(),
                                     last_seen: info.timestamp_readable.clone(),
+                                    last_seen_at: Instant::now(),
                                     connected: true,
                                     telemetry: MachineTelemetry::new(info),
                                 },
@@ -337,10 +352,23 @@ impl SysMonitorHostApp {
     }
 
     fn refresh(&mut self) {
+        self.server
+            .mark_stale_machines_offline(MACHINE_OFFLINE_TIMEOUT);
         self.server_status = self.server.status();
         self.machines = self.server.machines();
         self.machines
             .sort_by(|a, b| a.display_name.cmp(&b.display_name));
+
+        // Drop alerts for machines that are no longer connected so the host UI
+        // does not show stale warnings for disconnected peers.
+        let connected_ids: std::collections::HashSet<_> = self
+            .machines
+            .iter()
+            .filter(|machine| machine.connected)
+            .map(|machine| machine.machine_id.clone())
+            .collect();
+        self.alerts
+            .retain(|alert| connected_ids.contains(&alert.machine_id));
 
         for machine in &self.machines {
             if machine.connected {
@@ -356,12 +384,7 @@ impl SysMonitorHostApp {
         }
         self.host_summary = build_host_summary(&self.machines, &self.alerts);
 
-        let selected_exists = self.selected_machine.as_ref().is_some_and(|selected| {
-            self.machines
-                .iter()
-                .any(|item| &item.machine_id == selected)
-        });
-        if !selected_exists {
+        if self.selected_machine().is_none() {
             self.selected_machine = self
                 .machines
                 .iter()
@@ -374,7 +397,7 @@ impl SysMonitorHostApp {
         self.selected_machine.as_ref().and_then(|selected| {
             self.machines
                 .iter()
-                .find(|item| &item.machine_id == selected)
+                .find(|item| &item.machine_id == selected && item.connected)
         })
     }
 
@@ -388,17 +411,51 @@ impl SysMonitorHostApp {
         cx.notify();
     }
 
-    fn render_sidebar(&self, cx: &Context<Self>) -> impl IntoElement {
-        let online_machines: Vec<&RemoteMachineState> =
-            self.machines.iter().filter(|m| m.connected).collect();
+    fn render_machine_sidebar(&self, cx: &Context<Self>) -> impl IntoElement {
+        let machines: Vec<&RemoteMachineState> = self.machines.iter().collect();
+        let online_count = machines.iter().filter(|m| m.connected).count();
+        let count_color = if online_count == 0 {
+            cx.theme().red
+        } else {
+            cx.theme().green
+        };
         v_flex()
-            .id("host-sidebar")
+            .id("host-machine-sidebar")
             .w(px(248.))
             .h_full()
             .border_r_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().sidebar)
-            .child(render_monitor_brand(cx))
+            .child(
+                h_flex()
+                    .h(MONITOR_MAIN_TITLE_BAR_HEIGHT)
+                    .w_full()
+                    .gap(px(12.))
+                    .items_center()
+                    .pl(px(22.))
+                    .pr(px(22.))
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .child(app_ui::color_icon_box(
+                        monitor_icons::APP_LOGO_PATH,
+                        px(38.),
+                    ))
+                    .child(
+                        v_flex()
+                            .justify_center()
+                            .child(
+                                Label::new("CyberMonitorHost")
+                                    .text_base()
+                                    .font_semibold()
+                                    .text_color(cx.theme().foreground),
+                            )
+                            .child(
+                                Label::new("SYSTEM INSIGHT CONSOLE")
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground),
+                            ),
+                    ),
+            )
             .child(
                 v_flex()
                     .flex_1()
@@ -407,40 +464,104 @@ impl SysMonitorHostApp {
                     .px(px(14.))
                     .pt(px(16.))
                     .pb(px(16.))
-                    .when(!online_machines.is_empty(), |this| {
-                        this.child(
-                            h_flex()
-                                .w_full()
-                                .justify_between()
-                                .items_center()
-                                .child(
-                                    Label::new("在线机器")
-                                        .text_sm()
-                                        .font_semibold()
-                                        .text_color(cx.theme().foreground),
-                                )
-                                .child(
-                                    Label::new(format!("{}", online_machines.len()))
-                                        .text_xs()
-                                        .text_color(cx.theme().green),
-                                ),
-                        )
-                    })
+                    .child(
+                        h_flex()
+                            .w_full()
+                            .justify_between()
+                            .items_center()
+                            .child(
+                                Label::new("在线机器")
+                                    .text_sm()
+                                    .font_semibold()
+                                    .text_color(cx.theme().foreground),
+                            )
+                            .child(
+                                Label::new(format!("{}", online_count))
+                                    .text_xs()
+                                    .text_color(count_color),
+                            ),
+                    )
                     .child(div().flex_1().min_h_0().overflow_y_scrollbar().child(
-                        v_flex().gap_2().children(
-                            online_machines.iter().map(|machine| {
-                                let selected = self
-                                    .selected_machine
-                                    .as_ref()
-                                    .is_some_and(|item| item == &machine.machine_id);
+                        v_flex().gap_2().children({
+                            let hover_bg: gpui::Hsla = if cx.theme().mode.is_dark() {
+                                rgb(0x171d2c).into()
+                            } else {
+                                rgb(0xeef3fb).into()
+                            };
+                            let strong_border: gpui::Hsla = if cx.theme().mode.is_dark() {
+                                rgb(0x33405c).into()
+                            } else {
+                                rgb(0xc9d2e4).into()
+                            };
+                            machines.iter().map(move |machine| {
+                                let selected = machine.connected
+                                    && self
+                                        .selected_machine
+                                        .as_ref()
+                                        .is_some_and(|item| item == &machine.machine_id);
                                 let machine_id = machine.machine_id.clone();
-                                ListItem::new(format!("machine-{}", machine.machine_id))
-                                    .selected(selected)
-                                    .w_full()
+                                let is_active = selected;
+                                let status_label = if machine.connected {
+                                    "在线"
+                                } else {
+                                    "离线"
+                                };
+                                let status_color = if machine.connected {
+                                    cx.theme().green
+                                } else {
+                                    cx.theme().red
+                                };
+
+                                div()
+                                    .id(format!("machine-{}", machine.machine_id))
+                                    .h(px(55.))
+                                    .px(px(12.))
+                                    .rounded(px(8.))
+                                    .cursor_pointer()
+                                    .border_1()
+                                    .text_color(if is_active {
+                                        cx.theme().primary
+                                    } else if machine.connected {
+                                        cx.theme().foreground
+                                    } else {
+                                        cx.theme().muted_foreground
+                                    })
+                                    .border_color(if is_active {
+                                        strong_border
+                                    } else {
+                                        cx.theme().transparent
+                                    })
+                                    .bg(if is_active {
+                                        cx.theme().secondary
+                                    } else {
+                                        cx.theme().transparent
+                                    })
+                                    .when(is_active, |this| this.shadow_md())
+                                    .when(!is_active, |this| {
+                                        this.hover(|style| {
+                                            style
+                                                .bg(hover_bg)
+                                                .border_color(cx.theme().border)
+                                                .text_color(cx.theme().primary)
+                                        })
+                                    })
+                                    .relative()
+                                    .when(is_active, |this| {
+                                        this.child(
+                                            div()
+                                                .absolute()
+                                                .left(px(-14.))
+                                                .top(px(9.))
+                                                .bottom(px(9.))
+                                                .w(px(3.))
+                                                .rounded_full()
+                                                .bg(cx.theme().primary),
+                                        )
+                                    })
                                     .child(
                                         h_flex()
+                                            .h_full()
                                             .w_full()
-                                            .h(px(50.))
                                             .justify_between()
                                             .items_center()
                                             .child(
@@ -451,53 +572,40 @@ impl SysMonitorHostApp {
                                                     .child(
                                                         Label::new(machine.peer_ip.clone())
                                                             .text_sm()
-                                                            .font_semibold()
-                                                            .text_color(cx.theme().foreground),
+                                                            .font_semibold(),
                                                     )
                                                     .child(
                                                         h_flex()
                                                             .gap_2()
                                                             .items_center()
                                                             .child(
-                                                                Label::new("在线".to_string())
-                                                                    .text_xs()
-                                                                    .text_color(cx.theme().green),
+                                                                Label::new(
+                                                                    status_label.to_string(),
+                                                                )
+                                                                .text_xs()
+                                                                .text_color(status_color),
                                                             )
                                                             .child(
                                                                 Label::new(
                                                                     machine.display_name.clone(),
                                                                 )
                                                                 .text_xs()
-                                                                .text_color(
-                                                                    cx.theme().muted_foreground,
-                                                                ),
+                                                                .text_color(if machine.connected {
+                                                                    cx.theme().muted_foreground
+                                                                } else {
+                                                                    cx.theme().red
+                                                                }),
                                                             ),
                                                     ),
-                                            )
-                                            .when(selected, |this| {
-                                                this.child(
-                                                    div().pr(px(10.)).child(
-                                                        Icon::new(IconName::Check)
-                                                            .text_color(cx.theme().green),
-                                                    ),
-                                                )
-                                            }),
+                                            ),
                                     )
                                     .on_click(cx.listener(move |this, _, window, cx| {
                                         this.select_machine(&machine_id, window, cx);
                                     }))
-                            }),
-                        ),
+                            })
+                        }),
                     )),
             )
-    }
-
-    fn render_empty(&self, cx: &Context<Self>) -> impl IntoElement {
-        v_flex().size_full().items_center().justify_center().child(
-            Label::new("当前没有机器连接到 /sys/info")
-                .text_sm()
-                .text_color(cx.theme().muted_foreground),
-        )
     }
 }
 
@@ -509,9 +617,10 @@ impl Render for SysMonitorHostApp {
                 format!("{} | 最后上报 {}", machine.peer_addr, machine.last_seen),
             )
         } else {
-            ("CyberMonitorHost".to_string(), "等待机器连接".to_string())
+            ("暂无机器连接".to_string(), "等待机器连接".to_string())
         };
         let view = cx.entity().clone();
+        let tab_view = cx.entity().clone();
         let is_dark = cx.theme().mode.is_dark();
 
         h_flex()
@@ -522,137 +631,147 @@ impl Render for SysMonitorHostApp {
             .on_action(cx.listener(Self::on_show_process_details))
             .on_action(cx.listener(Self::on_copy_process_info))
             .on_action(cx.listener(Self::on_reveal_startup_item))
-            .child(self.render_sidebar(cx))
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .h_full()
-                    .child(
-                        app_ui::TitleBar::new()
-                            .design_window_controls(true)
-                            .h(MONITOR_MAIN_TITLE_BAR_HEIGHT)
-                            .bg(cx.theme().title_bar)
-                            .border_b_1()
-                            .border_color(cx.theme().title_bar_border)
-                            .child(
-                                h_flex()
-                                    .id("title-bar-inner")
-                                    .h_full()
-                                    .w_full()
-                                    .min_w_0()
-                                    .flex_1()
-                                    .items_center()
-                                    .pl(px(24.))
-                                    .pr(px(18.))
-                                    .child(monitor_title_crumb(title, subtitle, cx)),
-                            )
-                            .trailing_before_controls(
-                                h_flex()
-                                    .id("title-bar-actions")
-                                    .h_full()
-                                    .items_center()
-                                    .gap(px(10.))
-                                    .child(
-                                        topbar_icon_button(
-                                            "host-refresh",
-                                            monitor_icons::REFRESH,
-                                            &*cx,
-                                        )
-                                        .on_click({
-                                            let view = view.clone();
-                                            move |_, _, cx| cx.notify(view.entity_id())
-                                        }),
-                                    )
-                                    .child(
-                                        topbar_icon_button(
-                                            "host-theme-toggle",
-                                            if is_dark {
-                                                monitor_icons::SUN
-                                            } else {
-                                                monitor_icons::MOON
-                                            },
-                                            &*cx,
-                                        )
-                                        .on_click(
-                                            |_, _, cx| {
-                                                let mode = if cx.theme().mode.is_dark() {
-                                                    ThemeMode::Light
-                                                } else {
-                                                    ThemeMode::Dark
-                                                };
-                                                app_ui::apply_theme_mode(mode, cx);
-                                            },
-                                        ),
-                                    )
-                                    .child(
-                                        topbar_icon_button(
-                                            "host-settings",
-                                            monitor_icons::SETTINGS,
-                                            &*cx,
-                                        )
-                                        .on_mouse_down(
-                                            MouseButton::Left,
-                                            cx.listener(|_this, _e, _w, cx| {
-                                                cx.stop_propagation();
-                                                app_ui::SettingsWindowState::open_editor(cx);
-                                            }),
-                                        ),
-                                    ),
-                            ),
-                    )
-                    .child({
-                        if let Some(machine) = self.selected_machine() {
-                            let host_view = cx.entity().clone();
-                            let active_tab = self.active_tab;
-                            let process_scroll = self.process_scroll.clone();
-                            let process_h_scroll = self.process_h_scroll.clone();
-                            let process_search = self.process_search.clone();
-                            let process_sort = self.process_sort;
-                            let service_scroll = self.service_scroll.clone();
-                            let service_h_scroll = self.service_h_scroll.clone();
-                            let service_search = self.service_search.clone();
-                            let startup_scroll = self.startup_scroll.clone();
-                            let startup_h_scroll = self.startup_h_scroll.clone();
-                            let startup_search = self.startup_search.clone();
-                            let user_scroll = self.user_scroll.clone();
-                            let user_h_scroll = self.user_h_scroll.clone();
-                            let user_search = self.user_search.clone();
+            .child(self.render_machine_sidebar(cx))
+            .child({
+                let mut right = v_flex().flex_1().min_w_0().h_full();
 
-                            let is_list_tab = tab_manages_bottom_padding(active_tab);
-                            let bottom_pad = if is_list_tab { px(0.) } else { px(30.) };
-                            let dashboard = render_dashboard(
-                                &machine.telemetry,
+                right = right.child(
+                    app_ui::TitleBar::new()
+                        .design_window_controls(true)
+                        .h(MONITOR_MAIN_TITLE_BAR_HEIGHT)
+                        .bg(cx.theme().title_bar)
+                        .border_b_1()
+                        .border_color(cx.theme().title_bar_border)
+                        .child(
+                            h_flex()
+                                .id("title-bar-inner")
+                                .h_full()
+                                .w_full()
+                                .min_w_0()
+                                .flex_1()
+                                .items_center()
+                                .pl(px(24.))
+                                .pr(px(18.))
+                                .child(monitor_title_crumb(title, subtitle, cx)),
+                        )
+                        .trailing_before_controls(
+                            h_flex()
+                                .id("title-bar-actions")
+                                .h_full()
+                                .items_center()
+                                .gap(px(10.))
+                                .child(
+                                    topbar_icon_button(
+                                        "host-refresh",
+                                        monitor_icons::REFRESH,
+                                        &*cx,
+                                    )
+                                    .on_click({
+                                        let view = view.clone();
+                                        move |_, _, cx| cx.notify(view.entity_id())
+                                    }),
+                                )
+                                .child(
+                                    topbar_icon_button(
+                                        "host-theme-toggle",
+                                        if is_dark {
+                                            monitor_icons::SUN
+                                        } else {
+                                            monitor_icons::MOON
+                                        },
+                                        &*cx,
+                                    )
+                                    .on_click(|_, _, cx| {
+                                        let mode = if cx.theme().mode.is_dark() {
+                                            ThemeMode::Light
+                                        } else {
+                                            ThemeMode::Dark
+                                        };
+                                        app_ui::apply_theme_mode(mode, cx);
+                                    }),
+                                )
+                                .child(
+                                    topbar_icon_button(
+                                        "host-settings",
+                                        monitor_icons::SETTINGS,
+                                        &*cx,
+                                    )
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(|_this, _e, _w, cx| {
+                                            cx.stop_propagation();
+                                            app_ui::SettingsWindowState::open_editor(cx);
+                                        }),
+                                    ),
+                                ),
+                        ),
+                );
+
+                if let Some(machine) = self.selected_machine() {
+                    let host_view = cx.entity().clone();
+                    let active_tab = self.active_tab;
+                    let process_scroll = self.process_scroll.clone();
+                    let process_h_scroll = self.process_h_scroll.clone();
+                    let process_search = self.process_search.clone();
+                    let process_sort = self.process_sort;
+                    let service_scroll = self.service_scroll.clone();
+                    let service_h_scroll = self.service_h_scroll.clone();
+                    let service_search = self.service_search.clone();
+                    let startup_scroll = self.startup_scroll.clone();
+                    let startup_h_scroll = self.startup_h_scroll.clone();
+                    let startup_search = self.startup_search.clone();
+                    let user_scroll = self.user_scroll.clone();
+                    let user_h_scroll = self.user_h_scroll.clone();
+                    let user_search = self.user_search.clone();
+
+                    let is_list_tab = tab_manages_bottom_padding(active_tab);
+                    let bottom_pad = if is_list_tab { px(0.) } else { px(30.) };
+                    let dashboard = render_dashboard(
+                        &machine.telemetry,
+                        active_tab,
+                        &process_scroll,
+                        &process_h_scroll,
+                        &process_search,
+                        process_sort,
+                        &service_scroll,
+                        &service_h_scroll,
+                        &service_search,
+                        &startup_scroll,
+                        &startup_h_scroll,
+                        &startup_search,
+                        &user_scroll,
+                        &user_h_scroll,
+                        &user_search,
+                        move |column, window, cx| {
+                            host_view.update(cx, |this, cx| {
+                                this.on_cycle_process_sort(
+                                    &CycleProcessSort { column },
+                                    window,
+                                    cx,
+                                );
+                            });
+                        },
+                        _window,
+                        cx,
+                    );
+
+                    right = right.child(
+                        h_flex()
+                            .flex_1()
+                            .min_h_0()
+                            .w_full()
+                            .child(render_monitor_client_sidebar(
                                 active_tab,
-                                &process_scroll,
-                                &process_h_scroll,
-                                &process_search,
-                                process_sort,
-                                &service_scroll,
-                                &service_h_scroll,
-                                &service_search,
-                                &startup_scroll,
-                                &startup_h_scroll,
-                                &startup_search,
-                                &user_scroll,
-                                &user_h_scroll,
-                                &user_search,
-                                move |column, window, cx| {
-                                    host_view.update(cx, |this, cx| {
-                                        this.on_cycle_process_sort(
-                                            &CycleProcessSort { column },
-                                            window,
-                                            cx,
-                                        );
+                                move |tab, _window, cx| {
+                                    let _ = tab_view.update(cx, |this, cx| {
+                                        this.active_tab = tab;
+                                        cx.notify();
                                     });
                                 },
-                                _window,
                                 cx,
-                            );
-
-                            if is_list_tab {
-                                // 进程/服务/启动项/用户 保持原样，
-                                // 使用自己的 virtual list 滚动条。
+                                false,
+                            ))
+                            .child(v_flex().flex_1().min_w_0().h_full().child(if is_list_tab {
                                 div()
                                     .flex_1()
                                     .min_w_0()
@@ -665,7 +784,6 @@ impl Render for SysMonitorHostApp {
                                     )
                                     .into_any_element()
                             } else {
-                                // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口。
                                 div()
                                     .flex_1()
                                     .min_w_0()
@@ -681,12 +799,26 @@ impl Render for SysMonitorHostApp {
                                         ),
                                     )
                                     .into_any_element()
-                            }
-                        } else {
-                            self.render_empty(cx).into_any_element()
-                        }
-                    }),
-            )
+                            })),
+                    );
+                } else {
+                    right = right.child(
+                        v_flex()
+                            .flex_1()
+                            .min_h_0()
+                            .size_full()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                Label::new("暂无机器连接")
+                                    .text_sm()
+                                    .text_color(cx.theme().muted_foreground),
+                            ),
+                    );
+                }
+
+                right
+            })
     }
 }
 
@@ -791,7 +923,7 @@ pub fn run(cli: HostCli) {
 
         let window_options = WindowOptions {
             titlebar: Some(app_ui::TitleBar::title_bar_options()),
-            window_bounds: Some(WindowBounds::centered(size(px(1600.), px(980.)), cx)),
+            window_bounds: Some(WindowBounds::centered(size(px(1920.), px(1020.)), cx)),
             ..Default::default()
         };
 

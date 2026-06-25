@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
+use std::time::Instant;
 
 use gpui::{rgb, Hsla};
 use gpui_component::Theme;
@@ -402,7 +403,7 @@ impl MachineTelemetry {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct RemoteMachineState {
     pub machine_id: String,
     pub display_name: String,
@@ -410,6 +411,7 @@ pub struct RemoteMachineState {
     pub peer_addr: String,
     pub active_peer_addr: String,
     pub last_seen: String,
+    pub last_seen_at: Instant,
     pub connected: bool,
     pub telemetry: MachineTelemetry,
 }

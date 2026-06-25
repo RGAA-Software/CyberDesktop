@@ -355,6 +355,7 @@ impl Render for SysMonitorApp {
                     });
                 },
                 cx,
+                true,
             ))
             .child(
                 v_flex()
