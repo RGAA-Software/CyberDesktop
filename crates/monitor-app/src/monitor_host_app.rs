@@ -34,7 +34,7 @@ use crate::monitor_alert::{
 use crate::monitor_codec::decode_telemetry;
 use crate::monitor_dashboard::{
     monitor_title_crumb, render_connection_summary, render_dashboard, render_monitor_nav,
-    topbar_icon_button,
+    tab_manages_bottom_padding, topbar_icon_button,
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
@@ -535,7 +535,9 @@ impl SysMonitorHostApp {
         v_flex()
             .w_full()
             .gap_3()
-            .p_4()
+            .px(px(24.))
+            .pt(px(20.))
+            .pb(px(16.))
             .border_b_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().secondary)
@@ -784,9 +786,6 @@ impl Render for SysMonitorHostApp {
                             .h_full()
                             .min_h_0()
                             .overflow_hidden()
-                            .px(px(24.))
-                            .pt(px(20.))
-                            .pb(px(30.))
                             .child(
                                 v_flex()
                                     .size_full()
@@ -795,7 +794,13 @@ impl Render for SysMonitorHostApp {
                                         this.child(self.render_host_summary(cx))
                                     })
                                     .when(self.selected_machine().is_none(), |this| {
-                                        this.child(self.render_empty(cx))
+                                        this.child(
+                                            div()
+                                                .size_full()
+                                                .px(px(24.))
+                                                .pt(px(20.))
+                                                .child(self.render_empty(cx)),
+                                        )
                                     })
                                     .when_some(self.selected_machine(), {
                                         let host_view = cx.entity().clone();
@@ -814,6 +819,38 @@ impl Render for SysMonitorHostApp {
                                         let user_h_scroll = self.user_h_scroll.clone();
                                         let user_search = self.user_search.clone();
                                         move |this, machine| {
+                                            let dashboard = render_dashboard(
+                                                &machine.telemetry,
+                                                active_tab,
+                                                &process_scroll,
+                                                &process_h_scroll,
+                                                &process_search,
+                                                process_sort,
+                                                &service_scroll,
+                                                &service_h_scroll,
+                                                &service_search,
+                                                &startup_scroll,
+                                                &startup_h_scroll,
+                                                &startup_search,
+                                                &user_scroll,
+                                                &user_h_scroll,
+                                                &user_search,
+                                                move |column, window, cx| {
+                                                    host_view.update(cx, |this, cx| {
+                                                        this.on_cycle_process_sort(
+                                                            &CycleProcessSort {
+                                                                column,
+                                                            },
+                                                            window,
+                                                            cx,
+                                                        );
+                                                    });
+                                                },
+                                                _window,
+                                                cx,
+                                            );
+                                            let is_list_tab = tab_manages_bottom_padding(active_tab);
+
                                             this.child(
                                                 div()
                                                     .flex_1()
@@ -824,36 +861,20 @@ impl Render for SysMonitorHostApp {
                                                         div()
                                                             .size_full()
                                                             .overflow_y_scrollbar()
-                                                            .child(render_dashboard(
-                                                                &machine.telemetry,
-                                                                active_tab,
-                                                                &process_scroll,
-                                                                &process_h_scroll,
-                                                                &process_search,
-                                                                process_sort,
-                                                                &service_scroll,
-                                                                &service_h_scroll,
-                                                                &service_search,
-                                                                &startup_scroll,
-                                                                &startup_h_scroll,
-                                                                &startup_search,
-                                                                &user_scroll,
-                                                                &user_h_scroll,
-                                                                &user_search,
-                                                                move |column, window, cx| {
-                                                                    host_view.update(cx, |this, cx| {
-                                                                        this.on_cycle_process_sort(
-                                                                            &CycleProcessSort {
-                                                                                column,
-                                                                            },
-                                                                            window,
-                                                                            cx,
-                                                                        );
-                                                                    });
-                                                                },
-                                                                _window,
-                                                                cx,
-                                                            )),
+                                                            .child(if is_list_tab {
+                                                                // 进程/服务/启动项/用户 保持原样，
+                                                                // 使用自己的 virtual list 滚动条。
+                                                                dashboard.into_any_element()
+                                                            } else {
+                                                                // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口。
+                                                                div()
+                                                                    .px(px(24.))
+                                                                    .pt(px(20.))
+                                                                    .pb(px(30.))
+                                                                    .child(dashboard)
+                                                                    .child(div().h(px(15.)))
+                                                                    .into_any_element()
+                                                            }),
                                                     ),
                                             )
                                         }

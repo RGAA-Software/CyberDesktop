@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::FluentBuilder as _, px, size, App, AppContext, ClipboardItem, Context, Entity,
+    div, px, size, App, AppContext, ClipboardItem, Context, Entity,
     InteractiveElement, IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement,
     Styled, Window, WindowBounds, WindowOptions,
 };
@@ -414,54 +414,73 @@ impl Render for SysMonitorApp {
                             ),
                     )
                     .child({
-                        let bottom_pad = if tab_manages_bottom_padding(self.active_tab) {
-                            px(0.)
-                        } else {
-                            px(30.)
-                        };
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .h_full()
-                            .px(px(24.))
-                            .pt(px(20.))
-                            .pb(bottom_pad)
-                            .child(
-                                div()
-                                    .size_full()
-                                    .overflow_y_scrollbar()
-                                    .child(render_dashboard(
-                                        &self.telemetry,
-                                        self.active_tab,
-                                        &self.process_scroll,
-                                        &self.process_h_scroll,
-                                        &self.process_search,
-                                        self.process_sort,
-                                        &self.service_scroll,
-                                        &self.service_h_scroll,
-                                        &self.service_search,
-                                        &self.startup_scroll,
-                                        &self.startup_h_scroll,
-                                        &self.startup_search,
-                                        &self.user_scroll,
-                                        &self.user_h_scroll,
-                                        &self.user_search,
-                                        move |column, window, cx| {
-                                            view.update(cx, |this, cx| {
-                                                this.on_cycle_process_sort(
-                                                    &CycleProcessSort { column },
-                                                    window,
-                                                    cx,
-                                                );
-                                            });
-                                        },
-                                        _window,
+                        let is_list_tab = tab_manages_bottom_padding(self.active_tab);
+                        let bottom_pad = if is_list_tab { px(0.) } else { px(30.) };
+                        let dashboard = render_dashboard(
+                            &self.telemetry,
+                            self.active_tab,
+                            &self.process_scroll,
+                            &self.process_h_scroll,
+                            &self.process_search,
+                            self.process_sort,
+                            &self.service_scroll,
+                            &self.service_h_scroll,
+                            &self.service_search,
+                            &self.startup_scroll,
+                            &self.startup_h_scroll,
+                            &self.startup_search,
+                            &self.user_scroll,
+                            &self.user_h_scroll,
+                            &self.user_search,
+                            move |column, window, cx| {
+                                view.update(cx, |this, cx| {
+                                    this.on_cycle_process_sort(
+                                        &CycleProcessSort { column },
+                                        window,
                                         cx,
-                                    ))
-                                    .when(!tab_manages_bottom_padding(self.active_tab), |this| {
-                                        this.child(div().h(px(15.)))
-                                    }),
-                            )
+                                    );
+                                });
+                            },
+                            _window,
+                            cx,
+                        );
+
+                        if is_list_tab {
+                            // 进程/服务/启动项/用户 使用自己的 virtual list 滚动条，
+                            // 保持原来的外层滚动容器不变。
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .h_full()
+                                .px(px(24.))
+                                .pt(px(20.))
+                                .pb(bottom_pad)
+                                .child(
+                                    div()
+                                        .size_full()
+                                        .overflow_y_scrollbar()
+                                        .child(dashboard),
+                                )
+                        } else {
+                            // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口，内容加内边距避免遮挡。
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .h_full()
+                                .child(
+                                    div()
+                                        .size_full()
+                                        .overflow_y_scrollbar()
+                                        .child(
+                                            div()
+                                                .px(px(24.))
+                                                .pt(px(20.))
+                                                .pb(bottom_pad)
+                                                .child(dashboard)
+                                                .child(div().h(px(15.))),
+                                        ),
+                                )
+                        }
                     }),
             )
     }
