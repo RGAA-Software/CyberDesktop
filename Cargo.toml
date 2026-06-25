@@ -4,6 +4,7 @@ members = [
     "crates/editor-app",
     "crates/media-player-app",
     "crates/monitor-app",
+    "crates/gpu-fan-probe",
     "crates/app-examples",
     "crates/app-assets",
     "crates/app-media",

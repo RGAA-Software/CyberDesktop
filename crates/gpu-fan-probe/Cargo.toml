@@ -1,0 +1,14 @@
+[package]
+name = "gpu-fan-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "gpu-fan-probe"
+path = "src/main.rs"
+
+[dependencies]
+nvml-wrapper = "0.11"
+adlx = { git = "https://github.com/Traverse-Research/adlx-rs.git", branch = "main" }
+chrono = "0.4"

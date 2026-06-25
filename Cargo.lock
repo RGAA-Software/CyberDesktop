@@ -2850,6 +2850,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gpu-fan-probe"
+version = "0.1.0"
+dependencies = [
+ "adlx",
+ "chrono",
+ "nvml-wrapper",
+]
+
+[[package]]
 name = "gpui"
 version = "0.2.2"
 source = "git+https://github.com/zed-industries/zed#78b5c0e774d671d6537e46cbe7438b0574a1010e"
