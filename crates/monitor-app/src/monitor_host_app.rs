@@ -28,13 +28,12 @@ use crate::monitor_actions::{
     ShowProcessDetails, TerminateProcess,
 };
 use crate::monitor_alert::{
-    build_host_summary, evaluate_alerts_with_suppression, format_duration,
-    machine_offline_duration, Alert, AlertSuppressor, HostSummary,
+    build_host_summary, evaluate_alerts_with_suppression, Alert, AlertSuppressor, HostSummary,
 };
 use crate::monitor_codec::decode_telemetry;
 use crate::monitor_dashboard::{
-    monitor_title_crumb, render_connection_summary, render_dashboard, render_monitor_nav,
-    tab_manages_bottom_padding, topbar_icon_button,
+    monitor_title_crumb, render_dashboard, render_monitor_brand, tab_manages_bottom_padding,
+    topbar_icon_button, MONITOR_MAIN_TITLE_BAR_HEIGHT,
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
@@ -363,7 +362,11 @@ impl SysMonitorHostApp {
                 .any(|item| &item.machine_id == selected)
         });
         if !selected_exists {
-            self.selected_machine = self.machines.first().map(|item| item.machine_id.clone());
+            self.selected_machine = self
+                .machines
+                .iter()
+                .find(|item| item.connected)
+                .map(|item| item.machine_id.clone());
         }
     }
 
@@ -386,63 +389,46 @@ impl SysMonitorHostApp {
     }
 
     fn render_sidebar(&self, cx: &Context<Self>) -> impl IntoElement {
-        let online = self.machines.iter().filter(|m| m.connected).count();
-        let offline = self.machines.len() - online;
-        let view = cx.entity().clone();
+        let online_machines: Vec<&RemoteMachineState> =
+            self.machines.iter().filter(|m| m.connected).collect();
         v_flex()
-            .w(px(260.))
+            .id("host-sidebar")
+            .w(px(248.))
             .h_full()
-            .gap_2()
-            .p_2()
             .border_r_1()
             .border_color(cx.theme().border)
-            .bg(cx.theme().secondary)
-            .child(render_monitor_nav(
-                self.active_tab,
-                move |tab, _window, cx| {
-                    let _ = view.update(cx, |this, cx| {
-                        this.active_tab = tab;
-                        cx.notify();
-                    });
-                },
-                cx,
-            ))
-            .child(div().h(px(1.)).bg(cx.theme().border))
+            .bg(cx.theme().sidebar)
+            .child(render_monitor_brand(cx))
             .child(
-                h_flex()
-                    .w_full()
-                    .justify_between()
-                    .items_center()
-                    .child(
-                        Label::new("在线机器")
-                            .text_sm()
-                            .font_semibold()
-                            .text_color(cx.theme().foreground),
-                    )
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(
-                                Label::new(format!("在线 {}", online))
-                                    .text_xs()
-                                    .text_color(cx.theme().green),
-                            )
-                            .child(
-                                Label::new(format!("离线 {}", offline))
-                                    .text_xs()
-                                    .text_color(cx.theme().red),
-                            ),
-                    ),
-            )
-            .child(
-                div()
+                v_flex()
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scrollbar()
-                    .child(
-                        v_flex()
-                            .gap_2()
-                            .children(self.machines.iter().map(|machine| {
+                    .gap(px(18.))
+                    .px(px(14.))
+                    .pt(px(16.))
+                    .pb(px(16.))
+                    .when(!online_machines.is_empty(), |this| {
+                        this.child(
+                            h_flex()
+                                .w_full()
+                                .justify_between()
+                                .items_center()
+                                .child(
+                                    Label::new("在线机器")
+                                        .text_sm()
+                                        .font_semibold()
+                                        .text_color(cx.theme().foreground),
+                                )
+                                .child(
+                                    Label::new(format!("{}", online_machines.len()))
+                                        .text_xs()
+                                        .text_color(cx.theme().green),
+                                ),
+                        )
+                    })
+                    .child(div().flex_1().min_h_0().overflow_y_scrollbar().child(
+                        v_flex().gap_2().children(
+                            online_machines.iter().map(|machine| {
                                 let selected = self
                                     .selected_machine
                                     .as_ref()
@@ -472,34 +458,11 @@ impl SysMonitorHostApp {
                                                         h_flex()
                                                             .gap_2()
                                                             .items_center()
-                                                            .child({
-                                                                let status_text =
-                                                                    if machine.connected {
-                                                                        "在线".to_string()
-                                                                    } else {
-                                                                        machine_offline_duration(
-                                                                            &machine.last_seen,
-                                                                        )
-                                                                        .map(|d| {
-                                                                            format!(
-                                                                                "离线 {}",
-                                                                                format_duration(d)
-                                                                            )
-                                                                        })
-                                                                        .unwrap_or_else(|| {
-                                                                            "离线".to_string()
-                                                                        })
-                                                                    };
-                                                                Label::new(status_text)
+                                                            .child(
+                                                                Label::new("在线".to_string())
                                                                     .text_xs()
-                                                                    .text_color(
-                                                                        if machine.connected {
-                                                                            cx.theme().green
-                                                                        } else {
-                                                                            cx.theme().red
-                                                                        },
-                                                                    )
-                                                            })
+                                                                    .text_color(cx.theme().green),
+                                                            )
                                                             .child(
                                                                 Label::new(
                                                                     machine.display_name.clone(),
@@ -523,8 +486,9 @@ impl SysMonitorHostApp {
                                     .on_click(cx.listener(move |this, _, window, cx| {
                                         this.select_machine(&machine_id, window, cx);
                                     }))
-                            })),
-                    ),
+                            }),
+                        ),
+                    )),
             )
     }
 
@@ -534,154 +498,6 @@ impl SysMonitorHostApp {
                 .text_sm()
                 .text_color(cx.theme().muted_foreground),
         )
-    }
-
-    fn render_host_summary(&self, cx: &Context<Self>) -> impl IntoElement {
-        let summary = &self.host_summary;
-        v_flex()
-            .w_full()
-            .gap_3()
-            .px(px(24.))
-            .pt(px(20.))
-            .pb(px(16.))
-            .border_b_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().secondary)
-            .child(
-                Label::new("Host 汇总")
-                    .text_base()
-                    .font_semibold()
-                    .text_color(cx.theme().foreground),
-            )
-            .child(
-                h_flex()
-                    .gap_4()
-                    .child(
-                        v_flex()
-                            .gap_1()
-                            .child(
-                                Label::new("在线机器")
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground),
-                            )
-                            .child(
-                                Label::new(summary.online_count.to_string())
-                                    .text_lg()
-                                    .font_semibold()
-                                    .text_color(cx.theme().green),
-                            ),
-                    )
-                    .child(
-                        v_flex()
-                            .gap_1()
-                            .child(
-                                Label::new("离线机器")
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground),
-                            )
-                            .child(
-                                Label::new(summary.offline_count.to_string())
-                                    .text_lg()
-                                    .font_semibold()
-                                    .text_color(cx.theme().red),
-                            ),
-                    )
-                    .child(
-                        v_flex()
-                            .gap_1()
-                            .child(
-                                Label::new("机器总数")
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground),
-                            )
-                            .child(
-                                Label::new(summary.total_machines.to_string())
-                                    .text_lg()
-                                    .font_semibold()
-                                    .text_color(cx.theme().foreground),
-                            ),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .w_full()
-                    .gap_4()
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .gap_2()
-                            .child(
-                                Label::new("Top 10 进程（按 CPU）")
-                                    .text_sm()
-                                    .font_semibold()
-                                    .text_color(cx.theme().foreground),
-                            )
-                            .children(summary.top_processes.iter().enumerate().map(|(i, p)| {
-                                h_flex()
-                                    .w_full()
-                                    .justify_between()
-                                    .child(
-                                        Label::new(format!(
-                                            "{}. {} [{}]",
-                                            i + 1,
-                                            p.name,
-                                            p.display_name
-                                        ))
-                                        .text_xs()
-                                        .text_color(cx.theme().foreground),
-                                    )
-                                    .child(
-                                        Label::new(format!(
-                                            "CPU {:.1}% | 内存 {} MB",
-                                            p.cpu_usage, p.memory_mb
-                                        ))
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground),
-                                    )
-                            })),
-                    )
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .gap_2()
-                            .child(
-                                Label::new("最近告警")
-                                    .text_sm()
-                                    .font_semibold()
-                                    .text_color(cx.theme().foreground),
-                            )
-                            .children(summary.alerts.iter().map(|alert| {
-                                let color = match alert.level {
-                                    crate::monitor_alert::AlertLevel::Warning => cx.theme().yellow,
-                                    crate::monitor_alert::AlertLevel::Critical => cx.theme().red,
-                                };
-                                h_flex()
-                                    .w_full()
-                                    .gap_2()
-                                    .child(
-                                        Label::new(alert.level.label().to_string())
-                                            .text_xs()
-                                            .font_semibold()
-                                            .text_color(color),
-                                    )
-                                    .child(
-                                        Label::new(alert.message.clone())
-                                            .text_xs()
-                                            .text_color(cx.theme().foreground)
-                                            .line_clamp(1),
-                                    )
-                            }))
-                            .when(summary.alerts.is_empty(), |this| {
-                                this.child(
-                                    Label::new("暂无告警")
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground),
-                                )
-                            }),
-                    ),
-            )
     }
 }
 
@@ -715,6 +531,7 @@ impl Render for SysMonitorHostApp {
                     .child(
                         app_ui::TitleBar::new()
                             .design_window_controls(true)
+                            .h(MONITOR_MAIN_TITLE_BAR_HEIGHT)
                             .bg(cx.theme().title_bar)
                             .border_b_1()
                             .border_color(cx.theme().title_bar_border)
@@ -784,103 +601,91 @@ impl Render for SysMonitorHostApp {
                                     ),
                             ),
                     )
-                    .child(render_connection_summary(
-                        &format!("WebSocket 路径固定为 {}", PATH_SYS_INFO),
-                        cx,
-                    ))
-                    .child(
-                        div().flex_1().h_full().min_h_0().overflow_hidden().child(
-                            v_flex()
-                                .size_full()
-                                .items_start()
-                                .when(!self.machines.is_empty(), |this| {
-                                    this.child(self.render_host_summary(cx))
-                                })
-                                .when(self.selected_machine().is_none(), |this| {
-                                    this.child(
-                                        div()
-                                            .size_full()
-                                            .px(px(24.))
-                                            .pt(px(20.))
-                                            .child(self.render_empty(cx)),
-                                    )
-                                })
-                                .when_some(self.selected_machine(), {
-                                    let host_view = cx.entity().clone();
-                                    let active_tab = self.active_tab;
-                                    let process_scroll = self.process_scroll.clone();
-                                    let process_h_scroll = self.process_h_scroll.clone();
-                                    let process_search = self.process_search.clone();
-                                    let process_sort = self.process_sort;
-                                    let service_scroll = self.service_scroll.clone();
-                                    let service_h_scroll = self.service_h_scroll.clone();
-                                    let service_search = self.service_search.clone();
-                                    let startup_scroll = self.startup_scroll.clone();
-                                    let startup_h_scroll = self.startup_h_scroll.clone();
-                                    let startup_search = self.startup_search.clone();
-                                    let user_scroll = self.user_scroll.clone();
-                                    let user_h_scroll = self.user_h_scroll.clone();
-                                    let user_search = self.user_search.clone();
-                                    move |this, machine| {
-                                        let dashboard = render_dashboard(
-                                            &machine.telemetry,
-                                            active_tab,
-                                            &process_scroll,
-                                            &process_h_scroll,
-                                            &process_search,
-                                            process_sort,
-                                            &service_scroll,
-                                            &service_h_scroll,
-                                            &service_search,
-                                            &startup_scroll,
-                                            &startup_h_scroll,
-                                            &startup_search,
-                                            &user_scroll,
-                                            &user_h_scroll,
-                                            &user_search,
-                                            move |column, window, cx| {
-                                                host_view.update(cx, |this, cx| {
-                                                    this.on_cycle_process_sort(
-                                                        &CycleProcessSort { column },
-                                                        window,
-                                                        cx,
-                                                    );
-                                                });
-                                            },
-                                            _window,
+                    .child({
+                        if let Some(machine) = self.selected_machine() {
+                            let host_view = cx.entity().clone();
+                            let active_tab = self.active_tab;
+                            let process_scroll = self.process_scroll.clone();
+                            let process_h_scroll = self.process_h_scroll.clone();
+                            let process_search = self.process_search.clone();
+                            let process_sort = self.process_sort;
+                            let service_scroll = self.service_scroll.clone();
+                            let service_h_scroll = self.service_h_scroll.clone();
+                            let service_search = self.service_search.clone();
+                            let startup_scroll = self.startup_scroll.clone();
+                            let startup_h_scroll = self.startup_h_scroll.clone();
+                            let startup_search = self.startup_search.clone();
+                            let user_scroll = self.user_scroll.clone();
+                            let user_h_scroll = self.user_h_scroll.clone();
+                            let user_search = self.user_search.clone();
+
+                            let is_list_tab = tab_manages_bottom_padding(active_tab);
+                            let bottom_pad = if is_list_tab { px(0.) } else { px(30.) };
+                            let dashboard = render_dashboard(
+                                &machine.telemetry,
+                                active_tab,
+                                &process_scroll,
+                                &process_h_scroll,
+                                &process_search,
+                                process_sort,
+                                &service_scroll,
+                                &service_h_scroll,
+                                &service_search,
+                                &startup_scroll,
+                                &startup_h_scroll,
+                                &startup_search,
+                                &user_scroll,
+                                &user_h_scroll,
+                                &user_search,
+                                move |column, window, cx| {
+                                    host_view.update(cx, |this, cx| {
+                                        this.on_cycle_process_sort(
+                                            &CycleProcessSort { column },
+                                            window,
                                             cx,
                                         );
-                                        let is_list_tab = tab_manages_bottom_padding(active_tab);
+                                    });
+                                },
+                                _window,
+                                cx,
+                            );
 
-                                        this.child(
+                            if is_list_tab {
+                                // 进程/服务/启动项/用户 保持原样，
+                                // 使用自己的 virtual list 滚动条。
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .h_full()
+                                    .px(px(24.))
+                                    .pt(px(20.))
+                                    .pb(bottom_pad)
+                                    .child(
+                                        div().size_full().overflow_y_scrollbar().child(dashboard),
+                                    )
+                                    .into_any_element()
+                            } else {
+                                // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口。
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .h_full()
+                                    .child(
+                                        div().size_full().overflow_y_scrollbar().child(
                                             div()
-                                                .flex_1()
-                                                .w_full()
-                                                .min_h_0()
-                                                .overflow_hidden()
-                                                .child(
-                                                    div().size_full().overflow_y_scrollbar().child(
-                                                        if is_list_tab {
-                                                            // 进程/服务/启动项/用户 保持原样，
-                                                            // 使用自己的 virtual list 滚动条。
-                                                            dashboard.into_any_element()
-                                                        } else {
-                                                            // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口。
-                                                            div()
-                                                                .px(px(24.))
-                                                                .pt(px(20.))
-                                                                .pb(px(30.))
-                                                                .child(dashboard)
-                                                                .child(div().h(px(15.)))
-                                                                .into_any_element()
-                                                        },
-                                                    ),
-                                                ),
-                                        )
-                                    }
-                                }),
-                        ),
-                    ),
+                                                .px(px(24.))
+                                                .pt(px(20.))
+                                                .pb(bottom_pad)
+                                                .child(dashboard)
+                                                .child(div().h(px(15.))),
+                                        ),
+                                    )
+                                    .into_any_element()
+                            }
+                        } else {
+                            self.render_empty(cx).into_any_element()
+                        }
+                    }),
             )
     }
 }
