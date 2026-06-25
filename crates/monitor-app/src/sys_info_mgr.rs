@@ -234,7 +234,7 @@ impl SysInfoManager {
             let _t = SectionTimer::new("build cpu info");
             let usage = self.system.global_cpu_usage();
             let vendor = self.system.cpus()[0].vendor_id().to_string();
-            let brand = self.system.cpus()[0].brand().to_string();
+            let brand = self.system.cpus()[0].brand().trim().to_string();
             let components: Vec<SysComponentInfo> = self
                 .components
                 .iter()

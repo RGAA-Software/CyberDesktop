@@ -85,7 +85,7 @@ fn striped_row_bg(index: usize, cx: &App) -> Option<Hsla> {
 }
 
 const PROCESS_COL_PID: Pixels = px(80.);
-const PROCESS_COL_NAME: Pixels = px(160.);
+const PROCESS_COL_NAME: Pixels = px(250.);
 const PROCESS_COL_STATUS: Pixels = px(80.);
 const PROCESS_COL_CPU: Pixels = px(80.);
 const PROCESS_COL_MEM: Pixels = px(100.);
@@ -2388,7 +2388,7 @@ fn render_process_row<V>(
 ) -> impl IntoElement {
     let pid = process.pid;
     let status_color = if process.status == "运行中" {
-        cx.theme().primary
+        cx.theme().green
     } else {
         cx.theme().foreground
     };
@@ -3086,7 +3086,7 @@ fn render_user_row<V: Render>(
 
 fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {
     match status {
-        "运行中" => cx.theme().primary,
+        "运行中" => cx.theme().green,
         "已停止" => cx.theme().red,
         "已暂停" | "正在启动" | "正在停止" | "正在暂停" | "正在恢复" => {
             cx.theme().yellow
