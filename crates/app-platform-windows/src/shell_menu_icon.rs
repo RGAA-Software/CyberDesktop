@@ -715,22 +715,27 @@ unsafe fn resolve_menu_item_icon_uncached(
     primary_path: &Path,
     verb: Option<&str>,
 ) -> Option<Vec<u8>> {
+    tracing::info!(target: "shell_menu", "icon[{index}] step=hbitmap_png begin");
     if let Some(png) = menu_item_bitmap_png(hbmp) {
         return Some(png);
     }
+    tracing::info!(target: "shell_menu", "icon[{index}] step=via_draw begin (WM_MEASUREITEM/WM_DRAWITEM)");
     if let Some(png) = menu_item_icon_via_draw(menu, popup, item_id) {
         return Some(png);
     }
     if is_callback_bitmap(hbmp) {
+        tracing::info!(target: "shell_menu", "icon[{index}] step=callback_refresh begin");
         let refreshed = refresh_item_bitmap(popup, index);
         if let Some(png) = menu_item_bitmap_png(refreshed) {
             return Some(png);
         }
     }
     if let Some(verb) = verb {
+        tracing::info!(target: "shell_menu", "icon[{index}] step=file_verb begin (AssocQueryStringW) verb={verb}");
         if let Some(png) = icon_for_file_verb(primary_path, verb) {
             return Some(png);
         }
     }
+    tracing::info!(target: "shell_menu", "icon[{index}] step=none (no icon resolved)");
     None
 }

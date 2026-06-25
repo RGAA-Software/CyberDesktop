@@ -1,13 +1,18 @@
-//! COM threading modeled after Files.app (`STATask` + `ThreadWithMessageQueue`).
+//! COM threading modeled 1:1 after Files.app (`STATask` + `ThreadWithMessageQueue`).
 
-use std::sync::mpsc::{self, SyncSender};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use windows::core::HRESULT;
-use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
 use windows::Win32::System::Ole::{OleInitialize, OleUninitialize};
 
 const RPC_E_CHANGED_MODE: HRESULT = HRESULT(0x80010106u32 as i32);
+
+type Job = Box<dyn FnOnce() + Send>;
 
 /// Short-lived STA thread per call (Files `STATask`) — used for Shell **icons**.
 pub fn run_sta_task<T, F>(f: F) -> T
@@ -34,64 +39,128 @@ where
     }
 }
 
-/// Long-lived STA worker with a job queue (Files `ThreadWithMessageQueue`) — used for **context menus**.
-pub struct StaMessageThread {
-    job_tx: SyncSender<Box<dyn FnOnce() + Send>>,
+/// A 1:1 port of Files.app's `ThreadWithMessageQueue`.
+///
+/// Files runs each Shell context-menu session on a dedicated background `Thread` with
+/// `ApartmentState.STA`, which consumes a `BlockingCollection` of jobs
+/// (`foreach msg in GetConsumingEnumerable() { msg.payload(); }`) and runs each synchronously.
+/// There is deliberately **no Win32 message loop** — Shell verbs are direct COM calls. On dispose
+/// it `CompleteAdding()`s the queue and `Join()`s the thread.
+///
+/// We mirror that exactly: `OleInitialize` on the thread, a blocking job-consume loop fed by an
+/// mpsc channel, and a `Drop` that drops the sender (== `CompleteAdding`) then joins. The only
+/// addition is that the join is *bounded*: if the worker is wedged inside a misbehaving Shell
+/// extension we abandon (leak) it rather than block forever (Files relies on warm-up to avoid
+/// ever hitting that case; we keep a safety net).
+pub struct ThreadWithMessageQueue {
+    name: &'static str,
+    job_tx: Option<Sender<Job>>,
+    finished: Arc<AtomicBool>,
     join: Option<JoinHandle<()>>,
 }
 
-impl StaMessageThread {
+/// Max time `Drop` waits for the worker to finish its queue before abandoning a wedged thread.
+const JOIN_TIMEOUT: Duration = Duration::from_secs(2);
+
+impl ThreadWithMessageQueue {
     pub fn new(name: &'static str) -> Self {
-        let (job_tx, job_rx) = mpsc::sync_channel::<Box<dyn FnOnce() + Send>>(128);
+        let (job_tx, job_rx) = mpsc::channel::<Job>();
+        let finished = Arc::new(AtomicBool::new(false));
+        let finished_worker = finished.clone();
+        tracing::info!(target: "shell_menu", "STA[{name}]: spawning owning thread (Files ThreadWithMessageQueue)");
         let join = thread::Builder::new()
             .name(name.into())
             .spawn(move || unsafe {
-                let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-                for job in job_rx {
+                // Files STATask: OleInitialize (implies CoInitializeEx STA). No message loop.
+                let ole = OleInitialize(None);
+                if ole.is_err() {
+                    let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+                }
+                tracing::info!(target: "shell_menu", "STA[{name}]: started; OleInitialize hr={ole:?}");
+                // Consume jobs until the sender is dropped (Files: BlockingCollection.CompleteAdding).
+                for job in job_rx.iter() {
                     job();
                 }
-                let _ = CoUninitialize();
+                if ole.is_ok() {
+                    OleUninitialize();
+                }
+                finished_worker.store(true, Ordering::SeqCst);
+                tracing::info!(target: "shell_menu", "STA[{name}]: queue completed; OleUninitialize and exit");
             })
-            .expect("spawn STA message thread");
+            .expect("spawn STA thread");
         Self {
-            job_tx,
+            name,
+            job_tx: Some(job_tx),
+            finished,
             join: Some(join),
         }
     }
 
-    pub fn post<F, T>(&self, f: F) -> T
+    /// Posts a job to the owning STA thread and gives up after `timeout`, returning `None`.
+    ///
+    /// A `None` result means the job is still running on the STA thread (e.g. a Shell
+    /// extension deadlocked inside `QueryContextMenu`). The job keeps running, so the caller
+    /// MUST abandon this thread (drop/forget it) instead of posting more work to it.
+    pub fn post_with_timeout<F, T>(&self, f: F, timeout: Duration) -> Option<T>
     where
         F: FnOnce() -> T + Send + 'static,
         T: Send + 'static,
     {
+        let name = self.name;
         let (reply_tx, reply_rx) = mpsc::sync_channel(1);
+        tracing::info!(target: "shell_menu", "STA[{name}]: dispatching timed job (timeout={timeout:?})");
         self.dispatch(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
             let _ = reply_tx.send(result);
         });
-        match reply_rx.recv().expect("STA thread job reply") {
-            Ok(value) => value,
-            Err(payload) => std::panic::resume_unwind(payload),
+        match reply_rx.recv_timeout(timeout) {
+            Ok(Ok(value)) => Some(value),
+            Ok(Err(payload)) => std::panic::resume_unwind(payload),
+            Err(RecvTimeoutError::Timeout) => {
+                tracing::warn!(target: "shell_menu", "STA[{name}]: TIMEOUT waiting for reply (job still running on STA thread)");
+                None
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                tracing::warn!(target: "shell_menu", "STA[{name}]: reply channel disconnected");
+                None
+            }
         }
     }
 
     /// Queue work without waiting for completion (caller waits on its own channel).
-    pub fn dispatch<F>(&self, f: F)
+    fn dispatch<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
-        self.job_tx
-            .send(Box::new(f))
-            .expect("STA thread job queue full");
+        if let Some(tx) = self.job_tx.as_ref() {
+            let _ = tx.send(Box::new(f));
+        }
     }
 }
 
-impl Drop for StaMessageThread {
+impl Drop for ThreadWithMessageQueue {
     fn drop(&mut self) {
-        // Do not join: the STA thread may be blocked inside Shell COM (Files uses background threads).
-        if let Some(join) = self.join.take() {
-            std::mem::forget(join);
+        // Files Dispose(): CompleteAdding() then Join(). Dropping the sender ends the consume loop
+        // after the current job drains; then we join — but bounded, so a thread wedged inside a
+        // Shell extension is abandoned (leaked) rather than blocking the caller forever.
+        self.job_tx.take();
+        let Some(join) = self.join.take() else {
+            return;
+        };
+        let deadline = Instant::now() + JOIN_TIMEOUT;
+        while !self.finished.load(Ordering::SeqCst) {
+            if Instant::now() >= deadline {
+                tracing::warn!(
+                    target: "shell_menu",
+                    "STA[{}]: worker did not finish within {JOIN_TIMEOUT:?}; abandoning (leaking) wedged thread",
+                    self.name
+                );
+                std::mem::forget(join);
+                return;
+            }
+            thread::sleep(Duration::from_millis(5));
         }
+        let _ = join.join();
     }
 }
 

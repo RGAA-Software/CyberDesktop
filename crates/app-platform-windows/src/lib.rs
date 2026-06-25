@@ -17,6 +17,8 @@ mod icons;
 #[cfg(windows)]
 mod paths;
 #[cfg(windows)]
+mod per_handler_shell;
+#[cfg(windows)]
 mod quick_access;
 #[cfg(windows)]
 mod recent_policy;
