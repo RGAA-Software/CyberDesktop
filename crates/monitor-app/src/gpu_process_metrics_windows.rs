@@ -174,8 +174,7 @@ fn gpu_label(gpu_names: &[String], phys_index: u32) -> String {
 fn engine_counts_toward_usage(engtype: &str) -> bool {
     matches!(
         engtype,
-        "3D"
-            | "Copy"
+        "3D" | "Copy"
             | "Compute_0"
             | "Compute_1"
             | "VideoDecode"
@@ -280,10 +279,7 @@ mod tests {
     #[test]
     fn parse_gpu_engine_instance_fields() {
         let instance = "pid_1388_luid_0x00000000_0x00011372_phys_0_eng_8_engtype_3D";
-        assert_eq!(
-            parse_gpu_engine_instance(instance),
-            Some((1388, 0, "3D"))
-        );
+        assert_eq!(parse_gpu_engine_instance(instance), Some((1388, 0, "3D")));
     }
 
     #[test]

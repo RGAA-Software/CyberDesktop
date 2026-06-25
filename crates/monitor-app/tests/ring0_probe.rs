@@ -16,7 +16,9 @@ fn probe_winring0_and_cpu_msrs() {
     eprintln!("temperature C: {:.1}", cpu.temperature);
     eprintln!("physical_cores={}", cpu.physical_cores);
 
-    if cpu.current_frequency <= cpu.base_frequency + 0.01 && cpu.max_frequency <= cpu.base_frequency + 0.01 {
+    if cpu.current_frequency <= cpu.base_frequency + 0.01
+        && cpu.max_frequency <= cpu.base_frequency + 0.01
+    {
         eprintln!("WARNING: current/max stuck at base — WinRing0 MSR path likely failed");
     }
     if cpu.temperature <= 0.0 {

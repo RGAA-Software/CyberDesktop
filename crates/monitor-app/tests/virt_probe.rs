@@ -6,7 +6,10 @@
 fn probe_virt_label() {
     let label = monitor_app::cpu_platform::read_cpu_virtualization_label();
     eprintln!("final label: {label}");
-    assert_ne!(label, "不支持", "expected enabled on Hyper-V / VT-x systems");
+    assert_ne!(
+        label, "不支持",
+        "expected enabled on Hyper-V / VT-x systems"
+    );
 }
 
 #[test]

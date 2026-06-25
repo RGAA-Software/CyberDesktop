@@ -1,28 +1,28 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gpui::{
-    div, px, size, App, AppContext, ClipboardItem, Context, Entity,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement,
-    Styled, Window, WindowBounds, WindowOptions,
+    div, px, size, App, AppContext, ClipboardItem, Context, Entity, InteractiveElement,
+    IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement, Styled, Window,
+    WindowBounds, WindowOptions,
 };
 use gpui_component::{
-    h_flex, input::InputState, scroll::ScrollableElement as _, v_flex, ActiveTheme,
-    Root, ThemeMode, VirtualListScrollHandle,
+    h_flex, input::InputState, scroll::ScrollableElement as _, v_flex, ActiveTheme, Root,
+    ThemeMode, VirtualListScrollHandle,
 };
 use smol::Timer;
 
 use files_core::{init_tracing, set_config_app_id, MONITOR_CONFIG_APP_ID};
 
 use crate::monitor_actions::{
-    CopyProcessInfo, CycleProcessSort, ProcessActionHandler, RestartServiceAction, ResumeProcess,
-    RevealProcessExe, RevealStartupItem, SetProcessAffinity, SetProcessIoPriority,
-    SetProcessPriority, ShowProcessDetails, StartServiceAction, StopServiceAction, SuspendProcess,
-    TerminateProcess, TerminateProcessTree,
+    CopyProcessInfo, CopyStartupCommand, CopyUserInfo, CycleProcessSort, ProcessActionHandler,
+    RestartServiceAction, ResumeProcess, RevealProcessExe, RevealStartupItem, SetProcessAffinity,
+    SetProcessIoPriority, SetProcessPriority, ShowProcessDetails, StartServiceAction,
+    StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_codec::encode_telemetry;
 use crate::monitor_dashboard::{
-    monitor_title_crumb, render_dashboard, render_monitor_client_sidebar, tab_manages_bottom_padding,
-    topbar_icon_button, MONITOR_MAIN_TITLE_BAR_HEIGHT,
+    monitor_title_crumb, render_dashboard, render_monitor_client_sidebar,
+    tab_manages_bottom_padding, topbar_icon_button, MONITOR_MAIN_TITLE_BAR_HEIGHT,
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
@@ -138,6 +138,25 @@ impl ProcessActionHandler for SysMonitorApp {
         }
     }
 
+    fn copy_startup_command(&mut self, command: &str, cx: &mut Context<Self>) {
+        cx.write_to_clipboard(ClipboardItem::new_string(command.to_string()));
+    }
+
+    fn copy_user_info(
+        &mut self,
+        name: &str,
+        uid: &str,
+        gid: &str,
+        groups: &str,
+        cx: &mut Context<Self>,
+    ) {
+        let text = format!(
+            "Name: {}\nUID: {}\nGID: {}\nGroups: {}",
+            name, uid, gid, groups
+        );
+        cx.write_to_clipboard(ClipboardItem::new_string(text));
+    }
+
     fn set_process_priority(&mut self, pid: u32, priority: &str, cx: &mut Context<Self>) -> bool {
         let ok = monitor_process_ctrl::set_process_priority(pid, priority);
         if ok {
@@ -242,6 +261,7 @@ impl SysMonitorApp {
         let worker = this.sysinfo.clone();
         cx.spawn(async move |this, cx| {
             loop {
+                let loop_start = Instant::now();
                 let worker = worker.clone();
                 let snapshot = match collect_sysinfo_async(worker).await {
                     Some(snapshot) => snapshot,
@@ -258,7 +278,12 @@ impl SysMonitorApp {
                 {
                     break;
                 }
-                Timer::after(INTERVAL).await;
+                // Fixed-rate interval: sleep only the remaining time so the effective
+                // sample rate is exactly INTERVAL (1s) rather than INTERVAL + collect_time.
+                let elapsed = loop_start.elapsed();
+                if elapsed < INTERVAL {
+                    Timer::after(INTERVAL - elapsed).await;
+                }
             }
         })
         .detach();
@@ -313,6 +338,8 @@ impl Render for SysMonitorApp {
             .on_action(cx.listener(Self::on_stop_service))
             .on_action(cx.listener(Self::on_restart_service))
             .on_action(cx.listener(Self::on_reveal_startup_item))
+            .on_action(cx.listener(Self::on_copy_startup_command))
+            .on_action(cx.listener(Self::on_copy_user_info))
             .on_action(cx.listener(Self::on_set_process_priority))
             .on_action(cx.listener(Self::on_set_process_io_priority))
             .on_action(cx.listener(Self::on_set_process_affinity))
@@ -384,14 +411,16 @@ impl Render for SysMonitorApp {
                                             },
                                             &*cx,
                                         )
-                                        .on_click(|_, _, cx| {
-                                            let mode = if cx.theme().mode.is_dark() {
-                                                ThemeMode::Light
-                                            } else {
-                                                ThemeMode::Dark
-                                            };
-                                            app_ui::apply_theme_mode(mode, cx);
-                                        }),
+                                        .on_click(
+                                            |_, _, cx| {
+                                                let mode = if cx.theme().mode.is_dark() {
+                                                    ThemeMode::Light
+                                                } else {
+                                                    ThemeMode::Dark
+                                                };
+                                                app_ui::apply_theme_mode(mode, cx);
+                                            },
+                                        ),
                                     )
                                     .child(
                                         topbar_icon_button(
@@ -455,31 +484,19 @@ impl Render for SysMonitorApp {
                                 .px(px(24.))
                                 .pt(px(20.))
                                 .pb(bottom_pad)
-                                .child(
-                                    div()
-                                        .size_full()
-                                        .overflow_y_scrollbar()
-                                        .child(dashboard),
-                                )
+                                .child(div().size_full().overflow_y_scrollbar().child(dashboard))
                         } else {
                             // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口，内容加内边距避免遮挡。
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .h_full()
-                                .child(
+                            div().flex_1().min_w_0().h_full().child(
+                                div().size_full().overflow_y_scrollbar().child(
                                     div()
-                                        .size_full()
-                                        .overflow_y_scrollbar()
-                                        .child(
-                                            div()
-                                                .px(px(24.))
-                                                .pt(px(20.))
-                                                .pb(bottom_pad)
-                                                .child(dashboard)
-                                                .child(div().h(px(15.))),
-                                        ),
-                                )
+                                        .px(px(24.))
+                                        .pt(px(20.))
+                                        .pb(bottom_pad)
+                                        .child(dashboard)
+                                        .child(div().h(px(15.))),
+                                ),
+                            )
                         }
                     }),
             )
@@ -590,6 +607,24 @@ impl SysMonitorApp {
         cx: &mut Context<Self>,
     ) {
         self.reveal_startup_item(&action.command, cx);
+    }
+
+    fn on_copy_startup_command(
+        &mut self,
+        action: &CopyStartupCommand,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.copy_startup_command(&action.command, cx);
+    }
+
+    fn on_copy_user_info(
+        &mut self,
+        action: &CopyUserInfo,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.copy_user_info(&action.name, &action.uid, &action.gid, &action.groups, cx);
     }
 
     fn on_set_process_priority(

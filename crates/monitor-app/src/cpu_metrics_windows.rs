@@ -1,6 +1,7 @@
 //! Windows-specific CPU temperature and clock helpers (WMI + registry).
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use wmi::{COMLibrary, Variant, WMIConnection};
 
@@ -78,7 +79,7 @@ pub fn read_processor_clocks_mhz() -> Option<(f32, f32)> {
     Some((current, max))
 }
 
-pub fn read_registry_max_mhz() -> Option<u32> {
+fn read_registry_max_mhz_uncached() -> Option<u32> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
 
@@ -128,4 +129,11 @@ pub fn read_registry_max_mhz() -> Option<u32> {
             None
         }
     }
+}
+
+static REGISTRY_MAX_MHZ: OnceLock<Option<u32>> = OnceLock::new();
+
+/// The registry base frequency is a hardware constant; cache it after the first read.
+pub fn read_registry_max_mhz() -> Option<u32> {
+    *REGISTRY_MAX_MHZ.get_or_init(read_registry_max_mhz_uncached)
 }

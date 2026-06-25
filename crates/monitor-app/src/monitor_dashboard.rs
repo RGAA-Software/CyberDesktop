@@ -4,8 +4,8 @@ use std::sync::Arc;
 use gpui::{
     div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px, relative, rgb, size,
     AnyElement, App, Axis, Context, ElementId, Entity, FontWeight, Hsla, InteractiveElement,
-    IntoElement, ParentElement, Pixels, Render, SharedString, Stateful,
-    StatefulInteractiveElement, Styled, Window,
+    IntoElement, ParentElement, Pixels, Render, SharedString, Stateful, StatefulInteractiveElement,
+    Styled, Window,
 };
 use gpui_component::{
     chart::AreaChart,
@@ -16,21 +16,21 @@ use gpui_component::{
     v_flex, v_virtual_list, ActiveTheme, StyledExt, VirtualListScrollHandle,
 };
 
+use crate::cpu_platform::format_cpu_frequency_range;
 use crate::monitor_actions::{
-    CopyProcessInfo, RestartServiceAction, ResumeProcess, RevealProcessExe, RevealStartupItem,
-    SetProcessAffinity, SetProcessIoPriority, SetProcessPriority, ShowProcessDetails,
-    StartServiceAction, StopServiceAction, SuspendProcess, TerminateProcess, TerminateProcessTree,
+    CopyProcessInfo, CopyStartupCommand, CopyUserInfo, RestartServiceAction, ResumeProcess,
+    RevealProcessExe, RevealStartupItem, SetProcessAffinity, SetProcessIoPriority,
+    SetProcessPriority, ShowProcessDetails, StartServiceAction, StopServiceAction, SuspendProcess,
+    TerminateProcess, TerminateProcessTree,
 };
 use crate::monitor_icons;
-use crate::cpu_platform::format_cpu_frequency_range;
 use crate::monitor_model::{
     bytes_to_gb, chart_ticks, cpu_metric_color, disk_key, disk_usage_percent, disk_used_gb,
     format_cpu_temperature, format_gpu_fan_speed, format_mem_size, format_network_link_speed,
-    format_optional_frequency, format_tick, gpu_chart_title, gpu_color_for,
-    gpu_display_model, gpu_fan_meter_percent, gpu_key, gpu_memory_percent, latest_disk_rates,
-    latest_network_rates, mem_metric_color, network_ipv4,
-    network_key, sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn,
-    SortDirection,
+    format_optional_frequency, format_tick, gpu_chart_title, gpu_color_for, gpu_display_model,
+    gpu_fan_meter_percent, gpu_key, gpu_memory_percent, latest_disk_rates, latest_network_rates,
+    mem_metric_color, network_ipv4, network_key, sort_processes, MachineTelemetry, MonitorTab,
+    ProcessSort, ProcessSortColumn, SortDirection,
 };
 use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo, SysUserInfo};
 use app_ui::{color_icon_box, ContextMenuExt};
@@ -181,10 +181,7 @@ fn chart_title_dot(color: Hsla) -> gpui::Div {
 }
 
 fn monitor_search_input(search: &Entity<InputState>) -> Input {
-    Input::new(search)
-        .w(px(280.))
-        .h(px(38.))
-        .rounded(px(7.))
+    Input::new(search).w(px(280.)).h(px(38.)).rounded(px(7.))
 }
 
 /// Page title in the content topbar (design: 20px semibold).
@@ -456,9 +453,7 @@ where
                                 .rounded_md()
                                 .bg(icon_box_bg)
                                 .when(!is_active, |this| {
-                                    this.hover(|style| {
-                                        style.bg(cx.theme().primary.opacity(0.10))
-                                    })
+                                    this.hover(|style| style.bg(cx.theme().primary.opacity(0.10)))
                                 })
                                 .child(monitor_icons::nav_icon(path)),
                         )
@@ -478,7 +473,17 @@ fn render_metric_card<V>(
     progress_color: Option<Hsla>,
     cx: &Context<V>,
 ) -> impl IntoElement {
-    render_metric_card_with_height(id, title, value, percent, progress_color, px(96.), false, false, cx)
+    render_metric_card_with_height(
+        id,
+        title,
+        value,
+        percent,
+        progress_color,
+        px(96.),
+        false,
+        false,
+        cx,
+    )
 }
 
 fn render_overview_metric_card<V>(
@@ -489,7 +494,17 @@ fn render_overview_metric_card<V>(
     progress_color: Option<Hsla>,
     cx: &Context<V>,
 ) -> impl IntoElement {
-    render_metric_card_with_height(id, title, value, percent, progress_color, px(96.), true, false, cx)
+    render_metric_card_with_height(
+        id,
+        title,
+        value,
+        percent,
+        progress_color,
+        px(96.),
+        true,
+        false,
+        cx,
+    )
 }
 
 fn render_process_header_metric_card<V>(
@@ -721,29 +736,29 @@ fn render_chart<V, T: Clone + 'static>(
                         .relative()
                         .child(chart)
                         .when(show_x_axis && !x_labels.is_empty(), |this| {
-                        this.child(
-                            div()
-                                .absolute()
-                                .bottom_0()
-                                .left_0()
-                                .right_0()
-                                .h(px(18.))
-                                .child(
-                                    h_flex()
-                                        .w_full()
-                                        .h_full()
-                                        .items_end()
-                                        .px(px(10.))
-                                        .justify_between()
-                                        .children(x_labels.iter().map(|text| {
-                                            Label::new(text.clone())
-                                                .text_xs()
-                                                .text_color(cx.theme().muted_foreground)
-                                        })),
-                                ),
-                        )
-                    },
-                )),
+                            this.child(
+                                div()
+                                    .absolute()
+                                    .bottom_0()
+                                    .left_0()
+                                    .right_0()
+                                    .h(px(18.))
+                                    .child(
+                                        h_flex()
+                                            .w_full()
+                                            .h_full()
+                                            .items_end()
+                                            .px(px(10.))
+                                            .justify_between()
+                                            .children(x_labels.iter().map(|text| {
+                                                Label::new(text.clone())
+                                                    .text_xs()
+                                                    .text_color(cx.theme().muted_foreground)
+                                            })),
+                                    ),
+                            )
+                        }),
+                ),
         )
         .when(false, |this| {
             this.child(
@@ -900,43 +915,48 @@ fn render_overview_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl
                             cx,
                         ))),
                 )
-                .children(gpu_rows.into_iter().map(|(index, gpu, gpu_history, gpu_mem_total)| {
-                    let color = gpu_color_for(&gpu, &telemetry.current.gpus);
-                    let usage_title = gpu_chart_title("GPU 使用率", &gpu);
-                    let mem_title = gpu_chart_title("显存占用率", &gpu);
-                    h_flex()
-                        .gap(px(14.))
-                        .child(div().flex_1().min_w_0().child(render_chart(
-                            &format!("overview-chart-gpu-usage-{index}"),
-                            &usage_title,
-                            gpu_history.clone(),
-                            |point| point.time.clone(),
-                            |point| point.usage,
-                            color,
-                            "%",
-                            "时间",
-                            Some(100.0),
-                            true,
-                            true,
-                            cx,
-                        )))
-                        .child(div().flex_1().min_w_0().child(render_chart(
-                            &format!("overview-chart-gpu-mem-{index}"),
-                            &mem_title,
-                            gpu_history,
-                            |point| point.time.clone(),
-                            move |point| {
-                                (point.memory_used_gb / gpu_mem_total * 100.0).clamp(0.0, 100.0)
-                            },
-                            color,
-                            "%",
-                            "时间",
-                            Some(100.0),
-                            true,
-                            true,
-                            cx,
-                        )))
-                }))
+                .children(
+                    gpu_rows
+                        .into_iter()
+                        .map(|(index, gpu, gpu_history, gpu_mem_total)| {
+                            let color = gpu_color_for(&gpu, &telemetry.current.gpus);
+                            let usage_title = gpu_chart_title("GPU 使用率", &gpu);
+                            let mem_title = gpu_chart_title("显存占用率", &gpu);
+                            h_flex()
+                                .gap(px(14.))
+                                .child(div().flex_1().min_w_0().child(render_chart(
+                                    &format!("overview-chart-gpu-usage-{index}"),
+                                    &usage_title,
+                                    gpu_history.clone(),
+                                    |point| point.time.clone(),
+                                    |point| point.usage,
+                                    color,
+                                    "%",
+                                    "时间",
+                                    Some(100.0),
+                                    true,
+                                    true,
+                                    cx,
+                                )))
+                                .child(div().flex_1().min_w_0().child(render_chart(
+                                    &format!("overview-chart-gpu-mem-{index}"),
+                                    &mem_title,
+                                    gpu_history,
+                                    |point| point.time.clone(),
+                                    move |point| {
+                                        (point.memory_used_gb / gpu_mem_total * 100.0)
+                                            .clamp(0.0, 100.0)
+                                    },
+                                    color,
+                                    "%",
+                                    "时间",
+                                    Some(100.0),
+                                    true,
+                                    true,
+                                    cx,
+                                )))
+                        }),
+                )
                 .child(
                     h_flex()
                         .gap(px(14.))
@@ -1007,7 +1027,9 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                 .child(inline_stat_row("逻辑核心", &core_count.to_string(), cx))
                                 .child(inline_stat_row(
                                     "当前频率",
-                                    &format_optional_frequency(telemetry.current.cpu.current_frequency),
+                                    &format_optional_frequency(
+                                        telemetry.current.cpu.current_frequency,
+                                    ),
                                     cx,
                                 ))
                                 .child(inline_stat_row(
@@ -1031,7 +1053,7 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     &telemetry.current.processes.len().to_string(),
                                     cx,
                                 )),
-                        )
+                        ),
                 )
                 .child(
                     card("cpu-info")
@@ -1107,44 +1129,34 @@ fn render_cpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
         .child(
             h_flex()
                 .gap(px(14.))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .child(render_chart(
-                            "cpu-chart",
-                            "CPU 总使用率",
-                            history.clone(),
-                            |point| point.time.clone(),
-                            |point| point.cpu_usage,
-                            cpu_metric_color(),
-                            "%",
-                            "时间",
-                            Some(100.0),
-                            true,
-                            true,
-                            cx,
-                        )),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .child(render_chart(
-                            "cpu-freq-chart",
-                            "CPU 频率",
-                            history.clone(),
-                            |point| point.time.clone(),
-                            |point| point.cpu_frequency,
-                            cpu_metric_color(),
-                            "GHz",
-                            "时间",
-                            Some(freq_y_max),
-                            true,
-                            true,
-                            cx,
-                        )),
-                ),
+                .child(div().flex_1().min_w_0().child(render_chart(
+                    "cpu-chart",
+                    "CPU 总使用率",
+                    history.clone(),
+                    |point| point.time.clone(),
+                    |point| point.cpu_usage,
+                    cpu_metric_color(),
+                    "%",
+                    "时间",
+                    Some(100.0),
+                    true,
+                    true,
+                    cx,
+                )))
+                .child(div().flex_1().min_w_0().child(render_chart(
+                    "cpu-freq-chart",
+                    "CPU 频率",
+                    history.clone(),
+                    |point| point.time.clone(),
+                    |point| point.cpu_frequency,
+                    cpu_metric_color(),
+                    "GHz",
+                    "时间",
+                    Some(freq_y_max),
+                    true,
+                    true,
+                    cx,
+                ))),
         )
         .children(
             (0..telemetry.current.cpu.cpus.len())
@@ -1299,10 +1311,8 @@ fn render_memory_advanced_metrics<V>(
     cx: &Context<V>,
 ) -> impl IntoElement {
     let mem = &telemetry.current.mem;
-    let has_advanced = mem.committed > 0
-        || mem.system_cache > 0
-        || mem.kernel_ws > 0
-        || mem.swap_total > 0;
+    let has_advanced =
+        mem.committed > 0 || mem.system_cache > 0 || mem.kernel_ws > 0 || mem.swap_total > 0;
 
     v_flex()
         .gap(px(14.))
@@ -1768,7 +1778,11 @@ fn render_network_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl 
                                         ),
                                 )
                                 .child(chip(
-                                    if ipv4.is_empty() { "未分配 IPv4" } else { "在线" },
+                                    if ipv4.is_empty() {
+                                        "未分配 IPv4"
+                                    } else {
+                                        "在线"
+                                    },
                                     cx.theme().primary,
                                     cx,
                                 )),
@@ -1961,24 +1975,19 @@ fn render_scrollable_virtual_table_panel<V>(
                                 .overflow_hidden()
                                 .relative()
                                 .child(
-                                    div()
-                                        .w_full()
-                                        .h_full()
-                                        .pr(px(16.))
-                                        .overflow_hidden()
-                                        .child(
-                                            div()
-                                                .left(h_offset_x)
-                                                .min_w(table_min_width)
-                                                .when(fill_width, |this| this.w_full())
-                                                .h_full()
-                                                .child(
-                                                    div()
-                                                        .h_full()
-                                                        .when(fill_width, |this| this.w_full())
-                                                        .child(body),
-                                                ),
-                                        ),
+                                    div().w_full().h_full().pr(px(16.)).overflow_hidden().child(
+                                        div()
+                                            .left(h_offset_x)
+                                            .min_w(table_min_width)
+                                            .when(fill_width, |this| this.w_full())
+                                            .h_full()
+                                            .child(
+                                                div()
+                                                    .h_full()
+                                                    .when(fill_width, |this| this.w_full())
+                                                    .child(body),
+                                            ),
+                                    ),
                                 )
                                 .child(
                                     div()
@@ -2000,15 +2009,11 @@ fn render_scrollable_virtual_table_panel<V>(
                 )),
         )
         .child(
-            div()
-                .flex_none()
-                .w_full()
-                .h(px(16.))
-                .child(
-                    Scrollbar::horizontal(h_scroll_handle)
-                        .scrollbar_show(ScrollbarShow::Always)
-                        .scroll_size(table_scroll_size),
-                ),
+            div().flex_none().w_full().h(px(16.)).child(
+                Scrollbar::horizontal(h_scroll_handle)
+                    .scrollbar_show(ScrollbarShow::Always)
+                    .scroll_size(table_scroll_size),
+            ),
         )
         .child(
             div()
@@ -2338,10 +2343,7 @@ where
         cell = cell.min_w(min_w);
     }
     if align_right {
-        cell = cell
-            .justify_end()
-            .text_right()
-            .pl(PROCESS_COL_INNER_PAD);
+        cell = cell.justify_end().text_right().pl(PROCESS_COL_INNER_PAD);
     }
     if leading_pad {
         cell = cell.pl(PROCESS_COL_INNER_PAD);
@@ -2360,8 +2362,7 @@ fn render_process_table<V: Render>(
     cx: &mut Context<V>,
 ) -> impl IntoElement {
     let item_count = processes.len().max(1);
-    let item_sizes =
-        Rc::new(vec![size(process_table_min_width(), px(32.)); item_count]);
+    let item_sizes = Rc::new(vec![size(process_table_min_width(), px(32.)); item_count]);
 
     v_virtual_list(
         cx.entity().clone(),
@@ -2617,10 +2618,7 @@ fn virtual_table_text_cell(value: String, width: Pixels, align_right: bool) -> g
         .items_center()
         .child(Label::new(value).text_sm().truncate());
     if align_right {
-        cell = cell
-            .justify_end()
-            .text_right()
-            .pl(PROCESS_COL_INNER_PAD);
+        cell = cell.justify_end().text_right().pl(PROCESS_COL_INNER_PAD);
     } else {
         cell = cell.pr(PROCESS_COL_INNER_PAD);
     }
@@ -2799,7 +2797,11 @@ fn render_service_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoEleme
         .border_b_1()
         .border_color(cx.theme().border)
         .child(render_table_header_cell("名称", SERVICE_COL_NAME, cx))
-        .child(render_table_header_flex_cell("显示名称", SERVICE_COL_DISPLAY, cx))
+        .child(render_table_header_flex_cell(
+            "显示名称",
+            SERVICE_COL_DISPLAY,
+            cx,
+        ))
         .child(render_table_header_cell("状态", SERVICE_COL_STATUS, cx))
         .child(render_table_header_cell("启动类型", SERVICE_COL_START, cx))
 }
@@ -3029,11 +3031,26 @@ fn render_user_row<V: Render>(
     index: usize,
     cx: &mut Context<V>,
 ) -> impl IntoElement {
+    let name = user.name.clone();
+    let uid = user.uid.clone();
+    let gid = user.gid.clone();
+    let groups = user.groups.clone();
     let stripe_bg = striped_row_bg(index, cx);
     h_flex()
         .id(format!("user-row-{}", user.name))
         .when_some(stripe_bg, |this, bg| this.bg(bg))
         .hover(|style| style.bg(cx.theme().primary.opacity(0.07)))
+        .context_menu(move |menu, _window, _cx| {
+            menu.menu(
+                "复制用户信息",
+                Box::new(CopyUserInfo {
+                    name: name.clone(),
+                    uid: uid.clone(),
+                    gid: gid.clone(),
+                    groups: groups.clone(),
+                }),
+            )
+        })
         .min_w(user_table_min_width())
         .w_full()
         .h(px(32.))
@@ -3045,10 +3062,26 @@ fn render_user_row<V: Render>(
         .border_color(cx.theme().border)
         .text_sm()
         .text_color(cx.theme().foreground)
-        .child(virtual_table_text_cell(user.name.clone(), USER_COL_NAME, false))
-        .child(virtual_table_text_cell(user.uid.clone(), USER_COL_UID, false))
-        .child(virtual_table_text_cell(user.gid.clone(), USER_COL_GID, false))
-        .child(virtual_table_text_cell(user.groups.clone(), USER_COL_GROUPS, false))
+        .child(virtual_table_text_cell(
+            user.name.clone(),
+            USER_COL_NAME,
+            false,
+        ))
+        .child(virtual_table_text_cell(
+            user.uid.clone(),
+            USER_COL_UID,
+            false,
+        ))
+        .child(virtual_table_text_cell(
+            user.gid.clone(),
+            USER_COL_GID,
+            false,
+        ))
+        .child(virtual_table_text_cell(
+            user.groups.clone(),
+            USER_COL_GROUPS,
+            false,
+        ))
 }
 
 fn service_status_color<V>(status: &str, cx: &Context<V>) -> Hsla {
@@ -3152,7 +3185,11 @@ fn render_startup_table_header<V: Render>(cx: &mut Context<V>) -> impl IntoEleme
         .border_color(cx.theme().border)
         .child(render_table_header_cell("名称", STARTUP_COL_NAME, cx))
         .child(render_table_header_cell("命令", STARTUP_COL_COMMAND, cx))
-        .child(render_table_header_flex_cell("位置", STARTUP_COL_LOCATION, cx))
+        .child(render_table_header_flex_cell(
+            "位置",
+            STARTUP_COL_LOCATION,
+            cx,
+        ))
 }
 
 fn render_startup_table<V: Render>(
@@ -3198,6 +3235,12 @@ fn render_startup_row<V: Render>(
                     command: command.clone(),
                 }),
             )
+            .menu(
+                "复制命令",
+                Box::new(CopyStartupCommand {
+                    command: command.clone(),
+                }),
+            )
         })
         .min_w(startup_table_min_width())
         .w_full()
@@ -3210,8 +3253,16 @@ fn render_startup_row<V: Render>(
         .border_color(cx.theme().border)
         .text_sm()
         .text_color(cx.theme().foreground)
-        .child(virtual_table_text_cell(item.name.clone(), STARTUP_COL_NAME, false))
-        .child(virtual_table_text_cell(item.command.clone(), STARTUP_COL_COMMAND, false))
+        .child(virtual_table_text_cell(
+            item.name.clone(),
+            STARTUP_COL_NAME,
+            false,
+        ))
+        .child(virtual_table_text_cell(
+            item.command.clone(),
+            STARTUP_COL_COMMAND,
+            false,
+        ))
         .child(
             div()
                 .flex_1()

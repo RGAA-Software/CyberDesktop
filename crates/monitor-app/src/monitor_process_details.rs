@@ -41,22 +41,20 @@ impl Render for ProcessDetailsView {
             .size_full()
             .bg(cx.theme().background)
             .child(
-                app_ui::TitleBar::new()
-                    .bg(cx.theme().title_bar)
-                    .child(
-                        h_flex()
-                            .id("process-details-title")
-                            .h_full()
-                            .w_full()
-                            .items_center()
-                            .px(px(12.))
-                            .child(
-                                Label::new(format!("进程属性 - {}", p.name))
-                                    .text_sm()
-                                    .font_semibold()
-                                    .text_color(cx.theme().foreground),
-                            ),
-                    ),
+                app_ui::TitleBar::new().bg(cx.theme().title_bar).child(
+                    h_flex()
+                        .id("process-details-title")
+                        .h_full()
+                        .w_full()
+                        .items_center()
+                        .px(px(12.))
+                        .child(
+                            Label::new(format!("进程属性 - {}", p.name))
+                                .text_sm()
+                                .font_semibold()
+                                .text_color(cx.theme().foreground),
+                        ),
+                ),
             )
             .child(
                 v_flex()

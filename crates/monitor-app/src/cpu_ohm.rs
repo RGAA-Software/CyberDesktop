@@ -49,12 +49,13 @@ pub mod formulas {
 #[cfg(target_os = "windows")]
 mod imp {
     use std::arch::x86_64::__cpuid;
+    use std::sync::OnceLock;
 
+    use super::super::cpu_ring0::with_ring0;
     use super::formulas::{
         amd_ccd_temperature_celsius, amd_max_ccd_count, amd_package_temperature_celsius,
         intel_msr_temperature_celsius,
     };
-    use super::super::cpu_ring0::with_ring0;
     use super::CpuHardwareSnapshot;
 
     const IA32_PERF_STATUS: u32 = 0x0198;
@@ -116,10 +117,7 @@ mod imp {
 
     fn cpuid_vendor() -> Vendor {
         let result = __cpuid(0);
-        if result.ebx == 0x756e_6547
-            && result.edx == 0x4965_6e69
-            && result.ecx == 0x6c65_746e
-        {
+        if result.ebx == 0x756e_6547 && result.edx == 0x4965_6e69 && result.ecx == 0x6c65_746e {
             Vendor::Intel
         } else if result.ebx == 0x6874_7541
             && result.edx == 0x6974_6e65
@@ -148,32 +146,46 @@ mod imp {
         }
         match model {
             0x1A | 0x1E | 0x1F | 0x25 | 0x2C | 0x2E | 0x2F => IntelUarch::Nehalem,
-            0x2A | 0x2D | 0x3A | 0x3E | 0x3C | 0x3F | 0x45 | 0x46 | 0x3D | 0x47 | 0x4F
-            | 0x56 | 0x36 | 0x37 | 0x4A | 0x4D | 0x5A | 0x5D | 0x4E | 0x5E | 0x55 | 0x4C
-            | 0x8E | 0x9E | 0x5C | 0x5F | 0x66 | 0x7D | 0x7E | 0x6A | 0x6C | 0xA5 | 0xA6
-            | 0x86 | 0x8C | 0x8D => IntelUarch::SandyBridge,
+            0x2A | 0x2D | 0x3A | 0x3E | 0x3C | 0x3F | 0x45 | 0x46 | 0x3D | 0x47 | 0x4F | 0x56
+            | 0x36 | 0x37 | 0x4A | 0x4D | 0x5A | 0x5D | 0x4E | 0x5E | 0x55 | 0x4C | 0x8E | 0x9E
+            | 0x5C | 0x5F | 0x66 | 0x7D | 0x7E | 0x6A | 0x6C | 0xA5 | 0xA6 | 0x86 | 0x8C | 0x8D => {
+                IntelUarch::SandyBridge
+            }
             _ if model >= 0x2A => IntelUarch::SandyBridge,
             _ if model >= 0x1A => IntelUarch::Nehalem,
             _ => IntelUarch::Legacy,
         }
     }
 
+    /// TSC frequency is a hardware constant; cache it after the first successful
+    /// measurement so we don't burn ~125 ms (5 x 25 ms) on every sample.
+    static TSC_MHZ: OnceLock<Option<f64>> = OnceLock::new();
+
     fn estimate_tsc_frequency_mhz() -> f64 {
-        let mut best = 0.0;
-        for _ in 0..5 {
-            let start = std::time::Instant::now();
-            let tsc_start = unsafe { std::arch::x86_64::_rdtsc() };
-            while start.elapsed().as_millis() < 25 {}
-            let elapsed = start.elapsed().as_secs_f64();
-            let tsc_end = unsafe { std::arch::x86_64::_rdtsc() };
-            if elapsed > 0.0 {
-                let mhz = (tsc_end.saturating_sub(tsc_start)) as f64 / elapsed / 1_000_000.0;
-                if mhz > best {
-                    best = mhz;
+        TSC_MHZ
+            .get_or_init(|| {
+                let mut best = 0.0;
+                for _ in 0..5 {
+                    let start = std::time::Instant::now();
+                    let tsc_start = unsafe { std::arch::x86_64::_rdtsc() };
+                    while start.elapsed().as_millis() < 25 {}
+                    let elapsed = start.elapsed().as_secs_f64();
+                    let tsc_end = unsafe { std::arch::x86_64::_rdtsc() };
+                    if elapsed > 0.0 {
+                        let mhz =
+                            (tsc_end.saturating_sub(tsc_start)) as f64 / elapsed / 1_000_000.0;
+                        if mhz > best {
+                            best = mhz;
+                        }
+                    }
                 }
-            }
-        }
-        best
+                if best > 0.0 {
+                    Some(best)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0.0)
     }
 
     fn read_intel(
@@ -228,10 +240,7 @@ mod imp {
         } else {
             core_clocks_mhz.iter().sum::<f64>() / core_clocks_mhz.len() as f64
         };
-        let max_core_mhz = core_clocks_mhz
-            .iter()
-            .copied()
-            .fold(current_mhz, f64::max);
+        let max_core_mhz = core_clocks_mhz.iter().copied().fold(current_mhz, f64::max);
 
         let temperature_c = read_intel_temperature(ring0, core_count).unwrap_or(0.0);
         let max_ghz = ((turbo_ratio * bus_mhz).max(max_core_mhz) / 1000.0) as f32;
@@ -325,10 +334,7 @@ mod imp {
         } else {
             core_clocks_mhz.iter().sum::<f64>() / core_clocks_mhz.len() as f64
         };
-        let max_core_mhz = core_clocks_mhz
-            .iter()
-            .copied()
-            .fold(current_mhz, f64::max);
+        let max_core_mhz = core_clocks_mhz.iter().copied().fold(current_mhz, f64::max);
 
         let temperature_c = read_amd_temperature(ring0, physical_cores).unwrap_or(0.0);
         let max_ghz = (max_core_mhz / 1000.0) as f32;

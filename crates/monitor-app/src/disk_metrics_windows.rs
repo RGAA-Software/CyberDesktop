@@ -1,14 +1,33 @@
 //! Physical disk identity via WMI (`Win32_DiskDrive` Model / Manufacturer).
 
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
+
+static DISK_MANUFACTURERS_CACHE: OnceLock<(Vec<String>, BTreeMap<String, String>)> =
+    OnceLock::new();
 
 /// Maps logical drive id (`C:`) to a human-readable disk label (model preferred).
+///
+/// Disk model/manufacturer is effectively static, so the result is cached keyed by
+/// the mount-point list. A new USB drive will change the key and trigger a re-query.
 pub fn read_disk_manufacturers(mount_points: &[String]) -> BTreeMap<String, String> {
+    if let Some((cached_mounts, cached_map)) = DISK_MANUFACTURERS_CACHE.get() {
+        if cached_mounts.as_slice() == mount_points {
+            return cached_map.clone();
+        }
+    }
+
     let mounts = mount_points.to_vec();
     // WMI uses MTA; the UI thread is often already STA — query on a fresh worker thread.
-    std::thread::spawn(move || read_disk_manufacturers_on_thread(&mounts))
+    let result = std::thread::spawn(move || read_disk_manufacturers_on_thread(&mounts))
         .join()
-        .unwrap_or_default()
+        .unwrap_or_default();
+
+    // Only cache successful lookups so transient WMI failures don't poison the cache.
+    if !result.is_empty() {
+        let _ = DISK_MANUFACTURERS_CACHE.set((mount_points.to_vec(), result.clone()));
+    }
+    result
 }
 
 fn read_disk_manufacturers_on_thread(mount_points: &[String]) -> BTreeMap<String, String> {
@@ -54,14 +73,12 @@ fn read_disk_manufacturers_on_thread(mount_points: &[String]) -> BTreeMap<String
     result
 }
 
-fn load_physical_drive_models(
-    wmi: &wmi::WMIConnection,
-) -> BTreeMap<String, (String, String)> {
+fn load_physical_drive_models(wmi: &wmi::WMIConnection) -> BTreeMap<String, (String, String)> {
     use wmi::Variant;
 
-    let Ok(rows): Result<Vec<std::collections::HashMap<String, Variant>>, _> = wmi.raw_query(
-        "SELECT DeviceID, Manufacturer, Model FROM Win32_DiskDrive",
-    ) else {
+    let Ok(rows): Result<Vec<std::collections::HashMap<String, Variant>>, _> =
+        wmi.raw_query("SELECT DeviceID, Manufacturer, Model FROM Win32_DiskDrive")
+    else {
         return BTreeMap::new();
     };
 
@@ -77,40 +94,42 @@ fn load_physical_drive_models(
 }
 
 fn load_partition_to_drive_map(wmi: &wmi::WMIConnection) -> BTreeMap<String, String> {
-    load_wmi_association(wmi, "SELECT Antecedent, Dependent FROM Win32_DiskDriveToDiskPartition")
-        .into_iter()
-        .filter_map(|(antecedent, dependent)| {
-            let drive = physical_drive_key(&normalize_wmi_device_id(&antecedent)?)?;
-            let partition = normalize_wmi_device_id(&dependent)?;
-            Some((partition, drive))
-        })
-        .collect()
+    load_wmi_association(
+        wmi,
+        "SELECT Antecedent, Dependent FROM Win32_DiskDriveToDiskPartition",
+    )
+    .into_iter()
+    .filter_map(|(antecedent, dependent)| {
+        let drive = physical_drive_key(&normalize_wmi_device_id(&antecedent)?)?;
+        let partition = normalize_wmi_device_id(&dependent)?;
+        Some((partition, drive))
+    })
+    .collect()
 }
 
 fn load_logical_to_partition_map(wmi: &wmi::WMIConnection) -> BTreeMap<String, String> {
-    load_wmi_association(wmi, "SELECT Antecedent, Dependent FROM Win32_LogicalDiskToPartition")
-        .into_iter()
-        .filter_map(|(antecedent, dependent)| {
-            let (logical_path, partition_path) = if is_logical_disk_path(&antecedent) {
-                (antecedent, dependent)
-            } else {
-                (dependent, antecedent)
-            };
-            let device_id = normalize_device_id(&wmi_path_value(&logical_path, "DeviceID")?);
-            let partition = normalize_wmi_device_id(&partition_path)?;
-            Some((device_id, partition))
-        })
-        .collect()
+    load_wmi_association(
+        wmi,
+        "SELECT Antecedent, Dependent FROM Win32_LogicalDiskToPartition",
+    )
+    .into_iter()
+    .filter_map(|(antecedent, dependent)| {
+        let (logical_path, partition_path) = if is_logical_disk_path(&antecedent) {
+            (antecedent, dependent)
+        } else {
+            (dependent, antecedent)
+        };
+        let device_id = normalize_device_id(&wmi_path_value(&logical_path, "DeviceID")?);
+        let partition = normalize_wmi_device_id(&partition_path)?;
+        Some((device_id, partition))
+    })
+    .collect()
 }
 
-fn load_wmi_association(
-    wmi: &wmi::WMIConnection,
-    query: &str,
-) -> Vec<(String, String)> {
+fn load_wmi_association(wmi: &wmi::WMIConnection, query: &str) -> Vec<(String, String)> {
     use wmi::Variant;
 
-    let Ok(rows): Result<Vec<std::collections::HashMap<String, Variant>>, _> =
-        wmi.raw_query(query)
+    let Ok(rows): Result<Vec<std::collections::HashMap<String, Variant>>, _> = wmi.raw_query(query)
     else {
         return Vec::new();
     };
@@ -156,13 +175,21 @@ fn debug_disk_drive_fields_on_thread() -> String {
     }
 
     let logical_to_partition = load_logical_to_partition_map(&wmi);
-    let _ = writeln!(out, "LogicalDiskToPartition ({}):", logical_to_partition.len());
+    let _ = writeln!(
+        out,
+        "LogicalDiskToPartition ({}):",
+        logical_to_partition.len()
+    );
     for (logical, partition) in &logical_to_partition {
         let _ = writeln!(out, "  {logical} -> {partition}");
     }
 
     let partition_to_drive = load_partition_to_drive_map(&wmi);
-    let _ = writeln!(out, "DiskDriveToDiskPartition ({}):", partition_to_drive.len());
+    let _ = writeln!(
+        out,
+        "DiskDriveToDiskPartition ({}):",
+        partition_to_drive.len()
+    );
     for (partition, drive) in &partition_to_drive {
         let _ = writeln!(out, "  {partition} -> {drive}");
     }

@@ -61,6 +61,21 @@ pub struct RevealStartupItem {
 
 #[derive(Clone, Action, PartialEq, Eq, Deserialize)]
 #[action(namespace = monitor_process, no_json)]
+pub struct CopyStartupCommand {
+    pub command: String,
+}
+
+#[derive(Clone, Action, PartialEq, Eq, Deserialize)]
+#[action(namespace = monitor_process, no_json)]
+pub struct CopyUserInfo {
+    pub name: String,
+    pub uid: String,
+    pub gid: String,
+    pub groups: String,
+}
+
+#[derive(Clone, Action, PartialEq, Eq, Deserialize)]
+#[action(namespace = monitor_process, no_json)]
 pub struct SetProcessPriority {
     pub pid: u32,
     pub priority: String,
@@ -114,6 +129,16 @@ pub trait ProcessActionHandler: Sized {
         false
     }
     fn reveal_startup_item(&mut self, _command: &str, _cx: &mut gpui::Context<Self>) {}
+    fn copy_startup_command(&mut self, _command: &str, _cx: &mut gpui::Context<Self>) {}
+    fn copy_user_info(
+        &mut self,
+        _name: &str,
+        _uid: &str,
+        _gid: &str,
+        _groups: &str,
+        _cx: &mut gpui::Context<Self>,
+    ) {
+    }
     fn set_process_priority(
         &mut self,
         _pid: u32,

@@ -12,7 +12,6 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_GENERIC_WRITE, OPEN_EXISTING,
 };
-use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Services::{
     CloseServiceHandle, CreateServiceW, DeleteService, OpenSCManagerW, OpenServiceW,
     SC_MANAGER_ALL_ACCESS, SERVICE_ALL_ACCESS, SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
@@ -22,6 +21,7 @@ use windows::Win32::System::SystemInformation::{
     GetLogicalProcessorInformation, RelationProcessorCore, SYSTEM_LOGICAL_PROCESSOR_INFORMATION,
 };
 use windows::Win32::System::Threading::{GetCurrentThread, SetThreadAffinityMask};
+use windows::Win32::System::IO::DeviceIoControl;
 
 const DRIVER_ID: &str = "WinRing0_1_2_0";
 const OLS_TYPE: u32 = 40_000;
@@ -48,8 +48,10 @@ fn physical_core_affinity_masks() -> &'static [usize] {
             let _ = GetLogicalProcessorInformation(None, &mut required);
         }
         let entry_size = std::mem::size_of::<SYSTEM_LOGICAL_PROCESSOR_INFORMATION>();
-        let mut buffer =
-            vec![SYSTEM_LOGICAL_PROCESSOR_INFORMATION::default(); required as usize / entry_size + 16];
+        let mut buffer = vec![
+            SYSTEM_LOGICAL_PROCESSOR_INFORMATION::default();
+            required as usize / entry_size + 16
+        ];
         let mut returned = required;
         let ok = unsafe {
             GetLogicalProcessorInformation(Some(buffer.as_mut_ptr()), &mut returned).is_ok()
@@ -311,12 +313,9 @@ fn install_and_start_service(driver_path: &PathBuf) -> Result<(), ()> {
         let service = match create() {
             Ok(handle) => handle,
             Err(_) => {
-                let existing = OpenServiceW(
-                    manager,
-                    PCWSTR(service_name.as_ptr()),
-                    SERVICE_ALL_ACCESS,
-                )
-                .map_err(|_| ())?;
+                let existing =
+                    OpenServiceW(manager, PCWSTR(service_name.as_ptr()), SERVICE_ALL_ACCESS)
+                        .map_err(|_| ())?;
                 if service_start_ok(existing) {
                     let _ = CloseServiceHandle(existing);
                     let _ = CloseServiceHandle(manager);

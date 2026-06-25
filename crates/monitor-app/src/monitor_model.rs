@@ -26,19 +26,28 @@ impl SortDirection {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 pub enum ProcessSortColumn {
-    #[default]
     Cpu,
     Memory,
+    #[default]
     Name,
     DiskRead,
     DiskWrite,
     Gpu,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub struct ProcessSort {
     pub column: ProcessSortColumn,
     pub direction: SortDirection,
+}
+
+impl Default for ProcessSort {
+    fn default() -> Self {
+        Self {
+            column: ProcessSortColumn::Name,
+            direction: SortDirection::Asc,
+        }
+    }
 }
 
 pub fn sort_processes(processes: &mut [SysProcessInfo], sort: ProcessSort) {
@@ -141,11 +150,10 @@ pub struct MachineTelemetry {
     pub gpu_history: BTreeMap<String, VecDeque<GpuHistoryPoint>>,
     pub disk_history: BTreeMap<String, VecDeque<DiskHistoryPoint>>,
     pub network_history: BTreeMap<String, VecDeque<NetworkHistoryPoint>>,
-    last_net_received: u64,
-    last_net_sent: u64,
     last_net_by_iface: BTreeMap<String, (u64, u64)>,
     last_disk_totals: BTreeMap<String, (u64, u64)>,
     last_sample_ready: bool,
+    last_sample_timestamp_ms: i64,
 }
 
 impl MachineTelemetry {
@@ -156,11 +164,10 @@ impl MachineTelemetry {
             gpu_history: BTreeMap::new(),
             disk_history: BTreeMap::new(),
             network_history: BTreeMap::new(),
-            last_net_received: 0,
-            last_net_sent: 0,
             last_net_by_iface: BTreeMap::new(),
             last_disk_totals: BTreeMap::new(),
             last_sample_ready: false,
+            last_sample_timestamp_ms: 0,
         };
         this.record_sample();
         this
@@ -250,16 +257,69 @@ impl MachineTelemetry {
             0.0
         };
 
-        let total_received: u64 = self.current.networks.iter().map(|n| n.received_data).sum();
-        let total_sent: u64 = self.current.networks.iter().map(|n| n.sent_data).sum();
-        let (mut net_send_mb, mut net_recv_mb) = (0.0, 0.0);
-        if self.last_sample_ready {
-            net_send_mb = bytes_to_mb(total_sent.saturating_sub(self.last_net_sent));
-            net_recv_mb = bytes_to_mb(total_received.saturating_sub(self.last_net_received));
+        // Compute the actual elapsed time since the last sample. If the interval is
+        // unreasonable (negative, zero, or no previous sample), treat it as no delta.
+        let delta_seconds = if self.last_sample_ready && self.last_sample_timestamp_ms > 0 {
+            ((self.current.timestamp - self.last_sample_timestamp_ms) as f64 / 1000.0).max(0.0)
+        } else {
+            0.0
+        };
+
+        // Compute per-interface network deltas, discarding any value that exceeds the
+        // interface's link speed over the elapsed interval. This prevents counter
+        // wraparounds, driver resets, or sysinfo glitches from producing huge spikes.
+        let mut net_send_mb = 0.0;
+        let mut net_recv_mb = 0.0;
+        let mut iface_deltas: BTreeMap<String, (f64, f64)> = BTreeMap::new();
+
+        for network in &self.current.networks {
+            let id = network_key(network);
+            let (send_mb, recv_mb) = if self.last_sample_ready && delta_seconds > 0.0 {
+                match self.last_net_by_iface.get(&id) {
+                    Some((last_sent, last_recv)) => {
+                        let delta_sent = network.sent_data.saturating_sub(*last_sent);
+                        let delta_recv = network.received_data.saturating_sub(*last_recv);
+
+                        // Maximum bytes the interface could have transferred in this interval.
+                        let max_sent =
+                            (network.max_transmit_speed as f64 / 8.0 * delta_seconds) as u64;
+                        let max_recv =
+                            (network.max_receive_speed as f64 / 8.0 * delta_seconds) as u64;
+
+                        // Only validate when the interface reports a link speed. If the speed
+                        // is unknown (0), keep the raw delta: we have no basis to reject it.
+                        let valid_sent = if network.max_transmit_speed > 0 && delta_sent > max_sent
+                        {
+                            0
+                        } else {
+                            delta_sent
+                        };
+                        let valid_recv = if network.max_receive_speed > 0 && delta_recv > max_recv {
+                            0
+                        } else {
+                            delta_recv
+                        };
+
+                        (bytes_to_mb(valid_sent), bytes_to_mb(valid_recv))
+                    }
+                    None => (0.0, 0.0),
+                }
+            } else {
+                (0.0, 0.0)
+            };
+
+            self.last_net_by_iface
+                .insert(id.clone(), (network.sent_data, network.received_data));
+            iface_deltas.insert(id.clone(), (send_mb, recv_mb));
+            net_send_mb += send_mb;
+            net_recv_mb += recv_mb;
         }
-        self.last_net_sent = total_sent;
-        self.last_net_received = total_received;
+
+        // Drop interfaces that no longer exist so stale totals don't affect future deltas.
+        self.last_net_by_iface
+            .retain(|id, _| self.current.networks.iter().any(|n| network_key(n) == *id));
         self.last_sample_ready = true;
+        self.last_sample_timestamp_ms = self.current.timestamp;
 
         let (disk_read_bytes, disk_write_bytes) =
             self.current
@@ -331,19 +391,7 @@ impl MachineTelemetry {
 
         for network in &self.current.networks {
             let id = network_key(network);
-            let (send_mb, recv_mb) = if self.last_sample_ready {
-                match self.last_net_by_iface.get(&id) {
-                    Some((last_sent, last_recv)) => (
-                        bytes_to_mb(network.sent_data.saturating_sub(*last_sent)),
-                        bytes_to_mb(network.received_data.saturating_sub(*last_recv)),
-                    ),
-                    None => (0.0, 0.0),
-                }
-            } else {
-                (0.0, 0.0)
-            };
-            self.last_net_by_iface
-                .insert(id.clone(), (network.sent_data, network.received_data));
+            let (send_mb, recv_mb) = iface_deltas.get(&id).copied().unwrap_or((0.0, 0.0));
             let point = NetworkHistoryPoint {
                 time: sample_time.clone(),
                 send_mb,
@@ -469,10 +517,7 @@ fn disk_matches_system_drive(mount_on: &str, system_prefix: &str) -> bool {
 pub fn format_system_disk_usage(disk: &SysDiskInfo) -> String {
     let used_gb = bytes_to_gb(disk.total.saturating_sub(disk.available));
     let total_gb = bytes_to_gb(disk.total);
-    let mount = disk
-        .mount_on
-        .trim_end_matches(['\\', '/'])
-        .to_string();
+    let mount = disk.mount_on.trim_end_matches(['\\', '/']).to_string();
     let label = if mount.is_empty() {
         "系统盘".to_string()
     } else {
@@ -710,7 +755,10 @@ pub fn cpu_package_temperature(components: &[crate::sys_info::SysComponentInfo])
         .max_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal))
 }
 
-pub fn format_cpu_temperature(cpu: &crate::sys_info::SysCpuInfo, components: &[crate::sys_info::SysComponentInfo]) -> String {
+pub fn format_cpu_temperature(
+    cpu: &crate::sys_info::SysCpuInfo,
+    components: &[crate::sys_info::SysComponentInfo],
+) -> String {
     if cpu.temperature > 0.0 {
         return format!("{:.0} °C", cpu.temperature);
     }
@@ -928,9 +976,6 @@ mod tests {
             max_receive_speed: 100_000_000,
             ..Default::default()
         };
-        assert_eq!(
-            format_network_link_speed(&network),
-            "↑ 1 Gbps / ↓ 100 Mbps"
-        );
+        assert_eq!(format_network_link_speed(&network), "↑ 1 Gbps / ↓ 100 Mbps");
     }
 }

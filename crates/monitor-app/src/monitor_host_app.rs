@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use clap::Parser;
 use futures_util::StreamExt;
@@ -315,7 +315,7 @@ impl SysMonitorHostApp {
         this.refresh();
 
         cx.spawn(async move |this, cx| loop {
-            Timer::after(POLL_INTERVAL).await;
+            let loop_start = Instant::now();
             if this
                 .update(cx, |this, cx| {
                     this.refresh();
@@ -324,6 +324,12 @@ impl SysMonitorHostApp {
                 .is_err()
             {
                 break;
+            }
+            // Fixed-rate interval: sleep only the remaining time so the effective
+            // refresh rate is exactly POLL_INTERVAL (1s).
+            let elapsed = loop_start.elapsed();
+            if elapsed < POLL_INTERVAL {
+                Timer::after(POLL_INTERVAL - elapsed).await;
             }
         })
         .detach();
@@ -751,14 +757,16 @@ impl Render for SysMonitorHostApp {
                                             },
                                             &*cx,
                                         )
-                                        .on_click(|_, _, cx| {
-                                            let mode = if cx.theme().mode.is_dark() {
-                                                ThemeMode::Light
-                                            } else {
-                                                ThemeMode::Dark
-                                            };
-                                            app_ui::apply_theme_mode(mode, cx);
-                                        }),
+                                        .on_click(
+                                            |_, _, cx| {
+                                                let mode = if cx.theme().mode.is_dark() {
+                                                    ThemeMode::Light
+                                                } else {
+                                                    ThemeMode::Dark
+                                                };
+                                                app_ui::apply_theme_mode(mode, cx);
+                                            },
+                                        ),
                                     )
                                     .child(
                                         topbar_icon_button(
@@ -781,105 +789,97 @@ impl Render for SysMonitorHostApp {
                         cx,
                     ))
                     .child(
-                        div()
-                            .flex_1()
-                            .h_full()
-                            .min_h_0()
-                            .overflow_hidden()
-                            .child(
-                                v_flex()
-                                    .size_full()
-                                    .items_start()
-                                    .when(!self.machines.is_empty(), |this| {
-                                        this.child(self.render_host_summary(cx))
-                                    })
-                                    .when(self.selected_machine().is_none(), |this| {
+                        div().flex_1().h_full().min_h_0().overflow_hidden().child(
+                            v_flex()
+                                .size_full()
+                                .items_start()
+                                .when(!self.machines.is_empty(), |this| {
+                                    this.child(self.render_host_summary(cx))
+                                })
+                                .when(self.selected_machine().is_none(), |this| {
+                                    this.child(
+                                        div()
+                                            .size_full()
+                                            .px(px(24.))
+                                            .pt(px(20.))
+                                            .child(self.render_empty(cx)),
+                                    )
+                                })
+                                .when_some(self.selected_machine(), {
+                                    let host_view = cx.entity().clone();
+                                    let active_tab = self.active_tab;
+                                    let process_scroll = self.process_scroll.clone();
+                                    let process_h_scroll = self.process_h_scroll.clone();
+                                    let process_search = self.process_search.clone();
+                                    let process_sort = self.process_sort;
+                                    let service_scroll = self.service_scroll.clone();
+                                    let service_h_scroll = self.service_h_scroll.clone();
+                                    let service_search = self.service_search.clone();
+                                    let startup_scroll = self.startup_scroll.clone();
+                                    let startup_h_scroll = self.startup_h_scroll.clone();
+                                    let startup_search = self.startup_search.clone();
+                                    let user_scroll = self.user_scroll.clone();
+                                    let user_h_scroll = self.user_h_scroll.clone();
+                                    let user_search = self.user_search.clone();
+                                    move |this, machine| {
+                                        let dashboard = render_dashboard(
+                                            &machine.telemetry,
+                                            active_tab,
+                                            &process_scroll,
+                                            &process_h_scroll,
+                                            &process_search,
+                                            process_sort,
+                                            &service_scroll,
+                                            &service_h_scroll,
+                                            &service_search,
+                                            &startup_scroll,
+                                            &startup_h_scroll,
+                                            &startup_search,
+                                            &user_scroll,
+                                            &user_h_scroll,
+                                            &user_search,
+                                            move |column, window, cx| {
+                                                host_view.update(cx, |this, cx| {
+                                                    this.on_cycle_process_sort(
+                                                        &CycleProcessSort { column },
+                                                        window,
+                                                        cx,
+                                                    );
+                                                });
+                                            },
+                                            _window,
+                                            cx,
+                                        );
+                                        let is_list_tab = tab_manages_bottom_padding(active_tab);
+
                                         this.child(
                                             div()
-                                                .size_full()
-                                                .px(px(24.))
-                                                .pt(px(20.))
-                                                .child(self.render_empty(cx)),
-                                        )
-                                    })
-                                    .when_some(self.selected_machine(), {
-                                        let host_view = cx.entity().clone();
-                                        let active_tab = self.active_tab;
-                                        let process_scroll = self.process_scroll.clone();
-                                        let process_h_scroll = self.process_h_scroll.clone();
-                                        let process_search = self.process_search.clone();
-                                        let process_sort = self.process_sort;
-                                        let service_scroll = self.service_scroll.clone();
-                                        let service_h_scroll = self.service_h_scroll.clone();
-                                        let service_search = self.service_search.clone();
-                                        let startup_scroll = self.startup_scroll.clone();
-                                        let startup_h_scroll = self.startup_h_scroll.clone();
-                                        let startup_search = self.startup_search.clone();
-                                        let user_scroll = self.user_scroll.clone();
-                                        let user_h_scroll = self.user_h_scroll.clone();
-                                        let user_search = self.user_search.clone();
-                                        move |this, machine| {
-                                            let dashboard = render_dashboard(
-                                                &machine.telemetry,
-                                                active_tab,
-                                                &process_scroll,
-                                                &process_h_scroll,
-                                                &process_search,
-                                                process_sort,
-                                                &service_scroll,
-                                                &service_h_scroll,
-                                                &service_search,
-                                                &startup_scroll,
-                                                &startup_h_scroll,
-                                                &startup_search,
-                                                &user_scroll,
-                                                &user_h_scroll,
-                                                &user_search,
-                                                move |column, window, cx| {
-                                                    host_view.update(cx, |this, cx| {
-                                                        this.on_cycle_process_sort(
-                                                            &CycleProcessSort {
-                                                                column,
-                                                            },
-                                                            window,
-                                                            cx,
-                                                        );
-                                                    });
-                                                },
-                                                _window,
-                                                cx,
-                                            );
-                                            let is_list_tab = tab_manages_bottom_padding(active_tab);
-
-                                            this.child(
-                                                div()
-                                                    .flex_1()
-                                                    .w_full()
-                                                    .min_h_0()
-                                                    .overflow_hidden()
-                                                    .child(
-                                                        div()
-                                                            .size_full()
-                                                            .overflow_y_scrollbar()
-                                                            .child(if is_list_tab {
-                                                                // 进程/服务/启动项/用户 保持原样，
-                                                                // 使用自己的 virtual list 滚动条。
-                                                                dashboard.into_any_element()
-                                                            } else {
-                                                                // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口。
-                                                                div()
-                                                                    .px(px(24.))
-                                                                    .pt(px(20.))
-                                                                    .pb(px(30.))
-                                                                    .child(dashboard)
-                                                                    .child(div().h(px(15.)))
-                                                                    .into_any_element()
-                                                            }),
+                                                .flex_1()
+                                                .w_full()
+                                                .min_h_0()
+                                                .overflow_hidden()
+                                                .child(
+                                                    div().size_full().overflow_y_scrollbar().child(
+                                                        if is_list_tab {
+                                                            // 进程/服务/启动项/用户 保持原样，
+                                                            // 使用自己的 virtual list 滚动条。
+                                                            dashboard.into_any_element()
+                                                        } else {
+                                                            // 总览/CPU/GPU/存储/网络：滚动条贴右侧窗口。
+                                                            div()
+                                                                .px(px(24.))
+                                                                .pt(px(20.))
+                                                                .pb(px(30.))
+                                                                .child(dashboard)
+                                                                .child(div().h(px(15.)))
+                                                                .into_any_element()
+                                                        },
                                                     ),
-                                            )
-                                        }
-                                    }),
-                            ),
+                                                ),
+                                        )
+                                    }
+                                }),
+                        ),
                     ),
             )
     }

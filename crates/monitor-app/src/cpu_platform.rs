@@ -67,10 +67,7 @@ pub fn debug_cache_signals() -> String {
     #[cfg(not(target_os = "windows"))]
     {
         let cpuid = read_cache_sizes_cpuid_kb();
-        format!(
-            "cpuid={cpuid:?}\nlabel={}",
-            read_cpu_cache_label()
-        )
+        format!("cpuid={cpuid:?}\nlabel={}", read_cpu_cache_label())
     }
 }
 
@@ -259,7 +256,11 @@ fn read_windows_processor_cache_sizes_kb() -> Option<(u64, u64, u64)> {
                 let (l1_per_core, _, _) = read_cache_sizes_cpuid_per_core_kb();
                 let cores = physical_core_count().max(1) as u64;
                 let l1 = l1_per_core * cores;
-                if l1 > 0 { Some(l1) } else { None }
+                if l1 > 0 {
+                    Some(l1)
+                } else {
+                    None
+                }
             }
             #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
             {
@@ -346,9 +347,8 @@ fn query_logical_processor_information(
     let mut buffer =
         vec![SYSTEM_LOGICAL_PROCESSOR_INFORMATION::default(); required as usize / entry_size + 16];
     let mut returned = required;
-    let ok = unsafe {
-        GetLogicalProcessorInformation(Some(buffer.as_mut_ptr()), &mut returned).is_ok()
-    };
+    let ok =
+        unsafe { GetLogicalProcessorInformation(Some(buffer.as_mut_ptr()), &mut returned).is_ok() };
     if !ok {
         return None;
     }
@@ -491,7 +491,11 @@ fn read_windows_physical_core_count() -> Option<usize> {
         .iter()
         .filter(|info| info.Relationship == RelationProcessorCore)
         .count();
-    if cores > 0 { Some(cores) } else { None }
+    if cores > 0 {
+        Some(cores)
+    } else {
+        None
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -619,9 +623,7 @@ fn is_processor_nx_enabled() -> bool {
 
 #[cfg(target_os = "windows")]
 fn is_processor_virt_firmware_enabled() -> bool {
-    use windows::Win32::System::Threading::{
-        IsProcessorFeaturePresent, PF_VIRT_FIRMWARE_ENABLED,
-    };
+    use windows::Win32::System::Threading::{IsProcessorFeaturePresent, PF_VIRT_FIRMWARE_ENABLED};
 
     unsafe { IsProcessorFeaturePresent(PF_VIRT_FIRMWARE_ENABLED).as_bool() }
 }

@@ -1,11 +1,15 @@
 use std::collections::HashMap;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use adlx::helper::AdlxHelper;
 use anyhow::Result;
 use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 use nvml_wrapper::Nvml;
-use sysinfo::{Components, Disks, Networks, Pid, ProcessStatus, System, Users};
+use sysinfo::{
+    Components, CpuRefreshKind, Disks, MemoryRefreshKind, Networks, Pid, ProcessRefreshKind,
+    ProcessStatus, RefreshKind, System, UpdateKind, Users,
+};
 
 use crate::monitor_process_detail::{collect_process_details, ProcessDetailInfo};
 use crate::sys_info::{
@@ -22,6 +26,33 @@ fn truncate_string(text: &str, max_len: usize) -> String {
         text.to_string()
     } else {
         format!("{}...", text.chars().take(max_len).collect::<String>())
+    }
+}
+
+/// Temporary profiling helper: prints elapsed time when dropped.
+struct SectionTimer {
+    label: &'static str,
+    start: Instant,
+}
+
+impl SectionTimer {
+    fn new(label: &'static str) -> Self {
+        Self {
+            label,
+            start: Instant::now(),
+        }
+    }
+}
+
+impl Drop for SectionTimer {
+    fn drop(&mut self) {
+        let elapsed = self.start.elapsed();
+        eprintln!(
+            "[cyber_monitor timing] {}: {}.{:03}s",
+            self.label,
+            elapsed.as_secs(),
+            elapsed.subsec_millis()
+        );
     }
 }
 
@@ -107,8 +138,26 @@ pub struct SysInfoManager {
     def_ethernet: Option<DefaultEthernet>,
     last_process_io: HashMap<u32, (u64, u64)>,
     last_sample_time: Option<Instant>,
+    /// Cached NVML handle to avoid re-loading the NVIDIA management library every second.
+    nvml: Option<Nvml>,
+    /// Cached ADLX helper to avoid re-initializing the AMD ADLX SDK every second.
+    adlx_helper: Option<AdlxHelper>,
+    /// Services/startup/users change rarely; cache them for a few seconds to avoid
+    /// expensive WMI/registry/SCM scans on every tick.
+    cached_services: Option<(Instant, Vec<SysServiceInfo>)>,
+    cached_startup: Option<(Instant, Vec<SysStartupInfo>)>,
+    cached_users: Option<(Instant, Vec<SysUserInfo>)>,
+    cached_thread_count: Option<(Instant, u32)>,
     #[cfg(target_os = "windows")]
     gpu_process_collector: Option<crate::gpu_process_metrics_windows::GpuProcessMetricsCollector>,
+}
+
+impl SysInfoManager {
+    /// How long to keep the slow service/startup/user scans cached.
+    const SLOW_DATA_TTL: Duration = Duration::from_secs(30);
+    /// Thread count can change quickly, but a few seconds of staleness is fine
+    /// and avoids a ~60 ms Toolhelp32 snapshot every tick.
+    const THREAD_COUNT_TTL: Duration = Duration::from_secs(5);
 }
 
 impl SysInfoManager {
@@ -129,301 +178,378 @@ impl SysInfoManager {
             def_ethernet: None,
             last_process_io: HashMap::new(),
             last_sample_time: None,
+            nvml: None,
+            adlx_helper: None,
+            cached_services: None,
+            cached_startup: None,
+            cached_users: None,
+            cached_thread_count: None,
             #[cfg(target_os = "windows")]
             gpu_process_collector: None,
         }
     }
 
     pub fn load_system_info(&mut self) -> SysInfo {
-        self.system.refresh_all();
-        self.networks.refresh(true);
-        self.disks.refresh(true);
-        self.components.refresh(true);
-        self.users.refresh();
+        let total_start = Instant::now();
 
-        let usage = self.system.global_cpu_usage();
-        let vendor = self.system.cpus()[0].vendor_id().to_string();
-        let brand = self.system.cpus()[0].brand().to_string();
-        let components: Vec<SysComponentInfo> = self
-            .components
-            .iter()
-            .map(|component| SysComponentInfo {
-                temperature: component.temperature().unwrap_or(0.0),
-                max: component.max().unwrap_or(0.0),
-                critical: component.critical().unwrap_or(0.0),
-                label: component.label().to_string(),
-            })
-            .collect();
-        let logical_cores = self.system.cpus().len().max(1);
-        let physical_cores = sysinfo::System::physical_core_count()
-            .unwrap_or(logical_cores / 2)
-            .max(1);
-        #[cfg(target_os = "windows")]
-        let ohm_snapshot = crate::cpu_ohm::read_cpu_hardware_snapshot(
-            &brand,
-            physical_cores,
-            logical_cores,
-        );
-        #[cfg(not(target_os = "windows"))]
-        let ohm_snapshot = None;
-        let cpu_temperature = load_cpu_temperature_celsius(
-            physical_cores,
-            logical_cores,
-            &components,
-            ohm_snapshot.as_ref(),
-        );
-        let (base_frequency, current_frequency, max_frequency) =
-            self.load_cpu_frequencies(&brand, ohm_snapshot);
-        let mut cpus = Vec::new();
-        for cpu in self.system.cpus() {
-            let single_cpu = SysSingleCpuInfo {
-                name: cpu.name().to_string(),
-                usage: cpu.cpu_usage(),
-            };
-            cpus.push(single_cpu);
+        {
+            let _t = SectionTimer::new("refresh system/networks/disks/components/users");
+            {
+                let _t = SectionTimer::new("  refresh system");
+                // Use targeted refreshes instead of `refresh_all()` to avoid pulling in
+                // environment/CWD/root/tasks data that the dashboard doesn't need.
+                self.system.refresh_specifics(
+                    RefreshKind::nothing()
+                        .with_cpu(CpuRefreshKind::everything())
+                        .with_memory(MemoryRefreshKind::everything())
+                        .with_processes(
+                            ProcessRefreshKind::nothing()
+                                .with_cpu()
+                                .with_memory()
+                                .with_disk_usage()
+                                .with_exe(UpdateKind::OnlyIfNotSet)
+                                .with_cmd(UpdateKind::OnlyIfNotSet),
+                        ),
+                );
+            }
+            {
+                let _t = SectionTimer::new("  refresh networks");
+                self.networks.refresh(true);
+            }
+            {
+                let _t = SectionTimer::new("  refresh disks");
+                self.disks.refresh(true);
+            }
+            {
+                let _t = SectionTimer::new("  refresh components");
+                self.components.refresh(true);
+            }
+            {
+                let _t = SectionTimer::new("  refresh users");
+                self.users.refresh();
+            }
         }
-        let physical_cores = sysinfo::System::physical_core_count()
-            .unwrap_or(cpus.len() / 2)
-            .max(1);
-        let cpu = SysCpuInfo {
-            usage,
-            vendor,
-            brand,
-            base_frequency,
-            current_frequency,
-            max_frequency,
-            cpus,
-            physical_cores,
-            temperature: cpu_temperature,
-            virtualization: crate::cpu_platform::read_cpu_virtualization_label(),
-            cache_summary: crate::cpu_platform::read_cpu_cache_label(),
+
+        let (cpu, cps) = {
+            let _t = SectionTimer::new("build cpu info");
+            let usage = self.system.global_cpu_usage();
+            let vendor = self.system.cpus()[0].vendor_id().to_string();
+            let brand = self.system.cpus()[0].brand().to_string();
+            let components: Vec<SysComponentInfo> = self
+                .components
+                .iter()
+                .map(|component| SysComponentInfo {
+                    temperature: component.temperature().unwrap_or(0.0),
+                    max: component.max().unwrap_or(0.0),
+                    critical: component.critical().unwrap_or(0.0),
+                    label: component.label().to_string(),
+                })
+                .collect();
+            let logical_cores = self.system.cpus().len().max(1);
+            let physical_cores = sysinfo::System::physical_core_count()
+                .unwrap_or(logical_cores / 2)
+                .max(1);
+            #[cfg(target_os = "windows")]
+            let ohm_snapshot = {
+                let _t = SectionTimer::new("cpu ohm snapshot");
+                crate::cpu_ohm::read_cpu_hardware_snapshot(&brand, physical_cores, logical_cores)
+            };
+            #[cfg(not(target_os = "windows"))]
+            let ohm_snapshot = None;
+            let cpu_temperature = {
+                let _t = SectionTimer::new("cpu temperature");
+                load_cpu_temperature_celsius(
+                    physical_cores,
+                    logical_cores,
+                    &components,
+                    ohm_snapshot.as_ref(),
+                )
+            };
+            let (base_frequency, current_frequency, max_frequency) = {
+                let _t = SectionTimer::new("cpu frequencies");
+                self.load_cpu_frequencies(&brand, ohm_snapshot)
+            };
+            let mut cpus = Vec::new();
+            for cpu in self.system.cpus() {
+                let single_cpu = SysSingleCpuInfo {
+                    name: cpu.name().to_string(),
+                    usage: cpu.cpu_usage(),
+                };
+                cpus.push(single_cpu);
+            }
+            let physical_cores = sysinfo::System::physical_core_count()
+                .unwrap_or(cpus.len() / 2)
+                .max(1);
+            (
+                SysCpuInfo {
+                    usage,
+                    vendor,
+                    brand,
+                    base_frequency,
+                    current_frequency,
+                    max_frequency,
+                    cpus,
+                    physical_cores,
+                    temperature: cpu_temperature,
+                    virtualization: crate::cpu_platform::read_cpu_virtualization_label(),
+                    cache_summary: crate::cpu_platform::read_cpu_cache_label(),
+                },
+                components,
+            )
         };
 
         let gb = 1024 * 1024 * 1024;
-        let mut mem = SysMemInfo {
-            total: self.system.total_memory(),
-            total_gb: self.system.total_memory() / gb,
-            used: self.system.used_memory(),
-            used_gb: self.system.used_memory() / gb,
-            available: self.system.available_memory(),
-            available_gb: self.system.available_memory() / gb,
-            ..Default::default()
-        };
-        #[cfg(target_os = "windows")]
-        if let Some(ext) = crate::mem_metrics_windows::read_windows_mem_metrics() {
-            mem.committed = ext.committed;
-            mem.commit_peak = ext.commit_peak;
-            mem.commit_limit = ext.commit_limit;
-            mem.system_cache = ext.system_cache;
-            mem.kernel_ws = ext.kernel_ws;
-            mem.kernel_paged = ext.kernel_paged;
-            mem.kernel_nonpaged = ext.kernel_nonpaged;
-            mem.hw_reserved = ext.hw_reserved;
-            mem.swap_total = ext.swap_total;
-            mem.swap_used = ext.swap_used;
-            if ext.physical_used > 0 {
-                mem.used = ext.physical_used;
-                mem.used_gb = ext.physical_used / gb;
-            }
-        }
-
-        let mut disks_info = Vec::new();
-        for disk in &mut self.disks {
-            let usage = disk.usage();
-            disks_info.push(SysDiskInfo {
-                disk_type: disk.kind().to_string(),
-                manufacturer: String::new(),
-                mount_on: disk.mount_point().to_str().unwrap_or("").to_string(),
-                filesystem: disk.file_system().to_str().unwrap_or("").to_string(),
-                available: disk.available_space(),
-                available_gb: disk.available_space() / gb,
-                total: disk.total_space(),
-                total_gb: disk.total_space() / gb,
-                read_bytes: usage.total_read_bytes,
-                written_bytes: usage.total_written_bytes,
-                read_rate: usage.read_bytes as f64 / 1024.0 / 1024.0,
-                write_rate: usage.written_bytes as f64 / 1024.0 / 1024.0,
-            });
-        }
-        #[cfg(target_os = "windows")]
-        {
-            let mounts: Vec<String> = disks_info.iter().map(|disk| disk.mount_on.clone()).collect();
-            let manufacturers = crate::disk_metrics_windows::read_disk_manufacturers(&mounts);
-            for disk in &mut disks_info {
-                let device_id =
-                    crate::disk_metrics_windows::normalize_device_id(&disk.mount_on);
-                if let Some(manufacturer) = manufacturers.get(&device_id) {
-                    disk.manufacturer = manufacturer.clone();
+        let mem = {
+            let _t = SectionTimer::new("build memory");
+            let mut mem = SysMemInfo {
+                total: self.system.total_memory(),
+                total_gb: self.system.total_memory() / gb,
+                used: self.system.used_memory(),
+                used_gb: self.system.used_memory() / gb,
+                available: self.system.available_memory(),
+                available_gb: self.system.available_memory() / gb,
+                ..Default::default()
+            };
+            #[cfg(target_os = "windows")]
+            if let Some(ext) = {
+                let _t = SectionTimer::new("windows memory metrics");
+                crate::mem_metrics_windows::read_windows_mem_metrics()
+            } {
+                mem.committed = ext.committed;
+                mem.commit_peak = ext.commit_peak;
+                mem.commit_limit = ext.commit_limit;
+                mem.system_cache = ext.system_cache;
+                mem.kernel_ws = ext.kernel_ws;
+                mem.kernel_paged = ext.kernel_paged;
+                mem.kernel_nonpaged = ext.kernel_nonpaged;
+                mem.hw_reserved = ext.hw_reserved;
+                mem.swap_total = ext.swap_total;
+                mem.swap_used = ext.swap_used;
+                if ext.physical_used > 0 {
+                    mem.used = ext.physical_used;
+                    mem.used_gb = ext.physical_used / gb;
                 }
             }
-        }
+            mem
+        };
 
-        if self.def_ethernet.is_none() {
-            let def_ethernet = match netdev::get_default_interface() {
-                Ok(interface) => {
-                    if interface.ipv4.is_empty() {
-                        None
-                    } else {
-                        Some(DefaultEthernet {
-                            ipv4: interface.ipv4[0].addr().to_string(),
-                            transmit_speed: interface.transmit_speed.unwrap_or(0),
-                            receive_speed: interface.receive_speed.unwrap_or(0),
-                        })
+        let disks_info = {
+            let _t = SectionTimer::new("build disks");
+            let mut disks_info = Vec::new();
+            for disk in &mut self.disks {
+                let usage = disk.usage();
+                disks_info.push(SysDiskInfo {
+                    disk_type: disk.kind().to_string(),
+                    manufacturer: String::new(),
+                    mount_on: disk.mount_point().to_str().unwrap_or("").to_string(),
+                    filesystem: disk.file_system().to_str().unwrap_or("").to_string(),
+                    available: disk.available_space(),
+                    available_gb: disk.available_space() / gb,
+                    total: disk.total_space(),
+                    total_gb: disk.total_space() / gb,
+                    read_bytes: usage.total_read_bytes,
+                    written_bytes: usage.total_written_bytes,
+                    read_rate: usage.read_bytes as f64 / 1024.0 / 1024.0,
+                    write_rate: usage.written_bytes as f64 / 1024.0 / 1024.0,
+                });
+            }
+            #[cfg(target_os = "windows")]
+            {
+                let _t = SectionTimer::new("disk manufacturers");
+                let mounts: Vec<String> = disks_info
+                    .iter()
+                    .map(|disk| disk.mount_on.clone())
+                    .collect();
+                let manufacturers = crate::disk_metrics_windows::read_disk_manufacturers(&mounts);
+                for disk in &mut disks_info {
+                    let device_id =
+                        crate::disk_metrics_windows::normalize_device_id(&disk.mount_on);
+                    if let Some(manufacturer) = manufacturers.get(&device_id) {
+                        disk.manufacturer = manufacturer.clone();
                     }
                 }
-                _ => None,
-            };
-            self.def_ethernet = def_ethernet;
-        }
+            }
+            disks_info
+        };
 
-        let mut networks = Vec::new();
-        for (interface_name, data) in self.networks.iter() {
-            if interface_name.contains("VMware") {
-                continue;
+        let (networks, os, uptime) = {
+            let _t = SectionTimer::new("build networks + os");
+            if self.def_ethernet.is_none() {
+                let def_ethernet = match netdev::get_default_interface() {
+                    Ok(interface) => {
+                        if interface.ipv4.is_empty() {
+                            None
+                        } else {
+                            Some(DefaultEthernet {
+                                ipv4: interface.ipv4[0].addr().to_string(),
+                                transmit_speed: interface.transmit_speed.unwrap_or(0),
+                                receive_speed: interface.receive_speed.unwrap_or(0),
+                            })
+                        }
+                    }
+                    _ => None,
+                };
+                self.def_ethernet = def_ethernet;
             }
 
-            let mut max_transmit_speed = 0;
-            let mut max_receive_speed = 0;
-            let mut nts = Vec::new();
-            let mut _found_def_ethernet = false;
-            for nt in data.ip_networks() {
-                let addr = nt.addr.to_string();
-                if addr.contains(':') || addr.contains("::") {
+            let mut networks = Vec::new();
+            for (interface_name, data) in self.networks.iter() {
+                if interface_name.contains("VMware") {
                     continue;
                 }
-                nts.push(SysIpNetwork {
-                    addr: addr.clone(),
-                    prefix: nt.prefix,
-                });
 
-                if let Some(def_ethernet) = self.def_ethernet.clone() {
-                    if addr == def_ethernet.ipv4 {
-                        max_transmit_speed = def_ethernet.transmit_speed;
-                        max_receive_speed = def_ethernet.receive_speed;
-                        _found_def_ethernet = true;
+                let mut max_transmit_speed = 0;
+                let mut max_receive_speed = 0;
+                let mut nts = Vec::new();
+                let mut _found_def_ethernet = false;
+                for nt in data.ip_networks() {
+                    let addr = nt.addr.to_string();
+                    if addr.contains(':') || addr.contains("::") {
+                        continue;
+                    }
+                    nts.push(SysIpNetwork {
+                        addr: addr.clone(),
+                        prefix: nt.prefix,
+                    });
+
+                    if let Some(def_ethernet) = self.def_ethernet.clone() {
+                        if addr == def_ethernet.ipv4 {
+                            max_transmit_speed = def_ethernet.transmit_speed;
+                            max_receive_speed = def_ethernet.receive_speed;
+                            _found_def_ethernet = true;
+                        }
                     }
                 }
+
+                networks.push(SysNetworkInfo {
+                    name: interface_name.clone(),
+                    mac: data.mac_address().to_string(),
+                    ip_networks: nts,
+                    received_data: data.total_received(),
+                    sent_data: data.total_transmitted(),
+                    max_transmit_speed,
+                    max_receive_speed,
+                });
             }
 
-            networks.push(SysNetworkInfo {
-                name: interface_name.clone(),
-                mac: data.mac_address().to_string(),
-                ip_networks: nts,
-                received_data: data.total_received(),
-                sent_data: data.total_transmitted(),
-                max_transmit_speed,
-                max_receive_speed,
-            });
-        }
+            let os = SysOsInfo {
+                sys_name: System::name().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys_kernel_version: System::kernel_version()
+                    .unwrap_or_else(|| "<unknown>".to_owned()),
+                sys_os_version: System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys_os_long_version: System::long_os_version()
+                    .unwrap_or_else(|| "<unknown>".to_owned()),
+                sys_host_name: System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys_kernel: System::kernel_long_version().to_string(),
+            };
 
-        let os = SysOsInfo {
-            sys_name: System::name().unwrap_or_else(|| "<unknown>".to_owned()),
-            sys_kernel_version: System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
-            sys_os_version: System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-            sys_os_long_version: System::long_os_version()
-                .unwrap_or_else(|| "<unknown>".to_owned()),
-            sys_host_name: System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
-            sys_kernel: System::kernel_long_version().to_string(),
+            let up = System::uptime();
+            let mut uptime = up;
+            let days = uptime / 86400;
+            uptime -= days * 86400;
+            let hours = uptime / 3600;
+            uptime -= hours * 3600;
+            let minutes = uptime / 60;
+            let uptime = format!("{days} days {hours} hours {minutes} minutes");
+
+            (networks, os, uptime)
         };
 
-        let cps = components;
+        let (gpus, process_gpu_stats) = {
+            let _t = SectionTimer::new("build gpu info + per-process gpu stats");
+            let mut gpus = Vec::new();
+            if self.nvml.is_none() {
+                self.nvml = Nvml::init().ok();
+            }
+            if let Some(nvml) = self.nvml.as_ref() {
+                let device_count = nvml.device_count().unwrap_or(0);
+                for i in 0..device_count {
+                    let mut gpu_info = SysGpuInfo::default();
+                    let device = nvml.device_by_index(i);
+                    if let Ok(device) = device {
+                        if let Ok(serial) = device.serial() {
+                            gpu_info.id = serial;
+                        } else if let Ok(uuid) = device.uuid() {
+                            gpu_info.id = uuid;
+                        }
 
-        let up = System::uptime();
-        let mut uptime = up;
-        let days = uptime / 86400;
-        uptime -= days * 86400;
-        let hours = uptime / 3600;
-        uptime -= hours * 3600;
-        let minutes = uptime / 60;
-        let uptime = format!("{days} days {hours} hours {minutes} minutes");
+                        if let Ok(pci) = device.pci_info() {
+                            gpu_info.pci_address =
+                                crate::monitor_model::pci_address_from_bus_id(&pci.bus_id)
+                                    .unwrap_or_else(|| {
+                                        crate::monitor_model::format_pci_address(
+                                            pci.bus, pci.device, 0,
+                                        )
+                                    });
+                        }
 
-        let mut gpus = Vec::new();
-        let nvml = Nvml::init();
-        if let Ok(nvml) = nvml {
-            let device_count = nvml.device_count().unwrap_or(0);
-            for i in 0..device_count {
-                let mut gpu_info = SysGpuInfo::default();
-                let device = nvml.device_by_index(i);
-                if let Ok(device) = device {
-                    if let Ok(serial) = device.serial() {
-                        gpu_info.id = serial;
-                    } else if let Ok(uuid) = device.uuid() {
-                        gpu_info.id = uuid;
+                        let brand = device.name();
+                        if let Ok(brand) = brand {
+                            gpu_info.brand = brand.trim_matches('"').replace('"', "");
+                        }
+
+                        let fan = crate::gpu_nvml::read_nvml_fan(&device);
+                        gpu_info.fan_speed = fan.rpm;
+                        gpu_info.fan_rpm_valid = fan.rpm_valid;
+                        gpu_info.fan_speed_percent = if fan.rpm_valid { 0 } else { fan.percent };
+                        gpu_info.power_limit = device.enforced_power_limit().unwrap_or(0);
+
+                        if let Ok(u) = device.encoder_utilization() {
+                            gpu_info.encoder_utilization = u.utilization;
+                        }
+
+                        if let Ok(u) = device.decoder_utilization() {
+                            gpu_info.decoder_utilization = u.utilization;
+                        }
+
+                        if let Ok(u) = device.utilization_rates() {
+                            gpu_info.gpu_utilization = u.gpu;
+                            gpu_info.mem_utilization = u.memory;
+                        }
+
+                        gpu_info.temperature =
+                            device.temperature(TemperatureSensor::Gpu).unwrap_or(0);
+
+                        if let Ok(mi) = device.memory_info() {
+                            gpu_info.mem_free = mi.free;
+                            gpu_info.mem_free_gb = mi.free as f32 * 1.0 / (gb as f32);
+                            gpu_info.mem_total = mi.total;
+                            gpu_info.mem_total_gb = mi.total as f32 * 1.0 / (gb as f32);
+                            gpu_info.mem_used = mi.used;
+                            gpu_info.mem_used_gb = mi.used as f32 * 1.0 / (gb as f32);
+                        }
+
+                        gpus.push(gpu_info);
                     }
-
-                    if let Ok(pci) = device.pci_info() {
-                        gpu_info.pci_address =
-                            crate::monitor_model::pci_address_from_bus_id(&pci.bus_id)
-                                .unwrap_or_else(|| {
-                                    crate::monitor_model::format_pci_address(
-                                        pci.bus,
-                                        pci.device,
-                                        0,
-                                    )
-                                });
-                    }
-
-                    let brand = device.name();
-                    if let Ok(brand) = brand {
-                        gpu_info.brand = brand.trim_matches('"').replace('"', "");
-                    }
-
-                    let fan = crate::gpu_nvml::read_nvml_fan(&device);
-                    gpu_info.fan_speed = fan.rpm;
-                    gpu_info.fan_rpm_valid = fan.rpm_valid;
-                    gpu_info.fan_speed_percent = if fan.rpm_valid { 0 } else { fan.percent };
-                    gpu_info.power_limit = device.enforced_power_limit().unwrap_or(0);
-
-                    if let Ok(u) = device.encoder_utilization() {
-                        gpu_info.encoder_utilization = u.utilization;
-                    }
-
-                    if let Ok(u) = device.decoder_utilization() {
-                        gpu_info.decoder_utilization = u.utilization;
-                    }
-
-                    if let Ok(u) = device.utilization_rates() {
-                        gpu_info.gpu_utilization = u.gpu;
-                        gpu_info.mem_utilization = u.memory;
-                    }
-
-                    gpu_info.temperature = device.temperature(TemperatureSensor::Gpu).unwrap_or(0);
-
-                    if let Ok(mi) = device.memory_info() {
-                        gpu_info.mem_free = mi.free;
-                        gpu_info.mem_free_gb = mi.free as f32 * 1.0 / (gb as f32);
-                        gpu_info.mem_total = mi.total;
-                        gpu_info.mem_total_gb = mi.total as f32 * 1.0 / (gb as f32);
-                        gpu_info.mem_used = mi.used;
-                        gpu_info.mem_used_gb = mi.used as f32 * 1.0 / (gb as f32);
-                    }
-
-                    gpus.push(gpu_info);
                 }
             }
-        }
 
-        if gpus.is_empty() {
-            if let Ok(amd_gpus) = self.load_amd_gpu_info() {
-                for amd_gpu_info in amd_gpus {
-                    gpus.push(amd_gpu_info);
+            if gpus.is_empty() {
+                if let Ok(amd_gpus) = self.load_amd_gpu_info() {
+                    for amd_gpu_info in amd_gpus {
+                        gpus.push(amd_gpu_info);
+                    }
                 }
             }
-        }
 
-        #[cfg(target_os = "windows")]
-        let gpu_names: Vec<String> = gpus
-            .iter()
-            .map(|gpu| {
-                if gpu.brand.is_empty() {
-                    String::new()
-                } else {
-                    gpu.brand.clone()
-                }
-            })
-            .collect();
-        #[cfg(target_os = "windows")]
-        let process_gpu_stats = self.sample_process_gpu_stats(&gpu_names);
+            #[cfg(target_os = "windows")]
+            let gpu_names: Vec<String> = gpus
+                .iter()
+                .map(|gpu| {
+                    if gpu.brand.is_empty() {
+                        String::new()
+                    } else {
+                        gpu.brand.clone()
+                    }
+                })
+                .collect();
+            #[cfg(target_os = "windows")]
+            let process_gpu_stats = self.sample_process_gpu_stats(&gpu_names);
+            #[cfg(not(target_os = "windows"))]
+            let process_gpu_stats = HashMap::new();
+
+            (gpus, process_gpu_stats)
+        };
 
         let now = Instant::now();
         let elapsed_secs = self
@@ -433,110 +559,213 @@ impl SysInfoManager {
             .max(0.001);
 
         let mut handle_count = 0u64;
-        let mut processes: Vec<SysProcessInfo> = self
-            .system
-            .processes()
-            .values()
-            .map(|process| {
-                if let Some(handles) = process.open_files() {
-                    handle_count += handles as u64;
-                }
-                let disk = process.disk_usage();
-                let pid = process.pid().as_u32();
-                let command_line = process
-                    .cmd()
-                    .iter()
-                    .map(|arg| arg.to_string_lossy())
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                let exe = process
-                    .exe()
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-                let name = process.name().to_string_lossy().into_owned();
-                let name = if name.is_empty() {
-                    exe.rsplit_once(|c| c == '\\' || c == '/')
-                        .map(|(_, file)| file.to_string())
-                        .unwrap_or_else(|| exe.clone())
-                } else {
-                    name
-                };
-
-                let (read_rate, write_rate) = self
-                    .last_process_io
-                    .get(&pid)
-                    .map(|(last_read, last_write)| {
-                        let read_delta = disk.read_bytes.saturating_sub(*last_read);
-                        let write_delta = disk.written_bytes.saturating_sub(*last_write);
-                        (
-                            read_delta as f64 / elapsed_secs / 1024.0 / 1024.0,
-                            write_delta as f64 / elapsed_secs / 1024.0 / 1024.0,
-                        )
-                    })
-                    .unwrap_or((0.0, 0.0));
-
-                #[cfg(target_os = "windows")]
-                let (gpu_name, gpu_usage, gpu_dedicated_bytes) = process_gpu_stats
-                    .get(&pid)
-                    .map(|stats| {
-                        (
-                            stats.gpu_name.clone(),
-                            stats.usage_percent,
-                            stats.dedicated_bytes,
-                        )
-                    })
-                    .unwrap_or_default();
-                #[cfg(not(target_os = "windows"))]
-                let (gpu_name, gpu_usage, gpu_dedicated_bytes) =
-                    (String::new(), 0.0f32, 0u64);
-
-                SysProcessInfo {
-                    pid,
-                    parent_pid: process.parent().map(|p| p.as_u32()).unwrap_or(0),
-                    name: truncate_string(&name, 128),
-                    command_line: if command_line.is_empty() {
-                        exe.clone()
+        let processes = {
+            let _t = SectionTimer::new("iterate processes");
+            let mut processes: Vec<SysProcessInfo> = self
+                .system
+                .processes()
+                .values()
+                .map(|process| {
+                    if let Some(handles) = process.open_files() {
+                        handle_count += handles as u64;
+                    }
+                    let disk = process.disk_usage();
+                    let pid = process.pid().as_u32();
+                    let command_line = process
+                        .cmd()
+                        .iter()
+                        .map(|arg| arg.to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let exe = process
+                        .exe()
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    let name = process.name().to_string_lossy().into_owned();
+                    let name = if name.is_empty() {
+                        exe.rsplit_once(|c| c == '\\' || c == '/')
+                            .map(|(_, file)| file.to_string())
+                            .unwrap_or_else(|| exe.clone())
                     } else {
-                        command_line
-                    },
-                    exe,
-                    status: format_process_status(process.status()).to_string(),
-                    cpu_usage: process.cpu_usage(),
-                    memory: process.memory(),
-                    memory_mb: process.memory() / 1024 / 1024,
-                    virtual_memory: process.virtual_memory(),
-                    virtual_memory_mb: process.virtual_memory() / 1024 / 1024,
-                    disk_read_bytes: disk.read_bytes,
-                    disk_written_bytes: disk.written_bytes,
-                    disk_read_rate: read_rate,
-                    disk_write_rate: write_rate,
-                    gpu_name,
-                    gpu_usage,
-                    gpu_dedicated_bytes,
-                    start_time: process.start_time(),
-                    run_time: process.run_time(),
+                        name
+                    };
+
+                    let (read_rate, write_rate) = self
+                        .last_process_io
+                        .get(&pid)
+                        .map(|(last_read, last_write)| {
+                            let read_delta = disk.read_bytes.saturating_sub(*last_read);
+                            let write_delta = disk.written_bytes.saturating_sub(*last_write);
+                            (
+                                read_delta as f64 / elapsed_secs / 1024.0 / 1024.0,
+                                write_delta as f64 / elapsed_secs / 1024.0 / 1024.0,
+                            )
+                        })
+                        .unwrap_or((0.0, 0.0));
+
+                    #[cfg(target_os = "windows")]
+                    let (gpu_name, gpu_usage, gpu_dedicated_bytes) = process_gpu_stats
+                        .get(&pid)
+                        .map(|stats| {
+                            (
+                                stats.gpu_name.clone(),
+                                stats.usage_percent,
+                                stats.dedicated_bytes,
+                            )
+                        })
+                        .unwrap_or_default();
+                    #[cfg(not(target_os = "windows"))]
+                    let (gpu_name, gpu_usage, gpu_dedicated_bytes) = (String::new(), 0.0f32, 0u64);
+
+                    SysProcessInfo {
+                        pid,
+                        parent_pid: process.parent().map(|p| p.as_u32()).unwrap_or(0),
+                        name: truncate_string(&name, 128),
+                        command_line: if command_line.is_empty() {
+                            exe.clone()
+                        } else {
+                            command_line
+                        },
+                        exe,
+                        status: format_process_status(process.status()).to_string(),
+                        cpu_usage: process.cpu_usage(),
+                        memory: process.memory(),
+                        memory_mb: process.memory() / 1024 / 1024,
+                        virtual_memory: process.virtual_memory(),
+                        virtual_memory_mb: process.virtual_memory() / 1024 / 1024,
+                        disk_read_bytes: disk.read_bytes,
+                        disk_written_bytes: disk.written_bytes,
+                        disk_read_rate: read_rate,
+                        disk_write_rate: write_rate,
+                        gpu_name,
+                        gpu_usage,
+                        gpu_dedicated_bytes,
+                        start_time: process.start_time(),
+                        run_time: process.run_time(),
+                    }
+                })
+                .collect();
+
+            self.last_process_io.clear();
+            for process in &processes {
+                self.last_process_io.insert(
+                    process.pid,
+                    (process.disk_read_bytes, process.disk_written_bytes),
+                );
+            }
+            self.last_sample_time = Some(now);
+            processes.sort_by(|a, b| {
+                b.cpu_usage
+                    .partial_cmp(&a.cpu_usage)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            processes
+        };
+
+        let thread_count = {
+            let _t = SectionTimer::new("count system threads");
+            let now = Instant::now();
+            if self.cached_thread_count.as_ref().map_or(true, |(t, _)| {
+                now.duration_since(*t) >= Self::THREAD_COUNT_TTL
+            }) {
+                let count = count_system_threads(&self.system);
+                self.cached_thread_count = Some((now, count));
+                count
+            } else {
+                self.cached_thread_count.as_ref().unwrap().1
+            }
+        };
+
+        let (services, startup_items, users) = {
+            let _t = SectionTimer::new("load services + startup + users");
+            let now = Instant::now();
+            let needs_services = self
+                .cached_services
+                .as_ref()
+                .map_or(true, |(t, _)| now.duration_since(*t) >= Self::SLOW_DATA_TTL);
+            let needs_startup = self
+                .cached_startup
+                .as_ref()
+                .map_or(true, |(t, _)| now.duration_since(*t) >= Self::SLOW_DATA_TTL);
+            let needs_users = self
+                .cached_users
+                .as_ref()
+                .map_or(true, |(t, _)| now.duration_since(*t) >= Self::SLOW_DATA_TTL);
+
+            if !needs_services && !needs_startup && !needs_users {
+                (
+                    self.cached_services.as_ref().unwrap().1.clone(),
+                    self.cached_startup.as_ref().unwrap().1.clone(),
+                    self.cached_users.as_ref().unwrap().1.clone(),
+                )
+            } else {
+                let mut services = self
+                    .cached_services
+                    .as_ref()
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or_default();
+                let mut startup_items = self
+                    .cached_startup
+                    .as_ref()
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or_default();
+                let mut users = self
+                    .cached_users
+                    .as_ref()
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or_default();
+
+                {
+                    let _t2 = SectionTimer::new("slow data cache miss parallel load");
+                    thread::scope(|s| {
+                        let services_handle = if needs_services {
+                            Some(s.spawn(|| self.load_services()))
+                        } else {
+                            None
+                        };
+                        let startup_handle = if needs_startup {
+                            Some(s.spawn(|| self.load_startup_items()))
+                        } else {
+                            None
+                        };
+                        let users_handle = if needs_users {
+                            Some(s.spawn(|| self.load_users()))
+                        } else {
+                            None
+                        };
+
+                        if let Some(h) = services_handle {
+                            services = h.join().unwrap();
+                        }
+                        if let Some(h) = startup_handle {
+                            startup_items = h.join().unwrap();
+                        }
+                        if let Some(h) = users_handle {
+                            users = h.join().unwrap();
+                        }
+                    });
                 }
-            })
-            .collect();
 
-        self.last_process_io.clear();
-        for process in &processes {
-            self.last_process_io.insert(
-                process.pid,
-                (process.disk_read_bytes, process.disk_written_bytes),
-            );
-        }
-        self.last_sample_time = Some(now);
-        processes.sort_by(|a, b| {
-            b.cpu_usage
-                .partial_cmp(&a.cpu_usage)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+                if needs_services {
+                    self.cached_services = Some((now, services.clone()));
+                }
+                if needs_startup {
+                    self.cached_startup = Some((now, startup_items.clone()));
+                }
+                if needs_users {
+                    self.cached_users = Some((now, users.clone()));
+                }
 
-        let services = self.load_services();
-        let startup_items = self.load_startup_items();
-        let users = self.load_users();
-        let thread_count = count_system_threads(&self.system);
+                (services, startup_items, users)
+            }
+        };
+
+        let total_elapsed = total_start.elapsed();
+        eprintln!(
+            "[cyber_monitor timing] load_system_info total: {}.{:03}s\n",
+            total_elapsed.as_secs(),
+            total_elapsed.subsec_millis()
+        );
 
         SysInfo {
             timestamp: current_timestamp_ms(),
@@ -626,10 +855,7 @@ impl SysInfoManager {
         if let Some(infos) = read_processor_power_info(cpu_count) {
             if !infos.is_empty() {
                 power_current_mhz = Some(
-                    infos
-                        .iter()
-                        .map(|info| info.CurrentMhz as f32)
-                        .sum::<f32>()
+                    infos.iter().map(|info| info.CurrentMhz as f32).sum::<f32>()
                         / infos.len() as f32,
                 );
                 power_max_mhz = Some(
@@ -665,15 +891,23 @@ impl SysInfoManager {
 
         let current_ghz = power_current_mhz
             .filter(|mhz| *mhz > 0.0)
-            .or_else(|| wmi_clocks.map(|(current, _)| current).filter(|mhz| *mhz > 0.0))
+            .or_else(|| {
+                wmi_clocks
+                    .map(|(current, _)| current)
+                    .filter(|mhz| *mhz > 0.0)
+            })
             .unwrap_or(sysinfo_current_mhz)
             / 1000.0;
 
-        let candidate_max_mhz = [power_max_mhz, registry_max_mhz, wmi_clocks.map(|(_, max)| max)]
-            .into_iter()
-            .flatten()
-            .filter(|mhz| *mhz > 0.0)
-            .fold(0.0_f32, f32::max);
+        let candidate_max_mhz = [
+            power_max_mhz,
+            registry_max_mhz,
+            wmi_clocks.map(|(_, max)| max),
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|mhz| *mhz > 0.0)
+        .fold(0.0_f32, f32::max);
 
         if base_ghz <= 0.0 {
             base_ghz = power_max_mhz
@@ -703,8 +937,14 @@ impl SysInfoManager {
         (base_ghz, current_ghz, max_frequency)
     }
 
-    fn load_amd_gpu_info(&self) -> Result<Vec<SysGpuInfo>, anyhow::Error> {
-        let helper = AdlxHelper::new()?;
+    fn load_amd_gpu_info(&mut self) -> Result<Vec<SysGpuInfo>, anyhow::Error> {
+        if self.adlx_helper.is_none() {
+            self.adlx_helper = AdlxHelper::new().ok();
+        }
+        let helper = self
+            .adlx_helper
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("ADLX not available"))?;
         let system = helper.system();
         let gpu_list = system.gpus()?;
         let performance_monitoring_services = system.performance_monitoring_services()?;
@@ -1174,8 +1414,7 @@ impl SysInfoManager {
     fn sample_process_gpu_stats(
         &mut self,
         gpu_names: &[String],
-    ) -> std::collections::HashMap<u32, crate::gpu_process_metrics_windows::ProcessGpuUsage>
-    {
+    ) -> std::collections::HashMap<u32, crate::gpu_process_metrics_windows::ProcessGpuUsage> {
         if self.gpu_process_collector.is_none() {
             self.gpu_process_collector =
                 crate::gpu_process_metrics_windows::GpuProcessMetricsCollector::open();
@@ -1346,8 +1585,7 @@ fn load_cpu_temperature_celsius(
     }
 
     #[cfg(target_os = "windows")]
-    if let Some(temp) =
-        crate::cpu_ohm::read_cpu_temperature_celsius(physical_cores, logical_cores)
+    if let Some(temp) = crate::cpu_ohm::read_cpu_temperature_celsius(physical_cores, logical_cores)
     {
         return temp;
     }
@@ -1464,9 +1702,6 @@ mod frequency_tests {
 
     #[test]
     fn parse_base_frequency_missing_for_amd_brand() {
-        assert!(parse_base_frequency_ghz(
-            "AMD Ryzen 9 5900X 12-Core Processor"
-        )
-        .is_none());
+        assert!(parse_base_frequency_ghz("AMD Ryzen 9 5900X 12-Core Processor").is_none());
     }
 }

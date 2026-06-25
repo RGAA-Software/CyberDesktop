@@ -29,10 +29,7 @@ pub fn read_windows_mem_metrics() -> Option<WindowsMemMetrics> {
     let committed = perf.CommitTotal as u64 * page;
     let commit_peak = perf.CommitPeak as u64 * page;
     let commit_limit = perf.CommitLimit as u64 * page;
-    let physical_used = perf
-        .PhysicalTotal
-        .saturating_sub(perf.PhysicalAvailable) as u64
-        * page;
+    let physical_used = perf.PhysicalTotal.saturating_sub(perf.PhysicalAvailable) as u64 * page;
     let system_cache = perf.SystemCache as u64 * page;
     let kernel_ws = perf.KernelTotal as u64 * page;
     let kernel_paged = perf.KernelPaged as u64 * page;
@@ -43,7 +40,9 @@ pub fn read_windows_mem_metrics() -> Option<WindowsMemMetrics> {
     unsafe { GlobalMemoryStatusEx(&mut mem_status).ok()? };
 
     let swap_total = mem_status.ullTotalPageFile;
-    let swap_used = mem_status.ullTotalPageFile.saturating_sub(mem_status.ullAvailPageFile);
+    let swap_used = mem_status
+        .ullTotalPageFile
+        .saturating_sub(mem_status.ullAvailPageFile);
 
     let mut installed_kb = 0u64;
     let hw_reserved = if unsafe { GetPhysicallyInstalledSystemMemory(&mut installed_kb).is_ok() } {
