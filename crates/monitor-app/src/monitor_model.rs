@@ -128,6 +128,7 @@ pub struct GpuHistoryPoint {
     pub temperature: f64,
     pub memory_used_gb: f64,
     pub decoder_usage: f64,
+    pub encoder_usage: f64,
 }
 
 #[derive(Clone, Default)]
@@ -361,6 +362,7 @@ impl MachineTelemetry {
                 temperature: gpu.temperature as f64,
                 memory_used_gb: gpu.mem_used_gb as f64,
                 decoder_usage: gpu.decoder_utilization as f64,
+                encoder_usage: gpu.encoder_utilization as f64,
             };
             let history = self.gpu_history.entry(id).or_default();
             push_point(history, point);
@@ -554,6 +556,16 @@ pub fn gpu_color_for(gpu: &SysGpuInfo, gpus: &[SysGpuInfo]) -> Hsla {
         .position(|item| gpu_key(item) == key)
         .unwrap_or(0);
     gpu_chart_color(index)
+}
+
+/// Returns the complementary HSLA color (hue shifted by 180°).
+pub fn complementary_color(color: Hsla) -> Hsla {
+    Hsla {
+        h: (color.h + 0.5).fract(),
+        s: color.s,
+        l: color.l,
+        a: color.a,
+    }
 }
 
 /// PCI BDF in decimal — matches Windows Task Manager (bus:device:function).

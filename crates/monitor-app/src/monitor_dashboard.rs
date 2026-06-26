@@ -25,12 +25,12 @@ use crate::monitor_actions::{
 };
 use crate::monitor_icons;
 use crate::monitor_model::{
-    bytes_to_gb, chart_ticks, cpu_metric_color, disk_key, disk_usage_percent, disk_used_gb,
-    format_cpu_temperature, format_gpu_fan_speed, format_mem_size, format_network_link_speed,
-    format_optional_frequency, format_tick, gpu_chart_title, gpu_color_for, gpu_display_model,
-    gpu_fan_meter_percent, gpu_key, gpu_memory_percent, latest_disk_rates, latest_network_rates,
-    mem_metric_color, network_ipv4, network_key, sort_processes, MachineTelemetry, MonitorTab,
-    ProcessSort, ProcessSortColumn, SortDirection,
+    bytes_to_gb, chart_ticks, complementary_color, cpu_metric_color, disk_key, disk_usage_percent,
+    disk_used_gb, format_cpu_temperature, format_gpu_fan_speed, format_mem_size,
+    format_network_link_speed, format_optional_frequency, format_tick, gpu_chart_title,
+    gpu_color_for, gpu_display_model, gpu_fan_meter_percent, gpu_key, gpu_memory_percent,
+    latest_disk_rates, latest_network_rates, mem_metric_color, network_ipv4, network_key,
+    sort_processes, MachineTelemetry, MonitorTab, ProcessSort, ProcessSortColumn, SortDirection,
 };
 use crate::sys_info::{SysProcessInfo, SysServiceInfo, SysStartupInfo, SysUserInfo};
 use app_ui::{color_icon_box, ContextMenuExt};
@@ -703,6 +703,214 @@ fn render_chart<V, T: Clone + 'static>(
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(cx.theme().muted_foreground)
                         .child(format!("当前 {:.1} {}", current_value, unit)),
+                ),
+        )
+        .child(
+            h_flex()
+                .gap_3()
+                .flex_1()
+                .when(show_y_ticks, |this| {
+                    this.child(
+                        v_flex()
+                            .w(px(52.))
+                            .h_full()
+                            .justify_between()
+                            .items_end()
+                            .pt_3()
+                            .pb_8()
+                            .pr_1()
+                            .children(tick_values.iter().map(|value| {
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(format_tick(*value, unit))
+                            })),
+                    )
+                })
+                .child(
+                    div()
+                        .flex_1()
+                        .h(chart_body_h)
+                        .rounded(px(6.))
+                        .border_1()
+                        .border_color(cx.theme().border)
+                        .bg(plot_bg)
+                        .p(px(10.))
+                        .relative()
+                        .child(chart)
+                        .when(show_x_axis && !x_labels.is_empty(), |this| {
+                            this.child(
+                                div()
+                                    .absolute()
+                                    .bottom_0()
+                                    .left_0()
+                                    .right_0()
+                                    .h(px(18.))
+                                    .child(
+                                        h_flex()
+                                            .w_full()
+                                            .h_full()
+                                            .items_end()
+                                            .px(px(10.))
+                                            .justify_between()
+                                            .children(x_labels.iter().map(|text| {
+                                                Label::new(text.clone())
+                                                    .text_xs()
+                                                    .text_color(cx.theme().muted_foreground)
+                                            })),
+                                    ),
+                            )
+                        }),
+                ),
+        )
+        .when(false, |this| {
+            this.child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(format!("Y: {unit}")),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(format!("X: {x_unit} ->")),
+                    ),
+            )
+        })
+}
+
+/// Renders an area chart with two overlaid series (e.g. decoder + encoder usage).
+fn render_dual_chart<V, T: Clone + 'static>(
+    id: &str,
+    data: Vec<T>,
+    x_fn: impl Fn(&T) -> String + 'static,
+    y1_fn: impl Fn(&T) -> f64 + 'static,
+    y1_color: Hsla,
+    y1_label: &str,
+    y2_fn: impl Fn(&T) -> f64 + 'static,
+    y2_color: Hsla,
+    y2_label: &str,
+    unit: &str,
+    x_unit: &str,
+    y_max: Option<f64>,
+    show_x_axis: bool,
+    show_y_ticks: bool,
+    cx: &Context<V>,
+) -> impl IntoElement {
+    let current_y1 = data.last().map(&y1_fn).unwrap_or(0.0);
+    let current_y2 = data.last().map(&y2_fn).unwrap_or(0.0);
+    let max_value = data
+        .iter()
+        .map(&y1_fn)
+        .chain(data.iter().map(&y2_fn))
+        .fold(0.0_f64, f64::max)
+        .max(y_max.unwrap_or(0.0))
+        .max(1.0);
+    let tick_values = chart_ticks(max_value);
+    let compact = !show_x_axis && !show_y_ticks;
+    let chart_body_h = if compact { px(120.) } else { px(220.) };
+    let plot_bg = panel_2(cx);
+    let x_label_count = if show_x_axis { 5 } else { 0 };
+    let x_labels: Vec<SharedString> = if show_x_axis && x_label_count > 1 {
+        let n = data.len().max(1);
+        (0..x_label_count)
+            .map(|i| {
+                let idx = ((n - 1) as f32 * i as f32 / (x_label_count - 1) as f32).round() as usize;
+                x_fn(&data[idx.min(n - 1)]).into()
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+    let x_tick_margin = if show_x_axis {
+        data.len().saturating_add(1)
+    } else {
+        1
+    };
+
+    let y1_fill = linear_gradient(
+        0.,
+        linear_color_stop(y1_color.opacity(0.40), 1.),
+        linear_color_stop(plot_bg.opacity(0.05), 0.),
+    );
+    let y2_fill = linear_gradient(
+        0.,
+        linear_color_stop(y2_color.opacity(0.40), 1.),
+        linear_color_stop(plot_bg.opacity(0.05), 0.),
+    );
+
+    let mut chart = AreaChart::new(data)
+        .x(x_fn)
+        .y(y1_fn)
+        .y(y2_fn)
+        .linear()
+        .stroke(y1_color)
+        .stroke(y2_color)
+        .fill(y1_fill)
+        .fill(y2_fill)
+        .tick_margin(x_tick_margin)
+        .x_axis(show_x_axis);
+
+    if let Some(y_max) = y_max {
+        chart = chart
+            .y(move |_| y_max)
+            .stroke(y1_color.opacity(0.0))
+            .fill(plot_bg.opacity(0.0));
+    }
+
+    v_flex()
+        .id(SharedString::from(id.to_string()))
+        .gap_3()
+        .pl(px(16.))
+        .pr(px(16.))
+        .pt(px(14.))
+        .pb(px(16.))
+        .rounded_md()
+        .border_1()
+        .border_color(cx.theme().border)
+        .bg(cx.theme().secondary)
+        .child(
+            h_flex()
+                .justify_between()
+                .items_center()
+                .pb(px(10.))
+                .border_b_1()
+                .border_color(cx.theme().border)
+                .child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .child(chart_title_dot(y1_color))
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(cx.theme().foreground)
+                                .child(format!("{}使用率", y1_label)),
+                        )
+                        .child(chart_title_dot(y2_color))
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(cx.theme().foreground)
+                                .child(format!("{}使用率", y2_label)),
+                        ),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(cx.theme().muted_foreground)
+                        .child(format!(
+                            "当前 {} {:.1}{} · {} {:.1}{}",
+                            y1_label, current_y1, unit, y2_label, current_y2, unit
+                        )),
                 ),
         )
         .child(
@@ -1572,13 +1780,16 @@ fn render_gpu_tab<V>(telemetry: &MachineTelemetry, cx: &Context<V>) -> impl Into
                                     true,
                                     cx,
                                 )))
-                                .child(div().flex_1().min_w_0().child(render_chart(
-                                    &format!("gpu-{gpu_id}-chart-decoder"),
-                                    "解码器使用率",
+                                .child(div().flex_1().min_w_0().child(render_dual_chart(
+                                    &format!("gpu-{gpu_id}-chart-codec"),
                                     history,
                                     |point| point.time.clone(),
+                                    |point| point.encoder_usage,
+                                    complementary_color(color),
+                                    "编码",
                                     |point| point.decoder_usage,
                                     color,
+                                    "解码",
                                     "%",
                                     "时间",
                                     Some(100.0),

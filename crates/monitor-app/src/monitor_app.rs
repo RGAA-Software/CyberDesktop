@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::time::{Duration, Instant};
 
 use gpui::{
@@ -40,6 +41,21 @@ use crate::tray::{self, TrayCommand};
 
 const INTERVAL: Duration = Duration::from_secs(1);
 const COLLECT_POLL: Duration = Duration::from_millis(16);
+
+fn startup_log(msg: &str) {
+    let line = format!("[monitor_app] {msg}\n");
+    let _ = std::io::stderr().write_all(line.as_bytes());
+    let _ = std::io::stderr().flush();
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(dir) = exe_path.parent() {
+            let log_path = dir.join("cyber_monitor_startup.log");
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+                let _ = f.write_all(line.as_bytes());
+                let _ = f.flush();
+            }
+        }
+    }
+}
 
 /// Runs `SysInfoWorker::collect` off the GPUI main thread (smol executor, no Tokio runtime).
 async fn collect_sysinfo_async(worker: SysInfoWorker) -> Option<SysInfo> {
@@ -229,6 +245,7 @@ impl ProcessActionHandler for SysMonitorApp {
 
 impl SysMonitorApp {
     fn new(_window: &mut Window, cx: &mut Context<Self>, sysinfo: SysInfoWorker) -> Self {
+        startup_log("[SysMonitorApp::new] creating app view");
         let telemetry = MachineTelemetry::new(Default::default());
         let connection_config = load_monitor_connection_config();
         let sender = MonitorSenderHandle::new();
@@ -746,13 +763,20 @@ fn resolve_startup_command_path(command: &str) -> String {
 }
 
 pub fn run(start_hidden: bool) {
+    startup_log("[monitor_app::run] starting");
     tray::init_tray("CyberMonitor");
+    startup_log("[monitor_app::run] tray initialized");
     let sysinfo_worker = SysInfoWorker::start();
+    startup_log("[monitor_app::run] sysinfo worker started");
     let app = gpui_platform::application().with_assets(app_ui::Assets);
+    startup_log("[monitor_app::run] gpui application created");
     app.run(move |cx: &mut App| {
+        startup_log("[monitor_app::run] gpui app.run callback entered");
         set_config_app_id(MONITOR_CONFIG_APP_ID);
         init_tracing(MONITOR_CONFIG_APP_ID);
+        startup_log("[monitor_app::run] tracing initialized");
         app_ui::init_editor_shell(cx);
+        startup_log("[monitor_app::run] editor shell initialized");
 
         let window_options = WindowOptions {
             titlebar: Some(app_ui::TitleBar::title_bar_options()),
@@ -761,8 +785,10 @@ pub fn run(start_hidden: bool) {
         };
 
         cx.spawn(async move |cx| {
+            startup_log("[monitor_app::run] opening window");
             let window_handle = cx
                 .open_window(window_options, |window, cx| {
+                    startup_log("[monitor_app::run] window open callback entered");
                     window.set_window_title("CyberMonitor");
 
                     let mode = cx.theme().mode;
