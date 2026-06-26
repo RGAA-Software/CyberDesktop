@@ -1,4 +1,8 @@
 //! Extract icons from Shell `IContextMenu` HMENU items (bitmap, callback draw, verb fallback).
+//!
+//! Icons are cached in a process-global in-memory store keyed by icon location, verb/extension,
+//! or menu row (verb + label + extension). A cache miss for a row is also cached so we do not
+//! repeatedly run owner-draw / registry lookups for entries that genuinely have no icon.
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -35,7 +39,8 @@ thread_local! {
 }
 
 /// In-memory PNG cache for Shell context-menu row icons (stable across menu opens).
-static MENU_ICON_PNG_CACHE: OnceLock<Mutex<HashMap<MenuIconCacheKey, Arc<Vec<u8>>>>> =
+/// `Some(png)` means an icon was resolved; `None` means we already tried and found none.
+static MENU_ICON_PNG_CACHE: OnceLock<Mutex<HashMap<MenuIconCacheKey, Option<Arc<Vec<u8>>>>>> =
     OnceLock::new();
 
 #[derive(Clone, Hash, Eq, PartialEq)]
@@ -48,27 +53,32 @@ enum MenuIconCacheKey {
         verb: String,
         size: u32,
     },
-    /// Bitmap / owner-draw row keyed by verb + visible label.
+    /// Bitmap / owner-draw row keyed by verb + visible label + file extension.
     MenuRow {
         verb: String,
         label: String,
+        extension: String,
         size: u32,
     },
 }
 
-fn menu_icon_cache() -> &'static Mutex<HashMap<MenuIconCacheKey, Arc<Vec<u8>>>> {
+fn menu_icon_cache() -> &'static Mutex<HashMap<MenuIconCacheKey, Option<Arc<Vec<u8>>>>> {
     MENU_ICON_PNG_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn menu_icon_cache_get(key: &MenuIconCacheKey) -> Option<Arc<Vec<u8>>> {
+/// Returns `Some(...)` when the key has been looked up before:
+/// - `Some(Some(png))` -> cached icon
+/// - `Some(None)`      -> cached "no icon"
+/// Returns `None` when the key has not been seen yet.
+fn menu_icon_cache_get(key: &MenuIconCacheKey) -> Option<Option<Arc<Vec<u8>>>> {
     menu_icon_cache()
         .lock()
         .ok()
         .and_then(|cache| cache.get(key).cloned())
 }
 
-fn menu_icon_cache_put(key: MenuIconCacheKey, png: Vec<u8>) -> Arc<Vec<u8>> {
-    let arc = Arc::new(png);
+fn menu_icon_cache_put(key: MenuIconCacheKey, png: Option<Vec<u8>>) -> Option<Arc<Vec<u8>>> {
+    let arc = png.map(Arc::new);
     if let Ok(mut cache) = menu_icon_cache().lock() {
         cache.insert(key, arc.clone());
     }
@@ -85,10 +95,16 @@ fn normalize_menu_icon_verb(verb: Option<&str>) -> String {
         .unwrap_or_default()
 }
 
-fn menu_row_cache_key(verb: Option<&str>, label: &str) -> MenuIconCacheKey {
+fn menu_row_cache_key(verb: Option<&str>, label: &str, primary_path: &Path) -> MenuIconCacheKey {
+    let extension = primary_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
     MenuIconCacheKey::MenuRow {
         verb: normalize_menu_icon_verb(verb),
         label: normalize_menu_icon_label(label),
+        extension,
         size: menu_icon_extract_px(),
     }
 }
@@ -587,11 +603,11 @@ fn icon_for_registry_location(location: &str) -> Option<Vec<u8>> {
         size,
     };
     if let Some(cached) = menu_icon_cache_get(&key) {
-        return Some((*cached).clone());
+        return cached.map(|arc| (*arc).clone());
     }
-    let png = shell_icon_png_from_location(&location, size).ok()?;
+    let png = shell_icon_png_from_location(&location, size).ok();
     menu_icon_cache_put(key, png.clone());
-    Some(png)
+    png
 }
 
 fn icon_for_registry_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
@@ -648,10 +664,10 @@ fn icon_for_file_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
         size,
     };
     if let Some(cached) = menu_icon_cache_get(&exe_cache_key) {
-        return Some((*cached).clone());
+        return cached.map(|arc| (*arc).clone());
     }
 
-    let exe = path
+    let png = path
         .extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| format!(".{ext}"))
@@ -675,11 +691,13 @@ fn icon_for_file_verb(path: &Path, verb: &str) -> Option<Vec<u8>> {
                 &assoc,
                 Some(verb),
             )
-        })?;
-    let exe_path = Path::new(exe.trim_matches('"'));
-    let png = shell_icon_png(exe_path, size).ok()?;
+        })
+        .and_then(|exe| {
+            let exe_path = Path::new(exe.trim_matches('"'));
+            shell_icon_png(exe_path, size).ok()
+        });
     menu_icon_cache_put(exe_cache_key, png.clone());
-    Some(png)
+    png
 }
 
 pub(crate) unsafe fn resolve_menu_item_icon(
@@ -692,18 +710,15 @@ pub(crate) unsafe fn resolve_menu_item_icon(
     label: &str,
     verb: Option<&str>,
 ) -> Option<Vec<u8>> {
-    let row_key = menu_row_cache_key(verb, label);
+    let row_key = menu_row_cache_key(verb, label, primary_path);
     if let Some(cached) = menu_icon_cache_get(&row_key) {
-        return Some((*cached).clone());
+        return cached.map(|arc| (*arc).clone());
     }
 
     let png =
         resolve_menu_item_icon_uncached(popup, menu, index, item_id, hbmp, primary_path, verb);
-    if let Some(png) = png {
-        menu_icon_cache_put(row_key, png.clone());
-        return Some(png);
-    }
-    None
+    menu_icon_cache_put(row_key, png.clone());
+    png
 }
 
 unsafe fn resolve_menu_item_icon_uncached(

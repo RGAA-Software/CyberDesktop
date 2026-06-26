@@ -84,8 +84,6 @@ pub fn init(cx: &mut App) {
 
     #[cfg(windows)]
     {
-        files_core::log_startup_step("init_shell_warmup_begin");
-        app_platform_windows::warm_up_query_context_menu();
-        files_core::log_startup_step("init_shell_warmup_scheduled");
+        files_core::log_startup_step("init_shell_warmup_deferred");
     }
 }

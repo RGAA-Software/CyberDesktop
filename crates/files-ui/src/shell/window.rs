@@ -86,6 +86,23 @@ fn open_main_window_with_close_handler<F, E, C>(
             .expect("failed to open window");
         log_startup_step("open_window_done");
 
+        #[cfg(windows)]
+        {
+            cx.spawn(async move |cx| {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_secs(2))
+                    .await;
+                if std::env::var("SHELL_MENU_DISABLE_WARMUP").is_ok() {
+                    log_startup_step("init_shell_warmup_skipped");
+                } else {
+                    log_startup_step("init_shell_warmup_begin");
+                    app_platform_windows::warm_up_hybrid_shell_menu();
+                    log_startup_step("init_shell_warmup_scheduled");
+                }
+            })
+            .detach();
+        }
+
         let main_handle = window.into();
         let _ = cx.update(|cx| {
             crate::app_state::MainWindowState::set(main_handle, cx);

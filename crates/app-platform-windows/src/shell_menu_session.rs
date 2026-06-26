@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use crate::com::ThreadWithMessageQueue;
-use crate::context_menu::{self, ShellContextMenuEntry};
+use crate::com::ThreadWithMessageQueueWithPump;
+use crate::context_menu::ShellContextMenuEntry;
 
 /// Max time to wait for a Shell `QueryContextMenu`/enumerate before treating the worker as
 /// deadlocked. Files relies on warm-up to never hit this; we keep it as a safety net so a
@@ -23,7 +23,7 @@ const SHELL_OP_TIMEOUT: Duration = Duration::from_secs(6);
 
 /// The owning STA thread for the currently open Shell menu (Files: `ContextMenu._owningThread`).
 /// `None` when no menu is open. Replaced per query; dropped (joined) on `clear_session`.
-static SHELL_SESSION: Mutex<Option<ThreadWithMessageQueue>> = Mutex::new(None);
+static SHELL_SESSION: Mutex<Option<ThreadWithMessageQueueWithPump>> = Mutex::new(None);
 
 /// Only one Shell menu operation at a time — parallel `QueryContextMenu` hangs or poisons Shell.
 static SHELL_OP_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -42,7 +42,10 @@ fn dispose_session() {
     if let Some(thread) = session {
         // Release the COM menu on the thread that created it (apartment-bound), bounded so a
         // wedged thread doesn't stall teardown.
-        let _ = thread.post_with_timeout(context_menu::release_prepared_menu, SHELL_OP_TIMEOUT);
+        let _ = thread.post_with_timeout(
+            crate::hybrid_shell_session::release_prepared_hybrid_session,
+            SHELL_OP_TIMEOUT,
+        );
         // Dropping `thread` here runs ThreadWithMessageQueue::drop -> CompleteAdding + bounded join.
     }
 }
@@ -66,11 +69,12 @@ pub fn query_with_session(
     dispose_session();
 
     // Files: `var owningThread = new ThreadWithMessageQueue();`
-    let thread = ThreadWithMessageQueue::new("cyber_desktop-shell-menu");
+    // We use a pumping STA because third-party shell extensions SendMessage during QueryContextMenu.
+    let thread = ThreadWithMessageQueueWithPump::new("cyber_desktop-shell-menu");
     let job_paths = paths.to_vec();
     let outcome = thread.post_with_timeout(
         move || {
-            context_menu::prepare_and_enumerate_top_level(
+            crate::context_menu::prepare_and_enumerate_top_level(
                 &job_paths,
                 extended_verbs,
                 menu_icon_extract_px,
@@ -99,14 +103,17 @@ pub fn query_with_session(
 }
 
 /// Expand one Shell submenu on the owning STA thread (Files `LoadSubMenu` + `WM_INITMENUPOPUP`).
-pub fn load_lazy_submenu(parent_index: u32) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
+pub fn load_lazy_submenu(
+    handler_clsid: Option<String>,
+    parent_index: u32,
+) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
     let _guard = shell_op_lock();
     let slot = SHELL_SESSION.lock().expect("shell session slot");
     let Some(thread) = slot.as_ref() else {
         return Ok(Vec::new());
     };
     match thread.post_with_timeout(
-        move || context_menu::expand_lazy_submenu(parent_index),
+        move || crate::context_menu::expand_lazy_submenu(handler_clsid.as_deref(), parent_index),
         SHELL_OP_TIMEOUT,
     ) {
         Some(result) => result,
@@ -115,14 +122,14 @@ pub fn load_lazy_submenu(parent_index: u32) -> anyhow::Result<Vec<ShellContextMe
 }
 
 /// Invoke on the owning STA thread (Files `_owningThread.PostMethod`).
-pub fn invoke_on_session(command_offset: u32) -> anyhow::Result<()> {
+pub fn invoke_on_session(handler_clsid: Option<String>, command_offset: u32) -> anyhow::Result<()> {
     let _guard = shell_op_lock();
     let slot = SHELL_SESSION.lock().expect("shell session slot");
     let Some(thread) = slot.as_ref() else {
         anyhow::bail!("no shell menu session for invoke");
     };
     match thread.post_with_timeout(
-        move || context_menu::invoke_prepared_menu(command_offset),
+        move || crate::context_menu::invoke_prepared_menu(handler_clsid.as_deref(), command_offset),
         SHELL_OP_TIMEOUT,
     ) {
         Some(result) => result,

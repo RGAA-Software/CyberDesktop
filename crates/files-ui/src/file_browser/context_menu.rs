@@ -107,6 +107,7 @@ fn shell_menu_click_item(
     paths: Vec<PathBuf>,
     command_offset: u32,
     command_string: Option<String>,
+    handler_clsid: Option<String>,
     extended_verbs: bool,
 ) -> PopupMenuItem {
     let display_label: SharedString = platform::format_shell_menu_label(&label).into();
@@ -115,7 +116,12 @@ fn shell_menu_click_item(
         let result = if is_properties {
             platform::invoke_shell_properties(&paths)
         } else {
-            platform::invoke_shell_context_menu_item(&paths, command_offset, extended_verbs)
+            platform::invoke_shell_context_menu_item(
+                &paths,
+                command_offset,
+                handler_clsid.as_deref(),
+                extended_verbs,
+            )
         };
         let _ = result;
     };
@@ -150,7 +156,7 @@ fn shell_feature_submenu_ref(
     paths: &[PathBuf],
     extended_verbs: bool,
     label_pred: fn(&str) -> bool,
-) -> (Option<u32>, Vec<ShellContextMenuEntry>) {
+) -> (Option<String>, Option<u32>, Vec<ShellContextMenuEntry>) {
     let key = normalize_paths_for_shell_cache(paths);
     let top_level = cache
         .read()
@@ -165,15 +171,16 @@ fn shell_feature_submenu_ref(
             label,
             children,
             lazy_parent_index,
+            handler_clsid,
             ..
         } = entry
         {
             if label_pred(label) {
-                return (*lazy_parent_index, children.clone());
+                return (handler_clsid.clone(), *lazy_parent_index, children.clone());
             }
         }
     }
-    (None, Vec::new())
+    (None, None, Vec::new())
 }
 
 fn append_file_tags_toggle_submenu(
@@ -217,6 +224,7 @@ fn append_send_to_submenu(
     menu: PopupMenu,
     children: &[ShellContextMenuEntry],
     lazy_parent_index: Option<u32>,
+    handler_clsid: Option<String>,
     paths: &[PathBuf],
     extended_verbs: bool,
     browser: Entity<FileBrowser>,
@@ -232,7 +240,8 @@ fn append_send_to_submenu(
         window,
         cx,
         move |sub, window, cx| {
-            let loaded = resolve_submenu_entries(lazy_parent_index, &children_stash);
+            let loaded =
+                resolve_submenu_entries(handler_clsid.clone(), lazy_parent_index, &children_stash);
             let sub = if loaded.is_empty() {
                 sub
             } else {
@@ -281,6 +290,7 @@ fn append_open_with_submenu(
     menu: PopupMenu,
     children: &[ShellContextMenuEntry],
     lazy_parent_index: Option<u32>,
+    handler_clsid: Option<String>,
     paths: &[PathBuf],
     extended_verbs: bool,
     browser: Entity<FileBrowser>,
@@ -297,7 +307,8 @@ fn append_open_with_submenu(
         window,
         cx,
         move |sub, window, cx| {
-            let loaded = resolve_submenu_entries(lazy_parent_index, &children_stash);
+            let loaded =
+                resolve_submenu_entries(handler_clsid.clone(), lazy_parent_index, &children_stash);
             let sub = if loaded.is_empty() {
                 sub.item(PopupMenuItem::new(t!("files.menu.shell_empty")).disabled(true))
             } else {
@@ -331,11 +342,12 @@ fn append_open_with_submenu(
 }
 
 fn resolve_submenu_entries(
+    handler_clsid: Option<String>,
     lazy_parent_index: Option<u32>,
     children: &[ShellContextMenuEntry],
 ) -> Vec<ShellContextMenuEntry> {
     if let Some(index) = lazy_parent_index {
-        match std::thread::spawn(move || platform::load_lazy_submenu(index)).join() {
+        match std::thread::spawn(move || platform::load_lazy_submenu(handler_clsid, index)).join() {
             Ok(Ok(items)) => items,
             Ok(Err(_error)) => Vec::new(),
             Err(_) => Vec::new(),
@@ -367,6 +379,7 @@ fn append_shell_flat_items(
                 command_offset,
                 command_string,
                 icon_png,
+                handler_clsid,
                 ..
             } => {
                 menu = menu.item(shell_menu_click_item(
@@ -375,6 +388,7 @@ fn append_shell_flat_items(
                     paths.to_vec(),
                     *command_offset,
                     command_string.clone(),
+                    handler_clsid.clone(),
                     extended_verbs,
                 ));
             }
@@ -390,6 +404,7 @@ fn append_shell_submenu(
     icon_png: Option<Vec<u8>>,
     children: &[ShellContextMenuEntry],
     lazy_parent_index: Option<u32>,
+    handler_clsid: Option<String>,
     paths: &[PathBuf],
     extended_verbs: bool,
     browser: Entity<FileBrowser>,
@@ -401,6 +416,7 @@ fn append_shell_submenu(
     let paths_for_sub = paths.to_vec();
     let browser_sub = browser.clone();
     let lazy_index = lazy_parent_index;
+    let clsid_for_sub = handler_clsid;
     let children_stash = children.to_vec();
     menu.submenu_with_icon_png(
         display_label,
@@ -408,7 +424,8 @@ fn append_shell_submenu(
         window,
         cx,
         move |sub, window, cx| {
-            let loaded = resolve_submenu_entries(lazy_index, &children_stash);
+            let loaded =
+                resolve_submenu_entries(clsid_for_sub.clone(), lazy_index, &children_stash);
             let _ = &log_label;
             if loaded.is_empty() {
                 sub.item(PopupMenuItem::new(t!("files.menu.shell_empty")).disabled(true))
@@ -456,6 +473,7 @@ pub(crate) fn append_shell_entries(
                     children,
                     lazy_parent_index,
                     icon_png,
+                    handler_clsid,
                     ..
                 } => {
                     if !flat_batch.is_empty() {
@@ -468,6 +486,7 @@ pub(crate) fn append_shell_entries(
                         icon_png.clone(),
                         children,
                         *lazy_parent_index,
+                        handler_clsid.clone(),
                         paths,
                         extended_verbs,
                         browser.clone(),
@@ -497,6 +516,7 @@ pub(crate) fn append_shell_entries(
                     command_offset,
                     command_string,
                     icon_png,
+                    handler_clsid,
                     ..
                 } => {
                     menu = menu.item(shell_menu_click_item(
@@ -505,6 +525,7 @@ pub(crate) fn append_shell_entries(
                         paths.to_vec(),
                         *command_offset,
                         command_string.clone(),
+                        handler_clsid.clone(),
                         extended_verbs,
                     ));
                 }
@@ -838,7 +859,7 @@ fn build_directory_item_menu(
     );
 
     if single && !paths[0].is_dir() {
-        let (open_with_lazy, open_with_children) = shell_feature_submenu_ref(
+        let (open_with_clsid, open_with_lazy, open_with_children) = shell_feature_submenu_ref(
             &shell_menu_cache,
             &paths,
             extended,
@@ -855,6 +876,7 @@ fn build_directory_item_menu(
                 menu,
                 &open_with_children,
                 open_with_lazy,
+                open_with_clsid,
                 &paths,
                 extended,
                 browser.clone(),
@@ -939,7 +961,7 @@ fn build_directory_item_menu(
     }
 
     if item_prefs.send_to && has_selection {
-        let (send_to_lazy, send_to_children) = shell_feature_submenu_ref(
+        let (send_to_clsid, send_to_lazy, send_to_children) = shell_feature_submenu_ref(
             &shell_menu_cache,
             &paths,
             extended,
@@ -949,6 +971,7 @@ fn build_directory_item_menu(
             menu,
             &send_to_children,
             send_to_lazy,
+            send_to_clsid,
             &paths,
             extended,
             browser.clone(),

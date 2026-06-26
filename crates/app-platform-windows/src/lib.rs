@@ -13,6 +13,8 @@ mod drag_out;
 #[cfg(windows)]
 mod eject;
 #[cfg(windows)]
+mod hybrid_shell_session;
+#[cfg(windows)]
 mod icons;
 #[cfg(windows)]
 mod paths;
@@ -48,12 +50,19 @@ pub use clipboard::read_clipboard_file_paths;
 #[cfg(windows)]
 pub use com::ensure_com_multithreaded;
 #[cfg(windows)]
+pub use com::log_current_apartment;
+#[cfg(windows)]
+pub use com::ThreadWithMessageQueueWithPump;
+#[cfg(windows)]
+pub use context_menu::create_context_menu_on_current_thread;
+#[cfg(windows)]
 pub use drag_leave::{
     arm_native_drag_leave, disarm_native_drag_leave, take_native_drag_leave_pending,
 };
 pub use drag_out::{begin_drag_out, is_cursor_outside_window, DragEffect};
 #[cfg(windows)]
 pub use eject::eject_volume;
+
 #[cfg(windows)]
 pub use icons::{
     icon_hint_for_path, icon_hint_from_extension, shell_dummy_icon_path, ShellIconHint,
@@ -82,8 +91,8 @@ pub use shell::{
     clear_shell_menu_session, format_shell_menu_label, invoke_shell_context_menu_item,
     invoke_shell_properties, load_lazy_submenu, open_in_new_explorer_window, open_item_properties,
     query_shell_context_menu_items, shell_execute_open, show_open_with_dialog,
-    show_open_with_dialog_blocking, show_shell_context_menu, warm_up_query_context_menu,
-    ShellContextMenuEntry,
+    show_open_with_dialog_blocking, show_shell_context_menu, warm_up_hybrid_shell_menu,
+    warm_up_query_context_menu, ShellContextMenuEntry,
 };
 #[cfg(windows)]
 #[cfg(windows)]
@@ -194,17 +203,15 @@ mod stubs {
             command_offset: u32,
             command_string: Option<String>,
             icon_png: Option<Vec<u8>>,
+            handler_clsid: Option<String>,
         },
         Submenu {
             label: String,
             children: Vec<ShellContextMenuEntry>,
             icon_png: Option<Vec<u8>>,
             lazy_parent_index: Option<u32>,
+            handler_clsid: Option<String>,
         },
-    }
-
-    pub fn load_lazy_submenu(_parent_index: u32) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
-        Ok(Vec::new())
     }
 
     pub fn warm_up_query_context_menu() {}
@@ -232,9 +239,17 @@ mod stubs {
     pub fn invoke_shell_context_menu_item(
         _paths: &[PathBuf],
         _command_offset: u32,
+        _handler_clsid: Option<&str>,
         _extended_verbs: bool,
     ) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    pub fn load_lazy_submenu(
+        _handler_clsid: Option<String>,
+        _parent_index: u32,
+    ) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
+        Ok(Vec::new())
     }
 
     pub fn clear_shell_menu_session() {}

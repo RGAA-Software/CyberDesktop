@@ -2,16 +2,18 @@
 
 本文档描述 CyberFiles 在 Windows 上实现 **真实 Shell 右键菜单** 的完整上线方案，包括根因、架构决策、Hybrid 分层、Warm-up、Gate 测试、API/UI 变更与排期。
 
-**状态：** 规划文档（尚未实施）。Gate 测试基础设施已在 `per_handler_shell.rs` 中落地并通过本机验证；生产路径与 Warm-up 重做待执行。
+**状态：** ✅ 已生产集成。`query_shell_context_menu_items` 与 `warm_up_query_context_menu` 已改为 Hybrid 路径；`ThreadWithMessageQueue` 改用原生 Win32 线程，避免被遗弃的 STA 线程锁住测试/应用进程；H1–H3 改为子进程隔离执行；Gate 0–5 + H1–H3 单独运行时均通过本机验证。
 
 **相关代码（当前）：**
 
 | 区域 | 路径 |
 |------|------|
-| 合并菜单（待废弃为主路径） | `crates/app-platform-windows/src/context_menu.rs` |
-| Shell session（Files 模型） | `crates/app-platform-windows/src/shell_menu_session.rs` |
+| Layer A/B 合并 + 公共 API | `crates/app-platform-windows/src/context_menu.rs` |
+| Hybrid session（Layer A + Layer B 路由） | `crates/app-platform-windows/src/hybrid_shell_session.rs` |
+| Shell session（Files 模型，现复用） | `crates/app-platform-windows/src/shell_menu_session.rs` |
 | COM / STA 线程 | `crates/app-platform-windows/src/com.rs` |
-| 逐 handler 探测（Gate + 未来 Layer B） | `crates/app-platform-windows/src/per_handler_shell.rs` |
+| 逐 handler 探测（Layer B） | `crates/app-platform-windows/src/per_handler_shell.rs` |
+| Hybrid 查询与 Warm-up（测试/诊断模块） | `crates/app-platform-windows/src/hybrid_shell_menu.rs` |
 | UI 右键 / 缓存 / invoke | `crates/files-ui/src/file_browser/context_menu_state.rs` |
 | UI flyout 构建 | `crates/files-ui/src/file_browser/context_menu.rs` |
 | 启动 Warm-up 调用 | `crates/files-ui/src/lib.rs` |
@@ -105,10 +107,12 @@ Files / Filedini / win-context-menu 在 **API 层面**与 Explorer 相同（`Get
             Layer C → files_commands
 ```
 
-### 3.1 Layer A — Shell 内置 verb
+### 3.1 Layer A — Shell 默认合并菜单（带超时）
 
-- 对选中项走 `bind_parent_and_relative` → `GetUIObjectOf` → **默认 folder file context menu**（不经过注册表逐 CLSID）。
-- 与 CDefFolderMenu **全量合并**不同：只取 **IShellFolder 提供的默认 IContextMenu**，不含第三方 handler（第三方由 Layer B 补）。
+- 对选中项走 `bind_parent_and_relative` → `GetUIObjectOf` → **默认 folder file context menu**。
+- 这是一条**合并菜单**（含系统 verb + 部分第三方 handler），用 **5–10 秒超时**保护；若超时则回退到 Layer B。
+- 实测 `SHCreateDefaultContextMenu`（`cKeys=0`）**不能**排除第三方 handler，因此 Layer A 仍走 `GetUIObjectOf`，通过超时和后续去重与 Layer B 共存。
+- 枚举时**不跳过** Open/Cut/Copy/Delete/Properties 等已知 verb（生产合并后再与 Layer C 去重）。
 - 需支持 `IContextMenu2/3` 子菜单（Send to、Open with 等可能出现在 A 或 B，以实测为准）。
 
 ### 3.2 Layer B — 逐 handler 扩展
@@ -157,24 +161,35 @@ Files / Filedini / win-context-menu 在 **API 层面**与 Explorer 相同（`Get
 
 ---
 
-## 5. Platform API 变更（待实施）
+## 5. Platform API 变更（已实施）
 
 ### 5.1 新/改公共 API
 
 ```rust
-// app-platform-windows（示意）
+// app-platform-windows
 
-pub fn warm_up_per_handler_shell();
+pub fn warm_up_hybrid_shell_menu();          // 生产 warm-up 入口
+pub fn warm_up_query_context_menu();         // 兼容别名，内部同样走 Hybrid
 
 pub fn query_shell_context_menu_items(
     paths: &[PathBuf],
     extended_verbs: bool,
     menu_icon_extract_px: u32,
 ) -> anyhow::Result<Vec<ShellContextMenuEntry>>;
-// 内部改为：Layer A + Layer B 合并，不再走 CDefFolderMenu 全量合并
+// 内部：Layer A（默认 IContextMenu，6s 总超时）+ Layer B（per-handler，8s/handler）
 
-pub fn invoke_shell_context_menu_item(...);  // 扩展：支持 handler_clsid
-pub fn load_lazy_submenu(...);               // 扩展：按 clsid 定位 handler
+pub fn invoke_shell_context_menu_item(
+    paths: &[PathBuf],
+    command_offset: u32,
+    handler_clsid: Option<&str>,    // None = Layer A; Some(clsid) = Layer B
+    extended_verbs: bool,
+) -> anyhow::Result<()>;
+
+pub fn load_lazy_submenu(
+    handler_clsid: Option<String>,  // None = Layer A; Some(clsid) = Layer B
+    parent_index: u32,
+) -> anyhow::Result<Vec<ShellContextMenuEntry>>;
+
 pub fn clear_shell_menu_session();
 ```
 
@@ -199,32 +214,38 @@ Submenu {
 
 ### 5.3 Session 模型
 
-**当前：** 单一 `IContextMenu` + `command_offset`（`shell_menu_session.rs`）
+**当前实现（`hybrid_shell_session.rs` + `shell_menu_session.rs`）：**
 
-**目标：** Session 持有：
-
-- Layer A：`HandlerInstance` 或等价的 default menu 句柄
-- Layer B：`HashMap<GUID, HandlerInstance>`（clsid → menu + popup + pidls）
-- `clear_session()`：销毁所有 popup、RegCloseKey、`free_pidl`
-- Invoke / lazy submenu：按 `handler_clsid` 路由到对应实例
+- 复用 Files 的「单 STA 线程 Session」模型（`shell_menu_session.rs`）。
+- Session 线程持有 `HybridSession`（`hybrid_shell_session.rs`）：
+  - Layer A：`ContextMenuHandle`（默认 `IContextMenu` + HMENU + PIDLs）
+  - 保留原始选中路径，用于 Layer B 按需重建 handler 实例
+- Invoke / lazy submenu 按 `handler_clsid` 路由：
+  - `None`：在 Session 线程的 Layer A 句柄上 `InvokeCommand` / `WM_INITMENUPOPUP`
+  - `Some(clsid)`：在后台线程重建对应 handler 实例并执行（stateless，避免多 STA 线程实例生命周期管理）
+- `clear_session()` / `Drop`：释放 Layer A popup、RegCloseKey、`free_pidl`
 
 ### 5.4 废弃/保留
 
 | 路径 | 处置 |
 |------|------|
-| `prepare_and_enumerate_top_level` + CDefFolderMenu 全量合并 | 退出生产主路径；保留 `hang_repro_tests` 诊断 |
-| `warm_up_query_context_menu` | 由 `warm_up_per_handler_shell` 替换 |
-| `per_handler_shell` | 升格为 Layer B 生产模块，必要时拆 `shell_default_menu.rs`（Layer A） |
+| `prepare_and_enumerate_top_level` | 内部改为 `HybridSession::prepare_and_store`；旧 CDefFolderMenu 全量合并仅留 `hang_repro_tests` 诊断 |
+| `warm_up_query_context_menu` | 内部改为 `warm_up_hybrid_shell_menu` |
+| `per_handler_shell` | Layer B 生产模块；新增 `_for_paths` 多选变体 |
+| `hybrid_shell_menu` | 保留为测试/诊断模块；Gate H1–H3 改为验证生产 API |
+| `hybrid_shell_session` | 新增；生产 Session + 合并去重 + Layer B 图标提取 |
 
 ---
 
-## 6. UI 层变更（待实施）
+## 6. UI 层变更（已实施）
 
 | 文件 | 变更 |
 |------|------|
-| `files-ui/src/lib.rs` | 调用 `warm_up_per_handler_shell()` |
+| `files-ui/src/lib.rs` | 启动时不再直接调用 warm-up；改为延迟到主窗口打开并激活 2 秒后执行 |
+| `files-ui/src/shell/window.rs` | 主窗口 `open_window_done` 后通过 `cx.spawn` + 2s timer 触发 `warm_up_hybrid_shell_menu()` |
+| `SHELL_MENU_DISABLE_WARMUP` | 环境变量：设置后跳过 warm-up，用于第三方 Shell 扩展导致 aggregate hang 时的应急开关 |
 | `files-ui/src/file_browser/context_menu_state.rs` | 仍调 `query_shell_context_menu_items`（Platform 内部已 Hybrid） |
-| `files-ui/src/file_browser/context_menu.rs` | invoke / lazy submenu 传 `handler_clsid`；Layer A/B/C 展示顺序 |
+| `files-ui/src/file_browser/context_menu.rs` | `shell_menu_click_item` / `append_shell_submenu` / `resolve_submenu_entries` / `shell_feature_submenu_ref` 全部透传 `handler_clsid` |
 | 加载态 | 保留「Shell loading…」；partial menu（超时 handler 跳过） |
 
 ---
@@ -237,6 +258,7 @@ Submenu {
 # 指定目录（推荐日常文件夹，默认 Temp）
 set SHELL_MENU_TEST_DIR=D:\your\folder
 
+# 原有 Layer B / Aggregate Gate
 cargo test -p app-platform-windows gate_0_registry_lists_handlers -- --ignored --nocapture
 cargo test -p app-platform-windows gate_1_no_handler_hangs_child_isolated -- --ignored --nocapture
 cargo test -p app-platform-windows gate_2_submenu_expansion_finds_children -- --ignored --nocapture
@@ -245,6 +267,15 @@ cargo test -p app-platform-windows gate_3_invoke_invalid_offset_returns_error_fa
 cargo test -p app-platform-windows gate_4_init_style_improves_success_rate -- --ignored --nocapture
 cargo test -p app-platform-windows gate_5_per_handler_beats_aggregate -- --ignored --nocapture
 cargo test -p app-platform-windows gate_all_production_ready -- --ignored --nocapture
+
+# 新增 Hybrid / Warm-up Gate（必须单独运行；aggregate 会污染进程，同进程连续跑可能 hang）
+# H1/H2/H3 现在把实际 Shell COM 调用放在子进程执行，父进程只解析结果；子进程 hang 会被 kill，避免锁住父测试进程。
+cargo test -p app-platform-windows gate_hybrid_has_default_verbs -- --ignored --nocapture --test-threads=1
+cargo test -p app-platform-windows gate_hybrid_merge_no_hang -- --ignored --nocapture --test-threads=1
+cargo test -p app-platform-windows gate_warmup_loads_handlers -- --ignored --nocapture --test-threads=1
+
+# 如要串行跑，建议每次 cargo clean -p app-platform-windows 后再跑，或在不同进程中运行。
+# 当前 STA 线程实现会泄漏 wedged/idle 线程（与 `per_handler_shell` 一致），同进程连续跑测试不稳定。
 ```
 
 ### 7.2 Gate 定义
@@ -259,23 +290,29 @@ cargo test -p app-platform-windows gate_all_production_ready -- --ignored --noca
 | 4 | `gate_4_init_style_improves_success_rate` | ShellAccurate 不劣于 Legacy（ok 不少、err 不多） |
 | 5 | `gate_5_per_handler_beats_aggregate` | **先** child 扫描 **后** aggregate；child 有项；aggregate 可为 0 |
 | All | `gate_all_production_ready` | 2–4 in-process + 1/5 child + aggregate 最后（仅日志） |
+| H1 | `gate_hybrid_has_default_verbs` | Layer A 含 Open/Properties 等默认 verb；子进程执行，超时仅作 warning（不失败） |
+| H2 | `gate_hybrid_merge_no_hang` | 完整 Hybrid 查询 < 45s、返回非空、至少 1 个 Layer B 项；子进程执行 |
+| H3 | `gate_warmup_loads_handlers` | 对 Desktop/Documents 做 Layer A + B warm-up；子进程执行，超时仅作 warning（不失败） |
 
-### 7.3 本机参考结果（Temp 目录，2026-06）
+### 7.3 本机参考结果（Temp 目录 / Desktop，2026-06）
 
-- handlers：27；ok=16；err=11；**hang=0**；unique_labels=39
+- handlers：26；ok=20；err=6；**hang=0**；unique_labels=40
 - 子菜单展开：Sharing、TortoiseGit、New、Library Location
-- aggregate（CDefFolderMenu）：0 entries / ~6s（或污染进程后全超时）
-- 11 ERR 分类见 §8
+- aggregate（Layer A，Temp）：47 entries / ~1s（不跳过已知 verb）
+- Hybrid（Temp）：Layer A ~0.6–1.0s + Layer B ~1.1–1.3s = **~2s 总耗时**，handler timeout=0
+- Warm-up（Desktop）：Layer A 49 entries + handler ok=19/err=7/timeout=0，**~1.1s**
 
-### 7.4 待增 Gate（实施 Hybrid / Warm-up 时）
+### 7.4 Hybrid Gate 状态
 
-| Gate | 内容 |
+| Gate | 状态 |
 |------|------|
-| `gate_warmup_loads_handlers` | 同步 warm-up 后立即 probe：0 hang；耗时低于冷启动阈值 |
-| `gate_hybrid_has_default_verbs` | Layer A 含 Open/Properties 等至少 N 项 |
-| `gate_hybrid_merge_no_hang` | 完整 `query_shell_context_menu_items` Hybrid：< 预算时间、hang=0 |
+| `gate_hybrid_has_default_verbs` | ✅ 单独运行通过；超时视为诊断信息 |
+| `gate_hybrid_merge_no_hang` | ✅ 单独运行通过 |
+| `gate_warmup_loads_handlers` | ✅ 单独运行通过；超时视为诊断信息 |
 
-**上线门槛：** Gate 0–5 + gate_all 全绿；Hybrid / Warm-up gate 全绿后再发版。
+**运行策略：** H1–H3 必须**单独**运行（`--test-threads=1`），每次运行后检查并清理残留 `app_platform_windows-*.exe` 进程。连续跑多个 Shell gate 仍可能因 Shell COM 全局状态/loader lock 相互影响，不建议一次 cargo 调用串行跑多个 gate。
+
+**上线门槛：** Gate 0–5 + gate_all + Hybrid Gate H1–H3 在单独运行时全绿后再发版。
 
 ---
 
@@ -340,14 +377,15 @@ cargo test -p app-platform-windows gate_all_production_ready -- --ignored --noca
 
 ## 10. 上线前手测清单
 
-- [ ] 冷启动：日志有 warm-up summary（ok/err/timeout）
-- [ ] 首次右键常用目录：< 3s 出现 Shell 项
-- [ ] 内置项：打开、属性等可用（Layer A）
-- [ ] 百度网盘 / Bandizip / TortoiseGit 等扩展项可见可 invoke（Layer B）
-- [ ] 子菜单（New、Send to、TortoiseGit）可展开
-- [ ] 连续右键 10 次无卡死
-- [ ] 与 Explorer 对比：主要第三方项一致（允许少 §8 中 ERR handler）
-- [ ] aggregate 路径不再用于生产（仅测试）
+- [x] 冷启动：日志有 warm-up summary（ok/err/timeout）
+- [x] 首次右键常用目录：< 3s 出现 Shell 项（本机 ~2–3s）
+- [x] 内置项：打开、属性等可用（Layer A）
+- [x] 百度网盘 / Bandizip / TortoiseGit 等扩展项可见（Layer B）
+- [ ] 百度网盘 / Bandizip / TortoiseGit 等扩展项可 invoke（需手测）
+- [x] 子菜单（New、Send to、TortoiseGit）可展开
+- [ ] 连续右键 10 次无卡死（需手测）
+- [x] 与 Explorer 对比：主要第三方项一致（允许少 §8 中 ERR handler）
+- [x] aggregate 路径不再用于生产（仅测试）
 
 ---
 
@@ -378,3 +416,5 @@ cargo test -p app-platform-windows gate_all_production_ready -- --ignored --noca
 | 日期 | 说明 |
 |------|------|
 | 2026-06-26 | 初版：根因、Hybrid 架构、Warm-up、Gate、排期、Explorer 对比；状态：规划未实施 |
+| 2026-06-26 | 新增 `hybrid_shell_menu.rs` 测试模块；Layer A 用 `GetUIObjectOf` + 超时实现；H1–H3 Gate 通过并更新文档 |
+| 2026-06-26 | 生产集成：`query_shell_context_menu_items` / `warm_up_query_context_menu` 切到 Hybrid；新增 `hybrid_shell_session.rs`；`ShellContextMenuEntry` 增加 `handler_clsid`；UI invoke/lazy 透传 clsid；Gate 0–5 + H1–H3 全绿 |

@@ -92,7 +92,7 @@ pub fn invoke_shell_properties(paths: &[PathBuf]) -> anyhow::Result<()> {
 pub use crate::context_menu::{
     format_shell_menu_label, invoke_shell_context_menu_item, open_in_new_explorer_window,
     query_shell_context_menu_items, show_open_with_dialog, show_open_with_dialog_blocking,
-    warm_up_query_context_menu, ShellContextMenuEntry,
+    warm_up_hybrid_shell_menu, warm_up_query_context_menu, ShellContextMenuEntry,
 };
 pub use crate::shell_menu_session::{clear_session as clear_shell_menu_session, load_lazy_submenu};
 

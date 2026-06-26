@@ -1,6 +1,5 @@
 use crate::com::ensure_com_apartment;
 use crate::shell_menu_session;
-use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
@@ -23,9 +22,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 #[cfg(test)]
 use crate::shell_icon::menu_icon_pixel_size;
-use crate::shell_menu_icon::{
-    init_popup_menu, refresh_item_bitmap, resolve_menu_item_icon, set_menu_icon_extract_px,
-};
+use crate::shell_menu_icon::{init_popup_menu, refresh_item_bitmap, resolve_menu_item_icon};
 
 const CMD_FIRST: u32 = 1;
 const CMD_LAST: u32 = 0x7fff;
@@ -71,6 +68,8 @@ pub enum ShellContextMenuEntry {
         command_string: Option<String>,
         /// PNG bytes (16×16) from the Shell menu bitmap, when present.
         icon_png: Option<Vec<u8>>,
+        /// CLSID of the owning shell extension for Layer B items; `None` for Layer A.
+        handler_clsid: Option<String>,
     },
     /// Nested Shell popup; `lazy_parent_index` is set when children load on expand (Files).
     Submenu {
@@ -79,6 +78,8 @@ pub enum ShellContextMenuEntry {
         icon_png: Option<Vec<u8>>,
         /// Parent HMENU index for [`expand_lazy_submenu`]; `None` if `children` are populated.
         lazy_parent_index: Option<u32>,
+        /// CLSID of the owning shell extension for Layer B submenus; `None` for Layer A.
+        handler_clsid: Option<String>,
     },
 }
 
@@ -89,7 +90,7 @@ fn path_to_wide(path: &Path) -> Vec<u16> {
         .collect()
 }
 
-fn same_parent(paths: &[PathBuf]) -> bool {
+pub(crate) fn same_parent(paths: &[PathBuf]) -> bool {
     let Some(first) = paths
         .first()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
@@ -101,7 +102,9 @@ fn same_parent(paths: &[PathBuf]) -> bool {
         .all(|p| p.parent().map(|p| p.to_path_buf()) == Some(first.clone()))
 }
 
-pub(crate) unsafe fn bind_parent_and_relative(path: &Path) -> anyhow::Result<(IShellFolder, *mut ITEMIDLIST)> {
+pub(crate) unsafe fn bind_parent_and_relative(
+    path: &Path,
+) -> anyhow::Result<(IShellFolder, *mut ITEMIDLIST)> {
     let wide = path_to_wide(path);
     let mut full_pidl: *mut ITEMIDLIST = std::ptr::null_mut();
     SHParseDisplayName(PCWSTR(wide.as_ptr()), None, &mut full_pidl, 0, None)?;
@@ -298,25 +301,11 @@ fn should_skip_shell_verb(command_string: Option<&str>, label: &str) -> bool {
     KNOWN.iter().any(|k| lower == *k)
 }
 
-struct ContextMenuHandle {
-    menu: IContextMenu,
-    popup: HMENU,
-    child_pidls: Vec<*mut ITEMIDLIST>,
-    primary_path: PathBuf,
-}
-
-thread_local! {
-    static PREPARED_MENU: RefCell<Option<ContextMenuHandle>> = const { RefCell::new(None) };
-}
-
-pub(crate) fn release_prepared_menu() {
-    PREPARED_MENU.with(|slot| {
-        if let Some(handle) = slot.borrow_mut().take() {
-            unsafe {
-                handle.release();
-            }
-        }
-    });
+pub(crate) struct ContextMenuHandle {
+    pub(crate) menu: IContextMenu,
+    pub(crate) popup: HMENU,
+    pub(crate) child_pidls: Vec<*mut ITEMIDLIST>,
+    pub(crate) primary_path: PathBuf,
 }
 
 /// Build menu and enumerate top-level only (Files: `EnumMenuItems(..., loadSubmenus: false)`).
@@ -326,21 +315,21 @@ pub(crate) fn prepare_and_enumerate_top_level(
     menu_icon_extract_px: u32,
 ) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
     shell_log!("prepare: ENTER (job body start, before any COM)");
-    set_menu_icon_extract_px(menu_icon_extract_px);
     shell_log!(
         "prepare_and_enumerate_top_level: paths={:?} extended={} icon_px={menu_icon_extract_px}",
         paths,
         extended_verbs
     );
-    shell_log!("prepare: release_prepared_menu begin");
-    release_prepared_menu();
-    shell_log!("prepare: release_prepared_menu done; create_context_menu begin");
-    unsafe {
-        let handle = create_context_menu(paths, extended_verbs)?;
-        PREPARED_MENU.with(|slot| *slot.borrow_mut() = Some(handle));
-    }
-    shell_log!("prepare: create_context_menu done; enumerate top-level begin");
-    let result = enumerate_prepared_menu_top_level();
+    shell_log!("prepare: release_hybrid_session begin");
+    crate::hybrid_shell_session::release_prepared_hybrid_session();
+    shell_log!("prepare: release_hybrid_session done; prepare_and_store begin");
+    let result = unsafe {
+        crate::hybrid_shell_session::HybridSession::prepare_and_store(
+            paths,
+            extended_verbs,
+            menu_icon_extract_px,
+        )
+    };
     shell_log!(
         "prepare: enumerate done (ok={}, n={})",
         result.is_ok(),
@@ -349,31 +338,21 @@ pub(crate) fn prepare_and_enumerate_top_level(
     result
 }
 
-pub(crate) fn enumerate_prepared_menu_top_level() -> anyhow::Result<Vec<ShellContextMenuEntry>> {
-    PREPARED_MENU.with(|slot| {
-        let guard = slot.borrow();
-        let Some(handle) = guard.as_ref() else {
-            anyhow::bail!("no prepared shell context menu");
-        };
-        unsafe { enumerate_popup_menu(handle.popup, &handle.menu, 0, false, &handle.primary_path) }
-    })
-}
-
 /// Files `LoadSubMenu`: `HandleMenuMsg(WM_INITMENUPOPUP)` then enumerate that HMENU.
-pub(crate) fn expand_lazy_submenu(parent_index: u32) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
-    PREPARED_MENU.with(|slot| {
-        let guard = slot.borrow();
-        let Some(handle) = guard.as_ref() else {
-            anyhow::bail!("no prepared shell context menu");
-        };
-        unsafe { expand_lazy_submenu_inner(handle.popup, &handle.menu, parent_index) }
-    })
+pub(crate) fn expand_lazy_submenu(
+    handler_clsid: Option<&str>,
+    parent_index: u32,
+) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
+    unsafe {
+        crate::hybrid_shell_session::HybridSession::expand_lazy_submenu(handler_clsid, parent_index)
+    }
 }
 
-unsafe fn expand_lazy_submenu_inner(
+pub(crate) unsafe fn expand_lazy_submenu_inner(
     popup: HMENU,
     menu: &IContextMenu,
     parent_index: u32,
+    primary_path: &Path,
 ) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
     let mut info = MENUITEMINFOW {
         cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
@@ -405,32 +384,20 @@ unsafe fn expand_lazy_submenu_inner(
         );
     }
 
-    let primary_path = PREPARED_MENU.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .map(|handle| handle.primary_path.clone())
-            .unwrap_or_default()
-    });
-    enumerate_popup_menu(submenu, menu, 1, true, &primary_path)
+    enumerate_popup_menu(submenu, menu, 1, true, primary_path, true, None)
 }
 
-pub(crate) fn invoke_prepared_menu(command_offset: u32) -> anyhow::Result<()> {
+pub(crate) fn invoke_prepared_menu(
+    handler_clsid: Option<&str>,
+    command_offset: u32,
+) -> anyhow::Result<()> {
     unsafe {
-        let Some(menu) = PREPARED_MENU.with(|slot| slot.borrow().as_ref().map(|h| h.menu.clone()))
-        else {
-            anyhow::bail!("no prepared shell context menu for invoke");
-        };
-        let mut info = CMINVOKECOMMANDINFO::default();
-        info.cbSize = std::mem::size_of::<CMINVOKECOMMANDINFO>() as u32;
-        info.lpVerb = PCSTR::from_raw(command_offset as usize as *const u8);
-        info.nShow = 1;
-        menu.InvokeCommand(&info)?;
-        Ok(())
+        crate::hybrid_shell_session::HybridSession::invoke_prepared(handler_clsid, command_offset)
     }
 }
 
 impl ContextMenuHandle {
-    unsafe fn release(self) {
+    pub(crate) unsafe fn release(self) {
         let ContextMenuHandle {
             menu,
             popup,
@@ -445,7 +412,7 @@ impl ContextMenuHandle {
     }
 }
 
-unsafe fn create_context_menu(
+pub(crate) unsafe fn create_context_menu(
     paths: &[PathBuf],
     extended_verbs: bool,
 ) -> anyhow::Result<ContextMenuHandle> {
@@ -478,10 +445,13 @@ unsafe fn create_context_menu(
 
     let popup = CreatePopupMenu()?;
     // Files: `CMF_NORMAL` or `CMF_EXTENDEDVERBS` only (no `CMF_EXPLORE`).
+    // Additionally ask handlers to enumerate verbs asynchronously; some misbehaving
+    // extensions (notably WPS "Open With") block the aggregate QueryContextMenu otherwise.
+    const CMF_ASYNCVERBENUM: u32 = 0x00000400;
     let flags = if extended_verbs {
-        CMF_NORMAL | CMF_EXTENDEDVERBS
+        CMF_NORMAL | CMF_EXTENDEDVERBS | CMF_ASYNCVERBENUM
     } else {
-        CMF_NORMAL
+        CMF_NORMAL | CMF_ASYNCVERBENUM
     };
     shell_log!("create: QueryContextMenu begin (extended={extended_verbs})");
     let t2 = std::time::Instant::now();
@@ -564,12 +534,14 @@ unsafe fn command_verb(context_menu: &IContextMenu, command_offset: u32) -> Opti
     None
 }
 
-unsafe fn enumerate_popup_menu(
+pub(crate) unsafe fn enumerate_popup_menu(
     popup: HMENU,
     context_menu: &IContextMenu,
     depth: u32,
     expand_submenus: bool,
     primary_path: &Path,
+    skip_known_verbs: bool,
+    handler_clsid: Option<&str>,
 ) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
     if depth >= MAX_SUBMENU_DEPTH {
         shell_log!("enumerate: max submenu depth {}", depth);
@@ -642,15 +614,22 @@ unsafe fn enumerate_popup_menu(
                     "enumerate: item[{index}] submenu '{label}' icon done in {:.1}ms",
                     t_icon.elapsed().as_secs_f64() * 1000.0
                 );
-                if let Ok(children) =
-                    enumerate_popup_menu(submenu, context_menu, depth + 1, true, primary_path)
-                {
+                if let Ok(children) = enumerate_popup_menu(
+                    submenu,
+                    context_menu,
+                    depth + 1,
+                    true,
+                    primary_path,
+                    true,
+                    handler_clsid,
+                ) {
                     if !children.is_empty() {
                         entries.push(ShellContextMenuEntry::Submenu {
                             label,
                             children,
                             icon_png,
                             lazy_parent_index: None,
+                            handler_clsid: handler_clsid.map(|s| s.to_string()),
                         });
                     }
                 }
@@ -676,6 +655,7 @@ unsafe fn enumerate_popup_menu(
                     children: Vec::new(),
                     icon_png,
                     lazy_parent_index: Some(index),
+                    handler_clsid: handler_clsid.map(|s| s.to_string()),
                 });
             }
             continue;
@@ -693,7 +673,7 @@ unsafe fn enumerate_popup_menu(
         let label = resolve_menu_item_label(context_menu, command_offset, &raw_label);
 
         let verb = command_verb(context_menu, command_offset);
-        if should_skip_shell_verb(verb.as_deref(), &label) {
+        if skip_known_verbs && should_skip_shell_verb(verb.as_deref(), &label) {
             continue;
         }
 
@@ -722,6 +702,7 @@ unsafe fn enumerate_popup_menu(
             command_offset,
             command_string: verb,
             icon_png,
+            handler_clsid: handler_clsid.map(|s| s.to_string()),
         });
     }
 
@@ -791,36 +772,74 @@ pub fn open_in_new_explorer_window(path: &Path) -> anyhow::Result<()> {
 /// agent/IPC connections they need) BEFORE the user's first right-click, instead of paying that
 /// cold cost — which can deadlock a misbehaving extension — on the interaction path.
 pub fn warm_up_query_context_menu() {
+    warm_up_hybrid_shell_menu();
+}
+
+/// Fire-and-forget warm-up of the Hybrid Shell query path.
+pub fn warm_up_hybrid_shell_menu() {
     std::thread::Builder::new()
         .name("cyber_desktop-shell-warmup".into())
         .spawn(|| {
             use std::time::Instant;
             let thread_start = Instant::now();
             tracing::info!(target: "startup", step = "shell_warmup_thread_begin");
+            crate::com::log_current_apartment("warmup-thread-start");
 
-            let system_drive =
-                std::env::var("SystemDrive").unwrap_or_else(|_| "C:".to_string());
-            let root = PathBuf::from(format!("{}\\", system_drive.trim_end_matches('\\')));
-            let icon_px =
-                crate::shell_icon::menu_icon_pixel_size(crate::system_scale_factor());
+            let _ = crate::com::ensure_com_apartment();
+            crate::com::log_current_apartment("warmup-thread-after-ensure");
+            let dir = crate::hybrid_shell_session::warmup_directory();
+            let icon_px = crate::hybrid_shell_session::warmup_icon_px();
 
-            // Discard the result; the point is the side effect of loading/initializing extensions.
-            let outcome = query_shell_context_menu_items(&[root.clone()], false, icon_px);
-            // Close the warm-up session so it doesn't linger as the "current" menu.
-            shell_menu_session::clear_session();
+            let outcome = unsafe {
+                crate::hybrid_shell_session::query_hybrid_entries_for_warmup(
+                    &[dir.clone()],
+                    false,
+                    icon_px,
+                    std::time::Duration::from_secs(5),
+                )
+            };
 
-            tracing::info!(
-                target: "startup",
-                step = "shell_warmup_thread_done",
-                ok = outcome.is_ok(),
-                entries = outcome.as_ref().map(|v| v.len()).unwrap_or(0),
-                block_ms = thread_start.elapsed().as_secs_f64() * 1000.0
-            );
+            match &outcome {
+                Ok(entries) => {
+                    tracing::info!(
+                        target: "startup",
+                        step = "shell_warmup_thread_done",
+                        ok = true,
+                        entries = entries.len(),
+                        block_ms = thread_start.elapsed().as_secs_f64() * 1000.0,
+                        warmup_dir = %dir.display(),
+                    );
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        target: "startup",
+                        step = "shell_warmup_thread_done",
+                        ok = false,
+                        error = ?error,
+                        block_ms = thread_start.elapsed().as_secs_f64() * 1000.0,
+                        warmup_dir = %dir.display(),
+                    );
+                }
+            }
         })
         .ok();
 }
 
 /// Enumerates Shell entries on a dedicated STA thread (Files `ThreadWithMessageQueue`).
+/// Diagnostic: run the merged QueryContextMenu on the **calling** thread.
+/// Used to test whether the hang is specific to background STA threads.
+pub fn create_context_menu_on_current_thread(
+    paths: &[PathBuf],
+    extended_verbs: bool,
+) -> anyhow::Result<u32> {
+    unsafe {
+        let handle = create_context_menu(paths, extended_verbs)?;
+        let count = GetMenuItemCount(handle.popup);
+        handle.release();
+        Ok(count as u32)
+    }
+}
+
 pub fn query_shell_context_menu_items(
     paths: &[PathBuf],
     extended_verbs: bool,
@@ -849,11 +868,13 @@ pub fn query_shell_context_menu_items(
 pub fn invoke_shell_context_menu_item(
     _paths: &[PathBuf],
     command_offset: u32,
+    handler_clsid: Option<&str>,
     _extended_verbs: bool,
 ) -> anyhow::Result<()> {
     let offset = command_offset;
+    let clsid = handler_clsid.map(|s| s.to_string());
     std::thread::spawn(move || {
-        if let Err(error) = shell_menu_session::invoke_on_session(offset) {
+        if let Err(error) = shell_menu_session::invoke_on_session(clsid, offset) {
             tracing::error!(target: "shell_menu", offset, error = ?error, "invoke failed");
         }
     });
@@ -1061,6 +1082,7 @@ mod windows_tests {
                     command_offset,
                     command_string,
                     icon_png,
+                    ..
                 } => {
                     let base = format!("{path_prefix}{index:03}_{}", sanitize_filename(label));
                     writeln!(
@@ -1086,6 +1108,7 @@ mod windows_tests {
                     children,
                     icon_png,
                     lazy_parent_index,
+                    ..
                 } => {
                     let base = format!("{path_prefix}{index:03}_{}", sanitize_filename(label));
                     let stack = format!("{submenu_stack}/{label}");
@@ -1109,7 +1132,9 @@ mod windows_tests {
 
                     let resolved = if children.is_empty() {
                         lazy_parent_index
-                            .and_then(|idx| crate::shell_menu_session::load_lazy_submenu(idx).ok())
+                            .and_then(|idx| {
+                                crate::shell_menu_session::load_lazy_submenu(None, idx).ok()
+                            })
                             .unwrap_or_default()
                     } else {
                         children.clone()
@@ -1299,21 +1324,33 @@ mod hang_repro_tests {
     use super::*;
     use crate::com::ThreadWithMessageQueue;
     use std::time::{Duration, Instant};
-    use windows::core::{GUID, IUnknown};
+    use windows::core::{IUnknown, GUID};
     use windows::Win32::System::Com::{CoCreateInstance, IDataObject, CLSCTX_INPROC_SERVER};
     use windows::Win32::System::Registry::HKEY;
     use windows::Win32::UI::Shell::IShellExtInit;
 
     // Third-party context-menu handlers found loaded in the hung process.
     // Baidu Netdisk is registered under `Directory` (every filesystem folder).
-    const BAIDU_NETDISK: GUID =
-        GUID::from_values(0x6D85624F, 0x305A, 0x491d, [0x88, 0x48, 0xC1, 0x92, 0x7A, 0xA0, 0xD7, 0x90]);
+    const BAIDU_NETDISK: GUID = GUID::from_values(
+        0x6D85624F,
+        0x305A,
+        0x491d,
+        [0x88, 0x48, 0xC1, 0x92, 0x7A, 0xA0, 0xD7, 0x90],
+    );
     // Adobe CoreSync is registered under `Folder`.
-    const ADOBE_CORESYNC: GUID =
-        GUID::from_values(0x2A118EB5, 0x5797, 0x4F5E, [0x8B, 0x3D, 0xF4, 0xEC, 0xBA, 0x3C, 0x98, 0xE4]);
+    const ADOBE_CORESYNC: GUID = GUID::from_values(
+        0x2A118EB5,
+        0x5797,
+        0x4F5E,
+        [0x8B, 0x3D, 0xF4, 0xEC, 0xBA, 0x3C, 0x98, 0xE4],
+    );
     // Tencent QQ (qq_shell_extension_64.dll).
-    const TENCENT_QQ: GUID =
-        GUID::from_values(0xBB4CB47C, 0x6258, 0x4502, [0xAC, 0x4C, 0xAF, 0xA7, 0x3A, 0xFB, 0x43, 0x19]);
+    const TENCENT_QQ: GUID = GUID::from_values(
+        0xBB4CB47C,
+        0x6258,
+        0x4502,
+        [0xAC, 0x4C, 0xAF, 0xA7, 0x3A, 0xFB, 0x43, 0x19],
+    );
 
     const HANDLER_TIMEOUT: Duration = Duration::from_secs(8);
 
@@ -1410,8 +1447,10 @@ mod hang_repro_tests {
         let sta = ThreadWithMessageQueue::new("cyber_desktop-isolate-test");
         let target = path.clone();
         let t0 = Instant::now();
-        let outcome =
-            sta.post_with_timeout(move || unsafe { query_single_handler(clsid, &target) }, HANDLER_TIMEOUT);
+        let outcome = sta.post_with_timeout(
+            move || unsafe { query_single_handler(clsid, &target) },
+            HANDLER_TIMEOUT,
+        );
         let elapsed = t0.elapsed();
 
         match outcome {
@@ -1482,7 +1521,10 @@ mod hang_repro_tests {
     #[ignore = "touches live shell extensions; run explicitly"]
     fn repro_long_timeout_merged_query() {
         let folder = test_dir();
-        eprintln!("[long] merged create_context_menu for {} (waiting up to 90s)", folder.display());
+        eprintln!(
+            "[long] merged create_context_menu for {} (waiting up to 90s)",
+            folder.display()
+        );
         let thread = ThreadWithMessageQueue::new("cyber_desktop-long-test");
         let p = folder.clone();
         let t0 = Instant::now();
@@ -1534,7 +1576,10 @@ mod hang_repro_tests {
         std::thread::sleep(Duration::from_millis(200));
 
         let folder = test_dir();
-        eprintln!("[pump] merged query for {} with a pumping STA host present (up to 30s)", folder.display());
+        eprintln!(
+            "[pump] merged query for {} with a pumping STA host present (up to 30s)",
+            folder.display()
+        );
         let thread = ThreadWithMessageQueue::new("cyber_desktop-pump-worker");
         let p = folder.clone();
         let t0 = Instant::now();
@@ -1551,8 +1596,12 @@ mod hang_repro_tests {
         );
         let elapsed = t0.elapsed();
         match outcome {
-            Some(ok) => eprintln!("[pump] *** RETURNED after {elapsed:?} (ok={ok}) -> a pumping STA host FIXES it"),
-            None => eprintln!("[pump] still hung after {elapsed:?} -> pumping STA host does NOT help"),
+            Some(ok) => eprintln!(
+                "[pump] *** RETURNED after {elapsed:?} (ok={ok}) -> a pumping STA host FIXES it"
+            ),
+            None => {
+                eprintln!("[pump] still hung after {elapsed:?} -> pumping STA host does NOT help")
+            }
         }
         std::mem::forget(thread);
         std::process::exit(0);
@@ -1582,9 +1631,7 @@ mod hang_repro_tests {
         *((base + e_lfanew + 80) as *const u32) as usize
     }
 
-    unsafe fn unicode_string_to_string(
-        us: &windows::Win32::Foundation::UNICODE_STRING,
-    ) -> String {
+    unsafe fn unicode_string_to_string(us: &windows::Win32::Foundation::UNICODE_STRING) -> String {
         let len = (us.Length / 2) as usize;
         if us.Buffer.is_null() || len == 0 {
             return String::new();
@@ -1730,7 +1777,10 @@ mod hang_repro_tests {
         use windows::Win32::System::Ole::{OleInitialize, OleUninitialize};
 
         let path = test_dir();
-        eprintln!("[stack] running merged create_context_menu for: {}", path.display());
+        eprintln!(
+            "[stack] running merged create_context_menu for: {}",
+            path.display()
+        );
         let p = path.clone();
         let worker = std::thread::spawn(move || unsafe {
             let _ = OleInitialize(None);
@@ -1756,8 +1806,8 @@ mod hang_repro_tests {
     #[test]
     #[ignore = "touches live shell extensions; run explicitly"]
     fn isolate_clsid_from_env() {
-        let raw = std::env::var("SHELL_MENU_TEST_CLSID")
-            .expect("set SHELL_MENU_TEST_CLSID to a {GUID}");
+        let raw =
+            std::env::var("SHELL_MENU_TEST_CLSID").expect("set SHELL_MENU_TEST_CLSID to a {GUID}");
         let clsid = GUID::from(raw.trim().trim_start_matches('{').trim_end_matches('}'));
         isolate_handler(clsid, "env");
     }
@@ -1769,7 +1819,12 @@ mod hang_repro_tests {
             .args(&args)
             .output()
             .ok()
-            .map(|o| String::from_utf8_lossy(&o.stdout).lines().map(|l| l.to_string()).collect())
+            .map(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .map(|l| l.to_string())
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -1816,10 +1871,13 @@ mod hang_repro_tests {
         for scope in scopes {
             for sub in reg_query_lines(scope, &[]) {
                 let sub = sub.trim();
-                if !sub.starts_with("HKEY_CLASSES_ROOT\\") || !sub.contains("ContextMenuHandlers\\") {
+                if !sub.starts_with("HKEY_CLASSES_ROOT\\") || !sub.contains("ContextMenuHandlers\\")
+                {
                     continue;
                 }
-                let Some(clsid) = resolve_handler_clsid(sub) else { continue };
+                let Some(clsid) = resolve_handler_clsid(sub) else {
+                    continue;
+                };
                 let clsid_up = clsid.to_uppercase();
                 if seen.contains(&clsid_up) {
                     continue;
@@ -1869,7 +1927,10 @@ mod hang_repro_tests {
                 Err(e) => return HandlerProbeOutcome::Error(format!("wait: {e}")),
             }
         }
-        let out = child.wait_with_output().map(|o| o.stderr).unwrap_or_default();
+        let out = child
+            .wait_with_output()
+            .map(|o| o.stderr)
+            .unwrap_or_default();
         let text = String::from_utf8_lossy(&out);
         for line in text.lines() {
             if let Some(rest) = line.strip_prefix("[probe] OK n=") {
@@ -1904,8 +1965,8 @@ mod hang_repro_tests {
     #[test]
     #[ignore = "touches live shell extensions; run explicitly"]
     fn per_handler_probe_from_env() {
-        let raw = std::env::var("SHELL_MENU_TEST_CLSID")
-            .expect("set SHELL_MENU_TEST_CLSID to a {GUID}");
+        let raw =
+            std::env::var("SHELL_MENU_TEST_CLSID").expect("set SHELL_MENU_TEST_CLSID to a {GUID}");
         let clsid = GUID::from(raw.trim().trim_start_matches('{').trim_end_matches('}'));
         let path = test_dir();
         let sta = ThreadWithMessageQueue::new("cyber_desktop-per-handler-probe");
@@ -1920,7 +1981,11 @@ mod hang_repro_tests {
                 eprintln!("[probe] OK n={} labels={joined}", labels.len());
             }
             Some(Err(e)) => {
-                let msg = format!("{e:#}").lines().next().unwrap_or("error").to_string();
+                let msg = format!("{e:#}")
+                    .lines()
+                    .next()
+                    .unwrap_or("error")
+                    .to_string();
                 eprintln!("[probe] ERR {msg}");
             }
             None => eprintln!("[probe] HANG"),
@@ -2003,7 +2068,10 @@ mod hang_repro_tests {
         eprintln!("handlers hang:     {hang_handlers}");
         eprintln!("handlers error:    {err_handlers}");
         eprintln!("aggregate entries: {agg_n} in {agg_ms:?}");
-        eprintln!("merged labels:     {} unique in {merge_ms:?}", merged_labels.len());
+        eprintln!(
+            "merged labels:     {} unique in {merge_ms:?}",
+            merged_labels.len()
+        );
         eprintln!("\nmerged menu (unique labels):");
         for label in &merged_labels {
             eprintln!("  - {label}");
@@ -2064,10 +2132,16 @@ mod hang_repro_tests {
                 Err(e) => return format!("<wait error: {e}>"),
             }
         }
-        let out = child.wait_with_output().map(|o| o.stderr).unwrap_or_default();
+        let out = child
+            .wait_with_output()
+            .map(|o| o.stderr)
+            .unwrap_or_default();
         let text = String::from_utf8_lossy(&out);
         text.lines()
-            .find(|l| l.contains("[env]") && (l.contains("OK") || l.contains("error") || l.contains("HANG")))
+            .find(|l| {
+                l.contains("[env]")
+                    && (l.contains("OK") || l.contains("error") || l.contains("HANG"))
+            })
             .map(|l| l.trim().to_string())
             .unwrap_or_else(|| "<no verdict line>".to_string())
     }
@@ -2078,7 +2152,10 @@ mod hang_repro_tests {
     #[ignore = "touches live shell extensions; run explicitly"]
     fn isolate_all_folder_handlers() {
         let path = test_dir();
-        eprintln!("probing folder-scope handlers (child-process isolated) against: {}\n", path.display());
+        eprintln!(
+            "probing folder-scope handlers (child-process isolated) against: {}\n",
+            path.display()
+        );
 
         let scopes = [
             "HKCR\\Directory\\shellex\\ContextMenuHandlers",
@@ -2092,10 +2169,13 @@ mod hang_repro_tests {
         for scope in scopes {
             for sub in reg_query_lines(scope, &[]) {
                 let sub = sub.trim();
-                if !sub.starts_with("HKEY_CLASSES_ROOT\\") || !sub.contains("ContextMenuHandlers\\") {
+                if !sub.starts_with("HKEY_CLASSES_ROOT\\") || !sub.contains("ContextMenuHandlers\\")
+                {
                     continue;
                 }
-                let Some(clsid) = resolve_handler_clsid(sub) else { continue };
+                let Some(clsid) = resolve_handler_clsid(sub) else {
+                    continue;
+                };
                 let clsid_up = clsid.to_uppercase();
                 if seen.contains(&clsid_up) {
                     continue;
@@ -2113,7 +2193,9 @@ mod hang_repro_tests {
         }
         eprintln!("\n=== culprits (hang in isolation) ===");
         if culprits.is_empty() {
-            eprintln!("(none — the hang is an aggregation/interaction effect, not a single handler)");
+            eprintln!(
+                "(none — the hang is an aggregation/interaction effect, not a single handler)"
+            );
         } else {
             for c in &culprits {
                 eprintln!("  {c}");

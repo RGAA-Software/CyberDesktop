@@ -22,22 +22,19 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use windows::core::{Interface, PCSTR, PCWSTR, GUID, IUnknown};
+use windows::core::{IUnknown, Interface, GUID, PCSTR, PCWSTR};
 use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, IDataObject, CLSCTX_INPROC_SERVER};
-use windows::Win32::System::Registry::{RegCloseKey, RegOpenKeyExW, HKEY, HKEY_CLASSES_ROOT, KEY_READ};
-use windows::Win32::UI::Shell::Common::ITEMIDLIST;
-use windows::Win32::UI::Shell::{
-    IContextMenu, IContextMenu2, IShellExtInit, SHParseDisplayName,
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegOpenKeyExW, HKEY, HKEY_CLASSES_ROOT, KEY_READ,
 };
+use windows::Win32::UI::Shell::Common::ITEMIDLIST;
+use windows::Win32::UI::Shell::{IContextMenu, IContextMenu2, IShellExtInit, SHParseDisplayName};
+use windows::Win32::UI::Shell::{CMINVOKECOMMANDINFO, GCS_VERBA, GCS_VERBW};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreatePopupMenu, DestroyMenu, GetMenuItemCount, GetMenuItemInfoW, GetSubMenu, HMENU,
-    MENUITEMINFOW, MFT_SEPARATOR, MIIM_FTYPE, MIIM_ID, MIIM_STRING, MIIM_SUBMENU,
-    WM_INITMENUPOPUP,
-};
-use windows::Win32::Foundation::{LPARAM, WPARAM};
-use windows::Win32::UI::Shell::{
-    CMINVOKECOMMANDINFO, GCS_VERBA, GCS_VERBW,
+    MENUITEMINFOW, MFT_SEPARATOR, MIIM_FTYPE, MIIM_ID, MIIM_STRING, MIIM_SUBMENU, WM_INITMENUPOPUP,
 };
 
 use crate::com::ThreadWithMessageQueue;
@@ -62,10 +59,6 @@ impl HandlerMenuItem {
     pub fn is_submenu(&self) -> bool {
         !self.children.is_empty()
     }
-
-    pub fn flat_item_count(&self) -> usize {
-        1 + self.children.iter().map(HandlerMenuItem::flat_item_count).sum::<usize>()
-    }
 }
 
 /// Result of probing one handler CLSID.
@@ -73,24 +66,26 @@ impl HandlerMenuItem {
 pub struct HandlerProbeRecord {
     pub handler_name: String,
     pub clsid: String,
+    #[allow(dead_code)]
     pub dll: String,
     pub items: Vec<HandlerMenuItem>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InitStyle {
+    #[allow(dead_code)]
     /// Prior test path: full-item PIDL + `HKEY::default()` (under-initializes many handlers).
     Legacy,
     /// Shell-style: parent-folder PIDL + `Folder`/`Directory` ProgID key.
     ShellAccurate,
 }
 
-struct HandlerInstance {
-    menu: IContextMenu,
-    popup: HMENU,
-    parent_pidl: *mut ITEMIDLIST,
-    child_pidl: *mut ITEMIDLIST,
-    prog_id_key: HKEY,
+pub(crate) struct HandlerInstance {
+    pub(crate) menu: IContextMenu,
+    pub(crate) popup: HMENU,
+    pub(crate) parent_pidl: *mut ITEMIDLIST,
+    pub(crate) child_pidl: *mut ITEMIDLIST,
+    pub(crate) prog_id_key: HKEY,
 }
 
 impl Drop for HandlerInstance {
@@ -122,7 +117,12 @@ fn reg_query_lines(key: &str, extra: &[&str]) -> Vec<String> {
         .args(&args)
         .output()
         .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).lines().map(|l| l.to_string()).collect())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .map(|l| l.to_string())
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -171,7 +171,9 @@ pub fn list_folder_handlers() -> Vec<(String, String, String)> {
             if !sub.starts_with("HKEY_CLASSES_ROOT\\") || !sub.contains("ContextMenuHandlers\\") {
                 continue;
             }
-            let Some(clsid) = resolve_handler_clsid(sub) else { continue };
+            let Some(clsid) = resolve_handler_clsid(sub) else {
+                continue;
+            };
             let clsid_up = clsid.to_uppercase();
             if seen.contains(&clsid_up) {
                 continue;
@@ -219,25 +221,47 @@ unsafe fn parse_pidl(path: &Path) -> anyhow::Result<*mut ITEMIDLIST> {
     Ok(pidl)
 }
 
+#[allow(dead_code)]
 unsafe fn create_handler_instance(
     clsid: GUID,
     path: &Path,
     init_style: InitStyle,
 ) -> anyhow::Result<HandlerInstance> {
-    let (parent_sf, child_pidl) = bind_parent_and_relative(path)?;
-    let apidl = [child_pidl as *const ITEMIDLIST];
-    let data_object: IDataObject = parent_sf.GetUIObjectOf(HWND::default(), &apidl, None)?;
+    create_handler_instance_for_paths(clsid, std::slice::from_ref(&path.to_path_buf()), init_style)
+}
 
+pub(crate) unsafe fn create_handler_instance_for_paths(
+    clsid: GUID,
+    paths: &[PathBuf],
+    init_style: InitStyle,
+) -> anyhow::Result<HandlerInstance> {
+    if paths.is_empty() {
+        anyhow::bail!("create_handler_instance_for_paths requires at least one path");
+    }
+
+    let (parent_sf, first_child) = bind_parent_and_relative(&paths[0])?;
+    let mut child_pidls: Vec<*mut ITEMIDLIST> = vec![first_child];
+
+    for path in paths.iter().skip(1) {
+        let (_, relative) = bind_parent_and_relative(path)?;
+        child_pidls.push(relative);
+    }
+
+    let apidl: Vec<*const ITEMIDLIST> = child_pidls
+        .iter()
+        .map(|p| *p as *const ITEMIDLIST)
+        .collect();
+    let data_object: IDataObject = parent_sf.GetUIObjectOf(HWND::default(), &apidl, None)?;
     let (parent_pidl, prog_id_key) = match init_style {
         InitStyle::Legacy => {
-            let full = parse_pidl(path)?;
+            let full = parse_pidl(&paths[0])?;
             (full, HKEY::default())
         }
         InitStyle::ShellAccurate => {
-            let parent_path = path
+            let parent_path = paths[0]
                 .parent()
                 .filter(|p| !p.as_os_str().is_empty())
-                .unwrap_or(path);
+                .unwrap_or(&paths[0]);
             let parent = parse_pidl(parent_path)?;
             (parent, shell_accurate_prog_id_key())
         }
@@ -253,15 +277,97 @@ unsafe fn create_handler_instance(
 
     let menu: IContextMenu = unknown.cast()?;
     let popup = CreatePopupMenu()?;
-    menu.QueryContextMenu(popup, 0, CMD_FIRST, CMD_LAST, windows::Win32::UI::Shell::CMF_NORMAL)?;
+    menu.QueryContextMenu(
+        popup,
+        0,
+        CMD_FIRST,
+        CMD_LAST,
+        windows::Win32::UI::Shell::CMF_NORMAL,
+    )?;
 
     Ok(HandlerInstance {
         menu,
         popup,
         parent_pidl,
-        child_pidl,
+        child_pidl: child_pidls
+            .into_iter()
+            .next()
+            .unwrap_or(std::ptr::null_mut()),
         prog_id_key,
     })
+}
+
+/// Invoke one command on a handler identified by CLSID string, creating a fresh instance.
+pub(crate) fn invoke_handler_by_clsid(
+    paths: &[PathBuf],
+    clsid_str: &str,
+    command_offset: u32,
+) -> anyhow::Result<()> {
+    let clsid = parse_clsid(clsid_str)?;
+    unsafe {
+        let instance = create_handler_instance_for_paths(clsid, paths, InitStyle::ShellAccurate)?;
+        let mut info = CMINVOKECOMMANDINFO::default();
+        info.cbSize = std::mem::size_of::<CMINVOKECOMMANDINFO>() as u32;
+        info.lpVerb = PCSTR::from_raw(command_offset as usize as *const u8);
+        info.nShow = 1;
+        instance.menu.InvokeCommand(&info)?;
+    }
+    Ok(())
+}
+
+/// Expand a lazy submenu for a handler identified by CLSID string, creating a fresh instance.
+pub(crate) unsafe fn expand_handler_submenu_by_clsid(
+    paths: &[PathBuf],
+    clsid_str: &str,
+    parent_index: u32,
+) -> anyhow::Result<Vec<crate::context_menu::ShellContextMenuEntry>> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetMenuItemInfoW, GetSubMenu, MENUITEMINFOW, MIIM_BITMAP, MIIM_FTYPE, MIIM_ID, MIIM_STRING,
+        MIIM_SUBMENU, WM_INITMENUPOPUP,
+    };
+
+    let clsid = parse_clsid(clsid_str)?;
+    let instance = create_handler_instance_for_paths(clsid, paths, InitStyle::ShellAccurate)?;
+
+    let mut info = MENUITEMINFOW {
+        cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
+        fMask: MIIM_FTYPE | MIIM_ID | MIIM_STRING | MIIM_BITMAP | MIIM_SUBMENU,
+        ..Default::default()
+    };
+    let mut label_buf = [0u16; 512];
+    info.dwTypeData = windows::core::PWSTR(label_buf.as_mut_ptr());
+    info.cch = label_buf.len() as u32;
+
+    if GetMenuItemInfoW(instance.popup, parent_index, true, &mut info).is_err() {
+        anyhow::bail!("GetMenuItemInfoW failed for handler submenu index {parent_index}");
+    }
+
+    let submenu = if !info.hSubMenu.is_invalid() {
+        info.hSubMenu
+    } else {
+        GetSubMenu(instance.popup, parent_index as i32)
+    };
+    if submenu.is_invalid() {
+        return Ok(Vec::new());
+    }
+
+    if let Ok(cmenu2) = instance.menu.cast::<IContextMenu2>() {
+        let _ = cmenu2.HandleMenuMsg(
+            WM_INITMENUPOPUP,
+            WPARAM(submenu.0 as usize),
+            LPARAM(parent_index as isize),
+        );
+    }
+
+    crate::context_menu::enumerate_popup_menu(
+        submenu,
+        &instance.menu,
+        1,
+        true,
+        &paths[0],
+        false,
+        Some(clsid_str),
+    )
 }
 
 unsafe fn read_command_string(menu: &IContextMenu, command_offset: u32) -> Option<String> {
@@ -332,9 +438,7 @@ unsafe fn enumerate_popup(
         if label_len == 0 {
             continue;
         }
-        let label = format_shell_menu_label(&String::from_utf16_lossy(
-            &label_buf[..label_len],
-        ));
+        let label = format_shell_menu_label(&String::from_utf16_lossy(&label_buf[..label_len]));
 
         let submenu = if !info.hSubMenu.is_invalid() {
             info.hSubMenu
@@ -384,6 +488,7 @@ unsafe fn enumerate_popup(
     Ok(items)
 }
 
+#[allow(dead_code)]
 /// Build the menu tree for one handler CLSID.
 pub fn query_handler_menu(
     clsid: &GUID,
@@ -391,12 +496,28 @@ pub fn query_handler_menu(
     init_style: InitStyle,
     expand_submenus: bool,
 ) -> anyhow::Result<Vec<HandlerMenuItem>> {
+    query_handler_menu_for_paths(
+        clsid,
+        std::slice::from_ref(&path.to_path_buf()),
+        init_style,
+        expand_submenus,
+    )
+}
+
+/// Multi-selection variant of [`query_handler_menu`].
+pub fn query_handler_menu_for_paths(
+    clsid: &GUID,
+    paths: &[PathBuf],
+    init_style: InitStyle,
+    expand_submenus: bool,
+) -> anyhow::Result<Vec<HandlerMenuItem>> {
     unsafe {
-        let instance = create_handler_instance(*clsid, path, init_style)?;
+        let instance = create_handler_instance_for_paths(*clsid, paths, init_style)?;
         enumerate_popup(instance.popup, &instance.menu, expand_submenus, 0)
     }
 }
 
+#[allow(dead_code)]
 /// Invoke one command on a specific handler (must use the same [`InitStyle`] as query).
 pub fn invoke_handler_item(
     clsid: &GUID,
@@ -415,6 +536,7 @@ pub fn invoke_handler_item(
     }
 }
 
+#[allow(dead_code)]
 /// Verify `GetCommandString` is reachable for every leaf item (invoke mapping sanity check).
 pub fn verify_command_strings(
     menu: &IContextMenu,
@@ -432,6 +554,7 @@ pub fn verify_command_strings(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn count_leaf_items(items: &[HandlerMenuItem]) -> usize {
     items
         .iter()
@@ -445,6 +568,7 @@ pub fn count_leaf_items(items: &[HandlerMenuItem]) -> usize {
         .sum()
 }
 
+#[allow(dead_code)]
 pub fn count_submenus_with_children(items: &[HandlerMenuItem]) -> usize {
     items
         .iter()
@@ -459,6 +583,7 @@ pub fn count_submenus_with_children(items: &[HandlerMenuItem]) -> usize {
         .sum()
 }
 
+#[cfg(test)]
 pub fn flat_labels(items: &[HandlerMenuItem]) -> Vec<String> {
     let mut out = Vec::new();
     fn walk(items: &[HandlerMenuItem], out: &mut Vec<String>) {
@@ -492,6 +617,7 @@ pub enum HandlerProbeResult {
 }
 
 impl HandlerProbeResult {
+    #[allow(dead_code)]
     pub fn handler_name(&self) -> &str {
         match self {
             Self::Ok(r) => &r.handler_name,
@@ -500,12 +626,34 @@ impl HandlerProbeResult {
     }
 }
 
+#[allow(dead_code)]
 /// Probe one handler on a fresh STA thread; returns [`HandlerProbeResult::Timeout`] if wedged.
 pub fn probe_one_handler_timed(
     handler_name: &str,
     clsid_str: &str,
     dll: &str,
     path: &Path,
+    init_style: InitStyle,
+    expand_submenus: bool,
+    timeout: Duration,
+) -> HandlerProbeResult {
+    probe_one_handler_timed_for_paths(
+        handler_name,
+        clsid_str,
+        dll,
+        std::slice::from_ref(&path.to_path_buf()),
+        init_style,
+        expand_submenus,
+        timeout,
+    )
+}
+
+/// Multi-selection variant of [`probe_one_handler_timed`].
+pub fn probe_one_handler_timed_for_paths(
+    handler_name: &str,
+    clsid_str: &str,
+    dll: &str,
+    paths: &[PathBuf],
     init_style: InitStyle,
     expand_submenus: bool,
     timeout: Duration,
@@ -519,15 +667,20 @@ pub fn probe_one_handler_timed(
         };
     };
     let sta = ThreadWithMessageQueue::new("cyber_desktop-per-handler-probe");
-    let p = path.to_path_buf();
+    let p = paths.to_vec();
     let name = handler_name.to_string();
     let clsid_owned = clsid_str.to_string();
     let dll_owned = dll.to_string();
     let outcome = sta.post_with_timeout(
-        move || query_handler_menu(&clsid, &p, init_style, expand_submenus),
+        move || query_handler_menu_for_paths(&clsid, &p, init_style, expand_submenus),
         timeout,
     );
-    std::mem::forget(sta);
+    // Only leak the STA thread if it actually wedged; otherwise drop it so the
+    // worker thread exits cleanly (important for tests and process teardown).
+    let timed_out = outcome.is_none();
+    if timed_out {
+        std::mem::forget(sta);
+    }
     match outcome {
         Some(Ok(items)) => HandlerProbeResult::Ok(HandlerProbeRecord {
             handler_name: name,
@@ -555,13 +708,43 @@ pub fn probe_all_handlers_timed(
     init_style: InitStyle,
     expand_submenus: bool,
     timeout: Duration,
-) -> (Vec<HandlerProbeRecord>, Vec<(String, String, String, String)>, Vec<(String, String, String)>) {
+) -> (
+    Vec<HandlerProbeRecord>,
+    Vec<(String, String, String, String)>,
+    Vec<(String, String, String)>,
+) {
+    probe_all_handlers_timed_for_paths(
+        std::slice::from_ref(&path.to_path_buf()),
+        init_style,
+        expand_submenus,
+        timeout,
+    )
+}
+
+/// Multi-selection variant of [`probe_all_handlers_timed`].
+pub fn probe_all_handlers_timed_for_paths(
+    paths: &[PathBuf],
+    init_style: InitStyle,
+    expand_submenus: bool,
+    timeout: Duration,
+) -> (
+    Vec<HandlerProbeRecord>,
+    Vec<(String, String, String, String)>,
+    Vec<(String, String, String)>,
+) {
     let mut ok = Vec::new();
     let mut errors = Vec::new();
     let mut timeouts = Vec::new();
     for (name, clsid_str, dll) in list_folder_handlers() {
-        match probe_one_handler_timed(&name, &clsid_str, &dll, path, init_style, expand_submenus, timeout)
-        {
+        match probe_one_handler_timed_for_paths(
+            &name,
+            &clsid_str,
+            &dll,
+            paths,
+            init_style,
+            expand_submenus,
+            timeout,
+        ) {
             HandlerProbeResult::Ok(rec) => ok.push(rec),
             HandlerProbeResult::Error {
                 handler_name,
@@ -579,28 +762,31 @@ pub fn probe_all_handlers_timed(
     (ok, errors, timeouts)
 }
 
+#[allow(dead_code)]
 /// Back-compat wrapper without timeout tracking (blocks forever if a handler hangs).
 pub fn probe_all_handlers(
     path: &Path,
     init_style: InitStyle,
     expand_submenus: bool,
-) -> (Vec<HandlerProbeRecord>, Vec<(String, String, String, String)>) {
+) -> (
+    Vec<HandlerProbeRecord>,
+    Vec<(String, String, String, String)>,
+) {
     let (ok, errors, _timeouts) =
         probe_all_handlers_timed(path, init_style, expand_submenus, HANDLER_PROBE_TIMEOUT);
     (ok, errors)
 }
 
-fn parse_clsid(s: &str) -> anyhow::Result<GUID> {
+pub(crate) fn parse_clsid(s: &str) -> anyhow::Result<GUID> {
     Ok(GUID::from(
-        s.trim()
-            .trim_start_matches('{')
-            .trim_end_matches('}'),
+        s.trim().trim_start_matches('{').trim_end_matches('}'),
     ))
 }
 
 #[cfg(all(windows, test))]
 mod gate_tests {
     use super::*;
+    use std::path::PathBuf;
     use std::process::{Command, Stdio};
     use std::time::Instant;
 
@@ -680,8 +866,8 @@ mod gate_tests {
     #[test]
     #[ignore = "touches live shell extensions; run explicitly"]
     fn per_handler_gate_probe_from_env() {
-        let raw = std::env::var("SHELL_MENU_TEST_CLSID")
-            .expect("set SHELL_MENU_TEST_CLSID to a {GUID}");
+        let raw =
+            std::env::var("SHELL_MENU_TEST_CLSID").expect("set SHELL_MENU_TEST_CLSID to a {GUID}");
         let _clsid = parse_clsid(&raw).expect("clsid");
         let path = test_dir();
         let init_style = init_style_from_env();
@@ -712,6 +898,7 @@ mod gate_tests {
         }
     }
 
+    #[allow(dead_code)]
     enum ChildProbeOutcome {
         Ok {
             leaf: usize,
@@ -769,7 +956,10 @@ mod gate_tests {
                 Err(e) => return ChildProbeOutcome::Error(format!("wait: {e}")),
             }
         }
-        let out = child.wait_with_output().map(|o| o.stderr).unwrap_or_default();
+        let out = child
+            .wait_with_output()
+            .map(|o| o.stderr)
+            .unwrap_or_default();
         let text = String::from_utf8_lossy(&out);
         for line in text.lines() {
             if let Some(rest) = line.strip_prefix("[gate-probe] OK n=") {
@@ -909,8 +1099,7 @@ mod gate_tests {
             path.display()
         );
 
-        let summary =
-            scan_handlers_child_isolated(&path, InitStyle::ShellAccurate, true, true);
+        let summary = scan_handlers_child_isolated(&path, InitStyle::ShellAccurate, true, true);
 
         eprintln!(
             "gate1 summary: ok={} err={} hang={} unique_labels={} in {:?}",
@@ -1069,7 +1258,10 @@ mod gate_tests {
                 outcome
             );
         }
-        eprintln!("gate3a: verified {leaf_items} leaf items across {} handlers", ok.len());
+        eprintln!(
+            "gate3a: verified {leaf_items} leaf items across {} handlers",
+            ok.len()
+        );
         assert!(leaf_items > 0, "expected at least one leaf menu item");
     }
 
@@ -1078,8 +1270,12 @@ mod gate_tests {
     #[ignore = "touches live shell extensions; run explicitly"]
     fn gate_3_invoke_invalid_offset_returns_error_fast() {
         let path = test_dir();
-        let (ok, _, timeouts) =
-            probe_all_handlers_timed(&path, InitStyle::ShellAccurate, false, HANDLER_PROBE_TIMEOUT);
+        let (ok, _, timeouts) = probe_all_handlers_timed(
+            &path,
+            InitStyle::ShellAccurate,
+            false,
+            HANDLER_PROBE_TIMEOUT,
+        );
         assert!(
             timeouts.is_empty(),
             "gate3b: handler query timeouts: {timeouts:?}"
@@ -1120,8 +1316,7 @@ mod gate_tests {
         eprintln!("gate5 on {}", path.display());
 
         // Production path first — must not run after aggregate (aggregate poisons the process).
-        let child =
-            scan_handlers_child_isolated(&path, InitStyle::ShellAccurate, true, false);
+        let child = scan_handlers_child_isolated(&path, InitStyle::ShellAccurate, true, false);
         eprintln!(
             "per-handler (child): ok={} err={} hang={} unique_labels={} in {:?}",
             child.ok_count,
@@ -1131,7 +1326,10 @@ mod gate_tests {
             child.elapsed
         );
 
-        assert_eq!(child.hang_count, 0, "gate5: child-isolated scan must not hang");
+        assert_eq!(
+            child.hang_count, 0,
+            "gate5: child-isolated scan must not hang"
+        );
         assert!(
             !child.unique_labels.is_empty(),
             "gate5: per-handler merge must produce menu labels"
@@ -1166,7 +1364,11 @@ mod gate_tests {
 
         let path = test_dir();
         let handlers = list_folder_handlers();
-        eprintln!("=== gate_all on {} ({} handlers) ===", path.display(), handlers.len());
+        eprintln!(
+            "=== gate_all on {} ({} handlers) ===",
+            path.display(),
+            handlers.len()
+        );
 
         assert!(!handlers.is_empty(), "gate0");
 
@@ -1216,14 +1418,15 @@ mod gate_tests {
                 assert!(verb.is_some(), "gate3: GetCommandString spot-check hung");
                 eprintln!(
                     "gate3 spot-check: {} offset={} verb={:?}",
-                    rec.handler_name, offset, verb.unwrap()
+                    rec.handler_name,
+                    offset,
+                    verb.unwrap()
                 );
             }
         }
 
         // Gate 1 / production isolation (child processes).
-        let child =
-            scan_handlers_child_isolated(&path, InitStyle::ShellAccurate, true, false);
+        let child = scan_handlers_child_isolated(&path, InitStyle::ShellAccurate, true, false);
         eprintln!(
             "gate1 child: ok={} err={} hang={} unique_labels={} in {:?}",
             child.ok_count,
