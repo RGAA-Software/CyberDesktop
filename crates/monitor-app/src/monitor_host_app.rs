@@ -937,9 +937,9 @@ pub fn run(cli: HostCli) {
                     let mode = cx.theme().mode;
                     app_ui::theme::apply_set("CyberMonitor", mode, cx);
 
-                    window.on_window_should_close(cx, |window, _cx| {
-                        tray::hide_window(window);
-                        false
+                    window.on_window_should_close(cx, |_window, cx| {
+                        cx.quit();
+                        true
                     });
 
                     if start_hidden {

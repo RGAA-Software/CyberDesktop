@@ -1,5 +1,7 @@
 /target/
 **/target/
+/output/
+**/__pycache__/
 **/.cache/
 *.log
 Thumbs.db

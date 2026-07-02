@@ -10,6 +10,8 @@
 #   .\scripts\build-release-cybermediaplayer.ps1
 #   .\scripts\build-release-cybermonitor.ps1
 #   .\scripts\build-release-cybermonitorhost.ps1
+# Installer (release build + NSIS package):
+#   .\scripts\build-setup-cybermonitor.ps1
 # Or: .\scripts\release\all.ps1 | cyberfiles.ps1 | ...
 
 $ErrorActionPreference = "Stop"
