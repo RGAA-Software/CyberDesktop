@@ -29,7 +29,7 @@ use crate::shell::preferences::{
     apply_context_menu_show_compress, apply_context_menu_show_create_shortcut,
     apply_context_menu_show_extract, apply_context_menu_show_file_tags,
     apply_context_menu_show_open_in_terminal, apply_context_menu_show_pin,
-    apply_context_menu_show_send_to, apply_disable_direct_composition, apply_font_size,
+    apply_context_menu_show_send_to, apply_font_size,
     apply_home_widget_drives, apply_home_widget_file_tags, apply_home_widget_network,
     apply_home_widget_quick_access, apply_home_widget_recent, apply_locale,
     apply_open_media_with_cybermediaplayer, apply_open_text_with_cybereditor, apply_scrollbar_show,
@@ -39,7 +39,7 @@ use crate::shell::preferences::{
     apply_sidebar_section_wsl, apply_theme_mode, apply_theme_name, auto_restore_tabs,
     context_menu_shell_submenu, context_menu_show_compress, context_menu_show_create_shortcut,
     context_menu_show_extract, context_menu_show_file_tags, context_menu_show_open_in_terminal,
-    context_menu_show_pin, context_menu_show_send_to, current_locale, disable_direct_composition,
+    context_menu_show_pin, context_menu_show_send_to, current_locale,
     home_widget_drives, home_widget_file_tags, home_widget_network, home_widget_quick_access,
     home_widget_recent, open_media_with_cybermediaplayer, open_text_with_cybereditor,
     remove_file_tag, scrollbar_show_from_key, scrollbar_show_key, set_file_tag_color,
@@ -800,15 +800,6 @@ pub fn build_settings(cx: &App) -> Settings {
                                 .default_value(open_media_with_cybermediaplayer(cx)),
                             )
                             .description(ts(t!("settings.open_with_cybermediaplayer.description"))),
-                            SettingItem::new(
-                                ts(t!("settings.disable_direct_composition")),
-                                SettingField::switch(
-                                    disable_direct_composition,
-                                    apply_disable_direct_composition,
-                                )
-                                .default_value(disable_direct_composition(cx)),
-                            )
-                            .description(ts(t!("settings.disable_direct_composition.description"))),
                         ]),
                     context_menu_settings_group(cx),
                 ]),

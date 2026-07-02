@@ -7,6 +7,7 @@
 //! `clear_session`.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -33,6 +34,45 @@ fn shell_op_lock() -> std::sync::MutexGuard<'static, ()> {
         .get_or_init(|| Mutex::new(()))
         .lock()
         .expect("shell menu op lock")
+}
+
+/// Non-blocking acquisition for background warm-up: if the user is already interacting
+/// with the Shell menu (or another op is in flight), warm-up must yield, not queue.
+pub(crate) fn try_shell_op_lock() -> Option<std::sync::MutexGuard<'static, ()>> {
+    SHELL_OP_LOCK.get_or_init(|| Mutex::new(())).try_lock().ok()
+}
+
+/// Set while the background warm-up thread is running a Shell query. Interactive queries
+/// yield immediately so they never queue behind a wedged warm-up or race QueryContextMenu.
+static WARMUP_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn set_warmup_in_progress(active: bool) {
+    WARMUP_IN_PROGRESS.store(active, Ordering::Release);
+}
+
+fn warmup_in_progress() -> bool {
+    WARMUP_IN_PROGRESS.load(Ordering::Acquire)
+}
+
+/// Consecutive interactive `QueryContextMenu` timeouts. Each timeout leaks a wedged STA thread that
+/// may sit on the loader lock, so after a few we stop querying Shell extensions entirely
+/// for the rest of the process (native menu items are unaffected). Reset on any success.
+static CONSECUTIVE_QUERY_TIMEOUTS: AtomicU32 = AtomicU32::new(0);
+
+/// After this many consecutive hangs the Shell query path is fused off.
+const QUERY_TIMEOUT_FUSE_THRESHOLD: u32 = 2;
+
+fn shell_query_fused() -> bool {
+    CONSECUTIVE_QUERY_TIMEOUTS.load(Ordering::Relaxed) >= QUERY_TIMEOUT_FUSE_THRESHOLD
+}
+
+/// Called when background warm-up times out. Logs only — warm-up must not advance the
+/// interactive fuse; the user has not triggered a menu query yet.
+pub(crate) fn record_shell_query_timeout_from_warmup() {
+    tracing::warn!(
+        target: "shell_menu",
+        "warm-up Layer A timed out; interactive shell menu queries are unaffected until the user opens one"
+    );
 }
 
 /// Dispose the current owning thread (Files: `ContextMenu.Dispose` releases `_cMenu` + joins the
@@ -64,6 +104,20 @@ pub fn query_with_session(
     extended_verbs: bool,
     menu_icon_extract_px: u32,
 ) -> anyhow::Result<Vec<ShellContextMenuEntry>> {
+    if shell_query_fused() {
+        tracing::warn!(
+            target: "shell_menu",
+            "session: query skipped — fused off after {QUERY_TIMEOUT_FUSE_THRESHOLD} consecutive hangs"
+        );
+        return Ok(Vec::new());
+    }
+    if warmup_in_progress() {
+        tracing::info!(
+            target: "shell_menu",
+            "session: query skipped — shell warm-up in progress"
+        );
+        return Ok(Vec::new());
+    }
     let _guard = shell_op_lock();
     // Files disposes the previous ContextMenu before opening a new one.
     dispose_session();
@@ -71,6 +125,14 @@ pub fn query_with_session(
     // Files: `var owningThread = new ThreadWithMessageQueue();`
     // We use a pumping STA because third-party shell extensions SendMessage during QueryContextMenu.
     let thread = ThreadWithMessageQueueWithPump::new("cyber_desktop-shell-menu");
+    if thread.is_degraded() {
+        tracing::warn!(
+            target: "shell_menu",
+            "session: STA pump unavailable (loader lock busy); skipping without fuse"
+        );
+        thread.abandon_wedged();
+        return Ok(Vec::new());
+    }
     let job_paths = paths.to_vec();
     let outcome = thread.post_with_timeout(
         move || {
@@ -85,18 +147,27 @@ pub fn query_with_session(
 
     match outcome {
         Some(result) => {
+            CONSECUTIVE_QUERY_TIMEOUTS.store(0, Ordering::Relaxed);
             // Keep the owning thread for lazy submenu + invoke (Files keeps `_owningThread`).
             *SHELL_SESSION.lock().expect("shell session slot") = Some(thread);
             result
         }
         None => {
+            let timeouts = CONSECUTIVE_QUERY_TIMEOUTS.fetch_add(1, Ordering::Relaxed) + 1;
             tracing::warn!(
                 target: "shell_menu",
-                "session: QueryContextMenu hung past {:?}; abandoning owning thread, showing no Shell items",
+                "session: QueryContextMenu hung past {:?} (consecutive timeout #{timeouts}); \
+                 abandoning owning thread, showing no Shell items",
                 SHELL_QUERY_TIMEOUT
             );
-            // Wedged thread: do not store, do not join (would block). Leak it.
-            std::mem::forget(thread);
+            if timeouts >= QUERY_TIMEOUT_FUSE_THRESHOLD {
+                tracing::warn!(
+                    target: "shell_menu",
+                    "session: Shell menu queries fused off for this process after {timeouts} consecutive hangs"
+                );
+            }
+            // Wedged thread: terminate it so the loader lock is released; do not join.
+            thread.abandon_wedged();
             Ok(Vec::new())
         }
     }

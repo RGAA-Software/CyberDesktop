@@ -15,8 +15,8 @@ use windows::Win32::System::Threading::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, PostMessageW,
-    RegisterClassExW, TranslateMessage, UnregisterClassW, MSG, WM_QUIT, WM_USER, WNDCLASSEXW,
-    WS_OVERLAPPEDWINDOW,
+    RegisterClassExW, TranslateMessage, UnregisterClassW, HWND_MESSAGE, MSG, WM_QUIT, WM_USER,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSEXW,
 };
 
 const RPC_E_CHANGED_MODE: HRESULT = HRESULT(0x80010106u32 as i32);
@@ -113,6 +113,10 @@ pub struct ThreadWithMessageQueue {
 /// Max time `Drop` waits for the worker to finish its queue before abandoning a wedged thread.
 const JOIN_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// Max time to wait for a freshly spawned pump thread to signal readiness. Thread start
+/// requires the loader lock; a wedged Shell extension holding it blocks new threads forever.
+const PUMP_READY_TIMEOUT: Duration = Duration::from_secs(3);
+
 impl ThreadWithMessageQueue {
     pub fn new(name: &'static str) -> Self {
         let (job_tx, job_rx) = mpsc::channel::<Job>();
@@ -198,6 +202,17 @@ impl ThreadWithMessageQueue {
             let _ = tx.send(Box::new(f));
         }
     }
+
+    /// Abandon a wedged worker without joining. Intentionally does **not** call
+    /// `TerminateThread` — killing a thread inside Shell extension / loader code can
+    /// crash the entire process (seen on Windows Server).
+    pub fn abandon_wedged(mut self) {
+        let name = self.name;
+        self.job_tx.take();
+        let _ = self.handle.take();
+        std::mem::forget(self);
+        tracing::warn!(target: "shell_menu", "STA[{name}]: wedged worker abandoned");
+    }
 }
 
 impl Drop for ThreadWithMessageQueue {
@@ -245,6 +260,7 @@ pub struct ThreadWithMessageQueueWithPump {
     hwnd: HWND,
     job_tx: Option<Sender<Job>>,
     handle: Option<SendHandle>,
+    degraded: bool,
 }
 
 // HWND is a raw pointer, but this type only uses it to post messages to the thread that owns it.
@@ -258,8 +274,8 @@ impl ThreadWithMessageQueueWithPump {
         tracing::info!(target: "shell_menu", "STA-PUMP[{name}]: spawning owning thread");
 
         let body: Box<dyn FnOnce() + Send> = Box::new(move || unsafe {
-            let _ = OleInitialize(None);
-            if OleInitialize(None).is_err() {
+            let ole = OleInitialize(None);
+            if ole.is_err() {
                 let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             }
 
@@ -280,15 +296,15 @@ impl ThreadWithMessageQueueWithPump {
             let atom = RegisterClassExW(&wndclass);
             let hwnd = if atom != 0 {
                 CreateWindowExW(
-                    windows::Win32::UI::WindowsAndMessaging::WINDOW_EX_STYLE(0),
+                    WINDOW_EX_STYLE(0),
                     windows::core::PCWSTR(class_name.as_ptr()),
                     windows::core::PCWSTR(class_name.as_ptr()),
-                    WS_OVERLAPPEDWINDOW,
+                    WINDOW_STYLE(0),
                     0,
                     0,
                     0,
                     0,
-                    None,
+                    HWND_MESSAGE,
                     None,
                     hinstance,
                     None,
@@ -318,7 +334,9 @@ impl ThreadWithMessageQueueWithPump {
             if atom != 0 {
                 let _ = UnregisterClassW(windows::core::PCWSTR(class_name.as_ptr()), hinstance);
             }
-            let _ = OleUninitialize();
+            if ole.is_ok() {
+                let _ = OleUninitialize();
+            }
             tracing::info!(target: "shell_menu", "STA-PUMP[{name}]: queue completed; exit");
         });
 
@@ -335,14 +353,34 @@ impl ThreadWithMessageQueueWithPump {
         }
         .expect("spawn STA pump thread");
 
-        let state = ready_rx.recv().expect("STA pump thread ready");
+        // Bounded: if a previously wedged Shell extension holds the loader lock, the new
+        // thread never reaches its entry point and an unbounded recv would freeze the
+        // caller forever. Degrade to a dead queue instead — post_with_timeout returns None.
+        let state = match ready_rx.recv_timeout(PUMP_READY_TIMEOUT) {
+            Ok(state) => state,
+            Err(_) => {
+                tracing::warn!(
+                    target: "shell_menu",
+                    "STA-PUMP[{name}]: worker did not start within {PUMP_READY_TIMEOUT:?} \
+                     (loader lock likely held by a wedged extension); operating degraded"
+                );
+                PumpState {
+                    hwnd: HWND::default(),
+                }
+            }
+        };
 
         Self {
             name,
             hwnd: state.hwnd,
             job_tx: Some(job_tx),
             handle: Some(SendHandle(handle)),
+            degraded: state.hwnd.is_invalid(),
         }
+    }
+
+    pub fn is_degraded(&self) -> bool {
+        self.degraded
     }
 
     pub fn post_with_timeout<F, T>(&self, f: F, timeout: Duration) -> Option<T>
@@ -351,6 +389,10 @@ impl ThreadWithMessageQueueWithPump {
         T: Send + 'static,
     {
         let name = self.name;
+        if self.hwnd.is_invalid() {
+            tracing::warn!(target: "shell_menu", "STA-PUMP[{name}]: no pump window (degraded); dropping job");
+            return None;
+        }
         let (reply_tx, reply_rx) = mpsc::sync_channel(1);
         tracing::info!(target: "shell_menu", "STA-PUMP[{name}]: dispatching timed job (timeout={timeout:?})");
 
@@ -377,13 +419,26 @@ impl ThreadWithMessageQueueWithPump {
             }
         }
     }
+
+    /// Abandon a wedged worker without joining. Intentionally does **not** call
+    /// `TerminateThread` — killing a thread inside Shell extension / loader code can
+    /// crash the entire process (seen on Windows Server).
+    pub fn abandon_wedged(mut self) {
+        let name = self.name;
+        self.job_tx.take();
+        let _ = self.handle.take();
+        std::mem::forget(self);
+        tracing::warn!(target: "shell_menu", "STA-PUMP[{name}]: wedged worker abandoned");
+    }
 }
 
 impl Drop for ThreadWithMessageQueueWithPump {
     fn drop(&mut self) {
         self.job_tx.take();
-        unsafe {
-            let _ = PostMessageW(self.hwnd, WM_QUIT, WPARAM(0), LPARAM(0));
+        if !self.hwnd.is_invalid() {
+            unsafe {
+                let _ = PostMessageW(self.hwnd, WM_QUIT, WPARAM(0), LPARAM(0));
+            }
         }
         let Some(SendHandle(handle)) = self.handle.take() else {
             return;
@@ -410,11 +465,30 @@ unsafe extern "system" fn pump_wndproc(
     _lparam: LPARAM,
 ) -> LRESULT {
     if msg == WM_USER_JOB {
+        if wparam.0 == 0 {
+            return LRESULT(0);
+        }
         let job = Box::from_raw(wparam.0 as *mut Job);
         job();
         return LRESULT(0);
     }
     DefWindowProcW(_hwnd, msg, wparam, _lparam)
+}
+
+/// Terminate the process immediately, skipping DLL `DllMain(DETACH)` callbacks and Rust
+/// destructors. `std::process::exit` → `ExitProcess` acquires the loader lock; when a Shell
+/// extension thread has wedged while holding it, normal exit deadlocks and the process
+/// lingers as a zombie. Flushes stdio first so diagnostic output is not lost.
+pub fn hard_exit_process(code: u32) -> ! {
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+    let _ = std::io::stderr().flush();
+    unsafe {
+        use windows::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
+        let _ = TerminateProcess(GetCurrentProcess(), code);
+    }
+    // TerminateProcess does not return on success; this is unreachable in practice.
+    std::process::exit(code as i32)
 }
 
 /// Ensures COM is initialized on the **current** thread (MTA). Use on dedicated worker threads (e.g. audio).

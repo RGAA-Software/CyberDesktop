@@ -2237,6 +2237,7 @@ dependencies = [
 name = "files-app"
 version = "0.1.0"
 dependencies = [
+ "app-platform-windows",
  "embed-resource",
  "files-core",
  "files-ui",

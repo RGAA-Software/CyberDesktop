@@ -20,5 +20,8 @@ files-core.workspace = true
 files-ui = { workspace = true, features = ["full-app"], optional = true }
 gpui_platform.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+app-platform-windows.workspace = true
+
 [build-dependencies]
 embed-resource.workspace = true

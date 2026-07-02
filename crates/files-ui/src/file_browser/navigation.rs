@@ -303,7 +303,8 @@ impl FileBrowser {
     }
 
     pub(super) fn clear_shell_menu_cache(&mut self) {
-        platform::clear_shell_menu_session();
+        // Session disposal can wait on the global shell-op lock; never block navigation on it.
+        std::thread::spawn(platform::clear_shell_menu_session);
         if let Ok(mut guard) = self.shell_menu_cache.write() {
             *guard = None;
         }

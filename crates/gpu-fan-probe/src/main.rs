@@ -47,7 +47,9 @@ fn log_blank() {
 
 fn describe_nvml_error(err: &NvmlError) -> String {
     match err {
-        NvmlError::NotSupported => "NotSupported (API not supported on this GPU/Driver)".to_string(),
+        NvmlError::NotSupported => {
+            "NotSupported (API not supported on this GPU/Driver)".to_string()
+        }
         NvmlError::InvalidArg => "InvalidArg (fan index out of range)".to_string(),
         NvmlError::Uninitialized => "Uninitialized".to_string(),
         NvmlError::GpuLost => "GpuLost".to_string(),
@@ -104,7 +106,10 @@ fn probe_nvidia_device(device: &Device, index: u32, driver_version: &str) {
 
     match device.temperature(TemperatureSensor::Gpu) {
         Ok(t) => log_line(&format!("temperature.gpu: {} C", t)),
-        Err(err) => log_line(&format!("temperature.gpu error: {}", describe_nvml_error(&err))),
+        Err(err) => log_line(&format!(
+            "temperature.gpu error: {}",
+            describe_nvml_error(&err)
+        )),
     }
 
     match device.power_usage() {
@@ -197,7 +202,11 @@ fn probe_nvidia_device(device: &Device, index: u32, driver_version: &str) {
                 break;
             }
             Err(err) => {
-                log_line(&format!("  fan_speed({}) = {}", i, describe_nvml_error(&err)));
+                log_line(&format!(
+                    "  fan_speed({}) = {}",
+                    i,
+                    describe_nvml_error(&err)
+                ));
             }
         }
     }
@@ -417,7 +426,10 @@ fn run_once() {
     log_line("==============================================");
     log_line("GPU Fan Speed Probe (NVIDIA + AMD)");
     log_line(&format!("exe args: {:?}", env::args().collect::<Vec<_>>()));
-    log_line(&format!("working dir: {:?}", env::current_dir().unwrap_or_default()));
+    log_line(&format!(
+        "working dir: {:?}",
+        env::current_dir().unwrap_or_default()
+    ));
     log_line("==============================================");
 
     probe_nvidia();

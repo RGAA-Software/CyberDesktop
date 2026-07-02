@@ -10,6 +10,7 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::com::ThreadWithMessageQueueWithPump;
@@ -25,6 +26,25 @@ use crate::shell_icon::menu_icon_pixel_size;
 
 thread_local! {
     static PREPARED_HYBRID_SESSION: RefCell<Option<HybridSession>> = const { RefCell::new(None) };
+}
+
+/// Whether Layer B (per-handler in-process probing) runs during menu preparation.
+///
+/// Layer B instantiates every registered folder handler individually, which multiplies
+/// hang risk on machines with misbehaving extensions; this switch lets diagnostics and
+/// future kill-switch config disable it while keeping Layer A (the aggregate Shell menu).
+///
+/// Default OFF: Layer B is suspected of permanently wedging the app on some machines,
+/// and its main payoff (the "New" submenu) is now covered by the native shell_new
+/// enumeration. Diagnostics (`cyber_files --shell-menu-test`) can still opt back in.
+static LAYER_B_ENABLED: AtomicBool = AtomicBool::new(false);
+
+pub fn set_shell_menu_layer_b_enabled(enabled: bool) {
+    LAYER_B_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+pub fn shell_menu_layer_b_enabled() -> bool {
+    LAYER_B_ENABLED.load(Ordering::Relaxed)
 }
 
 pub(crate) fn release_prepared_hybrid_session() {
@@ -65,16 +85,19 @@ impl HybridSession {
             None,
         )?;
 
-        let (handler_records, _handler_errors, _handler_timeouts) =
-            probe_all_handlers_timed_for_paths(
-                paths,
-                InitStyle::ShellAccurate,
-                false,
-                HANDLER_PROBE_TIMEOUT,
-            );
-
         let mut merged = layer_a_entries;
-        merge_handler_records_into(&mut merged, handler_records, paths);
+        if shell_menu_layer_b_enabled() {
+            let (handler_records, _handler_errors, _handler_timeouts) =
+                probe_all_handlers_timed_for_paths(
+                    paths,
+                    InitStyle::ShellAccurate,
+                    false,
+                    HANDLER_PROBE_TIMEOUT,
+                );
+            merge_handler_records_into(&mut merged, handler_records, paths);
+        } else {
+            tracing::info!(target: "shell_menu", "hybrid prepare: Layer B disabled; aggregate menu only");
+        }
 
         let session = HybridSession {
             layer_a: Some(layer_a),
@@ -252,15 +275,17 @@ pub(crate) unsafe fn query_hybrid_entries(
     )?;
     layer_a.release();
 
-    let (handler_records, _handler_errors, _handler_timeouts) = probe_all_handlers_timed_for_paths(
-        paths,
-        InitStyle::ShellAccurate,
-        false,
-        HANDLER_PROBE_TIMEOUT,
-    );
-
     let mut merged = layer_a_entries;
-    merge_handler_records_into(&mut merged, handler_records, paths);
+    if shell_menu_layer_b_enabled() {
+        let (handler_records, _handler_errors, _handler_timeouts) =
+            probe_all_handlers_timed_for_paths(
+                paths,
+                InitStyle::ShellAccurate,
+                false,
+                HANDLER_PROBE_TIMEOUT,
+            );
+        merge_handler_records_into(&mut merged, handler_records, paths);
+    }
 
     Ok(merged)
 }
@@ -298,7 +323,8 @@ pub(crate) unsafe fn query_hybrid_entries_for_warmup(
         );
         let timed_out = outcome.is_none();
         if timed_out {
-            std::mem::forget(sta);
+            sta.abandon_wedged();
+            crate::shell_menu_session::record_shell_query_timeout_from_warmup();
         }
         let entries = match outcome {
             Some(Ok(entries)) => entries,
@@ -328,15 +354,17 @@ pub(crate) unsafe fn query_hybrid_entries_for_warmup(
         return Ok(Vec::new());
     }
 
-    let (handler_records, _handler_errors, _handler_timeouts) = probe_all_handlers_timed_for_paths(
-        paths,
-        InitStyle::ShellAccurate,
-        false,
-        HANDLER_PROBE_TIMEOUT,
-    );
-
     let mut merged = layer_a_entries;
-    merge_handler_records_into(&mut merged, handler_records, paths);
+    if shell_menu_layer_b_enabled() {
+        let (handler_records, _handler_errors, _handler_timeouts) =
+            probe_all_handlers_timed_for_paths(
+                paths,
+                InitStyle::ShellAccurate,
+                false,
+                HANDLER_PROBE_TIMEOUT,
+            );
+        merge_handler_records_into(&mut merged, handler_records, paths);
+    }
 
     Ok(merged)
 }

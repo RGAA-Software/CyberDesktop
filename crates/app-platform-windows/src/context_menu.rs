@@ -787,17 +787,34 @@ pub fn warm_up_hybrid_shell_menu() {
 
             let _ = crate::com::ensure_com_apartment();
             crate::com::log_current_apartment("warmup-thread-after-ensure");
+
+            crate::shell_menu_session::set_warmup_in_progress(true);
+
+            // Serialize only the warm-up query itself — do not hold the lock across setup/teardown.
             let dir = crate::hybrid_shell_session::warmup_directory();
             let icon_px = crate::hybrid_shell_session::warmup_icon_px();
 
-            let outcome = unsafe {
-                crate::hybrid_shell_session::query_hybrid_entries_for_warmup(
-                    &[dir.clone()],
-                    false,
-                    icon_px,
-                    std::time::Duration::from_secs(5),
-                )
+            let outcome = {
+                let Some(_op_guard) = crate::shell_menu_session::try_shell_op_lock() else {
+                    tracing::info!(
+                        target: "startup",
+                        step = "shell_warmup_thread_skipped",
+                        reason = "shell menu op already in flight"
+                    );
+                    crate::shell_menu_session::set_warmup_in_progress(false);
+                    return;
+                };
+                unsafe {
+                    crate::hybrid_shell_session::query_hybrid_entries_for_warmup(
+                        &[dir.clone()],
+                        false,
+                        icon_px,
+                        std::time::Duration::from_secs(5),
+                    )
+                }
             };
+
+            crate::shell_menu_session::set_warmup_in_progress(false);
 
             match &outcome {
                 Ok(entries) => {

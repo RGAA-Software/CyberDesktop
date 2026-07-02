@@ -153,9 +153,6 @@ pub struct AppConfig {
     /// When true, open supported audio/video files with CyberMediaPlayer on double-click.
     #[serde(default = "default_true")]
     pub open_media_with_cybermediaplayer: bool,
-    /// When true, GPUI disables Windows DirectComposition for the main Files window.
-    #[serde(default = "default_true")]
-    pub disable_direct_composition: bool,
     /// When true, reopen the last saved set of tabs on application launch.
     #[serde(default = "default_true")]
     pub auto_restore_tabs: bool,
@@ -296,7 +293,6 @@ impl Default for AppConfig {
             shell_pane_arrangement: default_shell_pane_arrangement(),
             open_text_with_cybereditor: true,
             open_media_with_cybermediaplayer: true,
-            disable_direct_composition: true,
             auto_restore_tabs: true,
             session_pane_layouts: Vec::new(),
             session_closed_tabs: Vec::new(),
@@ -481,12 +477,6 @@ pub fn open_text_with_cybereditor_enabled() -> bool {
 pub fn open_media_with_cybermediaplayer_enabled() -> bool {
     load_config()
         .map(|c| c.open_media_with_cybermediaplayer)
-        .unwrap_or(true)
-}
-
-pub fn disable_direct_composition_enabled() -> bool {
-    load_config()
-        .map(|c| c.disable_direct_composition)
         .unwrap_or(true)
 }
 

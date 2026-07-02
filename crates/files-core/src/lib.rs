@@ -23,7 +23,7 @@ pub const GITHUB_REPO_URL: &str = "https://github.com/RGAA-Software/CyberDesktop
 
 pub use config::{
     cache_dir, context_menu_item_prefs, default_home_widget_order,
-    disable_direct_composition_enabled, file_group_date_unit_from_config, file_group_from_config,
+    file_group_date_unit_from_config, file_group_from_config,
     file_sort_prefs_from_config, file_view_mode_from_config, flush_config, home_widget_prefs,
     keybinding_overrides, load_config, normalize_home_widget_order,
     open_media_with_cybermediaplayer_enabled, open_text_with_cybereditor_enabled,

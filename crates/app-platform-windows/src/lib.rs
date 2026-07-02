@@ -52,6 +52,8 @@ pub use clipboard::read_clipboard_file_paths;
 #[cfg(windows)]
 pub use com::ensure_com_multithreaded;
 #[cfg(windows)]
+pub use com::hard_exit_process;
+#[cfg(windows)]
 pub use com::log_current_apartment;
 #[cfg(windows)]
 pub use com::ThreadWithMessageQueueWithPump;
@@ -96,6 +98,8 @@ pub use shell::{
     show_open_with_dialog_blocking, show_shell_context_menu, warm_up_hybrid_shell_menu,
     warm_up_query_context_menu, ShellContextMenuEntry,
 };
+#[cfg(windows)]
+pub use hybrid_shell_session::{set_shell_menu_layer_b_enabled, shell_menu_layer_b_enabled};
 #[cfg(windows)]
 pub use shell_folder::{
     list_cloud_drive_roots, list_known_folder_folders, list_network_computers, list_network_shares,

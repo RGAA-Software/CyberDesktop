@@ -389,16 +389,32 @@ fn append_open_with_submenu(
     )
 }
 
+/// Max time the UI thread waits for a lazy Shell submenu expansion. The worker keeps
+/// running past this and is abandoned; the submenu just renders empty this time.
+const LAZY_SUBMENU_UI_WAIT: std::time::Duration = std::time::Duration::from_secs(3);
+
 fn resolve_submenu_entries(
     handler_clsid: Option<String>,
     lazy_parent_index: Option<u32>,
     children: &[ShellContextMenuEntry],
 ) -> Vec<ShellContextMenuEntry> {
     if let Some(index) = lazy_parent_index {
-        match std::thread::spawn(move || platform::load_lazy_submenu(handler_clsid, index)).join() {
+        // Bounded wait: `load_lazy_submenu` serializes on the global shell-op lock and a
+        // wedged extension can stall it far longer than a menu open should ever block.
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        std::thread::spawn(move || {
+            let _ = tx.send(platform::load_lazy_submenu(handler_clsid, index));
+        });
+        match rx.recv_timeout(LAZY_SUBMENU_UI_WAIT) {
             Ok(Ok(items)) => items,
             Ok(Err(_error)) => Vec::new(),
-            Err(_) => Vec::new(),
+            Err(_timeout) => {
+                tracing::warn!(
+                    target: "shell_menu",
+                    "lazy submenu expansion exceeded {LAZY_SUBMENU_UI_WAIT:?}; showing empty submenu"
+                );
+                Vec::new()
+            }
         }
     } else {
         children.to_vec()

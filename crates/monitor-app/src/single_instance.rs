@@ -82,7 +82,9 @@ pub fn ensure_single_instance(mutex_name: &str, event_name: &str) -> Option<Sing
         };
         if windows::Win32::Foundation::GetLastError() == ERROR_ALREADY_EXISTS {
             let _ = CloseHandle(mutex);
-            si_log(&format!("mutex {mutex_name} already exists; another instance is running"));
+            si_log(&format!(
+                "mutex {mutex_name} already exists; another instance is running"
+            ));
             // Try to signal the existing instance to raise its window.
             if let Ok(event) =
                 OpenEventW(EVENT_MODIFY_STATE, false, PCWSTR(event_name_wide.as_ptr()))
@@ -90,7 +92,9 @@ pub fn ensure_single_instance(mutex_name: &str, event_name: &str) -> Option<Sing
                 let _ = SetEvent(event);
                 let _ = CloseHandle(event);
             } else {
-                si_log(&format!("could not signal existing instance via event {event_name}"));
+                si_log(&format!(
+                    "could not signal existing instance via event {event_name}"
+                ));
             }
             return None;
         }
@@ -105,7 +109,9 @@ pub fn ensure_single_instance(mutex_name: &str, event_name: &str) -> Option<Sing
             }
         };
 
-        si_log(&format!("acquired mutex {mutex_name} and event {event_name}"));
+        si_log(&format!(
+            "acquired mutex {mutex_name} and event {event_name}"
+        ));
         Some(SingleInstanceGuard {
             mutex,
             event,

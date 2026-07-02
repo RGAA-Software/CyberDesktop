@@ -11,7 +11,11 @@ fn startup_log(msg: &str) {
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(dir) = exe_path.parent() {
             let log_path = dir.join("cyber_monitor_startup.log");
-            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_path)
+            {
                 let _ = f.write_all(line.as_bytes());
                 let _ = f.flush();
             }

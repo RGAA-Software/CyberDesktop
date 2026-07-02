@@ -494,14 +494,6 @@ pub fn apply_open_media_with_cybermediaplayer(enabled: bool, cx: &mut App) {
     mutate_config(cx, |c| c.open_media_with_cybermediaplayer = enabled);
 }
 
-pub fn disable_direct_composition(_cx: &App) -> bool {
-    files_core::disable_direct_composition_enabled()
-}
-
-pub fn apply_disable_direct_composition(enabled: bool, cx: &mut App) {
-    mutate_config(cx, |c| c.disable_direct_composition = enabled);
-}
-
 pub fn auto_restore_tabs(_cx: &App) -> bool {
     files_core::load_config()
         .map(|c| c.auto_restore_tabs)
@@ -638,7 +630,6 @@ pub fn capture_config(cx: &App, window_width: f32, window_height: f32) -> AppCon
         shell_pane_arrangement: prior.shell_pane_arrangement,
         open_text_with_cybereditor: prior.open_text_with_cybereditor,
         open_media_with_cybermediaplayer: prior.open_media_with_cybermediaplayer,
-        disable_direct_composition: prior.disable_direct_composition,
         auto_restore_tabs: prior.auto_restore_tabs,
         session_pane_layouts: prior.session_pane_layouts,
         session_closed_tabs: prior.session_closed_tabs,

@@ -1,4 +1,4 @@
-!include "MUI2.nsh"
+﻿!include "MUI2.nsh"
 !include "x64.nsh"
 
 Unicode true
@@ -30,6 +30,7 @@ InstallDir "$PROGRAMFILES64\${INSTALL_SUBDIR}"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
@@ -39,7 +40,8 @@ InstallDir "$PROGRAMFILES64\${INSTALL_SUBDIR}"
 
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
-Section "Install"
+Section "CyberMonitor" SecMain
+    SectionIn RO
     SetOutPath "$INSTDIR"
 
     nsExec::ExecToLog 'taskkill /F /T /IM ${MONITOR_EXE}'
@@ -54,9 +56,6 @@ Section "Install"
     CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\CyberMonitor Host.lnk" "$INSTDIR\${HOST_EXE}"
     CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\卸载.lnk" "$INSTDIR\Uninstall.exe"
 
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "CyberMonitor" "$\"$INSTDIR\${MONITOR_EXE}$\" --startup"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "CyberMonitorHost" "$\"$INSTDIR\${HOST_EXE}$\" --startup"
-
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "DisplayName" "${PRODUCT_NAME}"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "InstallLocation" "$INSTDIR"
@@ -66,6 +65,11 @@ Section "Install"
     ExecShell "" "$INSTDIR\${MONITOR_EXE}"
 
     WriteUninstaller "$INSTDIR\Uninstall.exe"
+SectionEnd
+
+Section "开机自动启动" SecAutostart
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "CyberMonitor" "$\"$INSTDIR\${MONITOR_EXE}$\" --startup"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "CyberMonitorHost" "$\"$INSTDIR\${HOST_EXE}$\" --startup"
 SectionEnd
 
 Section "Uninstall"

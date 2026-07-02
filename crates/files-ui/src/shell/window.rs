@@ -94,10 +94,12 @@ fn open_main_window_with_close_handler<F, E, C>(
                     .await;
                 if std::env::var("SHELL_MENU_DISABLE_WARMUP").is_ok() {
                     log_startup_step("init_shell_warmup_skipped");
-                } else {
+                } else if std::env::var("SHELL_MENU_ENABLE_WARMUP").is_ok() {
                     log_startup_step("init_shell_warmup_begin");
                     app_platform_windows::warm_up_hybrid_shell_menu();
                     log_startup_step("init_shell_warmup_scheduled");
+                } else {
+                    log_startup_step("init_shell_warmup_skipped_default");
                 }
             })
             .detach();

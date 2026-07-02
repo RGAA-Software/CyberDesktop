@@ -32,7 +32,9 @@ fn main() {
     startup_log(&format!("[cyber_monitor] raw args: {args:?}"));
     let startup = args.iter().any(|a| a == "--startup");
     let no_single_instance = args.iter().any(|a| a == "--no-single-instance");
-    startup_log(&format!("[cyber_monitor] manual parse: startup={startup}, no_single_instance={no_single_instance}"));
+    startup_log(&format!(
+        "[cyber_monitor] manual parse: startup={startup}, no_single_instance={no_single_instance}"
+    ));
     if no_single_instance {
         startup_log("[cyber_monitor] skipping single-instance check");
     } else {
