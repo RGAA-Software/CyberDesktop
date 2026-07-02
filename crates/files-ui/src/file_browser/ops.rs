@@ -96,29 +96,7 @@ impl FileBrowser {
         let destination = self.operation_directory();
         let name = unique_new_folder_name(&destination);
         match create_directory(&destination, &name) {
-            Ok(path) => {
-                self.error = None;
-                AppOperationHistory::record(
-                    FileOperation::Create {
-                        path: path.clone(),
-                        is_dir: true,
-                    },
-                    cx,
-                );
-                self.refresh();
-                if let Some(index) = self.display_items.iter().position(|item| item.path == path) {
-                    self.focused_index = Some(index);
-                    self.selected_paths.clear();
-                    self.selected_paths.insert(path);
-                    self.anchor_index = self.focused_index;
-                    self.begin_rename(window, cx);
-                } else {
-                    window.push_notification(
-                        Notification::success(t!("files.new_folder.success")),
-                        cx,
-                    );
-                }
-            }
+            Ok(path) => self.finish_created_path(path, window, cx),
             Err(error) => self.error = Some(error.to_string()),
         }
     }
@@ -127,28 +105,52 @@ impl FileBrowser {
         let destination = self.operation_directory();
         let name = unique_new_file_name(&destination);
         match create_file(&destination, &name) {
-            Ok(path) => {
+            Ok(path) => self.finish_created_path(path, window, cx),
+            Err(error) => self.error = Some(error.to_string()),
+        }
+    }
+
+    #[cfg(windows)]
+    pub fn create_shell_new_menu_item(
+        &mut self,
+        item: app_platform_windows::ShellNewMenuItem,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let destination = self.operation_directory();
+        match app_platform_windows::create_shell_new_item(&destination, &item) {
+            Ok(Some(path)) => self.finish_created_path(path, window, cx),
+            Ok(None) => {
                 self.error = None;
-                AppOperationHistory::record(
-                    FileOperation::Create {
-                        path: path.clone(),
-                        is_dir: false,
-                    },
-                    cx,
-                );
                 self.refresh();
-                if let Some(index) = self.display_items.iter().position(|item| item.path == path) {
-                    self.focused_index = Some(index);
-                    self.selected_paths.clear();
-                    self.selected_paths.insert(path);
-                    self.anchor_index = self.focused_index;
-                    self.begin_rename(window, cx);
-                } else {
-                    window
-                        .push_notification(Notification::success(t!("files.new_file.success")), cx);
-                }
             }
             Err(error) => self.error = Some(error.to_string()),
+        }
+    }
+
+    fn finish_created_path(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        self.error = None;
+        AppOperationHistory::record(
+            FileOperation::Create {
+                path: path.clone(),
+                is_dir: path.is_dir(),
+            },
+            cx,
+        );
+        self.refresh();
+        if let Some(index) = self.display_items.iter().position(|item| item.path == path) {
+            self.focused_index = Some(index);
+            self.selected_paths.clear();
+            self.selected_paths.insert(path);
+            self.anchor_index = self.focused_index;
+            self.begin_rename(window, cx);
+        } else {
+            let message = if path.is_dir() {
+                t!("files.new_folder.success")
+            } else {
+                t!("files.new_file.success")
+            };
+            window.push_notification(Notification::success(message), cx);
         }
     }
 

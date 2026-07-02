@@ -177,6 +177,48 @@ impl FileBrowser {
     ) {
         self.context_menu_position = position;
         self.context_menu_open = true;
+        #[cfg(windows)]
+        {
+            if platform::peek_shell_new_menu_items().is_none() {
+                let browser_handle = cx.weak_entity();
+                let _ = cx.spawn(async move |this, cx| {
+                    cx.background_spawn(async move {
+                        platform::refresh_shell_new_menu_cache();
+                    })
+                    .await;
+                    let menu_open = this
+                        .update(cx, |browser, cx| {
+                            if browser.context_menu_open {
+                                browser.shell_menu_revision =
+                                    browser.shell_menu_revision.wrapping_add(1);
+                            }
+                            cx.notify();
+                            browser.context_menu_open
+                        })
+                        .unwrap_or(false);
+                    if menu_open {
+                        let handle = browser_handle.clone();
+                        let _ = this.update(cx, |_, cx| {
+                            cx.defer(move |cx| {
+                                let Some(window) = cx.active_window() else {
+                                    return;
+                                };
+                                let _ = window.update(cx, |_, window, cx| {
+                                    FileBrowser::install_context_menu_flyout(
+                                        &handle,
+                                        window,
+                                        cx,
+                                        false,
+                                    );
+                                });
+                            });
+                        });
+                    }
+                });
+            } else {
+                platform::warm_shell_new_menu_cache();
+            }
+        }
         self.request_shell_menu_fetch(window, cx);
         self.schedule_context_menu_rebuild(window, cx);
         cx.notify();

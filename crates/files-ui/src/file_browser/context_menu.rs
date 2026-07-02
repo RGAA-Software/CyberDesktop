@@ -83,6 +83,54 @@ fn menu_click_item(
         .on_click(on_click)
 }
 
+fn append_builtin_new_items(menu: PopupMenu, focus: gpui::FocusHandle) -> PopupMenu {
+    menu.action_context(focus)
+        .item(
+            PopupMenuItem::new(t!("files.new_folder"))
+                .icon(menu_icon(IconName::Folder))
+                .action(Box::new(NewFolder)),
+        )
+        .item(
+            PopupMenuItem::new(t!("files.new_file"))
+                .icon(menu_icon(IconName::File))
+                .action(Box::new(NewFile)),
+        )
+}
+
+#[cfg(windows)]
+fn append_shell_new_items(
+    menu: PopupMenu,
+    browser: Entity<FileBrowser>,
+    focus: gpui::FocusHandle,
+) -> PopupMenu {
+    let Some(items) = platform::peek_shell_new_menu_items().filter(|items| !items.is_empty())
+    else {
+        platform::warm_shell_new_menu_cache();
+        return append_builtin_new_items(menu, focus);
+    };
+
+    let mut menu = menu.action_context(focus);
+    for item in items {
+        let browser_click = browser.clone();
+        let shell_item = item.clone();
+        let label: SharedString = item.label.clone().into();
+        let mut popup_item = PopupMenuItem::new(label).on_click(move |_, window, cx| {
+            let _ = browser_click.update(cx, |browser, cx| {
+                browser.create_shell_new_menu_item(shell_item.clone(), window, cx);
+            });
+        });
+        if let Some(icon_png) = item.icon_png.clone() {
+            popup_item = popup_item.icon_png(icon_png);
+        } else if platform::shell_new_item_is_folder(&item) {
+            popup_item = popup_item.icon(menu_icon(IconName::Folder));
+        } else {
+            popup_item = popup_item.icon(menu_icon(IconName::File));
+        }
+        menu = menu.item(popup_item);
+    }
+    menu
+}
+
 fn menu_click_item_with_icon(
     label: impl Into<SharedString>,
     icon: impl Into<Icon>,
@@ -641,11 +689,20 @@ fn build_background_menu(
     cx: &mut Context<PopupMenu>,
 ) -> PopupMenu {
     let can_paste = AppFileClipboard::has_items(cx);
-    let state = browser.read(cx);
-    let focus = state.focus_handle.clone();
-    let in_recycle = state.browse_location == BrowseLocation::RecycleBin;
-    let in_file_tag = matches!(state.browse_location, BrowseLocation::FileTag { .. });
-    let recycle_item_count = if in_recycle { state.items.len() } else { 0 };
+    let (focus, in_recycle, in_file_tag, recycle_item_count, _operation_directory) = {
+        let state = browser.read(cx);
+        (
+            state.focus_handle.clone(),
+            state.browse_location == BrowseLocation::RecycleBin,
+            matches!(state.browse_location, BrowseLocation::FileTag { .. }),
+            if state.browse_location == BrowseLocation::RecycleBin {
+                state.items.len()
+            } else {
+                0
+            },
+            state.operation_directory(),
+        )
+    };
 
     let browser_layout = browser.clone();
     let browser_sort = browser.clone();
@@ -757,17 +814,14 @@ fn build_background_menu(
             cx,
             move |menu, _, cx| {
                 let focus = browser_new.read(cx).focus_handle.clone();
-                menu.action_context(focus)
-                    .item(
-                        PopupMenuItem::new(t!("files.new_folder"))
-                            .icon(menu_icon(IconName::Folder))
-                            .action(Box::new(NewFolder)),
-                    )
-                    .item(
-                        PopupMenuItem::new(t!("files.new_file"))
-                            .icon(menu_icon(IconName::File))
-                            .action(Box::new(NewFile)),
-                    )
+                #[cfg(windows)]
+                {
+                    append_shell_new_items(menu, browser_new.clone(), focus)
+                }
+                #[cfg(not(windows))]
+                {
+                    append_builtin_new_items(menu, focus)
+                }
             },
         );
     }

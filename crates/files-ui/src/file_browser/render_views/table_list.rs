@@ -593,7 +593,6 @@ impl FileBrowser {
                             .icon(compact_icon(IconName::Ellipsis))
                             .opacity(if selected { 1. } else { 0. })
                             .group_hover(FILE_LIST_ROW_GROUP, |btn| btn.opacity(1.))
-                            .hover(|btn| btn.bg(cx.theme().list_hover))
                             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                                 cx.stop_propagation();
                                 this.cancel_rename_if_active(cx);

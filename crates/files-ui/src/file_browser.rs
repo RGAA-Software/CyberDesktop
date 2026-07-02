@@ -510,6 +510,9 @@ impl FileBrowser {
             .map(|_| VirtualListScrollHandle::new())
             .collect();
 
+        #[cfg(windows)]
+        app_platform_windows::warm_shell_new_menu_cache();
+
         Self {
             focus_handle: cx.focus_handle(),
             browse_location: BrowseLocation::Directory,

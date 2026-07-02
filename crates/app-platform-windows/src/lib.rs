@@ -41,6 +41,8 @@ mod shell_menu_icon;
 #[cfg(windows)]
 mod shell_menu_session;
 #[cfg(windows)]
+mod shell_new;
+#[cfg(windows)]
 mod storage;
 #[cfg(windows)]
 mod volume;
@@ -95,7 +97,6 @@ pub use shell::{
     warm_up_query_context_menu, ShellContextMenuEntry,
 };
 #[cfg(windows)]
-#[cfg(windows)]
 pub use shell_folder::{
     list_cloud_drive_roots, list_known_folder_folders, list_network_computers, list_network_shares,
     list_wsl_distro_roots, wsl_installed, NetworkItemCategory, ShellFolderEntry,
@@ -106,6 +107,12 @@ pub use shell_icon::{
     menu_icon_pixel_size, shell_icon_pixel_size, shell_icon_png, shell_icon_png_batch,
     shell_icon_png_for_list_key, shell_icon_png_from_cache, shell_icon_png_scaled,
     shell_thumbnail_png_scaled, system_scale_factor,
+};
+#[cfg(windows)]
+pub use shell_new::{
+    clear_shell_new_menu_cache, create_shell_new_item, peek_shell_new_menu_items,
+    query_shell_new_menu_items, refresh_shell_new_menu_cache, shell_new_item_is_folder,
+    warm_shell_new_menu_cache, ShellNewMenuItem,
 };
 pub use storage::open_storage_sense_settings;
 pub use volume::{volume_details, DriveKind, VolumeDetails};
